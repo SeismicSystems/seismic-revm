@@ -1,4 +1,4 @@
-# revm
+# seismic-revm
 
 [![CI](https://github.com/bluealloy/revm/actions/workflows/ci.yml/badge.svg)][gh-ci]
 [![License](https://img.shields.io/badge/License-MIT-orange.svg)][mit-license]
