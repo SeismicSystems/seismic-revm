@@ -768,6 +768,53 @@ impl JournaledState {
         ))
     }
 
+    #[inline]
+    pub fn kstore<DB: Database>(
+        &mut self,
+        address: Address,
+        key: U256,
+        new: U256,
+        db: &mut DB,
+    ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
+        // assume that acc exists and load the slot.
+        let present = self.sload(address, key, db)?;
+        let acc = self.state.get_mut(&address).unwrap();
+
+        // if there is no original value in dirty return present value, that is our original.
+        let slot = acc.storage.get_mut(&key).unwrap();
+
+        // new value is same as present, we don't need to do anything
+        if present.data == new {
+            return Ok(StateLoad::new(
+                SStoreResult {
+                    original_value: slot.original_value(),
+                    present_value: present.data,
+                    new_value: new,
+                },
+                present.is_cold,
+            ));
+        }
+
+        self.journal
+            .last_mut()
+            .unwrap()
+            .push(JournalEntry::StorageChanged {
+                address,
+                key,
+                had_value: present.data,
+            });
+        // insert value into present state.
+        slot.present_value = new;
+        Ok(StateLoad::new(
+            SStoreResult {
+                original_value: slot.original_value(),
+                present_value: present.data,
+                new_value: new,
+            },
+            present.is_cold,
+        ))
+    }
+
     /// Read transient storage tied to the account.
     ///
     /// EIP-1153: Transient storage opcodes

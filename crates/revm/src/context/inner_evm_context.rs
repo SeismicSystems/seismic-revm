@@ -285,6 +285,17 @@ impl<DB: Database> InnerEvmContext<DB> {
             .sstore(address, index, value, &mut self.db)
     }
 
+    #[inline]
+    pub fn kstore(
+        &mut self,
+        address: Address,
+        index: U256,
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
+        self.journaled_state
+            .kstore(address, index, value, &mut self.db)
+    }
+
     /// Returns transient storage value.
     #[inline]
     pub fn tload(&mut self, address: Address, index: U256) -> U256 {

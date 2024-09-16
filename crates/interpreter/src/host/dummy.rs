@@ -99,6 +99,24 @@ impl Host for DummyHost {
     }
 
     #[inline]
+    fn kstore(
+        &mut self,
+        _address: Address,
+        index: U256,
+        value: U256,
+    ) -> Option<StateLoad<SStoreResult>> {
+        let present = self.storage.insert(index, value);
+        Some(StateLoad {
+            data: SStoreResult {
+                original_value: U256::ZERO,
+                present_value: present.unwrap_or(U256::ZERO),
+                new_value: value,
+            },
+            is_cold: present.is_none(),
+        })
+    }
+
+    #[inline]
     fn tload(&mut self, _address: Address, index: U256) -> U256 {
         self.transient_storage
             .get(&index)
