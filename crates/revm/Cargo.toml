@@ -54,7 +54,7 @@ alloy-eips = { version = "0.3", optional = true, default-features = false }
 alloy-transport = { version = "0.3", optional = true, default-features = false }
 
 [dev-dependencies]
-alloy-sol-types = { version = "0.8.0", default-features = false, features = [
+alloy-sol-types = { path = "../../../seismic-alloy-core/crates/sol-types", default-features = false, features = [
     "std",
 ] }
 ethers-contract = { version = "2.0.14", default-features = false }
@@ -81,7 +81,7 @@ serde-json = ["serde", "dep:serde_json"]
 arbitrary = ["revm-interpreter/arbitrary"]
 asm-keccak = ["revm-interpreter/asm-keccak", "revm-precompile/asm-keccak"]
 portable = ["revm-precompile/portable", "revm-interpreter/portable"]
-
+seismic = ["alloy-sol-types/seismic"]
 test-utils = []
 
 optimism = ["revm-interpreter/optimism", "revm-precompile/optimism"]
@@ -154,14 +154,3 @@ required-features = ["std", "serde-json"]
 name = "bench"
 path = "benches/bench.rs"
 harness = false
-
-[patch.crates-io]
-alloy-core = { path = "../seismic-alloy-core/crates/core" }
-alloy-dyn-abi = { path = "../seismic-alloy-core/crates/dyn-abi" }
-alloy-json-abi = { path = "../seismic-alloy-core/crates/json-abi" }
-alloy-primitives = { path = "../seismic-alloy-core/crates/primitives" }
-alloy-sol-macro = { path = "../seismic-alloy-core/crates/sol-macro" }
-alloy-sol-macro-expander = { path = "../seismic-alloy-core/crates/sol-macro-expander" }
-alloy-sol-macro-input = { path = "../seismic-alloy-core/crates/sol-macro-input" }
-alloy-sol-types = { path = "../seismic-alloy-core/crates/sol-types" }
-alloy-sol-type-parser = { path = "../seismic-alloy-core/crates/sol-type-parser" }
