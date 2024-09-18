@@ -151,7 +151,7 @@ pub fn sstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host:
 }
 
 pub fn kstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    // TODO: assess this
+    // TODO: static calls?
     require_non_staticcall!(interpreter);
 
     pop!(interpreter, index, value);

@@ -270,7 +270,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         index: U256,
     ) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
         // account is always warm. reference on that statement https://eips.ethereum.org/EIPS/eip-2929 see `Note 2:`
-        // TODO: inefficient unwrapping and rewrapping
+        // TODO: fix unwrapping then rewrapping
         let state_load = self.journaled_state.sload(address, index, &mut self.db)?;
         Ok(StateLoad {
             data: state_load.data.value,
