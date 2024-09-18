@@ -7,7 +7,7 @@ pub use state::{State, StateRef};
 
 use crate::{
     db::{Database, DatabaseRef},
-    Account, AccountInfo, Address, Bytecode, HashMap, B256, U256,
+    Account, AccountInfo, Address, Bytecode, HashMap, StorageValue, B256, U256,
 };
 
 use super::DatabaseCommit;
@@ -37,7 +37,7 @@ impl<S: State, BH: BlockHash> Database for DatabaseComponents<S, BH> {
             .map_err(Self::Error::State)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<StorageValue, Self::Error> {
         self.state
             .storage(address, index)
             .map_err(Self::Error::State)
@@ -63,7 +63,7 @@ impl<S: StateRef, BH: BlockHashRef> DatabaseRef for DatabaseComponents<S, BH> {
             .map_err(Self::Error::State)
     }
 
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, address: Address, index: U256) -> Result<StorageValue, Self::Error> {
         self.state
             .storage(address, index)
             .map_err(Self::Error::State)

@@ -401,7 +401,9 @@ mod tests {
     use crate::{
         db::BenchmarkDB,
         interpreter::opcode::{PUSH1, SSTORE},
-        primitives::{address, Authorization, Bytecode, RecoveredAuthorization, Signature, U256},
+        primitives::{
+            address, Authorization, Bytecode, RecoveredAuthorization, Signature, StorageValue, U256,
+        },
     };
 
     #[test]
@@ -440,7 +442,7 @@ mod tests {
         assert_eq!(auth_acc.info.nonce, 1);
         assert_eq!(
             auth_acc.storage.get(&U256::from(1)).unwrap().present_value,
-            U256::from(1)
+            StorageValue::from(U256::from(1))
         );
     }
 }

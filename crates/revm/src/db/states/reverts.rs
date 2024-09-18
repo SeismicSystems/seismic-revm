@@ -3,7 +3,7 @@ use super::{
     StorageWithOriginalValues,
 };
 use core::ops::{Deref, DerefMut};
-use revm_interpreter::primitives::{AccountInfo, Address, HashMap, U256};
+use revm_interpreter::primitives::{AccountInfo, Address, HashMap, StorageValue, U256};
 use std::vec::Vec;
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).
@@ -205,15 +205,15 @@ pub enum AccountInfoRevert {
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RevertToSlot {
-    Some(U256),
+    Some(StorageValue),
     Destroyed,
 }
 
 impl RevertToSlot {
-    pub fn to_previous_value(self) -> U256 {
+    pub fn to_previous_value(self) -> StorageValue {
         match self {
             RevertToSlot::Some(value) => value,
-            RevertToSlot::Destroyed => U256::ZERO,
+            RevertToSlot::Destroyed => StorageValue::ZERO,
         }
     }
 }
