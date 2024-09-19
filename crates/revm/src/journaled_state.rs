@@ -4,8 +4,8 @@ use crate::{
     interpreter::{AccountLoad, InstructionResult, SStoreResult, SelfDestructResult, StateLoad},
     primitives::{
         db::Database, hash_map::Entry, Account, Address, Bytecode, EVMError, EvmState,
-        EvmStorageSlot, HashMap, HashSet, Log, SpecId, SpecId::*, TransientStorage, B256,
-        KECCAK_EMPTY, PRECOMPILE3, U256,
+        EvmStorageSlot, HashMap, HashSet, Log, SpecId, SpecId::*, StorageValue, TransientStorage,
+        B256, KECCAK_EMPTY, PRECOMPILE3, U256,
     },
 };
 use core::mem;
@@ -679,7 +679,7 @@ impl JournaledState {
         address: Address,
         key: U256,
         db: &mut DB,
-    ) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
+    ) -> Result<StateLoad<StorageValue>, EVMError<DB::Error>> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx we can assume that storage is empty.
@@ -693,7 +693,7 @@ impl JournaledState {
             Entry::Vacant(vac) => {
                 // if storage was cleared, we don't need to ping db.
                 let value = if is_newly_created {
-                    U256::ZERO
+                    StorageValue::ZERO
                 } else {
                     db.storage(address, key).map_err(EVMError::Database)?
                 };
@@ -737,11 +737,11 @@ impl JournaledState {
         let slot = acc.storage.get_mut(&key).unwrap();
 
         // new value is same as present, we don't need to do anything
-        if present.data == new {
+        if present.data.value == new {
             return Ok(StateLoad::new(
                 SStoreResult {
-                    original_value: slot.original_value(),
-                    present_value: present.data,
+                    original_value: slot.original_value().value,
+                    present_value: present.data.value,
                     new_value: new,
                 },
                 present.is_cold,
@@ -757,11 +757,64 @@ impl JournaledState {
                 had_value: present.data,
             });
         // insert value into present state.
-        slot.present_value = new;
+        slot.present_value = StorageValue {
+            value: new,
+            is_private: false,
+        };
         Ok(StateLoad::new(
             SStoreResult {
-                original_value: slot.original_value(),
-                present_value: present.data,
+                original_value: slot.original_value().value,
+                present_value: present.data.value,
+                new_value: new,
+            },
+            present.is_cold,
+        ))
+    }
+
+    #[inline]
+    pub fn kstore<DB: Database>(
+        &mut self,
+        address: Address,
+        key: U256,
+        new: U256,
+        db: &mut DB,
+    ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
+        // assume that acc exists and load the slot.
+        let present = self.sload(address, key, db)?;
+        let acc = self.state.get_mut(&address).unwrap();
+
+        // if there is no original value in dirty return present value, that is our original.
+        let slot = acc.storage.get_mut(&key).unwrap();
+
+        // new value is same as present, we don't need to do anything
+        if present.data.value == new {
+            return Ok(StateLoad::new(
+                SStoreResult {
+                    original_value: slot.original_value().value,
+                    present_value: present.data.value,
+                    new_value: new,
+                },
+                present.is_cold,
+            ));
+        }
+
+        self.journal
+            .last_mut()
+            .unwrap()
+            .push(JournalEntry::StorageChanged {
+                address,
+                key,
+                had_value: present.data,
+            });
+        // insert value into present state.
+        slot.present_value = StorageValue {
+            value: new,
+            is_private: true,
+        };
+        Ok(StateLoad::new(
+            SStoreResult {
+                original_value: slot.original_value().value,
+                present_value: present.data.value,
                 new_value: new,
             },
             present.is_cold,
@@ -874,7 +927,7 @@ pub enum JournalEntry {
     StorageChanged {
         address: Address,
         key: U256,
-        had_value: U256,
+        had_value: StorageValue,
     },
     /// Entry used to track storage warming introduced by EIP-2929.
     /// Action: Storage warmed

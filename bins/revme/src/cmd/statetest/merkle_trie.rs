@@ -40,8 +40,13 @@ impl TrieAccount {
             root_hash: sec_trie_root::<KeccakHasher, _, _, _>(
                 acc.storage
                     .iter()
-                    .filter(|(_k, &v)| !v.is_zero())
-                    .map(|(k, v)| (k.to_be_bytes::<32>(), alloy_rlp::encode_fixed_size(v))),
+                    .filter(|(_k, &v)| !v.value.is_zero())
+                    .map(|(k, v)| {
+                        (
+                            k.to_be_bytes::<32>(),
+                            alloy_rlp::encode_fixed_size(&v.value),
+                        )
+                    }),
             ),
             code_hash: acc.info.code_hash,
         }

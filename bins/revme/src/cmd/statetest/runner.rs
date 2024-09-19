@@ -11,7 +11,7 @@ use revm::{
     interpreter::analysis::to_analysed,
     primitives::{
         calc_excess_blob_gas, keccak256, Bytecode, Bytes, EVMResultGeneric, Env, ExecutionResult,
-        SpecId, TxKind, B256,
+        SpecId, StorageValue, TxKind, B256,
     },
     Evm, State,
 };
@@ -274,7 +274,14 @@ pub fn execute_test_suite(
                 code: Some(bytecode),
                 nonce: info.nonce,
             };
-            cache_state.insert_account_with_storage(address, acc_info, info.storage);
+            cache_state.insert_account_with_storage(
+                address,
+                acc_info,
+                info.storage
+                    .into_iter()
+                    .map(|(k, v)| (k, StorageValue::from(v)))
+                    .collect(),
+            );
         }
 
         let mut env = Box::<Env>::default();

@@ -164,21 +164,44 @@ impl From<AccountInfo> for Account {
     }
 }
 
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StorageValue {
+    pub value: U256,
+    pub is_private: bool,
+}
+
+impl From<U256> for StorageValue {
+    fn from(value: U256) -> Self {
+        Self {
+            value,
+            is_private: false,
+        }
+    }
+}
+
+impl StorageValue {
+    pub const ZERO: Self = Self {
+        value: U256::ZERO,
+        is_private: false,
+    };
+}
+
 /// This type keeps track of the current value of a storage slot.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EvmStorageSlot {
     /// Original value of the storage slot.
-    pub original_value: U256,
+    pub original_value: StorageValue,
     /// Present value of the storage slot.
-    pub present_value: U256,
+    pub present_value: StorageValue,
     /// Represents if the storage slot is cold.
     pub is_cold: bool,
 }
 
 impl EvmStorageSlot {
     /// Creates a new _unchanged_ `EvmStorageSlot` for the given value.
-    pub fn new(original: U256) -> Self {
+    pub fn new(original: StorageValue) -> Self {
         Self {
             original_value: original,
             present_value: original,
@@ -187,7 +210,7 @@ impl EvmStorageSlot {
     }
 
     /// Creates a new _changed_ `EvmStorageSlot`.
-    pub fn new_changed(original_value: U256, present_value: U256) -> Self {
+    pub fn new_changed(original_value: StorageValue, present_value: StorageValue) -> Self {
         Self {
             original_value,
             present_value,
@@ -200,12 +223,12 @@ impl EvmStorageSlot {
     }
 
     /// Returns the original value of the storage slot.
-    pub fn original_value(&self) -> U256 {
+    pub fn original_value(&self) -> StorageValue {
         self.original_value
     }
 
     /// Returns the current value of the storage slot.
-    pub fn present_value(&self) -> U256 {
+    pub fn present_value(&self) -> StorageValue {
         self.present_value
     }
 

@@ -40,6 +40,16 @@ pub trait Host {
         value: U256,
     ) -> Option<StateLoad<SStoreResult>>;
 
+    /// Set (private) storage value of account address at index.
+    ///
+    /// Returns [`StateLoad`] with [`SStoreResult`] that contains original/new/old storage value.
+    fn kstore(
+        &mut self,
+        address: Address,
+        index: U256,
+        value: U256,
+    ) -> Option<StateLoad<SStoreResult>>;
+
     /// Get the transient storage value of `address` at `index`.
     fn tload(&mut self, address: Address, index: U256) -> U256;
 

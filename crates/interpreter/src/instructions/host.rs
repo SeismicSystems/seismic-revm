@@ -150,6 +150,32 @@ pub fn sstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host:
     );
 }
 
+pub fn kstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    // TODO: static calls?
+    require_non_staticcall!(interpreter);
+
+    pop!(interpreter, index, value);
+    let Some(state_load) = host.kstore(interpreter.contract.target_address, index, value) else {
+        interpreter.instruction_result = InstructionResult::FatalExternalError;
+        return;
+    };
+    // TODO: gas cost for kstore
+    gas_or_fail!(interpreter, {
+        let remaining_gas = interpreter.gas.remaining();
+        gas::sstore_cost(
+            SPEC::SPEC_ID,
+            &state_load.data,
+            remaining_gas,
+            state_load.is_cold,
+        )
+    });
+    // TODO: gas refund for kstore
+    refund!(
+        interpreter,
+        gas::sstore_refund(SPEC::SPEC_ID, &state_load.data)
+    );
+}
+
 /// EIP-1153: Transient storage opcodes
 /// Store value to transient storage
 pub fn tstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {

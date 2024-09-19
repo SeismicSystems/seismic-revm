@@ -178,6 +178,18 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
             .ok()
     }
 
+    fn kstore(
+        &mut self,
+        address: Address,
+        index: U256,
+        value: U256,
+    ) -> Option<StateLoad<SStoreResult>> {
+        self.evm
+            .kstore(address, index, value)
+            .map_err(|e| self.evm.error = Err(e))
+            .ok()
+    }
+
     fn tload(&mut self, address: Address, index: U256) -> U256 {
         self.evm.tload(address, index)
     }

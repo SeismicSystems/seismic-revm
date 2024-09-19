@@ -1,7 +1,7 @@
 use core::{convert::Infallible, fmt, marker::PhantomData};
 use revm_interpreter::primitives::{
     db::{Database, DatabaseRef},
-    keccak256, AccountInfo, Address, Bytecode, B256, U256,
+    keccak256, AccountInfo, Address, Bytecode, StorageValue, B256, U256,
 };
 use std::string::ToString;
 
@@ -67,7 +67,7 @@ impl<E> Database for EmptyDBTyped<E> {
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<StorageValue, Self::Error> {
         <Self as DatabaseRef>::storage_ref(self, address, index)
     }
 
@@ -91,8 +91,8 @@ impl<E> DatabaseRef for EmptyDBTyped<E> {
     }
 
     #[inline]
-    fn storage_ref(&self, _address: Address, _index: U256) -> Result<U256, Self::Error> {
-        Ok(U256::default())
+    fn storage_ref(&self, _address: Address, _index: U256) -> Result<StorageValue, Self::Error> {
+        Ok(StorageValue::default())
     }
 
     #[inline]

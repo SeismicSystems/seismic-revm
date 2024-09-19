@@ -613,7 +613,7 @@ opcodes! {
     // 0xAD
     // 0xAE
     // 0xAF
-    // 0xB0
+    0xB0 => KSTORE   => host::kstore::<H, SPEC>  => stack_io(2, 0);
     // 0xB1
     // 0xB2
     // 0xB3
