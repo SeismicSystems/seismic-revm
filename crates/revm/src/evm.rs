@@ -402,7 +402,8 @@ mod tests {
         db::BenchmarkDB,
         interpreter::opcode::{PUSH1, SSTORE},
         primitives::{
-            address, Authorization, Bytecode, RecoveredAuthorization, Signature, FlaggedStorage, U256,
+            address, Authorization, Bytecode, FlaggedStorage, RecoveredAuthorization, Signature,
+            U256,
         },
     };
 

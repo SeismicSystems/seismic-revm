@@ -7,7 +7,7 @@ use super::{
 use core::{mem, ops::RangeInclusive};
 use revm_interpreter::primitives::{
     hash_map::{self, Entry},
-    AccountInfo, Address, Bytecode, HashMap, HashSet, FlaggedStorage, B256, KECCAK_EMPTY, U256,
+    AccountInfo, Address, Bytecode, FlaggedStorage, HashMap, HashSet, B256, KECCAK_EMPTY, U256,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
