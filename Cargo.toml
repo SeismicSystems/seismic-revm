@@ -24,7 +24,7 @@ inherits = "test"
 opt-level = 3
 
 [patch.crates-io]
-alloy-core = { path = "../seismic-alloy-core/crates/core" }
+# alloy-core = { path = "../seismic-alloy-core/crates/core" }
 # alloy-dyn-abi = { path = "../seismic-alloy-core/crates/dyn-abi" }
 alloy-json-abi = { path = "../seismic-alloy-core/crates/json-abi" }
 alloy-primitives = { path = "../seismic-alloy-core/crates/primitives" }
