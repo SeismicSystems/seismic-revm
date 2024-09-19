@@ -1,7 +1,7 @@
 //! State database component from [`crate::db::Database`]
 //! it is used inside [`crate::db::DatabaseComponents`]
 
-use crate::{AccountInfo, Address, Bytecode, StorageValue, B256, U256};
+use crate::{AccountInfo, Address, Bytecode, FlaggedStorage, B256, U256};
 use auto_impl::auto_impl;
 use core::ops::Deref;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ pub trait State {
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
     /// Get storage value of address at index.
-    fn storage(&mut self, address: Address, index: U256) -> Result<StorageValue, Self::Error>;
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
 }
 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
@@ -31,7 +31,7 @@ pub trait StateRef {
     fn code_by_hash(&self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
     /// Get storage value of address at index.
-    fn storage(&self, address: Address, index: U256) -> Result<StorageValue, Self::Error>;
+    fn storage(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
 }
 
 impl<T> State for &T
@@ -48,7 +48,7 @@ where
         StateRef::code_by_hash(*self, code_hash)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<StorageValue, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         StateRef::storage(*self, address, index)
     }
 }
@@ -67,7 +67,7 @@ where
         self.deref().code_by_hash(code_hash)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<StorageValue, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.deref().storage(address, index)
     }
 }
