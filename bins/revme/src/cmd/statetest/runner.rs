@@ -11,7 +11,7 @@ use revm::{
     interpreter::analysis::to_analysed,
     primitives::{
         calc_excess_blob_gas, keccak256, Bytecode, Bytes, EVMResultGeneric, Env, ExecutionResult,
-        SpecId, FlaggedStorage, TxKind, B256,
+        FlaggedStorage, SpecId, TxKind, B256,
     },
     Evm, State,
 };

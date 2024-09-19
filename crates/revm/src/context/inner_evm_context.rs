@@ -262,7 +262,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         Ok(Eip7702CodeLoad::new_not_delegated(hash, acc.is_cold))
     }
 
-    /// Load storage slot, if storage is not present inside the account then it will be loaded from database.
+    /// Load (public) storage slot, if storage is not present inside the account then it will be loaded from database.
     #[inline]
     pub fn sload(
         &mut self,
@@ -278,7 +278,21 @@ impl<DB: Database> InnerEvmContext<DB> {
         })
     }
 
-    /// Storage change of storage slot, before storing `sload` will be called for that slot.
+    /// Load (private) storage slot, if storage is not present inside the account then it will be loaded from database.
+    #[inline]
+    pub fn kload(
+        &mut self,
+        address: Address,
+        index: U256,
+    ) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
+        let state_load = self.journaled_state.kload(address, index, &mut self.db)?;
+        Ok(StateLoad {
+            data: state_load.data.value,
+            is_cold: state_load.is_cold,
+        })
+    }
+
+    /// Storage change of (public) storage slot, before storing `sload` will be called for that slot.
     #[inline]
     pub fn sstore(
         &mut self,
@@ -290,6 +304,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             .sstore(address, index, value, &mut self.db)
     }
 
+    /// Storage change of (private) storage slot, before storing `sload` will be called for that slot.
     #[inline]
     pub fn kstore(
         &mut self,
