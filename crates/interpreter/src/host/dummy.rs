@@ -81,6 +81,17 @@ impl Host for DummyHost {
     }
 
     #[inline]
+    fn kload(&mut self, _address: Address, index: U256) -> Option<StateLoad<U256>> {
+        match self.storage.entry(index) {
+            Entry::Occupied(entry) => Some(StateLoad::new(*entry.get(), false)),
+            Entry::Vacant(entry) => {
+                entry.insert(U256::ZERO);
+                Some(StateLoad::new(U256::ZERO, true))
+            }
+        }
+    }
+
+    #[inline]
     fn sstore(
         &mut self,
         _address: Address,

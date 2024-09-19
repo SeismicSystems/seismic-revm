@@ -127,6 +127,16 @@ pub fn sload<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: 
     *index = value.data;
 }
 
+pub fn kload<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    pop_top!(interpreter, index);
+    let Some(value) = host.kload(interpreter.contract.target_address, *index) else {
+        interpreter.instruction_result = InstructionResult::FatalExternalError;
+        return;
+    };
+    gas!(interpreter, gas::sload_cost(SPEC::SPEC_ID, value.is_cold));
+    *index = value.data;
+}
+
 pub fn sstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     require_non_staticcall!(interpreter);
 
