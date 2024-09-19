@@ -1,4 +1,4 @@
-use crate::primitives::{AccountInfo, EvmStorageSlot, HashMap, StorageValue, U256};
+use crate::primitives::{AccountInfo, EvmStorageSlot, HashMap, FlaggedStorage, U256};
 
 // TODO rename this to BundleAccount. As for the block level we have original state.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -29,9 +29,9 @@ pub struct StorageSlot {
     /// When the slot is first loaded, this is the original value.
     ///
     /// If the slot was not changed, this is equal to the present value.
-    pub previous_or_original_value: StorageValue,
+    pub previous_or_original_value: FlaggedStorage,
     /// When loaded with sload present value is set to original value
-    pub present_value: StorageValue,
+    pub present_value: FlaggedStorage,
 }
 
 impl From<EvmStorageSlot> for StorageSlot {
@@ -42,7 +42,7 @@ impl From<EvmStorageSlot> for StorageSlot {
 
 impl StorageSlot {
     /// Creates a new _unchanged_ `StorageSlot` for the given value.
-    pub fn new(original: StorageValue) -> Self {
+    pub fn new(original: FlaggedStorage) -> Self {
         Self {
             previous_or_original_value: original,
             present_value: original,
@@ -51,8 +51,8 @@ impl StorageSlot {
 
     /// Creates a new _changed_ `StorageSlot`.
     pub fn new_changed(
-        previous_or_original_value: StorageValue,
-        present_value: StorageValue,
+        previous_or_original_value: FlaggedStorage,
+        present_value: FlaggedStorage,
     ) -> Self {
         Self {
             previous_or_original_value,
@@ -66,12 +66,12 @@ impl StorageSlot {
     }
 
     /// Returns the original value of the storage slot.
-    pub fn original_value(&self) -> StorageValue {
+    pub fn original_value(&self) -> FlaggedStorage {
         self.previous_or_original_value
     }
 
     /// Returns the current value of the storage slot.
-    pub fn present_value(&self) -> StorageValue {
+    pub fn present_value(&self) -> FlaggedStorage {
         self.present_value
     }
 }
@@ -83,7 +83,7 @@ pub type StorageWithOriginalValues = HashMap<U256, StorageSlot>;
 
 /// Simple plain storage that does not have previous value.
 /// This is used for loading from database, cache and for bundle state.
-pub type PlainStorage = HashMap<U256, StorageValue>;
+pub type PlainStorage = HashMap<U256, FlaggedStorage>;
 
 impl From<AccountInfo> for PlainAccount {
     fn from(info: AccountInfo) -> Self {

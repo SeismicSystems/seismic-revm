@@ -402,7 +402,7 @@ mod tests {
         db::BenchmarkDB,
         interpreter::opcode::{PUSH1, SSTORE},
         primitives::{
-            address, Authorization, Bytecode, RecoveredAuthorization, Signature, StorageValue, U256,
+            address, Authorization, Bytecode, RecoveredAuthorization, Signature, FlaggedStorage, U256,
         },
     };
 
@@ -442,7 +442,7 @@ mod tests {
         assert_eq!(auth_acc.info.nonce, 1);
         assert_eq!(
             auth_acc.storage.get(&U256::from(1)).unwrap().present_value,
-            StorageValue::from(U256::from(1))
+            FlaggedStorage::from(U256::from(1))
         );
     }
 }

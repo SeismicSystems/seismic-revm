@@ -2,7 +2,7 @@ use super::{
     plain_account::PlainStorage, AccountStatus, BundleAccount, PlainAccount,
     StorageWithOriginalValues, TransitionAccount,
 };
-use revm_interpreter::primitives::{AccountInfo, StorageValue, U256};
+use revm_interpreter::primitives::{AccountInfo, FlaggedStorage, U256};
 use revm_precompile::HashMap;
 
 /// Cache account contains plain state that gets updated
@@ -92,7 +92,7 @@ impl CacheAccount {
     }
 
     /// Return storage slot if it exist.
-    pub fn storage_slot(&self, slot: U256) -> Option<StorageValue> {
+    pub fn storage_slot(&self, slot: U256) -> Option<FlaggedStorage> {
         self.account
             .as_ref()
             .and_then(|a| a.storage.get(&slot).cloned())

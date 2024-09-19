@@ -1,5 +1,5 @@
 use super::RevertToSlot;
-use revm_interpreter::primitives::{AccountInfo, Address, Bytecode, StorageValue, B256, U256};
+use revm_interpreter::primitives::{AccountInfo, Address, Bytecode, FlaggedStorage, B256, U256};
 use std::vec::Vec;
 
 /// accounts/storages/contracts for inclusion into database.
@@ -27,7 +27,7 @@ pub struct PlainStorageChangeset {
     /// Wipe storage,
     pub wipe_storage: bool,
     /// Storage key value pairs.
-    pub storage: Vec<(U256, StorageValue)>,
+    pub storage: Vec<(U256, FlaggedStorage)>,
 }
 
 /// Plain Storage Revert. Containing old values of changed storage.

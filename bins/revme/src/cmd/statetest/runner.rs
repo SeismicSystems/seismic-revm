@@ -11,7 +11,7 @@ use revm::{
     interpreter::analysis::to_analysed,
     primitives::{
         calc_excess_blob_gas, keccak256, Bytecode, Bytes, EVMResultGeneric, Env, ExecutionResult,
-        SpecId, StorageValue, TxKind, B256,
+        SpecId, FlaggedStorage, TxKind, B256,
     },
     Evm, State,
 };
@@ -279,7 +279,7 @@ pub fn execute_test_suite(
                 acc_info,
                 info.storage
                     .into_iter()
-                    .map(|(k, v)| (k, StorageValue::from(v)))
+                    .map(|(k, v)| (k, FlaggedStorage::from(v)))
                     .collect(),
             );
         }

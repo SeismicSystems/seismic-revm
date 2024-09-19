@@ -166,12 +166,12 @@ impl From<AccountInfo> for Account {
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct StorageValue {
+pub struct FlaggedStorage {
     pub value: U256,
     pub is_private: bool,
 }
 
-impl From<U256> for StorageValue {
+impl From<U256> for FlaggedStorage {
     fn from(value: U256) -> Self {
         Self {
             value,
@@ -180,7 +180,7 @@ impl From<U256> for StorageValue {
     }
 }
 
-impl StorageValue {
+impl FlaggedStorage {
     pub const ZERO: Self = Self {
         value: U256::ZERO,
         is_private: false,
@@ -192,16 +192,16 @@ impl StorageValue {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EvmStorageSlot {
     /// Original value of the storage slot.
-    pub original_value: StorageValue,
+    pub original_value: FlaggedStorage,
     /// Present value of the storage slot.
-    pub present_value: StorageValue,
+    pub present_value: FlaggedStorage,
     /// Represents if the storage slot is cold.
     pub is_cold: bool,
 }
 
 impl EvmStorageSlot {
     /// Creates a new _unchanged_ `EvmStorageSlot` for the given value.
-    pub fn new(original: StorageValue) -> Self {
+    pub fn new(original: FlaggedStorage) -> Self {
         Self {
             original_value: original,
             present_value: original,
@@ -210,7 +210,7 @@ impl EvmStorageSlot {
     }
 
     /// Creates a new _changed_ `EvmStorageSlot`.
-    pub fn new_changed(original_value: StorageValue, present_value: StorageValue) -> Self {
+    pub fn new_changed(original_value: FlaggedStorage, present_value: FlaggedStorage) -> Self {
         Self {
             original_value,
             present_value,
@@ -223,12 +223,12 @@ impl EvmStorageSlot {
     }
 
     /// Returns the original value of the storage slot.
-    pub fn original_value(&self) -> StorageValue {
+    pub fn original_value(&self) -> FlaggedStorage {
         self.original_value
     }
 
     /// Returns the current value of the storage slot.
-    pub fn present_value(&self) -> StorageValue {
+    pub fn present_value(&self) -> FlaggedStorage {
         self.present_value
     }
 
