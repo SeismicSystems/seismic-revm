@@ -292,7 +292,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         })
     }
 
-    /// Storage change of storage slot, before storing `sload` will be called for that slot.
+    /// Storage change of (public) storage slot, before storing `sload` will be called for that slot.
     #[inline]
     pub fn sstore(
         &mut self,
@@ -304,6 +304,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             .sstore(address, index, value, &mut self.db)
     }
 
+    /// Storage change of (private) storage slot, before storing `sload` will be called for that slot.
     #[inline]
     pub fn kstore(
         &mut self,
