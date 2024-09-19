@@ -185,6 +185,29 @@ impl FlaggedStorage {
         value: U256::ZERO,
         is_private: false,
     };
+
+    pub fn is_private(&self) -> bool {
+        self.is_private
+    }
+
+    pub fn is_public(&self) -> bool {
+        !self.is_private
+    }
+
+    pub fn set_visibility(&self, is_private: bool) -> Self {
+        FlaggedStorage {
+            value: self.value,
+            is_private,
+        }
+    }
+
+    pub fn mark_private(&self) -> Self {
+        self.set_visibility(true)
+    }
+
+    pub fn mark_public(&self) -> Self {
+        self.set_visibility(false)
+    }
 }
 
 /// This type keeps track of the current value of a storage slot.

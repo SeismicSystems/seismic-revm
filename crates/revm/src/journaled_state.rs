@@ -4,7 +4,7 @@ use crate::{
     interpreter::{AccountLoad, InstructionResult, SStoreResult, SelfDestructResult, StateLoad},
     primitives::{
         db::Database, hash_map::Entry, Account, Address, Bytecode, EVMError, EvmState,
-        EvmStorageSlot, HashMap, HashSet, Log, SpecId, SpecId::*, FlaggedStorage, TransientStorage,
+        EvmStorageSlot, FlaggedStorage, HashMap, HashSet, Log, SpecId, SpecId::*, TransientStorage,
         B256, KECCAK_EMPTY, PRECOMPILE3, U256,
     },
 };
@@ -721,6 +721,8 @@ impl JournaledState {
     /// Note:
     ///
     /// account should already be present in our state.
+    ///
+    /// marks storage as public.
     #[inline]
     pub fn sstore<DB: Database>(
         &mut self,
@@ -729,48 +731,17 @@ impl JournaledState {
         new: U256,
         db: &mut DB,
     ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
-        // assume that acc exists and load the slot.
-        let present = self.sload(address, key, db)?;
-        let acc = self.state.get_mut(&address).unwrap();
-
-        // if there is no original value in dirty return present value, that is our original.
-        let slot = acc.storage.get_mut(&key).unwrap();
-
-        // new value is same as present, we don't need to do anything
-        if present.data.value == new {
-            return Ok(StateLoad::new(
-                SStoreResult {
-                    original_value: slot.original_value().value,
-                    present_value: present.data.value,
-                    new_value: new,
-                },
-                present.is_cold,
-            ));
-        }
-
-        self.journal
-            .last_mut()
-            .unwrap()
-            .push(JournalEntry::StorageChanged {
-                address,
-                key,
-                had_value: present.data,
-            });
-        // insert value into present state.
-        slot.present_value = FlaggedStorage {
-            value: new,
-            is_private: false,
-        };
-        Ok(StateLoad::new(
-            SStoreResult {
-                original_value: slot.original_value().value,
-                present_value: present.data.value,
-                new_value: new,
-            },
-            present.is_cold,
-        ))
+        self.store(address, key, new, db, false)
     }
 
+    /// Stores storage slot.
+    /// And returns (original,present,new) slot value.
+    ///
+    /// Note:
+    ///
+    /// account should already be present in our state.
+    ///
+    /// marks storage as private.
     #[inline]
     pub fn kstore<DB: Database>(
         &mut self,
@@ -778,6 +749,18 @@ impl JournaledState {
         key: U256,
         new: U256,
         db: &mut DB,
+    ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
+        self.store(address, key, new, db, true)
+    }
+
+    #[inline]
+    fn store<DB: Database>(
+        &mut self,
+        address: Address,
+        key: U256,
+        new: U256,
+        db: &mut DB,
+        is_private: bool,
     ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
         // assume that acc exists and load the slot.
         let present = self.sload(address, key, db)?;
@@ -807,10 +790,7 @@ impl JournaledState {
                 had_value: present.data,
             });
         // insert value into present state.
-        slot.present_value = FlaggedStorage {
-            value: new,
-            is_private: true,
-        };
+        slot.present_value = FlaggedStorage::from(new).set_visibility(is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value().value,
