@@ -2,7 +2,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REVME_DIR="$SCRIPT_DIR/../bins/revme"
-TESTS_DIR="$SCRIPT_DIR/../tests/seismic"
+TESTS_DIR="$SCRIPT_DIR/../tests/seismic/bin"
 
 cd "$REVME_DIR" || { echo "Failed to change directory to $REVME_DIR"; exit 1; }
 
