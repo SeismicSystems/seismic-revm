@@ -4,7 +4,7 @@ use crate::{
     interpreter::{AccountLoad, InstructionResult, SStoreResult, SelfDestructResult, StateLoad},
     primitives::{
         db::Database, hash_map::Entry, Account, Address, Bytecode, EVMError, EvmState,
-        EvmStorageSlot, HashMap, HashSet, Log, SpecId, SpecId::*, FlaggedStorage, TransientStorage,
+        EvmStorageSlot, FlaggedStorage, HashMap, HashSet, Log, SpecId, SpecId::*, TransientStorage,
         B256, KECCAK_EMPTY, PRECOMPILE3, U256,
     },
 };
@@ -757,10 +757,7 @@ impl JournaledState {
                 had_value: present.data,
             });
         // insert value into present state.
-        slot.present_value = FlaggedStorage {
-            value: new,
-            is_private: false,
-        };
+        slot.present_value = FlaggedStorage::from(new).mark_public();
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value().value,
@@ -807,10 +804,7 @@ impl JournaledState {
                 had_value: present.data,
             });
         // insert value into present state.
-        slot.present_value = FlaggedStorage {
-            value: new,
-            is_private: true,
-        };
+        slot.present_value = FlaggedStorage::from(new).mark_private();
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value().value,
