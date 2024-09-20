@@ -171,10 +171,12 @@ pub struct FlaggedStorage {
     pub is_private: bool,
 }
 
-impl From<U256> for FlaggedStorage {
-    fn from(value: U256) -> Self {
+impl<T> From<T> for FlaggedStorage
+where T: Into<U256>
+{
+    fn from(value: T) -> Self {
         Self {
-            value,
+            value: value.into(),
             is_private: false,
         }
     }
@@ -185,6 +187,35 @@ impl FlaggedStorage {
         value: U256::ZERO,
         is_private: false,
     };
+
+    pub fn new_from_tuple<T>((value, is_private): (T, bool)) -> Self
+    where T: Into<U256>
+    {
+        Self {
+            value: value.into(),
+            is_private,
+        }
+    }
+
+    pub fn new_from_U256(value: U256) -> Self
+    {
+        Self {
+            value: value,
+            is_private: false,
+        }
+    }
+
+    /// Converts a collection of key-value pairs into a collection of key-value pairs where the value is converted to a `U256`.
+    pub fn collect_value<C, K, V, U>(container: C) -> C
+    where
+        C: IntoIterator<Item = (K, FlaggedStorage)>,
+        U: From<U256>,
+        K: Eq + Hash,
+        C: FromIterator<(K, U256)>
+    {
+        container.into_iter().map(|(key, value)| (key, value.value)).collect()
+    }
+
 
     pub fn is_private(&self) -> bool {
         self.is_private
@@ -207,6 +238,10 @@ impl FlaggedStorage {
 
     pub fn mark_public(&self) -> Self {
         self.set_visibility(false)
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.is_public() && self.value.is_zero()
     }
 }
 
