@@ -200,22 +200,19 @@ impl FlaggedStorage {
     pub fn new_from_U256(value: U256) -> Self
     {
         Self {
-            value: value,
+            value,
             is_private: false,
         }
     }
 
-    /// Converts a collection of key-value pairs into a collection of key-value pairs where the value is converted to a `U256`.
-    pub fn collect_value<C, K, V, U>(container: C) -> C
-    where
-        C: IntoIterator<Item = (K, FlaggedStorage)>,
-        U: From<U256>,
-        K: Eq + Hash,
-        C: FromIterator<(K, U256)>
-    {
-        container.into_iter().map(|(key, value)| (key, value.value)).collect()
+    pub fn collect_value(container: HashMap<B256, FlaggedStorage>) -> HashMap<B256, U256> {
+        container
+            .into_iter()
+            .map(|(key, flagged_storage)| {
+                (key, flagged_storage.value)
+            })
+            .collect()
     }
-
 
     pub fn is_private(&self) -> bool {
         self.is_private
