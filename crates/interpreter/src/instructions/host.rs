@@ -161,7 +161,6 @@ pub fn sstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host:
 }
 
 pub fn kstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    // TODO: static calls?
     require_non_staticcall!(interpreter);
 
     pop!(interpreter, index, value);
@@ -169,7 +168,7 @@ pub fn kstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host:
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
     };
-    // TODO: gas cost for kstore
+    // TODO(Seismic): gas cost for kstore
     gas_or_fail!(interpreter, {
         let remaining_gas = interpreter.gas.remaining();
         gas::sstore_cost(
@@ -179,7 +178,7 @@ pub fn kstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host:
             state_load.is_cold,
         )
     });
-    // TODO: gas refund for kstore
+    // TODO(Seismic): gas refund for kstore
     refund!(
         interpreter,
         gas::sstore_refund(SPEC::SPEC_ID, &state_load.data)
