@@ -1,7 +1,6 @@
 use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
-use arbitrary::Arbitrary;
-use alloy_primitives::Uint;
 use crate::ruint::UintTryFrom;
+use proptest_derive::Arbitrary as PropTestArbitrary;
 use alloy_primitives::FixedBytes;
 use bitflags::bitflags;
 use core::hash::{Hash, Hasher};
@@ -170,18 +169,10 @@ impl From<AccountInfo> for Account {
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "arbitrary", derive(PropTestArbitrary))]
 pub struct FlaggedStorage {
     pub value: U256,
     pub is_private: bool,
-}
-
-
-impl arbitrary::Arbitrary<'_> for FlaggedStorage {
-    fn arbitrary(u: &mut arbitrary::Unstructured<'_>) -> arbitrary::Result<Self> {
-        let arbitrary_u256 = u.arbitrary::<Uint<256, 4>>()?;
-        let arbitrary_bool = u.arbitrary::<bool>()?;
-        Ok(FlaggedStorage::new_from_tuple((arbitrary_u256, arbitrary_bool)))
-    }
 }
 
 impl From<FlaggedStorage> for FixedBytes<32> {

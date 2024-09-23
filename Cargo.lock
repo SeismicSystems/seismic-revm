@@ -3203,7 +3203,6 @@ version = "9.0.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
- "arbitrary",
  "auto_impl",
  "bitflags 2.6.0",
  "bitvec",
@@ -3214,6 +3213,8 @@ dependencies = [
  "hashbrown",
  "hex",
  "kzg-rs",
+ "proptest",
+ "proptest-derive",
  "serde",
 ]
 
