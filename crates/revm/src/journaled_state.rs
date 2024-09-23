@@ -790,7 +790,7 @@ impl JournaledState {
                 had_value: present.data,
             });
         // insert value into present state.
-        slot.present_value = FlaggedStorage::from(new).set_visibility(is_private);
+        slot.present_value = FlaggedStorage::new_from_value(new).set_visibility(is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value().value,

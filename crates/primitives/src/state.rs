@@ -1,4 +1,6 @@
 use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
+use crate::ruint::UintTryFrom;
+use alloy_primitives::FixedBytes;
 use bitflags::bitflags;
 use core::hash::{Hash, Hasher};
 
@@ -171,14 +173,21 @@ pub struct FlaggedStorage {
     pub is_private: bool,
 }
 
-impl<T> From<T> for FlaggedStorage
-where T: Into<U256>
-{
-    fn from(value: T) -> Self {
-        Self {
-            value: value.into(),
-            is_private: false,
-        }
+impl From<FlaggedStorage> for FixedBytes<32> {
+    fn from(storage: FlaggedStorage) -> FixedBytes<32> {
+        FixedBytes::<32>::from(storage.value)
+    }
+}
+
+impl From<FlaggedStorage> for U256 {
+    fn from(storage: FlaggedStorage) -> U256 {
+        storage.value
+    }
+}
+
+impl From<&FlaggedStorage> for U256 {
+    fn from(storage: &FlaggedStorage) -> U256 {
+        storage.value
     }
 }
 
@@ -197,11 +206,13 @@ impl FlaggedStorage {
         }
     }
 
-    pub fn new_from_U256(value: U256) -> Self
+    // Constructor for a generic type `T` that can be converted into U256
+    pub fn new_from_value<T>(value: T) -> Self
+    where U256: UintTryFrom<T>,
     {
         Self {
-            value,
-            is_private: false,
+            value: U256::from(value),
+            is_private: false, // Default to false
         }
     }
 
