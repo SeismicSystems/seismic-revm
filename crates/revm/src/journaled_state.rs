@@ -680,39 +680,7 @@ impl JournaledState {
         key: U256,
         db: &mut DB,
     ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
-        // assume acc is warm
-        let account = self.state.get_mut(&address).unwrap();
-        // only if account is created in this tx we can assume that storage is empty.
-        let is_newly_created = account.is_created();
-        let (value, is_cold) = match account.storage.entry(key) {
-            Entry::Occupied(occ) => {
-                let slot = occ.into_mut();
-                let is_cold = slot.mark_warm();
-                (slot.present_value, is_cold)
-            }
-            Entry::Vacant(vac) => {
-                // if storage was cleared, we don't need to ping db.
-                let value = if is_newly_created {
-                    FlaggedStorage::ZERO
-                } else {
-                    db.storage(address, key).map_err(EVMError::Database)?
-                };
-
-                vac.insert(EvmStorageSlot::new(value));
-
-                (value, true)
-            }
-        };
-
-        if is_cold {
-            // add it to journal as cold loaded.
-            self.journal
-                .last_mut()
-                .unwrap()
-                .push(JournalEntry::StorageWarmed { address, key });
-        }
-
-        Ok(StateLoad::new(value, is_cold))
+        self.load(address, key, db, false)
     }
 
     /// Load storage slot
@@ -729,6 +697,17 @@ impl JournaledState {
         key: U256,
         db: &mut DB,
     ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
+        self.load(address, key, db, true)
+    }
+
+    #[inline]
+    pub fn load<DB: Database>(
+        &mut self,
+        address: Address,
+        key: U256,
+        db: &mut DB,
+        is_private: bool,
+    ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx can we assume that storage is empty.
@@ -742,7 +721,7 @@ impl JournaledState {
             Entry::Vacant(vac) => {
                 // if storage was cleared, we dont need to ping db.
                 let value = if is_newly_created {
-                    FlaggedStorage::ZERO.mark_private()
+                    FlaggedStorage::ZERO.set_visibility(is_private)
                 } else {
                     db.storage(address, key).map_err(EVMError::Database)?
                 };
