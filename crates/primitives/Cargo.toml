@@ -24,12 +24,13 @@ all = "warn"
 [dependencies]
 alloy-eips = { version = "0.3", default-features = false, features = ["k256"] }
 alloy-primitives = { path = "../../../seismic-alloy-core/crates/primitives", default-features = false, features = [
-    "rlp",
+    "rlp", "arbitrary"
 ] }
 hashbrown = "0.14"
 auto_impl = "1.2"
 bitvec = { version = "1", default-features = false, features = ["alloc"] }
 bitflags = { version = "2.6.0", default-features = false }
+arbitrary = { version = "1", features = ["derive"] }
 
 # For setting the CfgEnv KZGSettings. Enabled by c-kzg flag.
 c-kzg = { version = "1.0.3", default-features = false, optional = true, features = [
