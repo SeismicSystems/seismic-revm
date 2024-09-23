@@ -7,7 +7,7 @@ echo "Generating bytecode of .sol test files..."
 
 for file in "$TESTS_DIR/sol"/*.sol; do
     if [ -f "$file" ]; then
-        solc --bin "$file" -o "$TESTS_DIR/bin" --overwrite
+        solc --bin-runtime "$file" -o "$TESTS_DIR/bin" --overwrite
     fi
 done
 
