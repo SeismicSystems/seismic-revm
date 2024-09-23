@@ -732,6 +732,13 @@ impl JournaledState {
             }
         };
 
+        // must sload from public state and kload from private state
+        if value.is_private != is_private {
+            return Err(EVMError::Custom(
+                "[SEISMIC] using wrong load opcode based on visibility".to_string(),
+            ));
+        }
+
         if is_cold {
             // add it to journal as cold loaded.
             self.journal
@@ -791,7 +798,18 @@ impl JournaledState {
         is_private: bool,
     ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
         // assume that acc exists and load the slot.
-        let present = self.sload(address, key, db)?;
+        let present = if is_private {
+            self.kload(address, key, db)?
+        } else {
+            self.sload(address, key, db)?
+        };
+
+        if present.is_private != is_private {
+            return Err(EVMError::Custom(
+                "[SEISMIC] using wrong store opcode based on visibility".to_string(),
+            ));
+        }
+
         let acc = self.state.get_mut(&address).unwrap();
 
         // if there is no original value in dirty return present value, that is our original.
