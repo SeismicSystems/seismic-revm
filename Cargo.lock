@@ -3213,6 +3213,8 @@ dependencies = [
  "hashbrown",
  "hex",
  "kzg-rs",
+ "proptest",
+ "proptest-derive",
  "serde",
 ]
 
