@@ -199,16 +199,25 @@ impl FlaggedStorage {
         is_private: false,
     };
 
-    pub fn new_from_tuple<T>((value, is_private): (T, bool)) -> Self
-    where T: Into<U256>
+    pub fn new<T>(value: T, is_private: bool) -> Self
+    where U256: UintTryFrom<T>,
     {
         Self {
-            value: value.into(),
+            value: U256::from(value),
             is_private,
         }
     }
 
-    // Constructor for a generic type `T` that can be converted into U256
+
+    pub fn new_from_tuple<T>((value, is_private): (T, bool)) -> Self
+    where U256: UintTryFrom<T>,
+    {
+        Self {
+            value: U256::from(value),
+            is_private,
+        }
+    }
+
     pub fn new_from_value<T>(value: T) -> Self
     where U256: UintTryFrom<T>,
     {
