@@ -1,5 +1,6 @@
 use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
 use crate::ruint::UintTryFrom;
+#[cfg(feature = "arbitrary")]
 use proptest_derive::Arbitrary as PropTestArbitrary;
 use alloy_primitives::FixedBytes;
 use bitflags::bitflags;
