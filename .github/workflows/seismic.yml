@@ -40,7 +40,7 @@ jobs:
             ssh-private-key: |
               ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
               ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
-              ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }} 
+              ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
       - name: cargo check warnings
         run: RUSTFLAGS="-D warnings" cargo check
       - name: cargo build
