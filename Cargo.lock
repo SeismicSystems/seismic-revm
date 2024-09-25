@@ -130,7 +130,18 @@ name = "alloy-json-abi"
 version = "0.8.1"
 dependencies = [
  "alloy-primitives 0.8.1",
- "alloy-sol-type-parser",
+ "alloy-sol-type-parser 0.8.1",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "alloy-json-abi"
+version = "0.8.1"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c#e9f2685ce38f0bed235ffb90e81199b79e1a4974"
+dependencies = [
+ "alloy-primitives 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
+ "alloy-sol-type-parser 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
  "serde",
  "serde_json",
 ]
@@ -413,7 +424,7 @@ dependencies = [
 name = "alloy-sol-macro-input"
 version = "0.8.1"
 dependencies = [
- "alloy-json-abi",
+ "alloy-json-abi 0.8.1",
  "const-hex",
  "dunce",
  "heck 0.5.0",
@@ -428,6 +439,7 @@ name = "alloy-sol-macro-input"
 version = "0.8.1"
 source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c#e9f2685ce38f0bed235ffb90e81199b79e1a4974"
 dependencies = [
+ "alloy-json-abi 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
  "const-hex",
  "dunce",
  "heck 0.5.0",
@@ -446,10 +458,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-sol-type-parser"
+version = "0.8.1"
+source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c#e9f2685ce38f0bed235ffb90e81199b79e1a4974"
+dependencies = [
+ "serde",
+ "winnow",
+]
+
+[[package]]
 name = "alloy-sol-types"
 version = "0.8.1"
 dependencies = [
- "alloy-json-abi",
+ "alloy-json-abi 0.8.1",
  "alloy-primitives 0.8.1",
  "alloy-sol-macro 0.8.1",
  "const-hex",
@@ -461,9 +482,11 @@ name = "alloy-sol-types"
 version = "0.8.1"
 source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c#e9f2685ce38f0bed235ffb90e81199b79e1a4974"
 dependencies = [
+ "alloy-json-abi 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
  "alloy-primitives 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
  "alloy-sol-macro 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
  "const-hex",
+ "serde",
 ]
 
 [[package]]
@@ -3297,8 +3320,8 @@ dependencies = [
 name = "revm-test"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-macro 0.8.1",
- "alloy-sol-types 0.8.1",
+ "alloy-sol-macro 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
+ "alloy-sol-types 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
  "bytes",
  "eyre",
  "hex",
