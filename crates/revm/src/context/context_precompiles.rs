@@ -95,6 +95,7 @@ impl<DB: Database> ContextPrecompiles<DB> {
 
     /// Returns precompiles addresses.
     #[inline]
+    #[allow(elided_named_lifetimes)]
     pub fn addresses<'a>(&'a self) -> Box<dyn ExactSizeIterator<Item = &Address> + 'a> {
         match self.inner {
             PrecompilesCow::StaticRef(inner) => Box::new(inner.addresses()),
