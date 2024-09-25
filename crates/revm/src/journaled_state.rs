@@ -691,7 +691,7 @@ impl JournaledState {
     ///
     /// If slot is vacant, return 0 with visibility flagged as private.
     #[inline]
-    pub fn kload<DB: Database>(
+    pub fn cload<DB: Database>(
         &mut self,
         address: Address,
         key: U256,
@@ -771,7 +771,7 @@ impl JournaledState {
     ///
     /// marks storage as private.
     #[inline]
-    pub fn kstore<DB: Database>(
+    pub fn cstore<DB: Database>(
         &mut self,
         address: Address,
         key: U256,
