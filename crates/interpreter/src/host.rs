@@ -31,7 +31,7 @@ pub trait Host {
     fn sload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>>;
 
     /// Get (private) storage value of `address` at `index` and if the account is cold
-    fn kload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>>;
+    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>>;
 
     /// Set storage value of account address at index.
     ///
@@ -46,7 +46,7 @@ pub trait Host {
     /// Set (private) storage value of account address at index.
     ///
     /// Returns [`StateLoad`] with [`SStoreResult`] that contains original/new/old storage value.
-    fn kstore(
+    fn cstore(
         &mut self,
         address: Address,
         index: U256,
