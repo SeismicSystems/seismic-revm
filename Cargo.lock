@@ -187,15 +187,19 @@ name = "alloy-primitives"
 version = "0.8.1"
 dependencies = [
  "alloy-rlp",
+ "arbitrary",
  "bytes",
  "cfg-if",
  "const-hex",
+ "derive_arbitrary",
  "derive_more 1.0.0",
+ "getrandom",
  "hex-literal",
  "itoa",
  "k256",
  "keccak-asm",
  "proptest",
+ "proptest-derive",
  "rand",
  "ruint",
  "serde",
@@ -214,7 +218,6 @@ dependencies = [
  "const-hex",
  "derive_arbitrary",
  "derive_more 1.0.0",
- "getrandom",
  "hex-literal",
  "itoa",
  "k256",
@@ -3277,7 +3280,7 @@ name = "revm-primitives"
 version = "9.0.0"
 dependencies = [
  "alloy-eips",
- "alloy-primitives 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
+ "alloy-primitives 0.8.1",
  "auto_impl",
  "bitflags 2.6.0",
  "bitvec",
