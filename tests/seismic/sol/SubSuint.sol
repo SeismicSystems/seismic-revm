@@ -1,4 +1,4 @@
-contract SubSuintTest {
+contract SubSuint {
     function test() public {
         uint256 a = 20;
         uint256 b = 3;

@@ -1,4 +1,4 @@
-contract SuintBasicTest {
+contract SuintBasic {
     suint256 x;
 
     function test() public {
