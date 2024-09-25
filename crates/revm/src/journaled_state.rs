@@ -715,6 +715,55 @@ impl JournaledState {
         Ok(StateLoad::new(value, is_cold))
     }
 
+    /// Load storage slot
+    ///
+    /// # Panics
+    ///
+    /// Panics if the account is not present in the state.
+    ///
+    /// If slot is vacant, return 0 with visibility flagged as private.
+    #[inline]
+    pub fn kload<DB: Database>(
+        &mut self,
+        address: Address,
+        key: U256,
+        db: &mut DB,
+    ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
+        // assume acc is warm
+        let account = self.state.get_mut(&address).unwrap();
+        // only if account is created in this tx can we assume that storage is empty.
+        let is_newly_created = account.is_created();
+        let (value, is_cold) = match account.storage.entry(key) {
+            Entry::Occupied(occ) => {
+                let slot = occ.into_mut();
+                let is_cold = slot.mark_warm();
+                (slot.present_value, is_cold)
+            }
+            Entry::Vacant(vac) => {
+                // if storage was cleared, we dont need to ping db.
+                let value = if is_newly_created {
+                    FlaggedStorage::ZERO.mark_private()
+                } else {
+                    db.storage(address, key).map_err(EVMError::Database)?
+                };
+
+                vac.insert(EvmStorageSlot::new(value));
+
+                (value, true)
+            }
+        };
+
+        if is_cold {
+            // add it to journal as cold loaded.
+            self.journal
+                .last_mut()
+                .unwrap()
+                .push(JournalEntry::StorageWarmed { address, key });
+        }
+
+        Ok(StateLoad::new(value, is_cold))
+    }
+
     /// Stores storage slot.
     /// And returns (original,present,new) slot value.
     ///
@@ -790,7 +839,7 @@ impl JournaledState {
                 had_value: present.data,
             });
         // insert value into present state.
-        slot.present_value = FlaggedStorage::from(new).set_visibility(is_private);
+        slot.present_value = FlaggedStorage::new_from_value(new).set_visibility(is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value().value,

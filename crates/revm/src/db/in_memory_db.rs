@@ -1,6 +1,6 @@
 use super::{DatabaseCommit, DatabaseRef, EmptyDB};
 use crate::primitives::{
-    hash_map::Entry, Account, AccountInfo, Address, Bytecode, HashMap, Log, FlaggedStorage, B256,
+    hash_map::Entry, Account, AccountInfo, Address, Bytecode, FlaggedStorage, HashMap, Log, B256,
     KECCAK_EMPTY, U256,
 };
 use crate::Database;

@@ -1,4 +1,4 @@
-use crate::primitives::{AccountInfo, EvmStorageSlot, HashMap, FlaggedStorage, U256};
+use crate::primitives::{AccountInfo, EvmStorageSlot, FlaggedStorage, HashMap, U256};
 
 // TODO rename this to BundleAccount. As for the block level we have original state.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
