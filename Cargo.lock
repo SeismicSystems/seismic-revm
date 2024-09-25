@@ -187,19 +187,15 @@ name = "alloy-primitives"
 version = "0.8.1"
 dependencies = [
  "alloy-rlp",
- "arbitrary",
  "bytes",
  "cfg-if",
  "const-hex",
- "derive_arbitrary",
  "derive_more 1.0.0",
- "getrandom",
  "hex-literal",
  "itoa",
  "k256",
  "keccak-asm",
  "proptest",
- "proptest-derive",
  "rand",
  "ruint",
  "serde",
@@ -218,6 +214,7 @@ dependencies = [
  "const-hex",
  "derive_arbitrary",
  "derive_more 1.0.0",
+ "getrandom",
  "hex-literal",
  "itoa",
  "k256",
@@ -3280,7 +3277,7 @@ name = "revm-primitives"
 version = "9.0.0"
 dependencies = [
  "alloy-eips",
- "alloy-primitives 0.8.1",
+ "alloy-primitives 0.8.1 (git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c)",
  "auto_impl",
  "bitflags 2.6.0",
  "bitvec",
@@ -5023,18 +5020,3 @@ dependencies = [
  "quote",
  "syn 2.0.77",
 ]
-
-[[patch.unused]]
-name = "alloy-core"
-version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c#e9f2685ce38f0bed235ffb90e81199b79e1a4974"
-
-[[patch.unused]]
-name = "alloy-json-abi"
-version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c#e9f2685ce38f0bed235ffb90e81199b79e1a4974"
-
-[[patch.unused]]
-name = "alloy-sol-type-parser"
-version = "0.8.1"
-source = "git+ssh://git@github.com/SeismicSystems/seismic-alloy-core.git?rev=e9f2685c#e9f2685ce38f0bed235ffb90e81199b79e1a4974"
