@@ -166,9 +166,9 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
             .ok()
     }
 
-    fn kload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
+    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
         self.evm
-            .kload(address, index)
+            .cload(address, index)
             .map_err(|e| self.evm.error = Err(e))
             .ok()
     }
@@ -185,14 +185,14 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
             .ok()
     }
 
-    fn kstore(
+    fn cstore(
         &mut self,
         address: Address,
         index: U256,
         value: U256,
     ) -> Option<StateLoad<SStoreResult>> {
         self.evm
-            .kstore(address, index, value)
+            .cstore(address, index, value)
             .map_err(|e| self.evm.error = Err(e))
             .ok()
     }
