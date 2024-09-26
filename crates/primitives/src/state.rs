@@ -176,6 +176,13 @@ pub struct FlaggedStorage {
     pub is_private: bool,
 }
 
+impl From<U256> for FlaggedStorage {
+    fn from(value: U256) -> Self {
+        // by default, assume values are public (as original revm tests expect this)
+        FlaggedStorage { value, is_private: false }
+    }
+}
+
 impl From<FlaggedStorage> for FixedBytes<32> {
     fn from(storage: FlaggedStorage) -> FixedBytes<32> {
         FixedBytes::<32>::from(storage.value)
