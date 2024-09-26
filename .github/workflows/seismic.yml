@@ -2,7 +2,7 @@ name: Seismic CI
 
 on:
   push:
-    branches: [ seismic-alloy-git-commit ]
+    branches: [ seismic ]
   pull_request:
     branches: [ seismic ]
 
@@ -41,9 +41,9 @@ jobs:
               ${{ secrets.ACTIONS_MANTLE_SSH_ED25519 }}
               ${{ secrets.ACTIONS_SFORGESTD_SSH_ED25519 }}
               ${{ secrets.ACTIONS_SALLOYCORE_SSH_ED25519 }}
-      - name: cargo check warnings
-        run: RUSTFLAGS="-A elided_named_lifetimes -D warnings" cargo check
       - name: cargo build
         run: cargo build
+      - name: cargo check warnings
+        run: RUSTFLAGS="-A elided_named_lifetimes -D warnings" cargo check
       - name: cargo test
         run: cargo test
