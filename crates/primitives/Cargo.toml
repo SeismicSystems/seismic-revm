@@ -23,7 +23,7 @@ all = "warn"
 
 [dependencies]
 alloy-eips = { version = "0.3", default-features = false, features = ["k256"] }
-alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "0a66068", default-features = false, features = [
+alloy-primitives = { version = "0.8.5", default-features = false, features = [
     "rlp"
 ] }
 hashbrown = "0.14"
