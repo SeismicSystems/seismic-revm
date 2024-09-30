@@ -85,7 +85,9 @@ impl L1BlockInfo {
             })
         } else {
             let l1_blob_base_fee = db.storage(L1_BLOCK_CONTRACT, ECOTONE_L1_BLOB_BASE_FEE_SLOT)?;
-            let l1_scalars_u256: U256 = db.storage(L1_BLOCK_CONTRACT, ECOTONE_L1_FEE_SCALARS_SLOT)?.into();
+            let l1_scalars_u256: U256 = db
+                .storage(L1_BLOCK_CONTRACT, ECOTONE_L1_FEE_SCALARS_SLOT)?
+                .into();
             let l1_fee_scalars = l1_scalars_u256.to_be_bytes::<32>();
 
             let l1_base_fee_scalar = U256::from_be_slice(
