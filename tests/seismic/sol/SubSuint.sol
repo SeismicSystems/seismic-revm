@@ -1,5 +1,5 @@
 contract SubSuint {
-    function test() public {
+    function test() public pure {
         uint256 a = 20;
         uint256 b = 3;
         assert(suint256(a) - suint256(b) == 17);

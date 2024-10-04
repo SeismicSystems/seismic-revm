@@ -33,7 +33,7 @@ contract SuintBasic {
 
         // casting
         x = 0x123456789;
-        uint256 publicX = x;
+        uint256 publicX = uint256(x);
         assert(publicX == 0x123456789);
 
         uint256 a = 0;

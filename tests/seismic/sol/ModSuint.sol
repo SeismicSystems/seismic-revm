@@ -1,5 +1,5 @@
 contract ModSuint {
-    function test() public {
+    function test() public pure {
         uint256 a = 17;
         uint256 b = 5;
         assert(suint256(a) % suint256(b) == 2);
