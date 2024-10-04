@@ -1,5 +1,5 @@
 contract UncheckedArithmetic {
-    function test() public {
+    function test() public pure {
         uint256 MAX = type(uint256).max;
         uint256 MIN = type(uint256).min;
 

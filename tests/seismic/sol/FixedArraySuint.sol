@@ -7,7 +7,7 @@ contract FixedArraySuint {
         }
 
         suint256 index = 5;
-        uint256 val = arr[index];
+        uint256 val = arr[uint256(index)];
         assert(val == 32);
     }
 }
