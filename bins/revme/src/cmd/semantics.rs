@@ -5,7 +5,7 @@ use revm::{
     primitives::{Address, Bytecode, BytecodeDecodeError, FixedBytes, TxKind},
     Evm,
 };
-use std::{io::Error as IoError, path::Path, str::FromStr};
+use std::{io::{Error as IoError, Write}, path::Path, process::{Command, Stdio}, str::FromStr};
 use std::path::PathBuf;
 use std::fs;
 use structopt::StructOpt;
@@ -13,6 +13,104 @@ use structopt::StructOpt;
 extern crate alloc;
 
 use alloy_primitives::{eip191_hash_message, keccak256, Bytes, I256, U256};
+
+use std::collections::HashMap;
+use std::fmt;
+
+#[derive(Debug)]
+enum EVMVersion {
+    Homestead,
+    TangerineWhistle,
+    SpuriousDragon,
+    Byzantium,
+    Constantinople,
+    Istanbul,
+    Berlin,
+    London,
+    ArrowGlacier,
+    GrayGlacier,
+    Paris,
+    Shangain,
+    Cancun
+}
+
+impl EVMVersion {
+    fn from_str(version: &str) -> Option<Self> {
+        match version.to_lowercase().as_str() {
+            "homestead" => Some(Self::Homestead),
+            "tangerinewhistle" => Some(Self::TangerineWhistle),
+            "spuriousdragon" => Some(Self::SpuriousDragon),
+            "byzantium" => Some(Self::Byzantium),
+            "constantinople" => Some(Self::Constantinople),
+            "istanbul" => Some(Self::Istanbul),
+            "berlin" => Some(Self::Berlin),
+            "london" => Some(Self::London),
+            "arrowglacier" => Some(Self::ArrowGlacier),
+            "grayglacier" => Some(Self::GrayGlacier),
+            "paris" => Some(Self::Paris),
+            "shanghai" => Some(Self::Shangain),
+            "cancun" => Some(Self::Cancun),
+            _ => None,
+        }
+    }
+
+    fn previous(&self) -> Option<&'static str> {
+        match self {
+            EVMVersion::Cancun => Some("shanghai"),
+            EVMVersion::Shangain => Some("paris"),
+            EVMVersion::Paris => Some("grayglacier"),
+            EVMVersion::GrayGlacier => Some("arrowglacier"),
+            EVMVersion::ArrowGlacier => Some("london"),
+            EVMVersion::London => Some("berlin"),
+            EVMVersion::Berlin => Some("istanbul"),
+            EVMVersion::Istanbul => Some("constantinople"),
+            EVMVersion::Constantinople => Some("byzantium"),
+            EVMVersion::Byzantium => Some("spuriousdragon"),
+            EVMVersion::SpuriousDragon => Some("tangerinewhistle"),
+            EVMVersion::TangerineWhistle => Some("homestead"),
+            EVMVersion::Homestead => None,
+        }
+    }
+    fn next(&self) -> Option<&'static str> {
+        match self {
+            EVMVersion::Homestead => Some("tangerinewhistle"),
+            EVMVersion::TangerineWhistle => Some("spuriousdragon"),
+            EVMVersion::SpuriousDragon => Some("byzantium"),
+            EVMVersion::Byzantium => Some("constantinople"),
+            EVMVersion::Constantinople => Some("istanbul"),
+            EVMVersion::Istanbul => Some("berlin"),
+            EVMVersion::Berlin => Some("london"),
+            EVMVersion::London => Some("arrowglacier"),
+            EVMVersion::ArrowGlacier => Some("grayglacier"),
+            EVMVersion::GrayGlacier => Some("paris"),
+            EVMVersion::Paris => Some("shanghai"),
+            EVMVersion::Shangain => Some("cancun"),
+            EVMVersion::Cancun => None,
+        }
+    }
+}
+
+impl fmt::Display for EVMVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let version_str = match self {
+            EVMVersion::Homestead => "homestead",
+            EVMVersion::TangerineWhistle => "tangerinewhistle",
+            EVMVersion::SpuriousDragon => "spuriousdragon",
+            EVMVersion::Byzantium => "byzantium",
+            EVMVersion::Constantinople => "constantinople",
+            EVMVersion::Istanbul => "istanbul",
+            EVMVersion::Berlin => "berlin",
+            EVMVersion::London => "london",
+            EVMVersion::ArrowGlacier => "arrowglacier",
+            EVMVersion::GrayGlacier => "grayglacier",
+            EVMVersion::Paris => "paris",
+            EVMVersion::Shangain => "shanghai",
+            EVMVersion::Cancun => "cancun",
+        };
+        write!(f, "{}", version_str)
+    }
+}
+
 
 #[derive(Debug, thiserror::Error)]
 pub enum Errors {
@@ -38,11 +136,16 @@ pub enum Errors {
     InvalidArgumentFormat,
     #[error("Invalid Argument Count given Function Signature")]
     InvalidArgumentCount,
+    #[error("Compilation Failed")]
+    CompilationFailed,
+    #[error("Compiler Not Found, Download Solc")]
+    CompilerNotFound,
 }
 
 
 const SKIP_KEYWORD: [&str; 5] = ["gas", "wei", "emit", "Library", "FAILURE"];
-const SKIP_DIRECTORY: [&str; 2] = ["externalContracts", "externalSource"];
+const SKIP_DIRECTORY: [&str; 3] = ["externalContracts", "externalSource", "experimental"];
+const SKIP_FILE: [&str; 1] = ["access_through_module_name.sol"];
 
 /// EVM runner command that allows running Solidity semantic tests.
 /// If a path is provided, it will process that file or recursively process all `.sol` files in that directory.
@@ -72,8 +175,10 @@ impl Cmd {
         };
 
         for test_file in test_files {
+            println!("test file {:?}", test_file);
             let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
             let (source_code, test_cases) = parse_test_file(test_file_path)?;
+            println!("hey {:?}", source_code);
         }
 
 
@@ -101,14 +206,65 @@ fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
             test_files.extend(find_test_files(&path)?);
         } else if let Some(extension) = path.extension() {
             if extension == "sol" {
-                test_files.push(path);
+                let should_skip_file = SKIP_FILE.iter().any(|&file| {
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .map(|name| name == file)
+                        .unwrap_or(false)
+                });
+
+                if should_skip_file {
+                    println!("Skipping file: {:?}", path);
+                    continue; // Skip this file.
+                }
+
+                    test_files.push(path);
             }
         }
     }
     Ok(test_files)
 }
 
-fn parse_test_file(path: &str) -> Result<(String, Vec<TestCase>), Errors> {
+fn extract_evm_version(content: &str) -> Option<(String, String)> {
+    let parts: Vec<&str> = content.split("// ====").collect();
+    if parts.len() < 2 {
+        return None; 
+    }
+
+    for line in parts[1].lines() {
+        if let Some(version_part) = line.trim().strip_prefix("EVMVersion:") {
+            let version_str = version_part.trim();
+            let version;
+            let comparison;
+
+            if version_str.starts_with("<=") {
+                comparison = "<=";
+                version = version_str.trim_start_matches("<=").trim();
+            } else if version_str.starts_with('<') {
+                comparison = "<";
+                version = version_str.trim_start_matches('<').trim();
+            } else if version_str.starts_with(">=") {
+                comparison = ">=";
+                version = version_str.trim_start_matches(">=").trim();
+            } else if version_str.starts_with('>') {
+                comparison = ">";
+                version = version_str.trim_start_matches('>').trim();
+            } else if version_str.starts_with('=') {
+                comparison = "=";
+                version = version_str.trim_start_matches('=').trim();
+            } else {
+                comparison = "="; 
+                version = version_str;
+            }
+
+            return Some((version.to_string(), comparison.to_string()));
+        }
+    }
+    None
+}
+
+
+fn parse_test_file(path: &str) -> Result<(Bytes, Vec<TestCase>), Errors> {
     let content = fs::read_to_string(path)?;
     let parts: Vec<&str> = content.split("// ----").collect();
     //println!("len parts : {:?}", parts.len());
@@ -120,8 +276,53 @@ fn parse_test_file(path: &str) -> Result<(String, Vec<TestCase>), Errors> {
     let expectations = parts[1].to_string();
 
     let test_cases = parse_calls_and_expectations(expectations)?;
+    let evm_version = extract_evm_version(&content)
+        .and_then(|(version_str, comparison)| {
+            EVMVersion::from_str(&version_str).map(|version| (version, comparison))
+        })
+        .and_then(|(version, comparison)| match comparison.as_str() {
+            "<" => version.previous().map(|v| v.to_string()),
+            "<=" => Some(version.to_string()),
+            "=" => Some(version.to_string()),  
+            ">" => version.next().map(|v| v.to_string()),
+            ">=" => Some(version.to_string()), 
+            _ => None,
+    });
+    println!("evm version {:?}", evm_version);
+    let mut solc_command = Command::new("solc");
+    solc_command.arg("--bin").arg("-");
 
-    Ok((source_code.to_string(), test_cases))
+    if let Some(version) = evm_version {
+        solc_command.arg("--evm-version").arg(version);
+    }
+
+    let mut solc_process = solc_command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                Errors::CompilerNotFound
+            } else {
+                Errors::CompilationFailed
+            }
+        })?;
+
+    if let Some(mut stdin) = solc_process.stdin.take() {
+        stdin.write_all(source_code.as_bytes()).map_err(|_| Errors::CompilationFailed)?;
+    }
+
+    let output = solc_process
+        .wait_with_output()
+        .map_err(|_| Errors::CompilationFailed)?;
+
+    if !output.status.success() {
+        return Err(Errors::CompilationFailed);
+    }
+
+    let binary = output.stdout;
+
+    Ok((Bytes::from(binary), test_cases))
 }
 
 struct TestCase {
