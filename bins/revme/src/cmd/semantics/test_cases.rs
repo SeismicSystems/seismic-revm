@@ -4,20 +4,6 @@ use super::{compiler_evm_versions::EVMVersion, errors::Errors};
 use alloy_primitives::{keccak256, I256, U256};
 use revm::primitives::Bytes;
 
-pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
-    let parts: Vec<&str> = content.split("// ====").collect();
-    if parts.len() < 2 {
-        return false; 
-    }
-
-    for line in parts[1].lines() {
-        if let Some(flag_part) = line.trim().strip_prefix("// compileViaYul:") {
-            return flag_part.trim() == "true"; 
-        }
-    }
-    false
-}
-
 const SKIP_KEYWORD: [&str; 5] = ["gas", "wei", "emit", "Library", "FAILURE"];
 
 #[derive(Debug)]

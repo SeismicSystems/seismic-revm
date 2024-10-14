@@ -5,7 +5,7 @@ use revm::primitives::Bytes;
 
 use crate::cmd::semantics::Errors;
 
-use super::{compiler_evm_versions::EVMVersion, test_cases::{extract_compile_via_yul, TestCase}};
+use super::{compiler_evm_versions::EVMVersion, test_cases::TestCase, utils::extract_compile_via_yul};
 
 #[derive(Debug)]
 pub struct SemanticTests {

@@ -1,7 +1,6 @@
 use std::{fs, path::{Path, PathBuf}};
 use crate::cmd::semantics::Errors;
 
-
 const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "experimental", "multiSource"];
 const SKIP_FILE: [&str; 1] = ["access_through_module_name.sol"];
 
@@ -41,4 +40,18 @@ pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
         }
     }
     Ok(test_files)
+}
+
+pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
+    let parts: Vec<&str> = content.split("// ====").collect();
+    if parts.len() < 2 {
+        return false; 
+    }
+
+    for line in parts[1].lines() {
+        if let Some(flag_part) = line.trim().strip_prefix("// compileViaYul:") {
+            return flag_part.trim() == "true"; 
+        }
+    }
+    false
 }
