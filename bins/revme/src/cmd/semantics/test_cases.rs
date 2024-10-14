@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use super::{compiler_evm_versions::EVMVersion, errors::Errors};
-use alloy_primitives::{keccak256, Bytes, I256, U256};
+use alloy_primitives::{keccak256, I256, U256};
+use revm::primitives::Bytes;
 
 pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
     let parts: Vec<&str> = content.split("// ====").collect();
@@ -19,6 +20,7 @@ pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
 
 const SKIP_KEYWORD: [&str; 5] = ["gas", "wei", "emit", "Library", "FAILURE"];
 
+#[derive(Debug)]
 pub(crate) struct TestCase {
     pub input_data: Bytes,
     pub expected_outputs: Vec<Bytes>,
@@ -41,7 +43,7 @@ impl TestCase {
 
             // Example: "add(uint256,uint256): 1,2 -> 3"
             let parts: Vec<&str> = line.split("->").collect();
-            if parts.len() <= 2 {
+            if parts.len() < 2  || parts.len() > 3 {
                 continue;
             }
 
@@ -50,14 +52,14 @@ impl TestCase {
             });
 
             if should_skip {
-                continue; // Skip further processing for this line.
+                continue; 
             }
 
             let call_part = parts[0].trim();
             let expected_output_part = parts[1].trim();
 
             let signature_and_args: Vec<&str> = call_part.split(':').collect();
-            if signature_and_args.len() != 2 {
+            if signature_and_args.len() > 2 {
                 continue;
             }
             
@@ -69,7 +71,11 @@ impl TestCase {
 
             let (function_selector, parameter_types) = Self::parse_function_signature(signature_and_args[0].trim())?;
 
-            let args_list: Vec<&str> = signature_and_args[1].trim().split(',').map(|arg| arg.trim()).collect();
+            let args_list = if signature_and_args.len() > 1 && !signature_and_args[1].trim().is_empty() {
+                signature_and_args[1].trim().split(',').map(|arg| arg.trim()).collect::<Vec<&str>>()
+            } else {
+                Vec::new() 
+            };
 
             if args_list.len() != parameter_types.len() {
                 return Err(Errors::InvalidArgumentCount);
@@ -106,7 +112,6 @@ impl TestCase {
     }
 
     fn parse_function_signature(signature: &str) -> Result<(Vec<u8>, Vec<String>), Errors> {
-        // Function signature is in the format: functionName(type1,type2,...)
         if let Some(start_idx) = signature.find('(') {
             if let Some(end_idx) = signature.rfind(')') {
                 let _function_name = &signature[..start_idx];

@@ -1,12 +1,13 @@
 use std::{io::Write, process::{Command, Stdio}};
 use std::fs;
 
-use crate::cmd::semantics::Errors;
+use revm::primitives::Bytes;
 
-use alloy_primitives::Bytes;
+use crate::cmd::semantics::Errors;
 
 use super::{compiler_evm_versions::EVMVersion, test_cases::{extract_compile_via_yul, TestCase}};
 
+#[derive(Debug)]
 pub struct SemanticTests {
     pub test_cases: Vec<TestCase>,
     pub source_code: Option<Bytes>,

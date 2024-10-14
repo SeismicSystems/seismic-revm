@@ -1,3 +1,11 @@
+use revm::{
+    db::BenchmarkDB,
+    inspector_handle_register,
+    inspectors::TracerEip3155,
+    primitives::{Address, Bytecode, BytecodeDecodeError, TxKind},
+    Evm,
+};
+
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -20,7 +28,10 @@ use utils::find_test_files;
 pub struct Cmd {
     /// Path to a Solidity file or directory containing Solidity files. If no file is provided, it will default to the Solidity semantic tests directory.
     #[structopt(long)]
-    path: Option<PathBuf>
+    path: Option<PathBuf>,
+    /// Print the trace.
+    #[structopt(long)]
+    trace: bool,
 }
 
 impl Cmd {
@@ -41,11 +52,50 @@ impl Cmd {
         };
 
         for test_file in test_files {
+            println!("test_file: {:?}", test_file);
             let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
-            match SemanticTests::new(test_file_path) {
+               match SemanticTests::new(test_file_path) {
                 Ok(semantic_tests) => {
-                     
-                }
+                    println!("semantic_tests: {:?}", semantic_tests.test_cases);
+                    for test_case in semantic_tests.test_cases {
+                        if !test_case.is_constructor {
+                            let mut evm = Evm::builder()
+                                .with_db(BenchmarkDB::new_bytecode(Bytecode::new_raw(
+                                    semantic_tests.runtime_code.clone(),
+                                )))
+                                .modify_tx_env(|tx| {
+                                    tx.caller = "0x0000000000000000000000000000000000000001"
+                                        .parse()
+                                        .unwrap();
+                                    tx.transact_to = TxKind::Call(Address::ZERO);
+                                    tx.data = test_case.input_data.clone(); 
+                                })
+                                .build();
+
+                            // Run the transaction and either trace or log results
+                            let out = if self.trace {
+                                let mut evm = evm
+                                    .modify()
+                                    .reset_handler_with_external_context(TracerEip3155::new(
+                                        Box::new(std::io::stdout()),
+                                    ))
+                                    .append_handler_register(inspector_handle_register)
+                                    .build();
+
+                                evm.transact().map_err(|_| Errors::EVMError)?
+                            } else {
+                                let out = evm.transact().map_err(|_| Errors::EVMError)?;
+                                println!("Result: {:#?}", out.result);
+                                out
+                            };
+                                println!("out: {:?}", out);
+
+                                // You might want to process the output here, e.g., validate it against expected outputs.
+                                // Compare out.result with test_case.expected_outputs
+                            }
+                        }
+                    }
+ 
                 Err(Errors::UnhandledTestFormat) => {
                     continue;
                 }
