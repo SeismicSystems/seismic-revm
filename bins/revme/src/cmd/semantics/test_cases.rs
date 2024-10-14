@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use super::{compiler_evm_versions::EVMVersion, errors::Errors};
 use alloy_primitives::{keccak256, I256, U256};
-use revm::primitives::Bytes;
+use revm::primitives::{Bytes, FixedBytes};
 
 const SKIP_KEYWORD: [&str; 5] = ["gas", "wei", "emit", "Library", "FAILURE"];
 
@@ -176,66 +176,72 @@ impl TestCase {
                 Err(Errors::InvalidArgumentFormat)
             }
         } else {
+            println!("Unsupported parameter type: {:?}", arg);
             // Default case for unsupported parameter types
             Err(Errors::InvalidArgumentFormat)
         }
     }
 
-        fn parse_output_arg(arg: &str) -> Result<Bytes, Errors> {
-            let arg = arg.trim();
+    fn parse_output_arg(arg: &str) -> Result<Bytes, Errors> {
+        let arg = arg.trim();
 
-            if arg == "true" || arg == "false" {
-                let value = if arg == "true" { 1u8 } else { 0u8 };
-                let mut buf = [0u8; 32];
-                buf[31] = value; 
-                return Ok(Bytes::from(buf.to_vec()));
-            }
-
-            if arg.starts_with("-") {
-                let num = I256::from_str(arg).map_err(|_| Errors::InvalidArgumentFormat)?;
-                let num_bytes = num.to_be_bytes::<32>(); 
-                return Ok(Bytes::from(Vec::from(num_bytes.as_slice())))    
-            }
-
-            if let Ok(num) = U256::from_str(arg) {
-                let num_bytes = num.to_be_bytes::<32>(); 
-                return Ok(Bytes::from(Vec::from(num_bytes.as_slice())))    
-            }
-
-
-            // Handle hex values
-            if arg.starts_with("0x") {
-                let bytes = hex::decode(arg.trim_start_matches("0x"))
-                    .map_err(|_| Errors::InvalidArgumentFormat)?;
-                return Ok(Bytes::from(bytes));
-            }
-
-            if arg.starts_with("left(") && arg.ends_with(')') {
-                let inner = &arg[5..arg.len() - 1];
-                let bytes = hex::decode(inner.trim_start_matches("0x"))
-                    .map_err(|_| Errors::InvalidArgumentFormat)?;
-                // For left(), pad on the right with zeros to 32 bytes
-                let mut buf = Vec::from(bytes);
-                if buf.len() < 32 {
-                    buf.resize(32, 0u8);
-                }
-                return Ok(Bytes::from(buf));
-            } else if arg.starts_with("right(") && arg.ends_with(')') {
-                let inner = &arg[6..arg.len() - 1];
-                let bytes = hex::decode(inner.trim_start_matches("0x"))
-                    .map_err(|_| Errors::InvalidArgumentFormat)?;
-                let mut buf = vec![0u8; 32];
-                let len = bytes.len();
-                if len > 32 {
-                    return Err(Errors::InvalidArgumentFormat);
-                }
-                buf[32 - len..].copy_from_slice(&bytes);
-                return Ok(Bytes::from(buf));
-            }
-
-            // If none of the above, return error
-            Err(Errors::InvalidArgumentFormat)
+        if arg == "true" || arg == "false" {
+            let value = if arg == "true" { 1u8 } else { 0u8 };
+            let mut buf = [0u8; 32];
+            buf[31] = value; 
+            return Ok(Bytes::from(buf.to_vec()));
         }
+
+        if arg.starts_with("-") {
+            let num = I256::from_str(arg).map_err(|_| Errors::InvalidArgumentFormat)?;
+            let num_bytes = num.to_be_bytes::<32>(); 
+            return Ok(Bytes::from(Vec::from(num_bytes.as_slice())))    
+        }
+
+        if let Ok(num) = U256::from_str(arg) {
+            let num_bytes = num.to_be_bytes::<32>(); 
+            return Ok(Bytes::from(Vec::from(num_bytes.as_slice())))    
+        }
+
+
+        // Handle hex values
+        if arg.starts_with("0x") {
+            let bytes = hex::decode(arg.trim_start_matches("0x"))
+                .map_err(|_| Errors::InvalidArgumentFormat)?;
+            return Ok(Bytes::from(bytes));
+        }
+
+        if arg.starts_with("left(") && arg.ends_with(')') {
+            let inner = &arg[5..arg.len() - 1];
+            let bytes = hex::decode(inner.trim_start_matches("0x"))
+                .map_err(|_| Errors::InvalidArgumentFormat)?;
+            // For left(), pad on the right with zeros to 32 bytes
+            let mut buf = Vec::from(bytes);
+            if buf.len() < 32 {
+                buf.resize(32, 0u8);
+            }
+            return Ok(Bytes::from(buf));
+        } else if arg.starts_with("right(") && arg.ends_with(')') {
+            let inner = &arg[6..arg.len() - 1];
+            let bytes = hex::decode(inner.trim_start_matches("0x"))
+                .map_err(|_| Errors::InvalidArgumentFormat)?;
+            let mut buf = vec![0u8; 32];
+            let len = bytes.len();
+            if len > 32 {
+                return Err(Errors::InvalidArgumentFormat);
+            }
+            buf[32 - len..].copy_from_slice(&bytes);
+            return Ok(Bytes::from(buf));
+        }
+        else if arg.starts_with("\"") && arg.ends_with("\"") {
+            let inner = &arg[1..arg.len() - 1];
+            let string_bytes = inner.as_bytes().to_vec();
+            let output = FixedBytes::<32>::right_padding_from(string_bytes.as_ref());
+            return Ok(Bytes::from(output.to_vec()));
+        }
+        // If none of the above, return error
+        Err(Errors::InvalidArgumentFormat)
+    }
 }
 
 

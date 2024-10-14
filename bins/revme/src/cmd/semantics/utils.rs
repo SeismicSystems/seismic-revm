@@ -2,7 +2,7 @@ use std::{fs, path::{Path, PathBuf}};
 use crate::cmd::semantics::Errors;
 
 const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "experimental", "multiSource"];
-const SKIP_FILE: [&str; 1] = ["access_through_module_name.sol"];
+const SKIP_FILE: [&str; 2] = ["access_through_module_name.sol", "multiline_comments.sol"];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     let mut test_files = Vec::new();

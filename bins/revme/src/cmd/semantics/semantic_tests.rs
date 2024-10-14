@@ -21,8 +21,10 @@ impl SemanticTests {
         if parts.len() != 2 {
             return Err(Errors::InvalidTestFormat);
         }
-        // Early exit if the content contains `==== Source:` We do not handle this yet.
-        if content.contains("==== Source:") {
+        
+        // Early exit if the content contains `==== Source:` We do not handle this yet nor
+        // nonExistingFunctions
+        if content.contains("==== Source:") || content.contains("allowNonExistingFunctions: true") {
             return Err(Errors::UnhandledTestFormat);  
         }
 
