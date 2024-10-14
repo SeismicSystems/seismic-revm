@@ -76,4 +76,43 @@ impl fmt::Display for EVMVersion {
     }
 }
 
+impl EVMVersion {
+    pub(crate) fn extract(content: &str) -> Option<Self> {
+        let parts: Vec<&str> = content.split("// ====").collect();
+        if parts.len() < 2 {
+            return None; 
+        }
+
+        for line in parts[1].lines() {
+            if let Some(version_part) = line.trim().strip_prefix("// EVMVersion:") {
+                let version_str = version_part.trim();
+
+                let (comparison, version) = if version_str.starts_with("<=") {
+                    ("<=", version_str.trim_start_matches("<=").trim())
+                } else if version_str.starts_with('<') {
+                    ("<", version_str.trim_start_matches('<').trim())
+                } else if version_str.starts_with(">=") {
+                    (">=", version_str.trim_start_matches(">=").trim())
+                } else if version_str.starts_with('>') {
+                    (">", version_str.trim_start_matches('>').trim())
+                } else if version_str.starts_with('=') {
+                    ("=", version_str.trim_start_matches('=').trim())
+                } else {
+                    ("=", version_str)
+                };
+
+                if let Some(ev_version) = EVMVersion::from_str(version) {
+                    return match comparison {
+                        "<" => ev_version.previous().and_then(|v| EVMVersion::from_str(v)),
+                        "<=" | "=" => Some(ev_version),
+                        ">" => ev_version.next().and_then(|v| EVMVersion::from_str(v)),
+                        ">=" => Some(ev_version),
+                        _ => None,
+                    };
+                }
+            }
+        }
+        None
+    }
+}
 
