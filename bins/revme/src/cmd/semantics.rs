@@ -20,33 +20,27 @@ use std::fmt;
 #[derive(Debug)]
 enum EVMVersion {
     Homestead,
-    TangerineWhistle,
-    SpuriousDragon,
     Byzantium,
     Constantinople,
     Istanbul,
     Berlin,
     London,
-    ArrowGlacier,
-    GrayGlacier,
     Paris,
     Shangain,
     Cancun
 }
 
+
+// Not fully exhaustive list of versions, trying to cover all SOLIDITY VERSIONING is the goal here
 impl EVMVersion {
     fn from_str(version: &str) -> Option<Self> {
         match version.to_lowercase().as_str() {
             "homestead" => Some(Self::Homestead),
-            "tangerinewhistle" => Some(Self::TangerineWhistle),
-            "spuriousdragon" => Some(Self::SpuriousDragon),
             "byzantium" => Some(Self::Byzantium),
             "constantinople" => Some(Self::Constantinople),
             "istanbul" => Some(Self::Istanbul),
             "berlin" => Some(Self::Berlin),
             "london" => Some(Self::London),
-            "arrowglacier" => Some(Self::ArrowGlacier),
-            "grayglacier" => Some(Self::GrayGlacier),
             "paris" => Some(Self::Paris),
             "shanghai" => Some(Self::Shangain),
             "cancun" => Some(Self::Cancun),
@@ -58,31 +52,23 @@ impl EVMVersion {
         match self {
             EVMVersion::Cancun => Some("shanghai"),
             EVMVersion::Shangain => Some("paris"),
-            EVMVersion::Paris => Some("grayglacier"),
-            EVMVersion::GrayGlacier => Some("arrowglacier"),
-            EVMVersion::ArrowGlacier => Some("london"),
+            EVMVersion::Paris => Some("London"),
             EVMVersion::London => Some("berlin"),
             EVMVersion::Berlin => Some("istanbul"),
             EVMVersion::Istanbul => Some("constantinople"),
             EVMVersion::Constantinople => Some("byzantium"),
-            EVMVersion::Byzantium => Some("spuriousdragon"),
-            EVMVersion::SpuriousDragon => Some("tangerinewhistle"),
-            EVMVersion::TangerineWhistle => Some("homestead"),
+            EVMVersion::Byzantium => Some("homestead"),
             EVMVersion::Homestead => None,
         }
     }
     fn next(&self) -> Option<&'static str> {
         match self {
-            EVMVersion::Homestead => Some("tangerinewhistle"),
-            EVMVersion::TangerineWhistle => Some("spuriousdragon"),
-            EVMVersion::SpuriousDragon => Some("byzantium"),
+            EVMVersion::Homestead => Some("byzantium"),
             EVMVersion::Byzantium => Some("constantinople"),
             EVMVersion::Constantinople => Some("istanbul"),
             EVMVersion::Istanbul => Some("berlin"),
             EVMVersion::Berlin => Some("london"),
             EVMVersion::London => Some("arrowglacier"),
-            EVMVersion::ArrowGlacier => Some("grayglacier"),
-            EVMVersion::GrayGlacier => Some("paris"),
             EVMVersion::Paris => Some("shanghai"),
             EVMVersion::Shangain => Some("cancun"),
             EVMVersion::Cancun => None,
@@ -94,15 +80,11 @@ impl fmt::Display for EVMVersion {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let version_str = match self {
             EVMVersion::Homestead => "homestead",
-            EVMVersion::TangerineWhistle => "tangerinewhistle",
-            EVMVersion::SpuriousDragon => "spuriousdragon",
             EVMVersion::Byzantium => "byzantium",
             EVMVersion::Constantinople => "constantinople",
             EVMVersion::Istanbul => "istanbul",
             EVMVersion::Berlin => "berlin",
             EVMVersion::London => "london",
-            EVMVersion::ArrowGlacier => "arrowglacier",
-            EVMVersion::GrayGlacier => "grayglacier",
             EVMVersion::Paris => "paris",
             EVMVersion::Shangain => "shanghai",
             EVMVersion::Cancun => "cancun",
@@ -128,6 +110,8 @@ pub enum Errors {
     BytecodeDecodeError(#[from] BytecodeDecodeError),
     #[error("Invalid Test Format")]
     InvalidTestFormat,
+    #[error("Unhandled Test Format: === Source:")]
+    UnhandledTestFormat,
     #[error("Invalid function signature")]
     InvalidFunctionSignature,
     #[error("Invalid Test Output")]
@@ -144,7 +128,7 @@ pub enum Errors {
 
 
 const SKIP_KEYWORD: [&str; 5] = ["gas", "wei", "emit", "Library", "FAILURE"];
-const SKIP_DIRECTORY: [&str; 3] = ["externalContracts", "externalSource", "experimental"];
+const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "experimental", "multiSource"];
 const SKIP_FILE: [&str; 1] = ["access_through_module_name.sol"];
 
 /// EVM runner command that allows running Solidity semantic tests.
@@ -177,11 +161,19 @@ impl Cmd {
         for test_file in test_files {
             println!("test file {:?}", test_file);
             let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
-            let (source_code, test_cases) = parse_test_file(test_file_path)?;
-            println!("hey {:?}", source_code);
+            match parse_test_file(test_file_path) {
+                Ok((source_code, test_cases)) => {
+                    println!("Running test cases for file {:?}", test_file_path);
+                }
+                Err(Errors::UnhandledTestFormat) => {
+                    continue;
+                }
+                Err(e) => {
+                    // Handle other errors (if any)
+                    return Err(e);
+                }
+            }        
         }
-
-
         Ok(())
     }
 }
@@ -214,88 +206,97 @@ fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
                 });
 
                 if should_skip_file {
-                    println!("Skipping file: {:?}", path);
-                    continue; // Skip this file.
+                    continue; 
                 }
 
-                    test_files.push(path);
+                test_files.push(path);
             }
         }
     }
     Ok(test_files)
 }
 
-fn extract_evm_version(content: &str) -> Option<(String, String)> {
+fn extract_evm_version(content: &str) -> Option<EVMVersion> {
     let parts: Vec<&str> = content.split("// ====").collect();
     if parts.len() < 2 {
         return None; 
     }
 
     for line in parts[1].lines() {
-        if let Some(version_part) = line.trim().strip_prefix("EVMVersion:") {
+        if let Some(version_part) = line.trim().strip_prefix("// EVMVersion:") {
             let version_str = version_part.trim();
-            let version;
-            let comparison;
 
-            if version_str.starts_with("<=") {
-                comparison = "<=";
-                version = version_str.trim_start_matches("<=").trim();
+            let (comparison, version) = if version_str.starts_with("<=") {
+                ("<=", version_str.trim_start_matches("<=").trim())
             } else if version_str.starts_with('<') {
-                comparison = "<";
-                version = version_str.trim_start_matches('<').trim();
+                ("<", version_str.trim_start_matches('<').trim())
             } else if version_str.starts_with(">=") {
-                comparison = ">=";
-                version = version_str.trim_start_matches(">=").trim();
+                (">=", version_str.trim_start_matches(">=").trim())
             } else if version_str.starts_with('>') {
-                comparison = ">";
-                version = version_str.trim_start_matches('>').trim();
+                (">", version_str.trim_start_matches('>').trim())
             } else if version_str.starts_with('=') {
-                comparison = "=";
-                version = version_str.trim_start_matches('=').trim();
+                ("=", version_str.trim_start_matches('=').trim())
             } else {
-                comparison = "="; 
-                version = version_str;
-            }
+                ("=", version_str)
+            };
 
-            return Some((version.to_string(), comparison.to_string()));
+            if let Some(ev_version) = EVMVersion::from_str(version) {
+                return match comparison {
+                    "<" => ev_version.previous().and_then(|v| EVMVersion::from_str(v)),
+                    "<=" | "=" => Some(ev_version),
+                    ">" => ev_version.next().and_then(|v| EVMVersion::from_str(v)),
+                    ">=" => Some(ev_version),
+                    _ => None,
+                };
+            }
         }
     }
     None
+}
+
+fn extract_compile_via_yul(content: &str) -> bool {
+    let parts: Vec<&str> = content.split("// ====").collect();
+    if parts.len() < 2 {
+        return false; 
+    }
+
+    for line in parts[1].lines() {
+        if let Some(flag_part) = line.trim().strip_prefix("// compileViaYul:") {
+            return flag_part.trim() == "true"; 
+        }
+    }
+    false
 }
 
 
 fn parse_test_file(path: &str) -> Result<(Bytes, Vec<TestCase>), Errors> {
     let content = fs::read_to_string(path)?;
     let parts: Vec<&str> = content.split("// ----").collect();
-    //println!("len parts : {:?}", parts.len());
     if parts.len() != 2 {
         return Err(Errors::InvalidTestFormat);
     }
-   
+    // Early exit if the content contains `==== Source:` We do not handle this yet.
+    if content.contains("==== Source:") {
+        return Err(Errors::UnhandledTestFormat);  
+    }
+
     let source_code = parts[0];
     let expectations = parts[1].to_string();
 
     let test_cases = parse_calls_and_expectations(expectations)?;
-    let evm_version = extract_evm_version(&content)
-        .and_then(|(version_str, comparison)| {
-            EVMVersion::from_str(&version_str).map(|version| (version, comparison))
-        })
-        .and_then(|(version, comparison)| match comparison.as_str() {
-            "<" => version.previous().map(|v| v.to_string()),
-            "<=" => Some(version.to_string()),
-            "=" => Some(version.to_string()),  
-            ">" => version.next().map(|v| v.to_string()),
-            ">=" => Some(version.to_string()), 
-            _ => None,
-    });
-    println!("evm version {:?}", evm_version);
-    let mut solc_command = Command::new("solc");
+    let evm_version = extract_evm_version(&content);
+    let mut solc_command = Command::new("/usr/local/bin/solc");
     solc_command.arg("--bin").arg("-");
 
     if let Some(version) = evm_version {
-        solc_command.arg("--evm-version").arg(version);
+        solc_command.arg("--evm-version").arg(version.to_string());
     }
 
+    if extract_compile_via_yul(&content) {
+        solc_command.arg("--via-ir"); 
+    }
+
+    println!("source_code:\n{}", source_code);
     let mut solc_process = solc_command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -368,8 +369,6 @@ fn parse_calls_and_expectations(expectations: String) -> Result<Vec<TestCase>, E
         let (function_selector, parameter_types) = parse_function_signature(signature_and_args[0].trim())?;
 
         let args_list: Vec<&str> = signature_and_args[1].trim().split(',').map(|arg| arg.trim()).collect();
-        //println!("args_list : {:?}", args_list);
-        //println!("parameter_types : {:?}", parameter_types);
 
         if args_list.len() != parameter_types.len() {
             return Err(Errors::InvalidArgumentCount);
