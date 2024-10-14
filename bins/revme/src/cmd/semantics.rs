@@ -5,11 +5,13 @@ extern crate alloc;
 
 mod errors;
 pub use errors::Errors;
-mod file_handler;
-use file_handler::{find_test_files, parse_test_file};
+mod semantic_tests;
+use semantic_tests::SemanticTests;
 mod test_cases;
 mod compiler_evm_versions;
 mod evm_handler;
+mod utils;
+use utils::find_test_files;
 
 /// EVM runner command that allows running Solidity semantic tests.
 /// If a path is provided, it will process that file or recursively process all `.sol` files in that directory.
@@ -40,8 +42,8 @@ impl Cmd {
 
         for test_file in test_files {
             let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
-            match parse_test_file(test_file_path) {
-                Ok(full_test) => {
+            match SemanticTests::new(test_file_path) {
+                Ok(semantic_tests) => {
                      
                 }
                 Err(Errors::UnhandledTestFormat) => {
