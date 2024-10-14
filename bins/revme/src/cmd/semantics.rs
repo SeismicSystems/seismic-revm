@@ -1,11 +1,3 @@
-use revm::{
-    db::BenchmarkDB,
-    inspector_handle_register,
-    inspectors::TracerEip3155,
-    primitives::{Address, Bytecode, BytecodeDecodeError, FixedBytes, TxKind},
-    Evm,
-};
-
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -17,6 +9,7 @@ mod file_handler;
 use file_handler::{find_test_files, parse_test_file};
 mod test_cases;
 mod compiler_evm_versions;
+mod evm_handler;
 
 /// EVM runner command that allows running Solidity semantic tests.
 /// If a path is provided, it will process that file or recursively process all `.sol` files in that directory.
@@ -48,8 +41,8 @@ impl Cmd {
         for test_file in test_files {
             let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
             match parse_test_file(test_file_path) {
-                Ok((source_code, test_cases)) => {
-                    println!("Running test cases for file {:?}", test_file_path);
+                Ok(full_test) => {
+                     
                 }
                 Err(Errors::UnhandledTestFormat) => {
                     continue;

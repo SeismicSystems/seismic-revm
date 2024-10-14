@@ -56,14 +56,14 @@ pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
 }
 
 pub(crate) struct TestCase {
-    input_data: Bytes,
-    expected_outputs: Vec<Bytes>,
-    is_constructor: bool,
+    pub input_data: Bytes,
+    pub expected_outputs: Vec<Bytes>,
+    pub is_constructor: bool,
 }
 
 const SKIP_KEYWORD: [&str; 5] = ["gas", "wei", "emit", "Library", "FAILURE"];
 
-pub(crate) fn parse_calls_and_expectations(expectations: String, is_constructor: bool) -> Result<Vec<TestCase>, Errors> {
+pub(crate) fn parse_calls_and_expectations(expectations: String) -> Result<Vec<TestCase>, Errors> {
     let mut test_cases = Vec::new();
     for line in expectations.lines() {
         if line.trim().is_empty() {
@@ -96,6 +96,12 @@ pub(crate) fn parse_calls_and_expectations(expectations: String, is_constructor:
         let signature_and_args: Vec<&str> = call_part.split(':').collect();
         if signature_and_args.len() != 2 {
             continue;
+        }
+        
+        let mut is_constructor = false;
+
+        if signature_and_args[0].starts_with("constructor(") {
+            is_constructor = true
         }
 
         let (function_selector, parameter_types) = parse_function_signature(signature_and_args[0].trim())?;

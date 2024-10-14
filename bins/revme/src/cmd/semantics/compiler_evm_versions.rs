@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum EVMVersion {
     Homestead,
     Byzantium,

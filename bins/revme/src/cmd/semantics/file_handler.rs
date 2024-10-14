@@ -5,10 +5,16 @@ use crate::cmd::semantics::Errors;
 
 use alloy_primitives::Bytes;
 
-use super::test_cases::{extract_compile_via_yul, extract_evm_version, parse_calls_and_expectations, TestCase};
+use super::{compiler_evm_versions::EVMVersion, test_cases::{extract_compile_via_yul, extract_evm_version, parse_calls_and_expectations, TestCase}};
 
 const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "experimental", "multiSource"];
 const SKIP_FILE: [&str; 1] = ["access_through_module_name.sol"];
+
+pub struct FullTest {
+    pub test_cases: Vec<TestCase>,
+    pub source_code: Option<Bytes>,
+    pub runtime_code: Bytes
+}
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     let mut test_files = Vec::new();
@@ -48,7 +54,7 @@ pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     Ok(test_files)
 }
 
-pub(crate) fn parse_test_file(path: &str) -> Result<(Bytes, Vec<TestCase>), Errors> {
+pub(crate) fn parse_test_file(path: &str) -> Result<FullTest, Errors> {
     let content = fs::read_to_string(path)?;
     let parts: Vec<&str> = content.split("// ----").collect();
     if parts.len() != 2 {
@@ -59,31 +65,58 @@ pub(crate) fn parse_test_file(path: &str) -> Result<(Bytes, Vec<TestCase>), Erro
         return Err(Errors::UnhandledTestFormat);  
     }
 
-    let mut is_constructor: bool = false;
-    if content.contains("    constructor(") {
-        is_constructor = true;  
-    }
-
     let source_code = parts[0];
     let expectations = parts[1].to_string();
 
-    let test_cases = parse_calls_and_expectations(expectations, is_constructor)?;
+    let test_cases = parse_calls_and_expectations(expectations)?;
     let evm_version = extract_evm_version(&content);
+    let via_ir = extract_compile_via_yul(&content);
+
+    let runtime_code = compile_solidity(source_code, evm_version.clone(), via_ir, true)?;
+
+    let binary = if test_cases.iter().any(|tc| tc.is_constructor) {
+        Some(compile_solidity(source_code, evm_version, via_ir, false)?)
+    } else {
+        None 
+    };
+
+    // Return FullTest
+    Ok(FullTest {
+        test_cases,
+        source_code: binary,
+        runtime_code,
+    })
+}
+
+pub(crate) fn compile_solidity(
+    source_code: &str, 
+    evm_version: Option<EVMVersion>, 
+    via_ir: bool, 
+    runtime: bool
+) -> Result<Bytes, Errors> {
     let mut solc_command = Command::new("/usr/local/bin/solc");
-    solc_command.arg("--bin").arg("-");
+
+    // Add either --bin or --bin-runtime based on the flag
+    if runtime {
+        solc_command.arg("--bin-runtime");
+    } else {
+        solc_command.arg("--bin");
+    }
+
+    solc_command.arg("-");
 
     if let Some(version) = evm_version {
         solc_command.arg("--evm-version").arg(version.to_string());
     }
 
-    if extract_compile_via_yul(&content) {
+    if via_ir {
         solc_command.arg("--via-ir"); 
     }
 
+    // Spawn the solc process
     let mut solc_process = solc_command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        // the below might mean some error are not printed!
         .stderr(Stdio::null())
         .spawn()
         .map_err(|e| {
@@ -102,23 +135,10 @@ pub(crate) fn parse_test_file(path: &str) -> Result<(Bytes, Vec<TestCase>), Erro
         .wait_with_output()
         .map_err(|_| Errors::CompilationFailed)?;
 
-    let stderr_output = String::from_utf8_lossy(&output.stderr);
-
     if !output.status.success() {
-        let has_error = stderr_output
-            .lines()
-            .any(|line| line.contains("Error")); 
-
-        if has_error {
-            eprintln!("Compilation Error: {}", stderr_output); 
-            return Err(Errors::CompilationFailed);
-        }
-    } else {
-        if stderr_output.contains("Warning") {
-            println!("Compilation Warnings: {}", stderr_output); 
-        }
+        return Err(Errors::CompilationFailed);
     }
-    let binary = output.stdout;
 
-    Ok((Bytes::from(binary), test_cases))
+    Ok(Bytes::from(output.stdout)) // Return the compiled binary as Bytes
 }
+
