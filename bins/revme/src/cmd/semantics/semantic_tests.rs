@@ -33,7 +33,7 @@ impl SemanticTests {
         let evm_version = EVMVersion::extract(&content);
         let via_ir = extract_compile_via_yul(&content);
 
-        let runtime_code = Self::compile_solidity(source_code, evm_version.clone(), via_ir, true)?;
+        let runtime_code = Self::compile_solidity(path, evm_version.clone(), via_ir, true)?;
 
         let binary = if test_cases.iter().any(|tc| tc.is_constructor) {
             Some(Self::compile_solidity(source_code, evm_version, via_ir, false)?)
@@ -49,7 +49,7 @@ impl SemanticTests {
     }
 
     fn compile_solidity(
-        source_code: &str, 
+        path: &str, 
         evm_version: Option<EVMVersion>, 
         via_ir: bool, 
         runtime: bool
@@ -61,8 +61,7 @@ impl SemanticTests {
         } else {
             solc_command.arg("--bin");
         }
-
-        solc_command.arg("-");
+        solc_command.arg(path);
 
         if let Some(version) = evm_version {
             solc_command.arg("--evm-version").arg(version.to_string());
@@ -72,11 +71,8 @@ impl SemanticTests {
             solc_command.arg("--via-ir"); 
         }
 
-        let mut solc_process = solc_command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
+        let output = solc_command
+            .output()
             .map_err(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Errors::CompilerNotFound
@@ -85,19 +81,24 @@ impl SemanticTests {
                 }
             })?;
 
-        if let Some(mut stdin) = solc_process.stdin.take() {
-            stdin.write_all(source_code.as_bytes()).map_err(|_| Errors::CompilationFailed)?;
-        }
-
-        let output = solc_process
-            .wait_with_output()
-            .map_err(|_| Errors::CompilationFailed)?;
-
         if !output.status.success() {
             return Err(Errors::CompilationFailed);
         }
+    
+        let stdout_output = String::from_utf8_lossy(&output.stdout);
 
-        Ok(Bytes::from(output.stdout)) 
+        if let Some(bytecode_pos) = stdout_output.find("Binary of the runtime part:") {
+            let bytecode = stdout_output[bytecode_pos..]
+                .lines() 
+                .skip(1) 
+                .next()  
+                .unwrap_or(""); 
+
+            Ok(Bytes::from(hex::decode(bytecode.trim()).map_err(|_| Errors::CompilationFailed)?))
+        } else {
+            Err(Errors::CompilationFailed)
+        }
+
     }
 }
 

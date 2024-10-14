@@ -56,7 +56,6 @@ impl Cmd {
             let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
                match SemanticTests::new(test_file_path) {
                 Ok(semantic_tests) => {
-                    println!("semantic_tests: {:?}", semantic_tests.test_cases);
                     for test_case in semantic_tests.test_cases {
                         if !test_case.is_constructor {
                             let mut evm = Evm::builder()
@@ -85,10 +84,9 @@ impl Cmd {
                                 evm.transact().map_err(|_| Errors::EVMError)?
                             } else {
                                 let out = evm.transact().map_err(|_| Errors::EVMError)?;
-                                println!("Result: {:#?}", out.result);
                                 out
                             };
-                                println!("out: {:?}", out);
+                                assert_eq!(out.result.output().unwrap(), &test_case.expected_outputs);
 
                                 // You might want to process the output here, e.g., validate it against expected outputs.
                                 // Compare out.result with test_case.expected_outputs

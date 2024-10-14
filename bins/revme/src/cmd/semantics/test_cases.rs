@@ -23,7 +23,7 @@ const SKIP_KEYWORD: [&str; 5] = ["gas", "wei", "emit", "Library", "FAILURE"];
 #[derive(Debug)]
 pub(crate) struct TestCase {
     pub input_data: Bytes,
-    pub expected_outputs: Vec<Bytes>,
+    pub expected_outputs: Bytes,
     pub is_constructor: bool,
 }
 
@@ -98,12 +98,12 @@ impl TestCase {
             let mut expected_outputs = Vec::new();
             for output_arg in expected_outputs_list {
                 let output_encoded = Self::parse_output_arg(output_arg)?;
-                expected_outputs.push(output_encoded);
+                expected_outputs.extend_from_slice(output_encoded.as_ref());
             }
 
             test_cases.push(TestCase {
                 input_data: input_data.into(), 
-                expected_outputs,
+                expected_outputs: Bytes::from(expected_outputs),
                 is_constructor
             });
         }
