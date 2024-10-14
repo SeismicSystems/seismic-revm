@@ -59,10 +59,15 @@ pub(crate) fn parse_test_file(path: &str) -> Result<(Bytes, Vec<TestCase>), Erro
         return Err(Errors::UnhandledTestFormat);  
     }
 
+    let mut is_constructor: bool = false;
+    if content.contains("    constructor(") {
+        is_constructor = true;  
+    }
+
     let source_code = parts[0];
     let expectations = parts[1].to_string();
 
-    let test_cases = parse_calls_and_expectations(expectations)?;
+    let test_cases = parse_calls_and_expectations(expectations, is_constructor)?;
     let evm_version = extract_evm_version(&content);
     let mut solc_command = Command::new("/usr/local/bin/solc");
     solc_command.arg("--bin").arg("-");

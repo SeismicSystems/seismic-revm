@@ -58,11 +58,12 @@ pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
 pub(crate) struct TestCase {
     input_data: Bytes,
     expected_outputs: Vec<Bytes>,
+    is_constructor: bool,
 }
 
 const SKIP_KEYWORD: [&str; 5] = ["gas", "wei", "emit", "Library", "FAILURE"];
 
-pub(crate) fn parse_calls_and_expectations(expectations: String) -> Result<Vec<TestCase>, Errors> {
+pub(crate) fn parse_calls_and_expectations(expectations: String, is_constructor: bool) -> Result<Vec<TestCase>, Errors> {
     let mut test_cases = Vec::new();
     for line in expectations.lines() {
         if line.trim().is_empty() {
@@ -128,6 +129,7 @@ pub(crate) fn parse_calls_and_expectations(expectations: String) -> Result<Vec<T
         test_cases.push(TestCase {
             input_data: input_data.into(), 
             expected_outputs,
+            is_constructor
         });
     }
 
