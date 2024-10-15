@@ -55,3 +55,26 @@ pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
     }
     false
 }
+
+pub(crate) fn extract_functions_from_source(path: &str, contract_name: &str) -> Result<Vec<String>, Errors> {
+    let content = fs::read_to_string(path)?;
+
+    let mut functions = Vec::new();
+    let mut inside_contract = false;
+
+    for line in content.lines() {
+        if line.contains(&format!("contract {}", contract_name)) {
+            inside_contract = true;
+        } else if inside_contract && line.contains("function ") {
+            if let Some(function_name) = line.split_whitespace().nth(1) {
+                let function_signature = function_name.split('(').next().unwrap_or("");
+                functions.push(function_signature.to_string());
+            }
+        } else if inside_contract && line.contains("}") { 
+            break;
+        }
+    }
+
+    Ok(functions)
+}
+
