@@ -60,7 +60,7 @@ impl Cmd {
                         if !test_case.is_constructor {
                             let mut evm = Evm::builder()
                                 .with_db(BenchmarkDB::new_bytecode(Bytecode::new_raw(
-                                    semantic_tests.runtime_code.clone(),
+                                    test_case.contract_binary.clone(),
                                 )))
                                 .modify_tx_env(|tx| {
                                     tx.caller = "0x0000000000000000000000000000000000000001"
@@ -70,6 +70,9 @@ impl Cmd {
                                     tx.data = test_case.input_data.clone(); 
                                 })
                                 .build();
+
+                            println!("test_case.input_data: {:?}", test_case.input_data);
+                            println!("evm.env.tx.data: {:?}", evm.context.evm.env.tx.data);
 
                             // Run the transaction and either trace or log results
                             let out = if self.trace {
@@ -86,6 +89,8 @@ impl Cmd {
                                 let out = evm.transact().map_err(|_| Errors::EVMError)?;
                                 out
                             };
+                                println!("test {:?}", test_case);
+                                println!("out.result {:?}", out);
                                 assert_eq!(out.result.output().unwrap(), &test_case.expected_outputs);
 
                                 // You might want to process the output here, e.g., validate it against expected outputs.
