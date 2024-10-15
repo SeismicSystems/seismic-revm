@@ -1,9 +1,5 @@
 use revm::{
-    db::BenchmarkDB,
-    inspector_handle_register,
-    inspectors::TracerEip3155,
-    primitives::{Address, Bytecode, BytecodeDecodeError, TxKind},
-    Evm,
+    db::{BenchmarkDB, CacheDB, EmptyDB}, inspector_handle_register, inspectors::TracerEip3155, primitives::{Address, Bytecode, BytecodeDecodeError, ExecutionResult, Output, TxKind}, DatabaseCommit, Evm
 };
 
 use std::path::PathBuf;
@@ -51,63 +47,86 @@ impl Cmd {
             find_test_files(&semantic_tests_path)?
         };
 
-        for test_file in test_files {
-            println!("test_file: {:?}", test_file);
-            let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
-               match SemanticTests::new(test_file_path) {
-                Ok(semantic_tests) => {
-                    for test_case in semantic_tests.test_cases {
-                        if !test_case.is_constructor {
-                            let mut evm = Evm::builder()
-                                .with_db(BenchmarkDB::new_bytecode(Bytecode::new_raw(
-                                    test_case.contract_binary.clone(),
-                                )))
-                                .modify_tx_env(|tx| {
-                                    tx.caller = "0x0000000000000000000000000000000000000001"
-                                        .parse()
-                                        .unwrap();
-                                    tx.transact_to = TxKind::Call(Address::ZERO);
-                                    tx.data = test_case.input_data.clone(); 
-                                })
-                                .build();
+for test_file in test_files {
+    println!("test_file: {:?}", test_file);
+    let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
+    match SemanticTests::new(test_file_path) {
+        Ok(semantic_tests) => {
+            for test_case in semantic_tests.test_cases {
+                // Create a mutable database instance to share between transactions
+                let mut db = CacheDB::new(EmptyDB::default());
 
-                            println!("test_case.input_data: {:?}", test_case.input_data);
-                            println!("evm.env.tx.data: {:?}", evm.context.evm.env.tx.data);
+                // Build EVM instance for deployment with the database
+                let mut evm = Evm::builder()
+                    .with_db(db.clone())
+                    .modify_tx_env(|tx| {
+                        tx.caller = "0x0000000000000000000000000000000000000001"
+                            .parse()
+                            .unwrap();
+                        tx.transact_to = TxKind::Create;
+                        tx.data = test_case.deploy_binary.clone(); 
+                    })
+                    .build();
 
-                            // Run the transaction and either trace or log results
-                            let out = if self.trace {
-                                let mut evm = evm
-                                    .modify()
-                                    .reset_handler_with_external_context(TracerEip3155::new(
-                                        Box::new(std::io::stdout()),
-                                    ))
-                                    .append_handler_register(inspector_handle_register)
-                                    .build();
+                let deploy_out = evm.transact().map_err(|_| Errors::EVMError)?;
+                let contract_address = match deploy_out.result {
+                    ExecutionResult::Success { output, .. } => match output {
+                        Output::Create(_, Some(addr)) => addr,
+                        Output::Create(_, None) => panic!("Create failed: no address returned"),
+                        _ => panic!("Create failed: unexpected output type"),
+                    },
+                    ExecutionResult::Revert { output, .. } => panic!("Execution reverted: {:?}", output),
+                    ExecutionResult::Halt { reason, .. } => panic!("Execution halted: {:?}", reason),
+                };
+                db.commit(deploy_out.state);
+                // Now, build a new EVM instance for the test transaction with the updated database
+                let mut evm = Evm::builder()
+                    .with_db(db) // Reuse the database with the deployed contract
+                    .modify_tx_env(|tx| {
+                        tx.caller = "0x0000000000000000000000000000000000000001"
+                            .parse()
+                            .unwrap();
+                        tx.transact_to = TxKind::Call(Address::from_slice(contract_address.as_ref()));
+                        tx.data = test_case.input_data.clone();
+                    })
+                    .build();
 
-                                evm.transact().map_err(|_| Errors::EVMError)?
-                            } else {
-                                let out = evm.transact().map_err(|_| Errors::EVMError)?;
-                                out
-                            };
-                                println!("test {:?}", test_case);
-                                println!("out.result {:?}", out);
-                                assert_eq!(out.result.output().unwrap(), &test_case.expected_outputs);
+                // Run the test transaction and either trace or log results
+                let out = if self.trace {
+                    let mut evm = evm
+                        .modify()
+                        .reset_handler_with_external_context(TracerEip3155::new(
+                            Box::new(std::io::stdout()),
+                        ))
+                        .append_handler_register(inspector_handle_register)
+                        .build();
 
-                                // You might want to process the output here, e.g., validate it against expected outputs.
-                                // Compare out.result with test_case.expected_outputs
-                            }
-                        }
-                    }
- 
-                Err(Errors::UnhandledTestFormat) => {
-                    continue;
-                }
-                Err(e) => {
-                    // Handle other errors (if any)
-                    return Err(e);
-                }
-            }        
+                    evm.transact().map_err(|_| Errors::EVMError)?
+                } else {
+                    let out = evm.transact().map_err(|_| Errors::EVMError)?;
+                    out
+                };
+
+                println!("test {:?}", test_case);
+                println!("out.result {:?}", out.result);
+                assert_eq!(
+                    out.result.output().unwrap(),
+                    &test_case.expected_outputs
+                );
+
+                // You might want to process the output here, e.g., validate it against expected outputs.
+            }
         }
-        Ok(())
+
+        Err(Errors::UnhandledTestFormat) => {
+            continue;
+        }
+        Err(e) => {
+            // Handle other errors (if any)
+            return Err(e);
+        }
     }
+}
+Ok(())
+}
 }

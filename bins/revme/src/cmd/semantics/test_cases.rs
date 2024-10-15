@@ -12,7 +12,7 @@ pub(crate) struct TestCase {
     pub input_data: Bytes,
     pub expected_outputs: Bytes,
     pub is_constructor: bool,
-    pub contract_binary: Bytes,
+    pub deploy_binary: Bytes,
 }
 
 impl TestCase {
@@ -88,24 +88,18 @@ impl TestCase {
                 let output_encoded = Self::parse_output_arg(output_arg)?;
                 expected_outputs.extend_from_slice(output_encoded.as_ref());
             }
-
+            
             let matching_contract = contract_infos.iter().find(|contract| {
-                contract.has_function(signature_and_args[0].trim())
+                contract.has_function(signature_and_args[0].split('(').next().unwrap_or(""))
             });
 
             if let Some(contract) = matching_contract {
-                let binary = if is_constructor {
-                    contract.compile_binary.clone().unwrap()
-                } else {
-                    contract.runtime_binary.clone()
-                };
-
                 test_cases.push(TestCase {
                     function_name: signature_and_args[0].to_string(), 
                     input_data: input_data.into(), 
                     expected_outputs: Bytes::from(expected_outputs),
                     is_constructor,
-                    contract_binary: binary,  
+                    deploy_binary: contract.compile_binary.clone(),  
                 });
             } else {
                 // Handle case where no matching contract is found (optional)
@@ -218,7 +212,7 @@ impl TestCase {
 
         if let Ok(num) = U256::from_str(arg) {
             let num_bytes = num.to_be_bytes::<32>(); 
-            return Ok(Bytes::from(Vec::from(num_bytes.as_slice())))    
+            return Ok(Bytes::from(num_bytes.to_vec()))    
         }
 
 

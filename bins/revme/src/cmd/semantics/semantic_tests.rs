@@ -10,16 +10,14 @@ use super::{compiler_evm_versions::EVMVersion, test_cases::TestCase, utils::{ext
 #[derive(Debug)]
 pub struct ContractInfo {
     pub contract_name: String,
-    pub runtime_binary: Bytes,
-    pub compile_binary: Option<Bytes>, 
+    pub compile_binary: Bytes, 
     pub functions: Vec<String>,        
 }
 
 impl ContractInfo {
-    pub fn new(contract_name: String, runtime_binary: Bytes, compile_binary: Option<Bytes>) -> Self {
+    pub fn new(contract_name: String, compile_binary: Bytes) -> Self {
         Self {
             contract_name,
-            runtime_binary,
             compile_binary,
             functions: Vec::new(), 
         }
@@ -59,7 +57,7 @@ impl SemanticTests {
         let evm_version = EVMVersion::extract(&content);
         let via_ir = extract_compile_via_yul(&content);
 
-        let contract_infos = Self::get_contract_infos(path, evm_version.clone(), via_ir, true)?;
+        let contract_infos = Self::get_contract_infos(path, evm_version.clone(), via_ir, false)?;
 
         let test_cases = TestCase::from_expectations(expectations, &contract_infos)?;
         
@@ -115,41 +113,47 @@ impl SemanticTests {
         via_ir: bool, 
         runtime: bool
     ) -> Result<Vec<ContractInfo>, Errors> {  
-        
         let stdout_output = Self::compile_solidity(path, evm_version, via_ir, runtime)?;
 
         let mut contract_infos = Vec::new();
 
-        for contract_output in stdout_output.split("Binary of the runtime part:").skip(1) {
-            if let Some(contract_name_pos) = contract_output.find("=======") {
-                let contract_line = &contract_output[contract_name_pos..];
-                let contract_name = contract_line
-                    .split_whitespace() 
-                    .nth(1)  
-                    .unwrap_or("Unknown")  
-                    .split(':')
-                    .nth(1)  
-                    .unwrap_or("Unknown").to_string();
+        let contract_sections = stdout_output.split("======= ").skip(1);
 
-                let bytecode = contract_output
-                    .lines()
-                    .skip(1) 
-                    .next() 
-                    .unwrap_or(""); 
+        for section in contract_sections {
+            let mut lines = section.lines();
+            let contract_line = lines.next().unwrap_or("");
 
-                let runtime_binary = Bytes::from(hex::decode(bytecode.trim()).map_err(|_| Errors::CompilationFailed)?);
+            let contract_name = contract_line
+                .split(':')
+                .nth(1)
+                .unwrap_or("Unknown")
+                .trim_end_matches(" =======")
+                .to_string();
 
-                let mut contract_info = ContractInfo::new(contract_name.clone(), runtime_binary, None);
+            let rest_of_section = lines.collect::<Vec<&str>>().join("\n");
+            if let Some(index) = rest_of_section.find("Binary:") {
+                let after_binary = &rest_of_section[index + "Binary:".len()..];
+                let bytecode_line = after_binary.lines().skip(1).next().unwrap_or("");
 
-                let functions = extract_functions_from_source(path, &contract_name)?;
-                for function in functions {
-                    contract_info.add_function(function);
+                let compile_binary = Bytes::from(
+                    hex::decode(bytecode_line.trim()).map_err(|_| Errors::CompilationFailed)?
+                );
+
+                let mut contract_info = ContractInfo::new(contract_name.clone(), compile_binary);
+
+                let contract_functions_map = extract_functions_from_source(path)?;
+                if let Some(functions) = contract_functions_map.get(&contract_name) {
+                    for function in functions {
+                        contract_info.add_function(function.clone());
+                    }
                 }
 
                 contract_infos.push(contract_info);
             }
         }
-
+        //reversing as in the more down a function is seen the more likely it is the one we want to
+        //call
+        contract_infos.reverse();
         Ok(contract_infos)
     }
 }
