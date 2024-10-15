@@ -5,13 +5,39 @@ use revm::primitives::Bytes;
 
 use crate::cmd::semantics::Errors;
 
-use super::{compiler_evm_versions::EVMVersion, test_cases::TestCase, utils::extract_compile_via_yul};
+use super::{compiler_evm_versions::EVMVersion, test_cases::TestCase, utils::{extract_compile_via_yul, extract_functions_from_source}};
+
+#[derive(Debug)]
+pub struct ContractInfo {
+    pub contract_name: String,
+    pub runtime_binary: Bytes,
+    pub compile_binary: Option<Bytes>, 
+    pub functions: Vec<String>,        
+}
+
+impl ContractInfo {
+    pub fn new(contract_name: String, runtime_binary: Bytes, compile_binary: Option<Bytes>) -> Self {
+        Self {
+            contract_name,
+            runtime_binary,
+            compile_binary,
+            functions: Vec::new(), 
+        }
+    }
+
+    pub fn add_function(&mut self, function_name: String) {
+        self.functions.push(function_name);
+    }
+
+    pub fn has_function(&self, function_name: &str) -> bool {
+        self.functions.iter().any(|f| f == function_name)
+    }
+}
 
 #[derive(Debug)]
 pub struct SemanticTests {
     pub test_cases: Vec<TestCase>,
-    pub source_code: Option<Bytes>,
-    pub runtime_code: Bytes
+    pub contract_infos: Vec<ContractInfo>,
 }
 
 impl SemanticTests {
@@ -28,34 +54,27 @@ impl SemanticTests {
             return Err(Errors::UnhandledTestFormat);  
         }
 
-        let source_code = parts[0];
         let expectations = parts[1].to_string();
 
-        let test_cases = TestCase::from_expectations(expectations)?;
         let evm_version = EVMVersion::extract(&content);
         let via_ir = extract_compile_via_yul(&content);
 
-        let runtime_code = Self::compile_solidity(path, evm_version.clone(), via_ir, true)?;
+        let contract_infos = Self::get_contract_infos(path, evm_version.clone(), via_ir, true)?;
 
-        let binary = if test_cases.iter().any(|tc| tc.is_constructor) {
-            Some(Self::compile_solidity(source_code, evm_version, via_ir, false)?)
-        } else {
-            None 
-        };
-
+        let test_cases = TestCase::from_expectations(expectations, &contract_infos)?;
+        
         Ok(SemanticTests {
             test_cases,
-            source_code: binary,
-            runtime_code,
+            contract_infos,
         })
     }
-
+    
     fn compile_solidity(
         path: &str, 
         evm_version: Option<EVMVersion>, 
         via_ir: bool, 
         runtime: bool
-    ) -> Result<Bytes, Errors> {
+    ) -> Result<String, Errors> { 
         let mut solc_command = Command::new("/usr/local/bin/solc");
 
         if runtime {
@@ -86,21 +105,52 @@ impl SemanticTests {
         if !output.status.success() {
             return Err(Errors::CompilationFailed);
         }
-    
-        let stdout_output = String::from_utf8_lossy(&output.stdout);
 
-        if let Some(bytecode_pos) = stdout_output.find("Binary of the runtime part:") {
-            let bytecode = stdout_output[bytecode_pos..]
-                .lines() 
-                .skip(1) 
-                .next()  
-                .unwrap_or(""); 
+       Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
 
-            Ok(Bytes::from(hex::decode(bytecode.trim()).map_err(|_| Errors::CompilationFailed)?))
-        } else {
-            Err(Errors::CompilationFailed)
+    fn get_contract_infos(
+        path: &str, 
+        evm_version: Option<EVMVersion>, 
+        via_ir: bool, 
+        runtime: bool
+    ) -> Result<Vec<ContractInfo>, Errors> {  
+        
+        let stdout_output = Self::compile_solidity(path, evm_version, via_ir, runtime)?;
+
+        let mut contract_infos = Vec::new();
+
+        for contract_output in stdout_output.split("Binary of the runtime part:").skip(1) {
+            if let Some(contract_name_pos) = contract_output.find("=======") {
+                let contract_line = &contract_output[contract_name_pos..];
+                let contract_name = contract_line
+                    .split_whitespace() 
+                    .nth(1)  
+                    .unwrap_or("Unknown")  
+                    .split(':')
+                    .nth(1)  
+                    .unwrap_or("Unknown").to_string();
+
+                let bytecode = contract_output
+                    .lines()
+                    .skip(1) 
+                    .next() 
+                    .unwrap_or(""); 
+
+                let runtime_binary = Bytes::from(hex::decode(bytecode.trim()).map_err(|_| Errors::CompilationFailed)?);
+
+                let mut contract_info = ContractInfo::new(contract_name.clone(), runtime_binary, None);
+
+                let functions = extract_functions_from_source(path, &contract_name)?;
+                for function in functions {
+                    contract_info.add_function(function);
+                }
+
+                contract_infos.push(contract_info);
+            }
         }
 
+        Ok(contract_infos)
     }
 }
 
