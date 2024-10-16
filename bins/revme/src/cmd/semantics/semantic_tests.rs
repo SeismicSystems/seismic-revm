@@ -30,6 +30,10 @@ impl ContractInfo {
     pub fn has_function(&self, function_name: &str) -> bool {
         self.functions.iter().any(|f| f == function_name)
     }
+
+    pub fn has_fallback_function(&self) -> bool {
+        self.functions.iter().any(|f| f == "()")
+    }
 }
 
 #[derive(Debug, Clone)]

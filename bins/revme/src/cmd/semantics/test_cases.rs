@@ -72,23 +72,26 @@ impl TestCase {
             }
             
             let mut input_data = Vec::new();
-            if !is_constructor {
+            if !is_constructor && function_signature != "()" {
                 input_data.extend_from_slice(&function_selector);
             }
             for arg in &args_encoded {
                 input_data.extend_from_slice(arg);
             }
-            // Find matching contract
+
             let matching_contract = contract_infos.iter().find(|contract| {
-                contract.has_function(
-                    function_signature
+                if function_signature == "()" {
+                    contract.has_fallback_function()
+                } else {
+                    let function_name = function_signature
                         .split('(')
                         .next()
                         .unwrap_or("")
-                        .trim(),
-                )
+                        .trim();
+                    contract.has_function(function_name)
+                }
             });
-
+  
             if let Some(contract) = matching_contract {
                 let mut deploy_binary = Vec::new(); 
                 deploy_binary.extend_from_slice(&contract.compile_binary);

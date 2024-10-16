@@ -105,7 +105,6 @@ for test_file in test_files {
                     // If the constructor test case has a value, set tx.value
                     if let Some(ref test_case) = constructor_test_case {
                         tx.value = test_case.value;
-                        println!("test_case.value: {:?}", test_case.value);
                     }
                 })
                 .build();

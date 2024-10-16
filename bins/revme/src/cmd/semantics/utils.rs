@@ -90,6 +90,13 @@ pub(crate) fn extract_functions_from_source(path: &str) -> Result<HashMap<String
                 }
             }
         }
+        
+        else if line.contains("    fallback") {
+                if let Some(functions) = contract_functions.get_mut(&current_contract) {
+                    functions.push("()".to_string());
+            }
+        }
+
         else if line.contains(" public ") { 
             let tokens: Vec<&str> = line.split_whitespace().collect();
             if let Some(pos) = tokens.iter().position(|&t| t == "public") {

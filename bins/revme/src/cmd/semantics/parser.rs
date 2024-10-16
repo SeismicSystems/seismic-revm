@@ -84,7 +84,6 @@ if let Some(start_idx) = signature.find('(') {
 
     pub(crate) fn parse_output_arg(arg: &str) -> Result<Bytes, Errors> {
         let arg = arg.trim();
-        println!("parse_output_arg: {:?}", arg);
 
         if let Some(bytes) = Self::parse_left(arg)? {
             return Ok(bytes);
