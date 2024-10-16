@@ -7,7 +7,7 @@ use crate::cmd::semantics::Errors;
 
 use super::{compiler_evm_versions::EVMVersion, test_cases::TestCase, utils::{extract_compile_via_yul, extract_functions_from_source}};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ContractInfo {
     pub contract_name: String,
     pub compile_binary: Bytes, 
@@ -32,7 +32,7 @@ impl ContractInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SemanticTests {
     pub test_cases: Vec<TestCase>,
     pub contract_infos: Vec<ContractInfo>,

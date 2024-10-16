@@ -82,6 +82,14 @@ pub(crate) fn extract_functions_from_source(path: &str) -> Result<HashMap<String
                 }
             }
         }
+        else if line.contains("    constructor") {
+            if let Some(function_name) = line.split_whitespace().nth(0) {
+                let function_signature = function_name.split('(').next().unwrap_or("");
+                if let Some(functions) = contract_functions.get_mut(&current_contract) {
+                    functions.push(function_signature.to_string());
+                }
+            }
+        }
         else if line.contains(" public ") { 
             let tokens: Vec<&str> = line.split_whitespace().collect();
             if let Some(pos) = tokens.iter().position(|&t| t == "public") {
