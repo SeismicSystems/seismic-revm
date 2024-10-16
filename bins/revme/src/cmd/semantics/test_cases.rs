@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{errors::Errors, semantic_tests::ContractInfo};
+use super::{errors::Errors, semantic_tests::ContractInfo, utils::count_used_bytes_right};
 use alloy_primitives::{keccak256, I256, U256};
 use revm::primitives::{Bytes, FixedBytes};
 
@@ -224,8 +224,18 @@ impl TestCase {
         }
 
         if arg.starts_with("left(") && arg.ends_with(')') {
-            let inner = &arg[5..arg.len() - 1];
-            return Self::parse_output_arg(inner) 
+        let inner = &arg[5..arg.len() - 1];
+        let inner_bytes = Self::parse_output_arg(inner)?;
+        let used_length = count_used_bytes_right(&inner_bytes);
+        if used_length == 0 {
+            let output = vec![0u8; 32];
+            return Ok(Bytes::from(output));
+        }
+        let used_bytes = &inner_bytes[32-used_length..];
+        let mut output = Vec::with_capacity(32);
+        output.extend_from_slice(used_bytes);
+        output.resize(32, 0);
+        return Ok(Bytes::from(output));
         } else if arg.starts_with("right(") && arg.ends_with(')') {
             let inner = &arg[6..arg.len() - 1];
             return Self::parse_output_arg(inner) 
@@ -236,7 +246,6 @@ impl TestCase {
             let output = FixedBytes::<32>::right_padding_from(string_bytes.as_ref());
             return Ok(Bytes::from(output.to_vec()));
         }
-        // If none of the above, return error
         Err(Errors::InvalidArgumentFormat)
     }
 }

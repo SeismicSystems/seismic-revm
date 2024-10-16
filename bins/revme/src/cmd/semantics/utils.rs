@@ -98,3 +98,10 @@ pub(crate) fn extract_functions_from_source(path: &str) -> Result<HashMap<String
     Ok(contract_functions)
 }
 
+pub(crate) fn count_used_bytes_right(bytes: &[u8]) -> usize {
+    let mut start = 0;
+    while start < bytes.len() && bytes[start] == 0 {
+        start += 1;
+    }
+    bytes.len() - start
+}
