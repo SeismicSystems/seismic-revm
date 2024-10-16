@@ -137,11 +137,14 @@ impl SemanticTests {
             if let Some(index) = rest_of_section.find("Binary:") {
                 let after_binary = &rest_of_section[index + "Binary:".len()..];
                 let bytecode_line = after_binary.lines().skip(1).next().unwrap_or("");
+                let compile_binary = match hex::decode(bytecode_line.trim()) {
+                    Ok(decoded_bytes) => Bytes::from(decoded_bytes),
+                    Err(decode_error) => {
+                        eprintln!("Failed to decode bytecode line: {}, error: {:?}", bytecode_line.trim(), decode_error);
 
-                let compile_binary = Bytes::from(
-                    hex::decode(bytecode_line.trim()).map_err(|_| Errors::CompilationFailed)?
-                );
-
+                        return Err(Errors::CompilationFailed);
+                    }
+                };
                 let mut contract_info = ContractInfo::new(contract_name.clone(), compile_binary);
 
                 let contract_functions_map = extract_functions_from_source(path)?;

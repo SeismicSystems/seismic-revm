@@ -4,10 +4,12 @@ use std::collections::HashMap;
 
 const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "experimental", "multiSource"];
 //in the below, we skip files that are irrelevant for now, that is for example tests for unicode
-//escapes!
+//escapes or convert_uint_to_fixed_bytes_greater_size
 //We also skip test for which we have low understanding: multiple initializations
-//We also skipp harder inheritence examples, such as access_through_contract_name
-const SKIP_FILE: [&str; 5] = ["access_through_module_name.sol", "multiline_comments.sol", "unicode_escapes.sol", "unicode_string.sol", "multiple_initializations.sol"];
+//We also skip test that use user defined value type as they geenrate different bytecode with
+//unrecognized characters! 
+const SKIP_FILE: [&str; 7] = ["access_through_module_name.sol", "multiline_comments.sol", "unicode_escapes.sol", "unicode_string.sol", "multiple_initializations.sol", "convert_uint_to_fixed_bytes_greater_size.sol",
+                              "user_defined_types_mapping_storage.sol"];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     let mut test_files = Vec::new();
