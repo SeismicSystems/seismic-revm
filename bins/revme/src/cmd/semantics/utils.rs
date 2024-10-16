@@ -3,7 +3,11 @@ use crate::cmd::semantics::Errors;
 use std::collections::HashMap;
 
 const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "experimental", "multiSource"];
-const SKIP_FILE: [&str; 4] = ["access_through_module_name.sol", "multiline_comments.sol", "unicode_escapes.sol", "unicode_string.sol"];
+//in the below, we skip files that are irrelevant for now, that is for example tests for unicode
+//escapes!
+//We also skip test for which we have low understanding: multiple initializations
+//We also skipp harder inheritence examples, such as access_through_contract_name
+const SKIP_FILE: [&str; 5] = ["access_through_module_name.sol", "multiline_comments.sol", "unicode_escapes.sol", "unicode_string.sol", "multiple_initializations.sol"];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     let mut test_files = Vec::new();
@@ -19,9 +23,8 @@ pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
             });
 
             if should_skip {
-                continue; // Skip further processing for this directory.
+                continue; 
             }
-            // Recursively search subdirectories
             test_files.extend(find_test_files(&path)?);
         } else if let Some(extension) = path.extension() {
             if extension == "sol" {
@@ -61,18 +64,28 @@ pub(crate) fn extract_functions_from_source(path: &str) -> Result<HashMap<String
     let content = fs::read_to_string(path)?;
 
     let mut contract_functions: HashMap<String, Vec<String>> = HashMap::new();
+    //parent --> child
+    let mut inheritance_map: HashMap<String, Vec<String>> = HashMap::new(); 
     let mut current_contract = String::new();
     let mut collecting_functions = false;
 
     for line in content.lines() {
-        if let Some(contract_name) = line.trim().strip_prefix("contract ") {
-            // Extract contract name
-            let name = contract_name.split_whitespace().next().unwrap_or("");
+       if let Some(contract_declaration) = line.trim().strip_prefix("contract ") {
+            // Extract contract name and parent (if any)
+            let mut parts = contract_declaration.split_whitespace();
+            let name = parts.next().unwrap_or("");
 
             current_contract = name.to_string();
             contract_functions.insert(current_contract.clone(), Vec::new());
             collecting_functions = true;
-        }
+
+            // Check for inheritance
+            if let Some(is_index) = contract_declaration.find(" is ") {
+                let inherited_part = contract_declaration[is_index + 4..].trim();
+                let inherited_contracts: Vec<String> = inherited_part.split('{').map(|s| s.trim().to_string()).collect();
+                inheritance_map.insert(current_contract.clone(), vec!(inherited_contracts[0].clone()));
+            }
+        } 
 
         if collecting_functions && line.contains("function ") {
             if let Some(function_name) = line.split_whitespace().nth(1) {
@@ -105,6 +118,16 @@ pub(crate) fn extract_functions_from_source(path: &str) -> Result<HashMap<String
                     if let Some(functions) = contract_functions.get_mut(&current_contract) {
                         functions.push(variable_name.to_string());
                     }
+                }
+            }
+        }
+    }
+    
+    for (parent, child_contracts) in &inheritance_map {
+        for child in child_contracts {
+            if let Some(child_functions) = contract_functions.clone().get_mut(child) {
+                if let Some(parent_functions) = contract_functions.get_mut(parent) {
+                    parent_functions.extend(child_functions.clone());
                 }
             }
         }
