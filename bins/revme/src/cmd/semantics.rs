@@ -14,6 +14,7 @@ use semantic_tests::SemanticTests;
 mod test_cases;
 mod compiler_evm_versions;
 mod evm_handler;
+mod parser;
 mod utils;
 use utils::find_test_files;
 

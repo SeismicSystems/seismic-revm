@@ -1,8 +1,5 @@
-use std::str::FromStr;
-
-use super::{errors::Errors, semantic_tests::ContractInfo, utils::count_used_bytes_right};
-use alloy_primitives::{keccak256, I256, U256};
-use revm::primitives::{Bytes, FixedBytes};
+use super::{errors::Errors, semantic_tests::ContractInfo, parser::Parser};
+use revm::primitives::{Bytes};
 
 const SKIP_KEYWORD: [&str; 5] = ["gas", "wei", "emit", "Library", "FAILURE"];
 
@@ -58,7 +55,7 @@ impl TestCase {
                 is_constructor = true
             }
             
-            let (function_selector, parameter_types) = Self::parse_function_signature(signature_and_args[0].trim())?;
+            let (function_selector, parameter_types) = Parser::parse_function_signature(signature_and_args[0].trim())?;
             let args_list = if signature_and_args.len() > 1 && !signature_and_args[1].trim().is_empty() {
                 signature_and_args[1].trim().split(',').map(|arg| arg.trim()).collect::<Vec<&str>>()
             } else {
@@ -71,7 +68,7 @@ impl TestCase {
 
             let mut args_encoded = Vec::new();
             for (arg_str, param_type) in args_list.iter().zip(parameter_types.iter()) {
-                let arg_encoded = Self::parse_arg(arg_str, param_type)?;
+                let arg_encoded = Parser::parse_arg(arg_str, param_type)?;
                 args_encoded.push(arg_encoded);
             }
 
@@ -85,7 +82,7 @@ impl TestCase {
 
             let mut expected_outputs = Vec::new();
             for output_arg in expected_outputs_list {
-                let output_encoded = Self::parse_output_arg(output_arg)?;
+                let output_encoded = Parser::parse_output_arg(output_arg)?;
                 expected_outputs.extend_from_slice(output_encoded.as_ref());
             }
             
@@ -109,145 +106,6 @@ impl TestCase {
         Ok(test_cases)
     }
 
-    fn parse_function_signature(signature: &str) -> Result<(Vec<u8>, Vec<String>), Errors> {
-        if let Some(start_idx) = signature.find('(') {
-            if let Some(end_idx) = signature.rfind(')') {
-                let _function_name = &signature[..start_idx];
-                let params_str = &signature[start_idx + 1..end_idx];
-                let parameter_types = if params_str.is_empty() {
-                    Vec::new()
-                } else {
-                    params_str
-                        .split(',')
-                        .map(|s| s.trim().to_string())
-                        .collect()
-                }; 
-                Ok((keccak256(signature).0[0..4].to_vec(), parameter_types))
-            } else {
-                Err(Errors::InvalidFunctionSignature)
-            }
-        } else {
-            Err(Errors::InvalidFunctionSignature)
-        }
-    }
-
-    fn parse_arg(arg: &str, param_type: &str) -> Result<Bytes, Errors> {
-        let arg = arg.trim();
-
-        if param_type == "bool" {
-            if arg == "true" || arg == "false" {
-                let value = if arg == "true" { 1u8 } else { 0u8 };
-                let mut buf = [0u8; 32];
-                buf[31] = value; 
-                Ok(Bytes::from(buf.to_vec()))
-            } else {
-                Err(Errors::InvalidArgumentFormat)
-            }
-        } else if param_type.starts_with("uint") {
-            //Don't know why they did that, having uint in func sig but passing in a int
-            if arg.starts_with("-") {
-                let num = I256::from_str(arg).map_err(|_| Errors::InvalidArgumentFormat)?;
-                let num_bytes = num.to_be_bytes::<32>(); 
-                Ok(Bytes::from(Vec::from(num_bytes.as_slice())))    
-            }
-            else {
-                let num = U256::from_str(arg).map_err(|_| Errors::InvalidArgumentFormat)?;
-                let num_bytes = num.to_be_bytes::<32>(); 
-                Ok(Bytes::from(Vec::from(num_bytes.as_slice())))    
-            }
-        } else if param_type.starts_with("int") {
-            let num = I256::from_str(arg).map_err(|_| Errors::InvalidArgumentFormat)?;
-            let num_bytes = num.to_be_bytes::<32>(); 
-            Ok(Bytes::from(Vec::from(num_bytes.as_slice())))    
-        } else if param_type.starts_with("bytes") {
-            if arg.starts_with("left(") && arg.ends_with(')') {
-                let inner = &arg[5..arg.len() - 1];
-                let bytes = Bytes::from_str(inner).map_err(|_| Errors::InvalidArgumentFormat)?;
-                let mut padded = bytes.to_vec();
-
-                if padded.len() < 32 {
-                    padded.resize(32, 0);
-                }
-                Ok(Bytes::from(padded))
-            } else if arg.starts_with("right(") && arg.ends_with(')') {
-                let inner = &arg[6..arg.len() - 1];
-                let bytes = Bytes::from_str(inner).map_err(|_| Errors::InvalidArgumentFormat)?;
-                let mut padded = vec![0u8; 32];
-
-                // Left-pad with zeroes to ensure it's 32 bytes long.
-                let bytes_len = bytes.len();
-                if bytes_len <= 32 {
-                    padded[32 - bytes_len..].copy_from_slice(&bytes);
-                } else {
-                    return Err(Errors::InvalidArgumentFormat);
-                }
-                Ok(Bytes::from(padded))
-            } else if arg.starts_with("0x") {
-                Ok(Bytes::from_str(arg).map_err(|_| Errors::InvalidArgumentFormat)?)
-            } else {
-                Err(Errors::InvalidArgumentFormat)
-            }
-        } else {
-            println!("Unsupported parameter type: {:?}", arg);
-            // Default case for unsupported parameter types
-            Err(Errors::InvalidArgumentFormat)
-        }
-    }
-
-    fn parse_output_arg(arg: &str) -> Result<Bytes, Errors> {
-        let arg = arg.trim();
-
-        if arg == "true" || arg == "false" {
-            let value = if arg == "true" { 1u8 } else { 0u8 };
-            let mut buf = [0u8; 32];
-            buf[31] = value; 
-            return Ok(Bytes::from(buf.to_vec()));
-        }
-
-        if arg.starts_with("-") {
-            let num = I256::from_str(arg).map_err(|_| Errors::InvalidArgumentFormat)?;
-            let num_bytes = num.to_be_bytes::<32>(); 
-            return Ok(Bytes::from(Vec::from(num_bytes.as_slice())))    
-        }
-
-        if let Ok(num) = U256::from_str(arg) {
-            let num_bytes = num.to_be_bytes::<32>(); 
-            return Ok(Bytes::from(num_bytes.to_vec()))    
-        }
-
-
-        // Handle hex values
-        if arg.starts_with("0x") {
-            let bytes = hex::decode(arg.trim_start_matches("0x"))
-                .map_err(|_| Errors::InvalidArgumentFormat)?;
-            return Ok(Bytes::from(bytes));
-        }
-
-        if arg.starts_with("left(") && arg.ends_with(')') {
-        let inner = &arg[5..arg.len() - 1];
-        let inner_bytes = Self::parse_output_arg(inner)?;
-        let used_length = count_used_bytes_right(&inner_bytes);
-        if used_length == 0 {
-            let output = vec![0u8; 32];
-            return Ok(Bytes::from(output));
-        }
-        let used_bytes = &inner_bytes[32-used_length..];
-        let mut output = Vec::with_capacity(32);
-        output.extend_from_slice(used_bytes);
-        output.resize(32, 0);
-        return Ok(Bytes::from(output));
-        } else if arg.starts_with("right(") && arg.ends_with(')') {
-            let inner = &arg[6..arg.len() - 1];
-            return Self::parse_output_arg(inner) 
-        }
-        else if arg.starts_with("\"") && arg.ends_with("\"") {
-            let inner = &arg[1..arg.len() - 1];
-            let string_bytes = inner.as_bytes().to_vec();
-            let output = FixedBytes::<32>::right_padding_from(string_bytes.as_ref());
-            return Ok(Bytes::from(output.to_vec()));
-        }
-        Err(Errors::InvalidArgumentFormat)
-    }
 }
 
 
