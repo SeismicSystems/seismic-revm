@@ -8,26 +8,45 @@ pub struct Parser{}
 
 impl Parser{
     pub(crate) fn parse_function_signature(signature: &str) -> Result<(Vec<u8>, Vec<String>), Errors> {
-        if let Some(start_idx) = signature.find('(') {
-            if let Some(end_idx) = signature.rfind(')') {
-                let _function_name = &signature[..start_idx];
-                let params_str = &signature[start_idx + 1..end_idx];
-                let parameter_types = if params_str.is_empty() {
-                    Vec::new()
-                } else {
-                    params_str
-                        .split(',')
-                        .map(|s| s.trim().to_string())
-                        .collect()
-                }; 
-                Ok((keccak256(signature).0[0..4].to_vec(), parameter_types))
-            } else {
-                Err(Errors::InvalidFunctionSignature)
-            }
+if let Some(start_idx) = signature.find('(') {
+    if let Some(end_idx) = signature.rfind(')') {
+        let function_name = &signature[..start_idx];
+        let params_str = &signature[start_idx + 1..end_idx];
+        let parameter_types = if params_str.is_empty() {
+            Vec::new()
         } else {
-            Err(Errors::InvalidFunctionSignature)
-        }
+            params_str
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect()
+        };
+
+        // Map 'uint' and 'int' to 'uint256' and 'int256' in the parameter types
+        let mapped_parameter_types: Vec<String> = parameter_types
+            .iter()
+            .map(|param| {
+                match param.as_str() {
+                    "uint" => "uint256".to_string(),
+                    "int" => "int256".to_string(),
+                    _ => param.clone(),
+                }
+            })
+            .collect();
+
+        // Reconstruct the signature with mapped parameter types
+        let new_signature = format!("{}({})", function_name, mapped_parameter_types.join(","));
+        // Compute the function selector using the modified signature
+        Ok((
+            keccak256(new_signature.as_bytes()).0[0..4].to_vec(),
+            mapped_parameter_types,
+        ))
+    } else {
+        Err(Errors::InvalidFunctionSignature)
     }
+} else {
+    Err(Errors::InvalidFunctionSignature)
+}}
+
 
     pub(crate) fn parse_arg(arg: &str, param_type: &str) -> Result<Bytes, Errors> {
         let arg = arg.trim();
@@ -51,8 +70,10 @@ impl Parser{
                     Ok(bytes)
                 } else if let Some(bytes) = Self::parse_right(arg)? {
                     Ok(bytes)
-                } else if arg.starts_with("0x") {
-                    Bytes::from_str(arg).map_err(|_| Errors::InvalidArgumentFormat)
+                } else if let Some(bytes) = Self::parse_raw_hex(arg) {
+                    Ok(bytes)
+                } else if let Some(bytes) = Self::parse_hex(arg) {
+                    Ok(bytes)
                 } else {
                     Err(Errors::InvalidArgumentFormat)
                 }
@@ -63,6 +84,7 @@ impl Parser{
 
     pub(crate) fn parse_output_arg(arg: &str) -> Result<Bytes, Errors> {
         let arg = arg.trim();
+        println!("parse_output_arg: {:?}", arg);
 
         if let Some(bytes) = Self::parse_left(arg)? {
             return Ok(bytes);
@@ -91,7 +113,11 @@ impl Parser{
         if let Some(bytes) = Self::parse_string(arg) {
             return Ok(bytes);
         }
-
+        
+        if let Some(bytes) = Self::parse_raw_hex(arg) {
+            return Ok(bytes);
+        }
+        
         Err(Errors::InvalidArgumentFormat)
     }
 
@@ -129,11 +155,36 @@ impl Parser{
         })
     }
 
-    pub(crate) fn parse_hex(arg: &str) -> Option<Bytes> {
+    pub(crate) fn parse_raw_hex(arg: &str) -> Option<Bytes> {
         if arg.starts_with("0x") {
-            hex::decode(arg.trim_start_matches("0x"))
+            let hex_str = arg.trim_start_matches("0x");
+            let hex_str = if hex_str.len() % 2 != 0 {
+                // Odd length, prepend a '0'
+                format!("0{}", hex_str)
+            } else {
+                hex_str.to_string()
+            };
+            
+            hex::decode(&hex_str)
                 .ok()
+                .as_deref()
+                .map(FixedBytes::<32>::left_padding_from)
                 .map(Bytes::from)
+        } else {
+            None
+        }
+    }
+    
+    pub(crate) fn parse_hex(arg: &str) -> Option<Bytes> {
+        if arg.starts_with("hex\"") {
+            let inner = &arg[4..arg.len() - 1];
+        match hex::decode(inner) {
+            Ok(decoded) => Some(Bytes::from(decoded)),
+            Err(e) => {
+                println!("Failed to decode hex: {:?}", e);
+                None
+            }
+        }
         } else {
             None
         }
