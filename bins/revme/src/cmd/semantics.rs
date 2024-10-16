@@ -1,6 +1,4 @@
 use alloy_primitives::U256;
-use hashbrown::HashMap;
-use k256::elliptic_curve::consts::U25;
 use revm::{
     db::{BenchmarkDB, CacheDB, EmptyDB}, inspector_handle_register, inspectors::TracerEip3155, primitives::{AccountInfo, Address, Bytecode, BytecodeDecodeError, ExecutionResult, Output, TxKind}, DatabaseCommit, Evm
 };
