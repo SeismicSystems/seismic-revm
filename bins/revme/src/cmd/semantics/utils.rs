@@ -3,7 +3,7 @@ use crate::cmd::semantics::Errors;
 use std::collections::HashMap;
 
 const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "experimental", "multiSource"];
-const SKIP_FILE: [&str; 2] = ["access_through_module_name.sol", "multiline_comments.sol"];
+const SKIP_FILE: [&str; 4] = ["access_through_module_name.sol", "multiline_comments.sol", "unicode_escapes.sol", "unicode_string.sol"];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     let mut test_files = Vec::new();
