@@ -1,5 +1,6 @@
 use std::{fs, path::{Path, PathBuf}};
 use crate::cmd::semantics::Errors;
+use std::collections::HashMap;
 
 const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "experimental", "multiSource"];
 const SKIP_FILE: [&str; 2] = ["access_through_module_name.sol", "multiline_comments.sol"];
@@ -54,4 +55,68 @@ pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
         }
     }
     false
+}
+
+pub(crate) fn extract_functions_from_source(path: &str) -> Result<HashMap<String, Vec<String>>, Errors> {
+    let content = fs::read_to_string(path)?;
+
+    let mut contract_functions: HashMap<String, Vec<String>> = HashMap::new();
+    let mut current_contract = String::new();
+    let mut collecting_functions = false;
+
+    for line in content.lines() {
+        if let Some(contract_name) = line.trim().strip_prefix("contract ") {
+            // Extract contract name
+            let name = contract_name.split_whitespace().next().unwrap_or("");
+
+            current_contract = name.to_string();
+            contract_functions.insert(current_contract.clone(), Vec::new());
+            collecting_functions = true;
+        }
+
+        if collecting_functions && line.contains("function ") {
+            if let Some(function_name) = line.split_whitespace().nth(1) {
+                let function_signature = function_name.split('(').next().unwrap_or("");
+                if let Some(functions) = contract_functions.get_mut(&current_contract) {
+                    functions.push(function_signature.to_string());
+                }
+            }
+        }
+        else if line.contains("    constructor") {
+            if let Some(function_name) = line.split_whitespace().nth(0) {
+                let function_signature = function_name.split('(').next().unwrap_or("");
+                if let Some(functions) = contract_functions.get_mut(&current_contract) {
+                    functions.push(function_signature.to_string());
+                }
+            }
+        }
+        
+        else if line.contains("    fallback") {
+                if let Some(functions) = contract_functions.get_mut(&current_contract) {
+                    functions.push("()".to_string());
+            }
+        }
+
+        else if line.contains(" public ") { 
+            let tokens: Vec<&str> = line.split_whitespace().collect();
+            if let Some(pos) = tokens.iter().position(|&t| t == "public") {
+                if pos + 1 < tokens.len() {
+                    let variable_name = tokens[pos + 1].trim_end_matches(';').trim_end_matches('=');
+                    if let Some(functions) = contract_functions.get_mut(&current_contract) {
+                        functions.push(variable_name.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(contract_functions)
+}
+
+pub(crate) fn count_used_bytes_right(bytes: &[u8]) -> usize {
+    let mut start = 0;
+    while start < bytes.len() && bytes[start] == 0 {
+        start += 1;
+    }
+    bytes.len() - start
 }
