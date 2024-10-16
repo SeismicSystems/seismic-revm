@@ -89,6 +89,9 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
         // Peek the last stack frame.
         let mut stack_frame = call_stack.last_mut().unwrap();
 
+        // Set interpreter to enforce static-only.
+        stack_frame.interpreter_mut().is_static = self.cfg().execute_static;
+
         loop {
             // Execute the frame.
             let next_action =
