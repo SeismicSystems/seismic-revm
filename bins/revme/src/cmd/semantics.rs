@@ -91,7 +91,7 @@ for test_file in test_files {
                 if let Some(first_test_case) = semantic_tests.test_cases.first() {
                     first_test_case.deploy_binary.clone()
                 } else {
-                    return Err(Errors::InvalidInput);
+                    continue;
                 }
             };
 

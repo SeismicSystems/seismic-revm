@@ -64,7 +64,6 @@ impl SemanticTests {
         let contract_infos = Self::get_contract_infos(path, evm_version.clone(), via_ir, false)?;
 
         let test_cases = TestCase::from_expectations(expectations, &contract_infos)?;
-        
         Ok(SemanticTests {
             test_cases,
             contract_infos,

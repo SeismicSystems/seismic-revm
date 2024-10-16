@@ -17,7 +17,6 @@ pub(crate) struct TestCase {
 }
 
 impl TestCase {
-
     pub(crate) fn from_expectations(
     expectations: String,
     contract_infos: &[ContractInfo],
