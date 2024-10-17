@@ -1,6 +1,5 @@
-use alloy_primitives::U256;
 use revm::{
-    db::{BenchmarkDB, CacheDB, EmptyDB}, inspector_handle_register, inspectors::TracerEip3155, primitives::{AccountInfo, Address, Bytecode, BytecodeDecodeError, ExecutionResult, Output, TxKind}, DatabaseCommit, Evm
+    db::{BenchmarkDB, CacheDB, EmptyDB}, inspector_handle_register, inspectors::TracerEip3155, primitives::{AccountInfo, Address, Bytecode, BytecodeDecodeError, ExecutionResult, Output, TxKind, U256, Bytes}, DatabaseCommit, Evm
 };
 
 use std::{path::PathBuf, str::FromStr};
@@ -166,12 +165,25 @@ for test_file in test_files {
                     evm.transact().map_err(|_| Errors::EVMError)?
                 };
 
-                println!("Transaction result: {:?}", out.result);
+                let success_res = match out.clone().result {
+                    ExecutionResult::Success { output, .. } => match output {
+                        Output::Call(out) => Bytes::from(out),
+                        _ => panic!("Call failed: unexpected output type"),
+                    },
+                    ExecutionResult::Revert { output, .. } => {
+                        //Padding output to 32 bytes as there is an edge case where they do test
+                        //for it using false as expected outputs, but return an empty array => 0x
+                        Bytes::from(U256::ZERO.to_be_bytes::<32>())
+                    }
+                    ExecutionResult::Halt { reason, .. } => {
+                        panic!("Execution halted during deployment: {:?}", reason)
+                    }
+                };
 
                 // Verify the output matches the expected output
                 assert_eq!(
-                    out.result.output().unwrap(),
-                    &test_case.expected_outputs
+                    success_res,
+                    test_case.expected_outputs
                 );
 
                 // Commit the state changes from the test transaction to the database
