@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{errors::Errors, utils::count_used_bytes_right};
+use super::{errors::Errors, utils::{count_used_bytes_right, parse_string_with_escapes}};
 use alloy_primitives::{keccak256, I256, U256};
 use revm::primitives::{Bytes, FixedBytes};
 
@@ -47,42 +47,7 @@ if let Some(start_idx) = signature.find('(') {
     Err(Errors::InvalidFunctionSignature)
 }}
 
-
-    pub(crate) fn parse_arg(arg: &str, param_type: &str) -> Result<Bytes, Errors> {
-        let arg = arg.trim();
-
-        match param_type {
-            "bool" => Self::parse_bool(arg).ok_or(Errors::InvalidArgumentFormat),
-            pt if pt.starts_with("uint") => {
-                if let Some(bytes) = Self::parse_unsigned_int(arg) {
-                    Ok(bytes)
-                } else if let Some(bytes) = Self::parse_signed_int(arg) {
-                    Ok(bytes)
-                } else {
-                    Err(Errors::InvalidArgumentFormat)
-                }
-            }
-            pt if pt.starts_with("int") => {
-                Self::parse_signed_int(arg).ok_or(Errors::InvalidArgumentFormat)
-            }
-            pt if pt.starts_with("bytes") => {
-                if let Some(bytes) = Self::parse_left(arg)? {
-                    Ok(bytes)
-                } else if let Some(bytes) = Self::parse_right(arg)? {
-                    Ok(bytes)
-                } else if let Some(bytes) = Self::parse_raw_hex(arg) {
-                    Ok(bytes)
-                } else if let Some(bytes) = Self::parse_hex(arg) {
-                    Ok(bytes)
-                } else {
-                    Err(Errors::InvalidArgumentFormat)
-                }
-            }
-            _ => Err(Errors::InvalidArgumentFormat),
-        }
-    }
-
-    pub(crate) fn parse_output_arg(arg: &str) -> Result<Bytes, Errors> {
+    pub(crate) fn parse_arg(arg: &str) -> Result<Bytes, Errors> {
         let arg = arg.trim();
 
         if let Some(bytes) = Self::parse_left(arg)? {
@@ -192,9 +157,18 @@ if let Some(start_idx) = signature.find('(') {
     pub(crate) fn parse_string(arg: &str) -> Option<Bytes> {
         if arg.starts_with('"') && arg.ends_with('"') {
             let inner = &arg[1..arg.len() - 1];
-            let string_bytes = inner.as_bytes();
-            let output = FixedBytes::<32>::right_padding_from(string_bytes);
-            Some(Bytes::from(output.to_vec()))
+            match parse_string_with_escapes(inner) {
+                Ok(string_bytes) => {
+                    let mut encoded = Vec::new();
+                    let mut data_bytes = string_bytes.to_vec();
+                    let padding_length = (32 - (data_bytes.len() % 32)) % 32;
+                    data_bytes.extend(vec![0u8; padding_length]);
+                    encoded.extend_from_slice(&data_bytes);
+
+                    Some(Bytes::from(encoded))
+                }
+                Err(_) => None,
+            }
         } else {
             None
         }
@@ -203,7 +177,7 @@ if let Some(start_idx) = signature.find('(') {
     pub(crate) fn parse_left(arg: &str) -> Result<Option<Bytes>, Errors> {
         if arg.starts_with("left(") && arg.ends_with(')') {
             let inner = &arg[5..arg.len() - 1];
-            let inner_bytes = Self::parse_output_arg(inner)?;
+            let inner_bytes = Self::parse_arg(inner)?;
             let used_length = count_used_bytes_right(&inner_bytes);
             if used_length == 0 {
                 return Ok(Some(Bytes::from(vec![0u8; 32])));
@@ -221,7 +195,7 @@ if let Some(start_idx) = signature.find('(') {
     pub(crate) fn parse_right(arg: &str) -> Result<Option<Bytes>, Errors> {
         if arg.starts_with("right(") && arg.ends_with(')') {
             let inner = &arg[6..arg.len() - 1];
-            Self::parse_output_arg(inner).map(Some)
+            Self::parse_arg(inner).map(Some)
         } else {
             Ok(None)
         }
