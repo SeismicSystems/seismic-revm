@@ -1,5 +1,7 @@
+use hex::FromHex;
+use k256::elliptic_curve::rand_core::block;
 use revm::{
-    db::{BenchmarkDB, CacheDB, EmptyDB}, inspector_handle_register, inspectors::TracerEip3155, primitives::{AccountInfo, Address, Bytecode, BytecodeDecodeError, ExecutionResult, Output, TxKind, U256, Bytes}, DatabaseCommit, Evm
+    db::{BenchmarkDB, CacheDB, EmptyDB}, inspector_handle_register, inspectors::TracerEip3155, primitives::{AccountInfo, Address, Bytecode, BytecodeDecodeError, ExecutionResult, Output, TxKind, U256, Bytes, FixedBytes}, DatabaseCommit, Evm
 };
 
 use std::{path::PathBuf, str::FromStr};
@@ -51,7 +53,13 @@ impl Cmd {
 for test_file in test_files {
     println!("test_file: {:?}", test_file);
     let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
-
+    let blob_hash_1 = FixedBytes::<32>::from_hex("0100000000000000000000000000000000000000000000000000000000000001").unwrap();
+    let blob_hash_2 = FixedBytes::<32>::from_hex("0100000000000000000000000000000000000000000000000000000000000002").unwrap();
+    let blob_hashes = vec![blob_hash_1, blob_hash_2];
+    let max_blob_fee = U256::from(1);
+    let block_prevrando = FixedBytes::<32>::from_hex("0xa86c2e601b6c44eb4848f7d23d9df3113fbcac42041c49cbed5000cb4f118777").unwrap();
+    let block_difficulty = FixedBytes::<32>::from_hex("0x000000000000000000000000000000000000000000000000000000000bebc200").unwrap();
+    let env_contract_address = Address::from_hex("0xc06afe3a8444fc0004668591e8306bfb9968e79e").unwrap();
     match SemanticTests::new(test_file_path) {
         Ok(semantic_tests) => {
             // Create a mutable database instance to share between transactions
@@ -126,8 +134,26 @@ for test_file in test_files {
                 }
             };
 
-            // Commit the state changes from deployment to the database
+
             db.commit(deploy_out.state);
+
+            {
+                let (account_info_clone, storage_entries) = {
+                    let account_info = db.load_account(contract_address).unwrap();
+                    let account_info_clone = account_info.info.clone();
+                    let storage_entries: Vec<_> = account_info
+                        .storage
+                        .iter()
+                        .map(|(slot, value)| (slot.clone(), value.clone()))
+                        .collect();
+                    (account_info_clone, storage_entries)
+                }; 
+                db.insert_account_info(env_contract_address, account_info_clone);
+
+                for (slot, value) in storage_entries {
+                    let _ = db.insert_account_storage(env_contract_address, slot, value);
+                }
+            }
 
             // Now, loop over the test cases, excluding the constructor test case if it was used
             let test_cases_to_process = semantic_tests
@@ -136,17 +162,23 @@ for test_file in test_files {
                 .filter(|test_case| !test_case.is_constructor);
 
             for test_case in test_cases_to_process {
-                println!("test_case: {:?}", test_case);
+                println!("test_case: {:?}", test_case.function_name);
                 let mut evm = Evm::builder()
                     .with_db(db.clone())
                     .modify_tx_env(|tx| {
                         tx.caller = "0x0000000000000000000000000000000000000001"
                             .parse()
                             .unwrap();
-                        tx.transact_to = TxKind::Call(contract_address);
+                        tx.transact_to = TxKind::Call(env_contract_address);
                         tx.data = test_case.input_data.clone();
                         tx.value = test_case.value;
+                        tx.blob_hashes = blob_hashes.clone();
+                        tx.max_fee_per_blob_gas = Some(max_blob_fee);
                     })
+                .modify_env(|env| {
+                    env.block.prevrandao = Some(block_prevrando);
+                    env.block.difficulty = block_difficulty.into();
+                })
                     .build();
 
                 // Run the test transaction and either trace or log results
@@ -160,9 +192,15 @@ for test_file in test_files {
                         .append_handler_register(inspector_handle_register)
                         .build();
 
-                    evm.transact().map_err(|_| Errors::EVMError)?
+                    evm.transact().map_err(|err| {
+                    println!("EVM transaction error: {:?}", err);
+                    Errors::EVMError
+                    })?
                 } else {
-                    evm.transact().map_err(|_| Errors::EVMError)?
+                    evm.transact().map_err(|err| {
+                    println!("EVM transaction error: {:?}", err);
+                    Errors::EVMError
+                    })?
                 };
 
                 let success_res = match out.clone().result {
@@ -173,6 +211,7 @@ for test_file in test_files {
                     ExecutionResult::Revert { output, .. } => {
                         //Padding output to 32 bytes as there is an edge case where they do test
                         //for it using false as expected outputs, but return an empty array => 0x
+                        println!("Execution reverted: {:?}", output);
                         Bytes::from(U256::ZERO.to_be_bytes::<32>())
                     }
                     ExecutionResult::Halt { reason, .. } => {

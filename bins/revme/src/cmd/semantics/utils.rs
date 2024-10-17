@@ -6,7 +6,10 @@ const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "exper
 //in the below, we skip files that are irrelevant for now, that is for example tests for unicode
 //escapes or convert_uint_to_fixed_bytes_greater_size
 //We also skip test for which we have low understanding: multiple initializations
-const SKIP_FILE: [&str; 6] = ["access_through_module_name.sol", "multiline_comments.sol", "unicode_escapes.sol", "unicode_string.sol", "multiple_initializations.sol", "convert_uint_to_fixed_bytes_greater_size.sol"];
+//We also skip test for difficulty as it gets overwritten by prevrandao
+// constructor with param inheritance has a complex structure for us to parse it !
+const SKIP_FILE: [&str; 9] = ["access_through_module_name.sol", "multiline_comments.sol", "unicode_escapes.sol", "unicode_string.sol", "multiple_initializations.sol",
+                              "convert_uint_to_fixed_bytes_greater_size.sol", "difficulty.sol", "constructor_with_params_inheritance_2.sol", "blockhash.sol"];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     let mut test_files = Vec::new();

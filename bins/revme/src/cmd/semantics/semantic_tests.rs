@@ -7,7 +7,13 @@ use crate::cmd::semantics::Errors;
 
 use super::{compiler_evm_versions::EVMVersion, test_cases::TestCase, utils::{extract_compile_via_yul, extract_functions_from_source}};
 
-const SKIP_KEYWORD: [&str; 1] = ["library "];
+const SKIP_KEYWORD: [&str; 5] = [
+    "==== Source:", 
+    "allowNonExistingFunctions: true", 
+    "// library:", 
+    "revertStrings: debug",
+    "storageEmpty ->"
+];
 
 #[derive(Debug, Clone)]
 pub struct ContractInfo {
@@ -55,10 +61,9 @@ impl SemanticTests {
         // Early exit if the content contains `==== Source:` We do not handle this yet nor
         // nonExistingFunctions nor Libraries that generate some slightly different Bytecode with
         // the unhandled "_"
-        if content.contains("==== Source:") || content.contains("allowNonExistingFunctions: true") || content.contains("// library:"){
-            return Err(Errors::UnhandledTestFormat);  
+        if SKIP_KEYWORD.iter().any(|&keyword| content.contains(keyword)) {
+            return Err(Errors::UnhandledTestFormat);
         }
-
         let expectations = parts[1].to_string();
 
         let evm_version = EVMVersion::extract(&content);

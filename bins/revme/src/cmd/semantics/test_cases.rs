@@ -33,6 +33,13 @@ impl TestCase {
             } else {
                 line
             };
+        
+            // Remove comments starting with '#'
+            let line = if let Some(comment_idx) = line.find('#') {
+                &line[..comment_idx].trim()
+            } else {
+                line.trim()
+            };
 
             // format:
             //function_signature "," inputs ":" inputs "->" outputs
@@ -48,7 +55,7 @@ impl TestCase {
             } else {
                 ""
             };
-
+            
             let should_skip = SKIP_KEYWORD.iter().any(|&keyword| {
                 call_part.contains(keyword) || expected_output_part.contains(keyword)
             });
