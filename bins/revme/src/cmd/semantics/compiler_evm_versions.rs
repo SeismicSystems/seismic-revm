@@ -10,9 +10,8 @@ pub(crate) enum EVMVersion {
     London,
     Paris,
     Shangain,
-    Cancun
+    Cancun,
 }
-
 
 // Not fully exhaustive list of versions, trying to cover all SOLIDITY VERSIONING is the goal here
 impl EVMVersion {
@@ -80,7 +79,7 @@ impl EVMVersion {
     pub(crate) fn extract(content: &str) -> Option<Self> {
         let parts: Vec<&str> = content.split("// ====").collect();
         if parts.len() < 2 {
-            return None; 
+            return None;
         }
 
         for line in parts[1].lines() {
@@ -115,4 +114,3 @@ impl EVMVersion {
         None
     }
 }
-

@@ -1,8 +1,8 @@
 pub mod bytecode;
 pub mod eofvalidation;
 pub mod evmrunner;
-pub mod statetest;
 pub mod semantics;
+pub mod statetest;
 
 use structopt::{clap::AppSettings, StructOpt};
 

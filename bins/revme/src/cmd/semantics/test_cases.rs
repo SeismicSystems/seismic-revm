@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{errors::Errors, semantic_tests::ContractInfo, parser::Parser};
+use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo};
 use alloy_primitives::U256;
 use revm::primitives::Bytes;
 
@@ -18,9 +18,9 @@ pub(crate) struct TestCase {
 
 impl TestCase {
     pub(crate) fn from_expectations(
-    expectations: String,
-    contract_infos: &[ContractInfo],
-) -> Result<Vec<Self>, Errors> {
+        expectations: String,
+        contract_infos: &[ContractInfo],
+    ) -> Result<Vec<Self>, Errors> {
         let mut test_cases = Vec::new();
 
         for line in expectations.lines() {
@@ -33,7 +33,7 @@ impl TestCase {
             } else {
                 line
             };
-        
+
             // Remove comments starting with '#'
             let line = if let Some(comment_idx) = line.find('#') {
                 &line[..comment_idx].trim()
@@ -55,7 +55,7 @@ impl TestCase {
             } else {
                 ""
             };
-            
+
             let should_skip = SKIP_KEYWORD.iter().any(|&keyword| {
                 call_part.contains(keyword) || expected_output_part.contains(keyword)
             });
@@ -64,10 +64,9 @@ impl TestCase {
             }
 
             let (function_signature, value, inputs) = Self::parse_call_part(call_part)?;
-            
+
             let expected_outputs = Self::parse_outputs(expected_output_part)?;
-            let (function_selector, _) =
-                Parser::parse_function_signature(&function_signature)?;
+            let (function_selector, _) = Parser::parse_function_signature(&function_signature)?;
 
             let is_constructor = function_signature.starts_with("constructor(");
 
@@ -76,7 +75,7 @@ impl TestCase {
                 let arg_encoded = Parser::parse_arg(arg_str)?;
                 args_encoded.push(arg_encoded);
             }
-            
+
             let mut input_data = Vec::new();
             if !is_constructor && function_signature != "()" {
                 input_data.extend_from_slice(&function_selector);
@@ -89,23 +88,19 @@ impl TestCase {
                 if function_signature == "()" {
                     contract.has_fallback_function()
                 } else {
-                    let function_name = function_signature
-                        .split('(')
-                        .next()
-                        .unwrap_or("")
-                        .trim();
+                    let function_name = function_signature.split('(').next().unwrap_or("").trim();
                     contract.has_function(function_name)
                 }
             });
-  
+
             if let Some(contract) = matching_contract {
-                let mut deploy_binary = Vec::new(); 
+                let mut deploy_binary = Vec::new();
                 deploy_binary.extend_from_slice(&contract.compile_binary);
 
                 if is_constructor {
                     for arg in &args_encoded {
                         deploy_binary.extend_from_slice(&arg);
-                    } 
+                    }
                     input_data.clear(); // No input data for constructor call
                 }
 
@@ -223,5 +218,3 @@ impl TestCase {
         }
     }
 }
-
-
