@@ -66,7 +66,7 @@ impl TestCase {
 
             let mut args_encoded = Vec::new();
             for arg_str in inputs.iter() {
-                let arg_encoded = Parser::parse_output_arg(arg_str)?;
+                let arg_encoded = Parser::parse_arg(arg_str)?;
                 args_encoded.push(arg_encoded);
             }
             
@@ -209,7 +209,7 @@ impl TestCase {
                 .collect();
             let mut outputs = Vec::new();
             for output_arg in outputs_list {
-                let output_encoded = Parser::parse_output_arg(output_arg)?;
+                let output_encoded = Parser::parse_arg(output_arg)?;
                 outputs.extend_from_slice(output_encoded.as_ref());
             }
             Ok(outputs)

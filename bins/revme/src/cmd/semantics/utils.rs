@@ -6,10 +6,7 @@ const SKIP_DIRECTORY: [&str; 4] = ["externalContracts", "externalSource", "exper
 //in the below, we skip files that are irrelevant for now, that is for example tests for unicode
 //escapes or convert_uint_to_fixed_bytes_greater_size
 //We also skip test for which we have low understanding: multiple initializations
-//We also skip test that use user defined value type as they geenrate different bytecode with
-//unrecognized characters! 
-const SKIP_FILE: [&str; 7] = ["access_through_module_name.sol", "multiline_comments.sol", "unicode_escapes.sol", "unicode_string.sol", "multiple_initializations.sol", "convert_uint_to_fixed_bytes_greater_size.sol",
-                              "user_defined_types_mapping_storage.sol"];
+const SKIP_FILE: [&str; 6] = ["access_through_module_name.sol", "multiline_comments.sol", "unicode_escapes.sol", "unicode_string.sol", "multiple_initializations.sol", "convert_uint_to_fixed_bytes_greater_size.sol"];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     let mut test_files = Vec::new();
@@ -145,3 +142,68 @@ pub(crate) fn count_used_bytes_right(bytes: &[u8]) -> usize {
     }
     bytes.len() - start
 }
+
+pub(crate) fn parse_string_with_escapes(s: &str) -> Result<Vec<u8>, Errors> {
+    let mut bytes = Vec::new();
+    let mut chars = s.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('x') => {
+                    // Hex escape sequence \xNN
+                    let hex_digits: String = chars.by_ref().take(2).collect();
+                    if hex_digits.len() != 2 {
+                        return Err(Errors::InvalidInput);
+                    }
+                    let byte = u8::from_str_radix(&hex_digits, 16)
+                        .map_err(|_| Errors::InvalidInput)?;
+                    bytes.push(byte);
+                }
+                Some('u') => {
+                    // Unicode escape sequence \uXXXX or \u{XXXXXX}
+                    let mut hex = String::new();
+                    if chars.peek() == Some(&'{') {
+                        chars.next(); // Consume '{'
+                        while let Some(&next_char) = chars.peek() {
+                            if next_char == '}' {
+                                chars.next(); // Consume '}'
+                                break;
+                            } else {
+                                hex.push(chars.next().unwrap());
+                            }
+                        }
+                    } else {
+                        // Expect 4 hex digits
+                        hex = chars.by_ref().take(4).collect();
+                    }
+                    let codepoint = u32::from_str_radix(&hex, 16)
+                        .map_err(|_| Errors::InvalidInput)?;
+                    let s = std::char::from_u32(codepoint)
+                        .ok_or(Errors::InvalidInput)?;
+                    let mut buf = [0; 4];
+                    let encoded = s.encode_utf8(&mut buf);
+                    bytes.extend_from_slice(encoded.as_bytes());
+                }
+                Some('n') => bytes.push(b'\n'),
+                Some('r') => bytes.push(b'\r'),
+                Some('t') => bytes.push(b'\t'),
+                Some('0') => bytes.push(b'\0'),
+                Some('\'') => bytes.push(b'\''),
+                Some('"') => bytes.push(b'"'),
+                Some('\\') => bytes.push(b'\\'),
+                Some(_) => {
+                    return Err(Errors::InvalidInput);
+                }
+                None => {
+                    return Err(Errors::InvalidInput);
+                }
+            }
+        } else {
+            // Regular character
+            bytes.extend(c.to_string().as_bytes());
+        }
+    }
+    Ok(bytes)
+}
+
