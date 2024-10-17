@@ -7,6 +7,8 @@ use crate::cmd::semantics::Errors;
 
 use super::{compiler_evm_versions::EVMVersion, test_cases::TestCase, utils::{extract_compile_via_yul, extract_functions_from_source}};
 
+const SKIP_KEYWORD: [&str; 1] = ["library "];
+
 #[derive(Debug, Clone)]
 pub struct ContractInfo {
     pub contract_name: String,
@@ -51,8 +53,9 @@ impl SemanticTests {
         }
         
         // Early exit if the content contains `==== Source:` We do not handle this yet nor
-        // nonExistingFunctions
-        if content.contains("==== Source:") || content.contains("allowNonExistingFunctions: true") {
+        // nonExistingFunctions nor Libraries that generate some slightly different Bytecode with
+        // the unhandled "_"
+        if content.contains("==== Source:") || content.contains("allowNonExistingFunctions: true") || content.contains("// library:"){
             return Err(Errors::UnhandledTestFormat);  
         }
 
