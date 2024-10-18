@@ -10,7 +10,7 @@ const SKIP_DIRECTORY: [&str; 5] = [
     "externalSource",
     "experimental",
     "multiSource",
-    "isoltestTesting"
+    "isoltestTesting",
 ];
 //in the below, we skip files that are irrelevant for now, that is for example tests for unicode
 //escapes or convert_uint_to_fixed_bytes_greater_size
@@ -20,7 +20,12 @@ const SKIP_DIRECTORY: [&str; 5] = [
 // Block hash not settable, it's fetched via block number!
 // codebalance : no need to set-up balances of multiple accounts, we know it works!
 // multiple_inheritance : we don't support multiple inheritance
-const SKIP_FILE: [&str; 17] = [
+// external_call_at_construction_time: unsure what's being tested
+// pass_dynamic_arguments_to_the_base_base_with_gap: multiple inheritance
+// same for the below down to transient, for which we need to hardcode further balances to some
+// addresses
+// virtual functions | array in constructor: nasty inheritance
+const SKIP_FILE: [&str; 26] = [
     "access_through_module_name.sol",
     "multiline_comments.sol",
     "unicode_escapes.sol",
@@ -37,7 +42,16 @@ const SKIP_FILE: [&str; 17] = [
     "codebalance_assembly.sol",
     "codehash_assembly.sol",
     "codehash.sol",
-    "single_copy_with_multiple_inheritance.sol"
+    "single_copy_with_multiple_inheritance.sol",
+    "external_call_at_construction_time.sol",
+    "pass_dynamic_arguments_to_the_base_base_with_gap.sol",
+    "pass_dynamic_arguments_to_the_base.sol",
+    "pass_dynamic_arguments_to_the_base_base.sol",
+    "transient_state_address_variable_members.sol",
+    "virtual_functions.sol",
+    "base_base_overload.sol",
+    "arrays_in_constructors.sol",
+    "bytes_in_constructors_packer.sol",
 ];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {

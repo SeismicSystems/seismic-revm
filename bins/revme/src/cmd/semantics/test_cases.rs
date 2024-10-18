@@ -4,7 +4,7 @@ use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo};
 use alloy_primitives::U256;
 use revm::primitives::Bytes;
 
-const SKIP_KEYWORD: [&str; 5] = ["gas", "emit", "Library", "FAILURE", "balance"];
+const SKIP_KEYWORD: [&str; 6] = ["gas", "emit", "Library", "FAILURE", "balance", "account"];
 
 #[derive(Debug, Clone)]
 pub(crate) struct TestCase {

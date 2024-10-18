@@ -68,7 +68,8 @@ impl Cmd {
                             .as_ref()
                             .map_or(U256::ZERO, |tc| tc.value),
                     )?;
-                    evm_executor.config.block_number = evm_executor.config.block_number.wrapping_add(U256::from(1));
+                    evm_executor.config.block_number =
+                        evm_executor.config.block_number.wrapping_add(U256::from(1));
                     evm_executor.copy_contract_to_env(contract_address);
 
                     let test_cases_to_process = semantic_tests
@@ -78,7 +79,8 @@ impl Cmd {
 
                     for test_case in test_cases_to_process {
                         evm_executor.run_test_case(test_case)?;
-                        evm_executor.config.block_number = evm_executor.config.block_number.wrapping_add(U256::from(1));
+                        evm_executor.config.block_number =
+                            evm_executor.config.block_number.wrapping_add(U256::from(1));
                     }
                 }
                 Err(Errors::UnhandledTestFormat) => {
