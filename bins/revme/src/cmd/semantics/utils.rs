@@ -133,7 +133,7 @@ pub(crate) fn extract_functions_from_source(
                     functions.push(function_signature.to_string());
                 }
             }
-        } else if line.contains("    fallback") {
+        } else if line.contains("    fallback") || line.contains("    receive ()") {
             if let Some(functions) = contract_functions.get_mut(&current_contract) {
                 functions.push("()".to_string());
             }
