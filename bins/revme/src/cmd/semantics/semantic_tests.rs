@@ -4,7 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use revm::primitives::Bytes;
+use revm::primitives::{Bytes, SpecId};
 
 use crate::cmd::semantics::Errors;
 
@@ -14,25 +14,29 @@ use super::{
     utils::{extract_compile_via_yul, extract_functions_from_source},
 };
 
-const SKIP_KEYWORD: [&str; 5] = [
+const SKIP_KEYWORD: [&str; 6] = [
     "==== Source:",
     "allowNonExistingFunctions: true",
     "// library:",
     "revertStrings: debug",
     "storageEmpty ->",
+    "tx.origin"
 ];
 
 #[derive(Debug, Clone)]
 pub struct ContractInfo {
     pub contract_name: String,
+    pub evm_version: SpecId,
     pub compile_binary: Bytes,
     pub functions: Vec<String>,
 }
 
 impl ContractInfo {
-    pub fn new(contract_name: String, compile_binary: Bytes) -> Self {
+    // Updated new function to default to SpecId::LATEST
+    pub fn new(contract_name: String, compile_binary: Bytes, evm_version: SpecId) -> Self {
         Self {
             contract_name,
+            evm_version,
             compile_binary,
             functions: Vec::new(),
         }
@@ -134,6 +138,11 @@ impl SemanticTests {
     ) -> Result<Vec<ContractInfo>, Errors> {
         let stdout_output = Self::compile_solidity(path, evm_version, via_ir, runtime)?;
 
+        let revm_version: SpecId = evm_version
+            .clone()
+            .map(|evm_ver| SpecId::from(EVMVersion::from(evm_ver))) 
+            .unwrap_or(SpecId::LATEST);
+        
         let mut contract_infos = Vec::new();
 
         let contract_sections = stdout_output.split("======= ").skip(1);
@@ -165,7 +174,8 @@ impl SemanticTests {
                         return Err(Errors::CompilationFailed);
                     }
                 };
-                let mut contract_info = ContractInfo::new(contract_name.clone(), compile_binary);
+
+                let mut contract_info = ContractInfo::new(contract_name.clone(), compile_binary, revm_version);
 
                 let contract_functions_map = extract_functions_from_source(path)?;
                 if let Some(functions) = contract_functions_map.get(&contract_name) {
