@@ -45,7 +45,7 @@ impl Cmd {
             match SemanticTests::new(test_file_path) {
                 Ok(semantic_tests) => {
                     let evm_version = semantic_tests.contract_infos[0].evm_version;
-                    let evm_config = EvmConfig::new(evm_version);
+                    let mut evm_config = EvmConfig::new(evm_version);
                     let mut db = self.prepare_database(&evm_config)?;
 
                     let constructor_test_case = semantic_tests
@@ -60,7 +60,7 @@ impl Cmd {
                         continue;
                     }
                     let mut evm_executor =
-                        EvmExecutor::new(db, evm_config, evm_version, &semantic_tests);
+                        EvmExecutor::new(db, evm_config.clone(), evm_version, &semantic_tests);
 
                     let contract_address = evm_executor.deploy_contract(
                         deploy_data,
@@ -68,6 +68,7 @@ impl Cmd {
                             .as_ref()
                             .map_or(U256::ZERO, |tc| tc.value),
                     )?;
+                    evm_executor.config.block_number = evm_executor.config.block_number.wrapping_add(U256::from(1));
                     evm_executor.copy_contract_to_env(contract_address);
 
                     let test_cases_to_process = semantic_tests
@@ -77,6 +78,7 @@ impl Cmd {
 
                     for test_case in test_cases_to_process {
                         evm_executor.run_test_case(test_case)?;
+                        evm_executor.config.block_number = evm_executor.config.block_number.wrapping_add(U256::from(1));
                     }
                 }
                 Err(Errors::UnhandledTestFormat) => {

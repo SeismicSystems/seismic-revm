@@ -11,14 +11,18 @@ use std::{str::FromStr, u64};
 
 use super::{semantic_tests::SemanticTests, test_cases::TestCase, Errors};
 
+#[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {
     pub blob_hashes: Vec<FixedBytes<32>>,
     pub max_blob_fee: U256,
     pub gas_limit: u64,
+    pub gas_price: U256,
     pub block_gas_limit: U256,
     pub block_prevrandao: FixedBytes<32>,
     pub block_difficulty: FixedBytes<32>,
     pub block_coinbase: Address,
+    pub block_basefee: U256,
+    pub block_number: U256,
     pub env_contract_address: Address,
     pub caller: Address,
 }
@@ -48,6 +52,7 @@ impl EvmConfig {
 
         let block_gas_limit = U256::from(20000000);
         let gas_limit = 20000000 - 10;
+        let gas_price = U256::from(8);
         let block_prevrandao = FixedBytes::<32>::from_hex(
             "0xa86c2e601b6c44eb4848f7d23d9df3113fbcac42041c49cbed5000cb4f118777",
         )
@@ -58,6 +63,8 @@ impl EvmConfig {
         .unwrap();
         let block_coinbase =
             Address::from_hex("0x7878787878787878787878787878787878787878").unwrap();
+        let block_basefee = U256::from(7);
+        let block_number = U256::from(1);
         let env_contract_address =
             Address::from_hex("0xc06afe3a8444fc0004668591e8306bfb9968e79e").unwrap();
         let caller = Address::from_str("0x1212121212121212121212121212120000000012").unwrap();
@@ -66,10 +73,13 @@ impl EvmConfig {
             blob_hashes,
             max_blob_fee,
             gas_limit,
+            gas_price,
             block_gas_limit,
             block_prevrandao,
             block_difficulty,
             block_coinbase,
+            block_basefee,
+            block_number,
             env_contract_address,
             caller,
         }
@@ -78,7 +88,7 @@ impl EvmConfig {
 
 pub(crate) struct EvmExecutor<'a> {
     db: CacheDB<EmptyDB>,
-    config: EvmConfig,
+    pub config: EvmConfig,
     evm_version: SpecId,
     semantic_tests: &'a SemanticTests,
 }
@@ -174,12 +184,15 @@ impl<'a> EvmExecutor<'a> {
                     tx.max_fee_per_blob_gas = Some(self.config.max_blob_fee);
                 }
                 tx.gas_limit = self.config.gas_limit;
+                tx.gas_price = self.config.gas_price;
             })
             .modify_env(|env| {
                 env.block.prevrandao = Some(self.config.block_prevrandao);
                 env.block.difficulty = self.config.block_difficulty.into();
                 env.block.gas_limit = self.config.block_gas_limit;
                 env.block.coinbase = self.config.block_coinbase;
+                env.block.basefee = self.config.block_basefee;
+                env.block.number = self.config.block_number;
             })
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
             .build();
