@@ -2,7 +2,7 @@ use hex::FromHex;
 use revm::{
     db::{CacheDB, EmptyDB},
     primitives::{
-        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256
+        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256,
     },
     DatabaseCommit, Evm,
 };
@@ -10,7 +10,6 @@ use revm::{
 use std::{str::FromStr, u64};
 
 use super::{semantic_tests::SemanticTests, test_cases::TestCase, Errors};
-
 
 pub(crate) struct EvmConfig {
     pub blob_hashes: Vec<FixedBytes<32>>,
@@ -28,8 +27,14 @@ impl EvmConfig {
     pub(crate) fn new(evm_version: SpecId) -> Self {
         let blob_hashes = if evm_version >= SpecId::CANCUN {
             vec![
-                FixedBytes::<32>::from_hex("0100000000000000000000000000000000000000000000000000000000000001").unwrap(),
-                FixedBytes::<32>::from_hex("0100000000000000000000000000000000000000000000000000000000000002").unwrap(),
+                FixedBytes::<32>::from_hex(
+                    "0100000000000000000000000000000000000000000000000000000000000001",
+                )
+                .unwrap(),
+                FixedBytes::<32>::from_hex(
+                    "0100000000000000000000000000000000000000000000000000000000000002",
+                )
+                .unwrap(),
             ]
         } else {
             vec![]
@@ -51,7 +56,8 @@ impl EvmConfig {
             "0x000000000000000000000000000000000000000000000000000000000bebc200",
         )
         .unwrap();
-        let block_coinbase = Address::from_hex("0x7878787878787878787878787878787878787878").unwrap();
+        let block_coinbase =
+            Address::from_hex("0x7878787878787878787878787878787878787878").unwrap();
         let env_contract_address =
             Address::from_hex("0xc06afe3a8444fc0004668591e8306bfb9968e79e").unwrap();
         let caller = Address::from_str("0x1212121212121212121212121212120000000012").unwrap();
@@ -92,7 +98,11 @@ impl<'a> EvmExecutor<'a> {
         }
     }
 
-    pub(crate) fn deploy_contract(&mut self, deploy_data: Bytes, value: U256) -> Result<Address, Errors> {
+    pub(crate) fn deploy_contract(
+        &mut self,
+        deploy_data: Bytes,
+        value: U256,
+    ) -> Result<Address, Errors> {
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
             .modify_tx_env(|tx| {

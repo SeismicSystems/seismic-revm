@@ -20,7 +20,7 @@ const SKIP_KEYWORD: [&str; 6] = [
     "// library:",
     "revertStrings: debug",
     "storageEmpty ->",
-    "tx.origin"
+    "tx.origin",
 ];
 
 #[derive(Debug, Clone)]
@@ -140,9 +140,9 @@ impl SemanticTests {
 
         let revm_version: SpecId = evm_version
             .clone()
-            .map(|evm_ver| SpecId::from(EVMVersion::from(evm_ver))) 
+            .map(|evm_ver| SpecId::from(EVMVersion::from(evm_ver)))
             .unwrap_or(SpecId::LATEST);
-        
+
         let mut contract_infos = Vec::new();
 
         let contract_sections = stdout_output.split("======= ").skip(1);
@@ -175,7 +175,8 @@ impl SemanticTests {
                     }
                 };
 
-                let mut contract_info = ContractInfo::new(contract_name.clone(), compile_binary, revm_version);
+                let mut contract_info =
+                    ContractInfo::new(contract_name.clone(), compile_binary, revm_version);
 
                 let contract_functions_map = extract_functions_from_source(path)?;
                 if let Some(functions) = contract_functions_map.get(&contract_name) {

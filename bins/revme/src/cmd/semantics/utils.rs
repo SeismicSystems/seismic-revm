@@ -28,7 +28,7 @@ const SKIP_FILE: [&str; 11] = [
     "constructor_with_params_inheritance_2.sol",
     "blockhash.sol",
     "uncalled_blockhash.sol",
-    "blockhash_basic.sol"
+    "blockhash_basic.sol",
 ];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {

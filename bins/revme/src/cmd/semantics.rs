@@ -1,9 +1,7 @@
 use evm_handler::{EvmConfig, EvmExecutor};
 use revm::{
     db::{CacheDB, EmptyDB},
-    primitives::{
-        AccountInfo, U256, Bytes
-    },
+    primitives::{AccountInfo, Bytes, U256},
 };
 use test_cases::TestCase;
 
@@ -56,13 +54,20 @@ impl Cmd {
                         .find(|test_case| test_case.is_constructor)
                         .cloned();
 
-                    let deploy_data = self.prepare_deploy_data(&semantic_tests, &constructor_test_case)?;
+                    let deploy_data =
+                        self.prepare_deploy_data(&semantic_tests, &constructor_test_case)?;
                     if deploy_data.is_empty() {
                         continue;
                     }
-                    let mut evm_executor = EvmExecutor::new(db, evm_config, evm_version, &semantic_tests);
+                    let mut evm_executor =
+                        EvmExecutor::new(db, evm_config, evm_version, &semantic_tests);
 
-                    let contract_address = evm_executor.deploy_contract(deploy_data, constructor_test_case.as_ref().map_or(U256::ZERO, |tc| tc.value))?;
+                    let contract_address = evm_executor.deploy_contract(
+                        deploy_data,
+                        constructor_test_case
+                            .as_ref()
+                            .map_or(U256::ZERO, |tc| tc.value),
+                    )?;
                     evm_executor.copy_contract_to_env(contract_address);
 
                     let test_cases_to_process = semantic_tests
@@ -133,6 +138,6 @@ impl Cmd {
             Ok(first_test_case.deploy_binary.clone())
         } else {
             Ok(Bytes::new())
-    }
+        }
     }
 }

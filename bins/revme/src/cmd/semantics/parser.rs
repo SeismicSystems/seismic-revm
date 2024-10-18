@@ -185,7 +185,8 @@ impl Parser {
             let inner = &arg[5..arg.len() - 1];
             if inner.starts_with("0x") {
                 let parsed_output = Bytes::from_hex(inner).unwrap();
-                let padded_output: Bytes = FixedBytes::<32>::right_padding_from(parsed_output.as_ref()).into();
+                let padded_output: Bytes =
+                    FixedBytes::<32>::right_padding_from(parsed_output.as_ref()).into();
                 return Ok(Some(padded_output));
             }
             let inner_bytes = Self::parse_arg(inner)?;

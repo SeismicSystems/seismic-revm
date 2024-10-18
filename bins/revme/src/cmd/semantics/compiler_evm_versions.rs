@@ -122,11 +122,11 @@ impl From<SpecId> for EVMVersion {
         match spec_id {
             SpecId::HOMESTEAD => EVMVersion::Homestead,
             SpecId::BYZANTIUM => EVMVersion::Byzantium,
-            SpecId::CONSTANTINOPLE | SpecId::PETERSBURG => EVMVersion::Constantinople, 
+            SpecId::CONSTANTINOPLE | SpecId::PETERSBURG => EVMVersion::Constantinople,
             SpecId::ISTANBUL => EVMVersion::Istanbul,
             SpecId::BERLIN => EVMVersion::Berlin,
             SpecId::LONDON => EVMVersion::London,
-            SpecId::MERGE => EVMVersion::Paris, 
+            SpecId::MERGE => EVMVersion::Paris,
             SpecId::SHANGHAI => EVMVersion::Shangain,
             SpecId::CANCUN => EVMVersion::Cancun,
             _ => panic!("Unsupported SpecId for EVMVersion mapping"),
@@ -139,14 +139,13 @@ impl From<EVMVersion> for SpecId {
         match version {
             EVMVersion::Homestead => SpecId::HOMESTEAD,
             EVMVersion::Byzantium => SpecId::BYZANTIUM,
-            EVMVersion::Constantinople => SpecId::CONSTANTINOPLE, 
+            EVMVersion::Constantinople => SpecId::CONSTANTINOPLE,
             EVMVersion::Istanbul => SpecId::ISTANBUL,
             EVMVersion::Berlin => SpecId::BERLIN,
             EVMVersion::London => SpecId::LONDON,
-            EVMVersion::Paris => SpecId::MERGE, 
+            EVMVersion::Paris => SpecId::MERGE,
             EVMVersion::Shangain => SpecId::SHANGHAI,
             EVMVersion::Cancun => SpecId::CANCUN,
         }
     }
 }
-
