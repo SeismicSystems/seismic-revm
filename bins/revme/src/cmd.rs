@@ -1,6 +1,7 @@
 pub mod bytecode;
 pub mod eofvalidation;
 pub mod evmrunner;
+pub mod semantics;
 pub mod statetest;
 
 use structopt::{clap::AppSettings, StructOpt};
@@ -17,6 +18,7 @@ pub enum MainCmd {
         about = "Evm runner command allows running arbitrary evm bytecode.\nBytecode can be provided from cli or from file with --path option."
     )]
     Evm(evmrunner::Cmd),
+    Semantics(semantics::Cmd),
     #[structopt(alias = "bc", about = "Prints the opcodes of an hex Bytecodes.")]
     Bytecode(bytecode::Cmd),
 }
@@ -32,6 +34,8 @@ pub enum Error {
         failed_test: usize,
         total_tests: usize,
     },
+    #[error(transparent)]
+    SemanticTests(#[from] semantics::Errors),
     #[error("Custom error: {0}")]
     Custom(&'static str),
 }
@@ -46,6 +50,7 @@ impl MainCmd {
                 cmd.run();
                 Ok(())
             }
+            Self::Semantics(cmd) => cmd.run().map_err(Into::into),
         }
     }
 }
