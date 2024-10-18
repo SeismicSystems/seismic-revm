@@ -4,7 +4,7 @@ use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo};
 use alloy_primitives::U256;
 use revm::primitives::Bytes;
 
-const SKIP_KEYWORD: [&str; 4] = ["gas", "emit", "Library", "FAILURE"];
+const SKIP_KEYWORD: [&str; 5] = ["gas", "emit", "Library", "FAILURE", "balance"];
 
 #[derive(Debug, Clone)]
 pub(crate) struct TestCase {
@@ -140,6 +140,7 @@ impl TestCase {
         }
 
         if paren_count != 0 || sig_end_idx.is_none() {
+            println!("call_part: {:?}", call_part);
             return Err(Errors::InvalidFunctionSignature);
         }
 

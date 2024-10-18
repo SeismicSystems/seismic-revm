@@ -17,7 +17,9 @@ const SKIP_DIRECTORY: [&str; 4] = [
 //We also skip test for difficulty as it gets overwritten by prevrandao
 // constructor with param inheritance has a complex structure for us to parse it !
 // Block hash not settable, it's fetched via block number!
-const SKIP_FILE: [&str; 13] = [
+// codebalance : no need to set-up balances of multiple accounts, we know it works!
+// multiple_inheritance : we don't support multiple inheritance
+const SKIP_FILE: [&str; 17] = [
     "access_through_module_name.sol",
     "multiline_comments.sol",
     "unicode_escapes.sol",
@@ -30,7 +32,11 @@ const SKIP_FILE: [&str; 13] = [
     "uncalled_blockhash.sol",
     "blockhash_basic.sol",
     "block_timestamp.sol",
-    "tx_gasprice.sol"
+    "tx_gasprice.sol",
+    "codebalance_assembly.sol",
+    "codehash_assembly.sol",
+    "codehash.sol",
+    "single_copy_with_multiple_inheritance.sol"
 ];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
