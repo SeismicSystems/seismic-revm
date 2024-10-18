@@ -5,11 +5,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const SKIP_DIRECTORY: [&str; 4] = [
+const SKIP_DIRECTORY: [&str; 5] = [
     "externalContracts",
     "externalSource",
     "experimental",
     "multiSource",
+    "isoltestTesting"
 ];
 //in the below, we skip files that are irrelevant for now, that is for example tests for unicode
 //escapes or convert_uint_to_fixed_bytes_greater_size
