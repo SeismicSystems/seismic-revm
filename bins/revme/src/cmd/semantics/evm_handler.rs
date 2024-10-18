@@ -170,8 +170,11 @@ impl<'a> EvmExecutor<'a> {
         }
     }
 
-    pub(crate) fn run_test_case(&mut self, test_case: &TestCase) -> Result<(), Errors> {
-        println!("test_case: {:?}", test_case.function_name);
+    pub(crate) fn run_test_case(
+        &mut self,
+        test_case: &TestCase,
+        _trace: bool,
+    ) -> Result<(), Errors> {
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
             .modify_tx_env(|tx| {

@@ -140,7 +140,6 @@ impl TestCase {
         }
 
         if paren_count != 0 || sig_end_idx.is_none() {
-            println!("call_part: {:?}", call_part);
             return Err(Errors::InvalidFunctionSignature);
         }
 

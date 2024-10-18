@@ -78,7 +78,7 @@ impl Cmd {
                         .filter(|test_case| !test_case.is_constructor);
 
                     for test_case in test_cases_to_process {
-                        evm_executor.run_test_case(test_case)?;
+                        evm_executor.run_test_case(test_case, trace)?;
                         evm_executor.config.block_number =
                             evm_executor.config.block_number.wrapping_add(U256::from(1));
                     }
