@@ -25,7 +25,7 @@ const SKIP_FILE: [&str; 9] = [
     "convert_uint_to_fixed_bytes_greater_size.sol",
     "difficulty.sol",
     "constructor_with_params_inheritance_2.sol",
-    "blockhash.sol",
+    "blockhash.sol"
 ];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {

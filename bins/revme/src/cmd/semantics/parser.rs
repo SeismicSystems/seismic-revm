@@ -5,6 +5,7 @@ use super::{
     utils::{count_used_bytes_right, parse_string_with_escapes},
 };
 use alloy_primitives::{keccak256, I256, U256};
+use hex::FromHex;
 use revm::primitives::{Bytes, FixedBytes};
 
 pub struct Parser {}
@@ -182,6 +183,11 @@ impl Parser {
     pub(crate) fn parse_left(arg: &str) -> Result<Option<Bytes>, Errors> {
         if arg.starts_with("left(") && arg.ends_with(')') {
             let inner = &arg[5..arg.len() - 1];
+            if inner.starts_with("0x") {
+                let parsed_output = Bytes::from_hex(inner).unwrap();
+                let padded_output: Bytes = FixedBytes::<32>::right_padding_from(parsed_output.as_ref()).into();
+                return Ok(Some(padded_output));
+            }
             let inner_bytes = Self::parse_arg(inner)?;
             let used_length = count_used_bytes_right(&inner_bytes);
             if used_length == 0 {
