@@ -1,6 +1,8 @@
 use hex::FromHex;
 use revm::{
     db::{CacheDB, EmptyDB},
+    inspector_handle_register,
+    inspectors::TracerEip3155,
     primitives::{
         Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256,
     },
@@ -173,7 +175,7 @@ impl<'a> EvmExecutor<'a> {
     pub(crate) fn run_test_case(
         &mut self,
         test_case: &TestCase,
-        _trace: bool,
+        trace: bool,
     ) -> Result<(), Errors> {
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
@@ -200,27 +202,56 @@ impl<'a> EvmExecutor<'a> {
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
             .build();
 
-        let out = evm.transact().map_err(|err| {
-            println!("EVM transaction error: {:?}", err);
-            Errors::EVMError
-        })?;
+        let out = if trace {
+            let mut evm = evm
+                .modify()
+                .reset_handler_with_external_context(TracerEip3155::new(
+                    Box::new(std::io::stdout()),
+                ))
+                .append_handler_register(inspector_handle_register)
+                .build();
 
-        let success_res = match out.clone().result {
-            ExecutionResult::Success { output, .. } => match output {
-                Output::Call(out) => Bytes::from(out),
-                _ => return Err(Errors::EVMError),
-            },
-            ExecutionResult::Revert { output, .. } => {
-                println!("Execution reverted: {:?}", output);
-                Bytes::from(U256::ZERO.to_be_bytes::<32>())
+            evm.transact().map_err(|err| {
+                println!("EVM transaction error: {:?}", err);
+                Errors::EVMError
+            })?
+        } else {
+            evm.transact().map_err(|err| {
+                println!("EVM transaction error: {:?}", err);
+                Errors::EVMError
+            })?
+        };
+
+        match out.clone().result {
+            ExecutionResult::Success { output, .. } => {
+                if test_case.expected_outputs.is_success() {
+                    match output {
+                        Output::Call(out) => {
+                            assert_eq!(Bytes::from(out), test_case.expected_outputs.output);
+                        }
+                        _ => return Err(Errors::EVMError),
+                    }
+                } else {
+                    return Err(Errors::EVMError);
+                }
             }
+
+            ExecutionResult::Revert { output , .. } => {
+                if !test_case.expected_outputs.is_success() {
+                    return Ok(());
+                } else {
+                    // for backward compatibility, we need to handle the case where we revert with
+                    // but expected output was 0x!
+                    assert_eq!(Bytes::from(U256::ZERO.to_be_bytes::<32>()), test_case.expected_outputs.output);
+                }
+            }
+
             ExecutionResult::Halt { reason, .. } => {
                 println!("Execution halted: {:?}", reason);
                 return Err(Errors::EVMError);
             }
         };
 
-        assert_eq!(success_res, test_case.expected_outputs);
         self.db.commit(out.state);
         Ok(())
     }
