@@ -2,15 +2,56 @@ use std::str::FromStr;
 
 use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo};
 use alloy_primitives::U256;
+use hex::FromHex;
 use revm::primitives::Bytes;
 
-const SKIP_KEYWORD: [&str; 6] = ["gas", "emit", "Library", "FAILURE", "balance", "account"];
+const SKIP_KEYWORD: [&str; 5] = ["gas", "emit", "Library", "balance", "account"];
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum ExecutionResult {
+    Success,
+    Failure,
+}
+
+impl Default for ExecutionResult {
+    fn default() -> Self {
+        Self::Success
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ExpectedOutputs {
+    state: ExecutionResult,
+    pub output: Bytes,
+}
+
+impl Default for ExpectedOutputs {
+    fn default() -> Self {
+        Self {
+            state: ExecutionResult::default(),
+            output: Bytes::from_hex("0x").unwrap(),
+        }
+    }
+}
+
+impl ExpectedOutputs {
+    pub(crate) fn from_failure() -> Self {
+        Self {
+            state: ExecutionResult::Failure,
+            output: Bytes::default(),
+        }
+    }
+
+    pub(crate) fn is_success(&self) -> bool {
+        self.state == ExecutionResult::Success
+    }
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct TestCase {
     pub function_name: String,
     pub input_data: Bytes,
-    pub expected_outputs: Bytes,
+    pub expected_outputs: ExpectedOutputs,
     pub is_constructor: bool,
     pub deploy_binary: Bytes,
     pub value: U256,
@@ -107,7 +148,7 @@ impl TestCase {
                 test_cases.push(TestCase {
                     function_name: function_signature.clone(),
                     input_data: input_data.into(),
-                    expected_outputs: Bytes::from(expected_outputs),
+                    expected_outputs,
                     is_constructor,
                     deploy_binary: deploy_binary.into(),
                     value: value.unwrap_or(U256::ZERO),
@@ -200,21 +241,26 @@ impl TestCase {
         Ok(amount * multiplier)
     }
 
-    fn parse_outputs(outputs_str: &str) -> Result<Vec<u8>, Errors> {
+    fn parse_outputs(outputs_str: &str) -> Result<ExpectedOutputs, Errors> {
         if outputs_str.is_empty() {
-            Ok(Vec::new())
+            Ok(ExpectedOutputs::default())
+        } else if outputs_str.contains("FAILURE") {
+            Ok(ExpectedOutputs::from_failure())
         } else {
             let outputs_list: Vec<&str> = outputs_str
                 .split(',')
                 .map(|s| s.trim())
                 .filter(|s| !s.is_empty())
                 .collect();
-            let mut outputs = Vec::new();
+            let mut output = Vec::new();
             for output_arg in outputs_list {
                 let output_encoded = Parser::parse_arg(output_arg)?;
-                outputs.extend_from_slice(output_encoded.as_ref());
+                output.extend_from_slice(output_encoded.as_ref());
             }
-            Ok(outputs)
+            Ok(ExpectedOutputs {
+                state: ExecutionResult::Success,
+                output: output.into(),
+            })
         }
     }
 }
