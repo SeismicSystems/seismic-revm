@@ -236,14 +236,15 @@ impl<'a> EvmExecutor<'a> {
                 }
             }
 
-            ExecutionResult::Revert { .. } => {
+            ExecutionResult::Revert { output, .. } => {
                 if !test_case.expected_outputs.is_success() {
                     return Ok(());
                 } else {
                     // for backward compatibility, we need to handle the case where we revert with
                     // but expected output was 0x!
+                    println!("output FAILURE: {:?}", output);
                     assert_eq!(
-                        Bytes::from(U256::ZERO.to_be_bytes::<32>()),
+                        output,
                         test_case.expected_outputs.output
                     );
                 }
