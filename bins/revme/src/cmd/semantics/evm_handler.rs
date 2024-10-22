@@ -236,7 +236,7 @@ impl<'a> EvmExecutor<'a> {
                 }
             }
 
-            ExecutionResult::Revert { output, .. } => {
+            ExecutionResult::Revert { .. } => {
                 if !test_case.expected_outputs.is_success() {
                     return Ok(());
                 } else {
