@@ -166,11 +166,16 @@ impl Parser {
             match parse_string_with_escapes(inner) {
                 Ok(string_bytes) => {
                     let mut encoded = Vec::new();
-                    let mut data_bytes = string_bytes.to_vec();
-                    let padding_length = (32 - (data_bytes.len() % 32)) % 32;
-                    data_bytes.extend(vec![0u8; padding_length]);
-                    encoded.extend_from_slice(&data_bytes);
-
+                    if string_bytes.is_empty() {
+                        encoded.extend_from_slice(U256::from(32).to_be_bytes::<32>().as_ref());
+                        encoded.extend_from_slice(U256::ZERO.to_be_bytes::<32>().as_ref());
+                    }
+                    else {
+                        let mut data_bytes = string_bytes.to_vec();
+                        let padding_length = (32 - (data_bytes.len() % 32)) % 32;
+                        data_bytes.extend(vec![0u8; padding_length]);
+                        encoded.extend_from_slice(&data_bytes);
+                    }
                     Some(Bytes::from(encoded))
                 }
                 Err(_) => None,
