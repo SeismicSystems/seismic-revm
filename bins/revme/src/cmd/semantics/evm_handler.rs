@@ -247,8 +247,12 @@ impl<'a> EvmExecutor<'a> {
             }
 
             ExecutionResult::Halt { reason, .. } => {
-                println!("Execution halted: {:?}", reason);
-                return Err(Errors::EVMError);
+                if !test_case.expected_outputs.is_success() {
+                    return Ok(());
+                } else {
+                    println!("Execution halted: {:?}", reason);
+                    return Err(Errors::EVMError);
+                }
             }
         };
 
