@@ -105,8 +105,8 @@ impl TestCase {
             }
 
             let (function_signature, value, inputs) = Self::parse_call_part(call_part)?;
-
             let expected_outputs = Self::parse_outputs(expected_output_part)?;
+
             let (function_selector, _) = Parser::parse_function_signature(&function_signature)?;
 
             let is_constructor = function_signature.starts_with("constructor(");
@@ -245,7 +245,22 @@ impl TestCase {
         if outputs_str.is_empty() {
             Ok(ExpectedOutputs::default())
         } else if outputs_str.contains("FAILURE") {
-            Ok(ExpectedOutputs::from_failure())
+            let outputs_list: Vec<&str> = outputs_str
+                .split(',')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty() && !s.contains("FAILURE"))
+                .collect();
+
+            let mut output = vec![];
+            for output_arg in outputs_list {
+                let output_encoded = Parser::parse_arg(output_arg)?;
+                output.extend_from_slice(output_encoded.as_ref());
+            }
+
+            Ok(ExpectedOutputs {
+                state: ExecutionResult::Failure,
+                output: output.into(),
+            })
         } else {
             let outputs_list: Vec<&str> = outputs_str
                 .split(',')
