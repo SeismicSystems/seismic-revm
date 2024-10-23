@@ -152,6 +152,8 @@ pub enum EVMError<DBError> {
     Custom(String),
     /// Precompile error.
     Precompile(String),
+    /// Invalid storage access.
+    DatabaseAccess(InvalidRights),
 }
 
 impl<DBError> EVMError<DBError> {
@@ -165,6 +167,7 @@ impl<DBError> EVMError<DBError> {
             Self::Header(e) => EVMError::Header(e),
             Self::Database(e) => EVMError::Database(op(e)),
             Self::Precompile(e) => EVMError::Precompile(e),
+            Self::DatabaseAccess(e) => EVMError::DatabaseAccess(e),
             Self::Custom(e) => EVMError::Custom(e),
         }
     }
@@ -177,6 +180,7 @@ impl<DBError: std::error::Error + 'static> std::error::Error for EVMError<DBErro
             Self::Transaction(e) => Some(e),
             Self::Header(e) => Some(e),
             Self::Database(e) => Some(e),
+            Self::DatabaseAccess(e) => Some(e),
             Self::Precompile(_) | Self::Custom(_) => None,
         }
     }
@@ -188,6 +192,7 @@ impl<DBError: fmt::Display> fmt::Display for EVMError<DBError> {
             Self::Transaction(e) => write!(f, "transaction validation error: {e}"),
             Self::Header(e) => write!(f, "header validation error: {e}"),
             Self::Database(e) => write!(f, "database error: {e}"),
+            Self::DatabaseAccess(e) => write!(f, "database access error: {e}"),
             Self::Precompile(e) | Self::Custom(e) => f.write_str(e),
         }
     }
@@ -416,6 +421,28 @@ impl fmt::Display for InvalidTransaction {
 /// Errors related to misconfiguration of a [`crate::env::BlockEnv`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum InvalidRights {
+    /// Using [SSTORE, SLOAD] with private storage.
+    InvalidPrivateStorageAccess,
+    /// Using [CSTORE, CLOAD] with public storage.
+    InvalidPublicStorageAccess,
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for InvalidRights {}
+
+impl fmt::Display for InvalidRights {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidPrivateStorageAccess => write!(f, "using public instructions to access private storage"),
+            Self::InvalidPublicStorageAccess => write!(f, "using private instructions to access public storage"),
+        }
+    }
+}
+
+/// Errors related to accessing private storage with public instructions (SSTORE, SLOAD) and vice-versa..
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum InvalidHeader {
     /// `prevrandao` is not set for Merge and above.
     PrevrandaoNotSet,
@@ -434,7 +461,6 @@ impl fmt::Display for InvalidHeader {
         }
     }
 }
-
 /// Reason a transaction successfully completed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
