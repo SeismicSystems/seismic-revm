@@ -4,6 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
+use log::info;
 use revm::primitives::{Bytes, SpecId};
 
 use crate::cmd::semantics::Errors;
@@ -165,7 +166,7 @@ impl SemanticTests {
                 let compile_binary = match hex::decode(bytecode_line.trim()) {
                     Ok(decoded_bytes) => Bytes::from(decoded_bytes),
                     Err(decode_error) => {
-                        eprintln!(
+                        info!(
                             "Failed to decode bytecode line: {}, error: {:?}",
                             bytecode_line.trim(),
                             decode_error

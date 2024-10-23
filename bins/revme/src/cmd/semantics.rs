@@ -7,6 +7,7 @@ use test_cases::TestCase;
 
 use std::path::PathBuf;
 use structopt::StructOpt;
+use log::{info, LevelFilter};
 
 extern crate alloc;
 
@@ -32,14 +33,18 @@ pub struct Cmd {
     /// Print the trace.
     #[structopt(long)]
     trace: bool,
+    /// Increase output verbosity. Can be used multiple times. For example `-vvv` will set the log level to `TRACE`.
+    #[structopt(short, long, parse(from_occurrences))]
+    verbose: usize,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Errors> {
+        self.setup_logging();
         let test_files = self.find_test_files()?;
 
         for test_file in test_files {
-            println!("test_file: {:?}", test_file);
+            info!("test_file: {:?}", test_file);
             let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
 
             match SemanticTests::new(test_file_path) {
@@ -94,6 +99,19 @@ impl Cmd {
 
         Ok(())
     }
+
+    fn setup_logging(&self) {
+        let log_level = match self.verbose {
+            0 => LevelFilter::Warn,
+            1 => LevelFilter::Info,
+            2 => LevelFilter::Debug,
+            _ => LevelFilter::Trace,
+        };
+
+        env_logger::Builder::new()
+            .filter_level(log_level)
+            .init();
+    } 
 
     fn find_test_files(&self) -> Result<Vec<PathBuf>, Errors> {
         if let Some(ref path) = self.path {

@@ -1,4 +1,5 @@
 use hex::FromHex;
+use log::{info, error};
 use revm::{
     db::{CacheDB, EmptyDB},
     inspector_handle_register,
@@ -127,7 +128,7 @@ impl<'a> EvmExecutor<'a> {
             .build();
 
         let deploy_out = evm.transact().map_err(|err| {
-            println!("EVM transaction error: {:?}", err);
+            error!("EVM transaction error: {:?}", err.to_string());
             Errors::EVMError
         })?;
 
@@ -138,11 +139,11 @@ impl<'a> EvmExecutor<'a> {
                 _ => return Err(Errors::EVMError),
             },
             ExecutionResult::Revert { output, .. } => {
-                println!("Execution reverted during deployment: {:?}", output);
+                error!("EVM transaction error: {:?}", output.to_string());
                 return Err(Errors::EVMError);
             }
             ExecutionResult::Halt { reason, .. } => {
-                println!("Execution halted during deployment: {:?}", reason);
+                error!("Execution halted during deployment: {:?}", reason);
                 return Err(Errors::EVMError);
             }
         };
@@ -177,6 +178,7 @@ impl<'a> EvmExecutor<'a> {
         test_case: &TestCase,
         trace: bool,
     ) -> Result<(), Errors> {
+        info!("running test_case: {:?}", test_case);
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
             .modify_tx_env(|tx| {
@@ -212,12 +214,12 @@ impl<'a> EvmExecutor<'a> {
                 .build();
 
             evm.transact().map_err(|err| {
-                println!("EVM transaction error: {:?}", err);
+                error!("EVM transaction error: {:?}", err.to_string());
                 Errors::EVMError
             })?
         } else {
             evm.transact().map_err(|err| {
-                println!("EVM transaction error: {:?}", err);
+                error!("EVM transaction error: {:?}", err.to_string());
                 Errors::EVMError
             })?
         };
@@ -242,7 +244,7 @@ impl<'a> EvmExecutor<'a> {
                 } else {
                     // for backward compatibility, we need to handle the case where we revert with
                     // but expected output was 0x!
-                    println!("Reverted with output: {:?}", output);
+                    error!("Reverted with output: {:?}", output.to_string());
                     assert_eq!(output, test_case.expected_outputs.output);
                 }
             }
@@ -251,7 +253,7 @@ impl<'a> EvmExecutor<'a> {
                 if !test_case.expected_outputs.is_success() {
                     return Ok(());
                 } else {
-                    println!("Execution halted: {:?}", reason);
+                    error!("Execution halted: {:?}", reason);
                     return Err(Errors::EVMError);
                 }
             }

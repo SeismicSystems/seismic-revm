@@ -34,3 +34,5 @@ thiserror = "1.0"
 triehash = "0.8"
 walkdir = "2.5"
 k256 = { version = "0.13.3", features = ["ecdsa"] }
+log = "0.4"
+env_logger = "0.9"
