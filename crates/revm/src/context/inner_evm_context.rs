@@ -10,6 +10,7 @@ use crate::{
         Eof, HashSet, Spec,
         SpecId::{self, *},
         B256, EOF_MAGIC_BYTES, EOF_MAGIC_HASH, U256,
+        InvalidRights
     },
     JournalCheckpoint,
 };
@@ -285,6 +286,9 @@ impl<DB: Database> InnerEvmContext<DB> {
         index: U256,
     ) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
         let state_load = self.journaled_state.cload(address, index, &mut self.db)?;
+        if !state_load.is_private {
+            return Err(EVMError::DatabaseAccess(InvalidRights::InvalidPublicStorageAccess));
+        }
         Ok(StateLoad {
             data: state_load.data.value,
             is_cold: state_load.is_cold,
