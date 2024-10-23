@@ -1,5 +1,5 @@
 use hex::FromHex;
-use log::{info, error};
+use log::{error, info};
 use revm::{
     db::{CacheDB, EmptyDB},
     inspector_handle_register,

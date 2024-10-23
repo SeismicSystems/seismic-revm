@@ -5,9 +5,9 @@ use revm::{
 };
 use test_cases::TestCase;
 
+use log::{info, LevelFilter};
 use std::path::PathBuf;
 use structopt::StructOpt;
-use log::{info, LevelFilter};
 
 extern crate alloc;
 
@@ -108,10 +108,8 @@ impl Cmd {
             _ => LevelFilter::Trace,
         };
 
-        env_logger::Builder::new()
-            .filter_level(log_level)
-            .init();
-    } 
+        env_logger::Builder::new().filter_level(log_level).init();
+    }
 
     fn find_test_files(&self) -> Result<Vec<PathBuf>, Errors> {
         if let Some(ref path) = self.path {
