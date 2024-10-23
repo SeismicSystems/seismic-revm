@@ -8,6 +8,7 @@ use test_cases::TestCase;
 use log::{info, LevelFilter};
 use std::path::PathBuf;
 use structopt::StructOpt;
+use std::time::Instant;
 
 extern crate alloc;
 
@@ -41,6 +42,7 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Errors> {
         self.setup_logging();
+        let start_time = Instant::now();
         let test_files = self.find_test_files()?;
 
         for test_file in test_files {
@@ -96,6 +98,8 @@ impl Cmd {
                 }
             }
         }
+        let duration = start_time.elapsed();
+        info!("Execution time: {:?}", duration);
 
         Ok(())
     }

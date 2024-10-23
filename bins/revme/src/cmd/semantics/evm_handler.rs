@@ -1,5 +1,5 @@
 use hex::FromHex;
-use log::{error, info};
+use log::{error, info, debug};
 use revm::{
     db::{CacheDB, EmptyDB},
     inspector_handle_register,
@@ -178,7 +178,7 @@ impl<'a> EvmExecutor<'a> {
         test_case: &TestCase,
         trace: bool,
     ) -> Result<(), Errors> {
-        info!("running test_case: {:?}", test_case);
+        debug!("running test_case: {:?}", test_case);
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
             .modify_tx_env(|tx| {
