@@ -3,6 +3,7 @@ use std::str::FromStr;
 use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo};
 use alloy_primitives::U256;
 use hex::FromHex;
+use log::info;
 use revm::primitives::Bytes;
 
 const SKIP_KEYWORD: [&str; 5] = ["gas", "emit", "Library", "balance", "account"];
@@ -154,7 +155,7 @@ impl TestCase {
                     value: value.unwrap_or(U256::ZERO),
                 });
             } else {
-                println!(
+                info!(
                     "No matching contract found for function: {}",
                     function_signature
                 );
