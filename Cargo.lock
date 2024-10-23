@@ -3300,6 +3300,7 @@ dependencies = [
  "log",
  "microbench",
  "plain_hasher",
+ "rayon",
  "revm",
  "serde",
  "serde_json",
