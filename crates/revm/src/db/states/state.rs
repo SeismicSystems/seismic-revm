@@ -5,7 +5,7 @@ use super::{
 use crate::db::EmptyDB;
 use revm_interpreter::primitives::{
     db::{Database, DatabaseCommit},
-    hash_map, Account, AccountInfo, Address, Bytecode, HashMap, FlaggedStorage, B256,
+    hash_map, Account, AccountInfo, Address, Bytecode, FlaggedStorage, HashMap, B256,
     BLOCK_HASH_HISTORY, U256,
 };
 use std::{
@@ -531,7 +531,10 @@ mod tests {
                 status: AccountStatus::InMemoryChange,
                 storage: HashMap::from([(
                     slot1,
-                    StorageSlot::new_changed(FlaggedStorage::ZERO, FlaggedStorage::from(U256::from(1)))
+                    StorageSlot::new_changed(
+                        FlaggedStorage::ZERO,
+                        FlaggedStorage::from(U256::from(1))
+                    )
                 )]),
             }),
             "The latest state of the new account is incorrect"
@@ -754,7 +757,10 @@ mod tests {
                 previous_info: None,
                 storage: HashMap::from([(
                     slot1,
-                    StorageSlot::new_changed(FlaggedStorage::ZERO, FlaggedStorage::from(U256::from(1))),
+                    StorageSlot::new_changed(
+                        FlaggedStorage::ZERO,
+                        FlaggedStorage::from(U256::from(1)),
+                    ),
                 )]),
                 storage_was_destroyed: false,
             },
@@ -784,7 +790,10 @@ mod tests {
                 previous_info: None,
                 storage: HashMap::from([(
                     slot2,
-                    StorageSlot::new_changed(FlaggedStorage::ZERO, FlaggedStorage::from(U256::from(2))),
+                    StorageSlot::new_changed(
+                        FlaggedStorage::ZERO,
+                        FlaggedStorage::from(U256::from(2)),
+                    ),
                 )]),
                 storage_was_destroyed: false,
             },

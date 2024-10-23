@@ -1,10 +1,10 @@
-use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
 use crate::ruint::UintTryFrom;
-#[cfg(feature = "arbitrary")]
-use proptest_derive::Arbitrary as PropTestArbitrary;
+use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
 use alloy_primitives::FixedBytes;
 use bitflags::bitflags;
 use core::hash::{Hash, Hasher};
+#[cfg(feature = "arbitrary")]
+use proptest_derive::Arbitrary as PropTestArbitrary;
 
 /// EVM State is a mapping from addresses to accounts.
 pub type EvmState = HashMap<Address, Account>;
@@ -176,6 +176,16 @@ pub struct FlaggedStorage {
     pub is_private: bool,
 }
 
+impl From<U256> for FlaggedStorage {
+    fn from(value: U256) -> Self {
+        // by default, assume values are public (as original revm tests expect this)
+        FlaggedStorage {
+            value,
+            is_private: false,
+        }
+    }
+}
+
 impl From<FlaggedStorage> for FixedBytes<32> {
     fn from(storage: FlaggedStorage) -> FixedBytes<32> {
         FixedBytes::<32>::from(storage.value)
@@ -201,7 +211,8 @@ impl FlaggedStorage {
     };
 
     pub fn new<T>(value: T, is_private: bool) -> Self
-    where U256: UintTryFrom<T>,
+    where
+        U256: UintTryFrom<T>,
     {
         Self {
             value: U256::from(value),
@@ -209,9 +220,9 @@ impl FlaggedStorage {
         }
     }
 
-
     pub fn new_from_tuple<T>((value, is_private): (T, bool)) -> Self
-    where U256: UintTryFrom<T>,
+    where
+        U256: UintTryFrom<T>,
     {
         Self {
             value: U256::from(value),
@@ -220,7 +231,8 @@ impl FlaggedStorage {
     }
 
     pub fn new_from_value<T>(value: T) -> Self
-    where U256: UintTryFrom<T>,
+    where
+        U256: UintTryFrom<T>,
     {
         Self {
             value: U256::from(value),
@@ -231,9 +243,7 @@ impl FlaggedStorage {
     pub fn collect_value(container: HashMap<B256, FlaggedStorage>) -> HashMap<B256, U256> {
         container
             .into_iter()
-            .map(|(key, flagged_storage)| {
-                (key, flagged_storage.value)
-            })
+            .map(|(key, flagged_storage)| (key, flagged_storage.value))
             .collect()
     }
 

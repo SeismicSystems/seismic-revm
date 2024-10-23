@@ -44,7 +44,7 @@ pub struct Cmd {
     #[structopt(long)]
     bench: bool,
     /// Input bytes.
-    #[structopt(long, default_value = "e2179b8e")]
+    #[structopt(long, default_value = "")]
     input: String,
     /// Print the state.
     #[structopt(long)]

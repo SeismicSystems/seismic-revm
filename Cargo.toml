@@ -24,12 +24,8 @@ inherits = "test"
 opt-level = 3
 
 [patch.crates-io]
-alloy-core = { path = "../seismic-alloy-core/crates/core" }
-# alloy-dyn-abi = { path = "../seismic-alloy-core/crates/dyn-abi" }
-alloy-json-abi = { path = "../seismic-alloy-core/crates/json-abi" }
-alloy-primitives = { path = "../seismic-alloy-core/crates/primitives" }
-alloy-sol-macro = { path = "../seismic-alloy-core/crates/sol-macro" }
-alloy-sol-macro-expander = { path = "../seismic-alloy-core/crates/sol-macro-expander" }
-alloy-sol-macro-input = { path = "../seismic-alloy-core/crates/sol-macro-input" }
-alloy-sol-types = { path = "../seismic-alloy-core/crates/sol-types" }
-alloy-sol-type-parser = { path = "../seismic-alloy-core/crates/sol-type-parser" }
+alloy-primitives = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "0af97ab" }
+alloy-sol-macro = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "0af97ab" }
+alloy-sol-macro-expander = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "0af97ab" }
+alloy-sol-macro-input = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "0af97ab" }
+alloy-sol-types = { git = "ssh://git@github.com/SeismicSystems/seismic-alloy-core.git", rev = "0af97ab" }

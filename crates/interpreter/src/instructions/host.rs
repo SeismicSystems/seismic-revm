@@ -127,6 +127,16 @@ pub fn sload<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: 
     *index = value.data;
 }
 
+pub fn cload<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    pop_top!(interpreter, index);
+    let Some(value) = host.cload(interpreter.contract.target_address, *index) else {
+        interpreter.instruction_result = InstructionResult::FatalExternalError;
+        return;
+    };
+    gas!(interpreter, gas::sload_cost(SPEC::SPEC_ID, value.is_cold));
+    *index = value.data;
+}
+
 pub fn sstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     require_non_staticcall!(interpreter);
 
@@ -150,16 +160,15 @@ pub fn sstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host:
     );
 }
 
-pub fn kstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    // TODO: static calls?
+pub fn cstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     require_non_staticcall!(interpreter);
 
     pop!(interpreter, index, value);
-    let Some(state_load) = host.kstore(interpreter.contract.target_address, index, value) else {
+    let Some(state_load) = host.cstore(interpreter.contract.target_address, index, value) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
     };
-    // TODO: gas cost for kstore
+    // TODO(Seismic): gas cost for cstore
     gas_or_fail!(interpreter, {
         let remaining_gas = interpreter.gas.remaining();
         gas::sstore_cost(
@@ -169,7 +178,7 @@ pub fn kstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host:
             state_load.is_cold,
         )
     });
-    // TODO: gas refund for kstore
+    // TODO(Seismic): gas refund for cstore
     refund!(
         interpreter,
         gas::sstore_refund(SPEC::SPEC_ID, &state_load.data)

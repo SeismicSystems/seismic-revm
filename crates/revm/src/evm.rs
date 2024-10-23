@@ -89,6 +89,9 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
         // Peek the last stack frame.
         let mut stack_frame = call_stack.last_mut().unwrap();
 
+        // Set interpreter to enforce static-only.
+        stack_frame.interpreter_mut().is_static = self.cfg().execute_static;
+
         loop {
             // Execute the frame.
             let next_action =
@@ -402,7 +405,8 @@ mod tests {
         db::BenchmarkDB,
         interpreter::opcode::{PUSH1, SSTORE},
         primitives::{
-            address, Authorization, Bytecode, RecoveredAuthorization, Signature, FlaggedStorage, U256,
+            address, Authorization, Bytecode, FlaggedStorage, RecoveredAuthorization, Signature,
+            U256,
         },
     };
 

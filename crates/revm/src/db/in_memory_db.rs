@@ -1,6 +1,6 @@
 use super::{DatabaseCommit, DatabaseRef, EmptyDB};
 use crate::primitives::{
-    hash_map::Entry, Account, AccountInfo, Address, Bytecode, HashMap, Log, FlaggedStorage, B256,
+    hash_map::Entry, Account, AccountInfo, Address, Bytecode, FlaggedStorage, HashMap, Log, B256,
     KECCAK_EMPTY, U256,
 };
 use crate::Database;
@@ -487,5 +487,66 @@ mod tests {
             deserialized.accounts.get(&account).unwrap().info.nonce,
             nonce
         );
+    }
+
+    #[test]
+    fn test_insert_account_storage_private() {
+        let account = Address::with_last_byte(42);
+        let nonce = 42;
+        let mut init_state = CacheDB::new(EmptyDB::default());
+        init_state.insert_account_info(
+            account,
+            AccountInfo {
+                nonce,
+                ..Default::default()
+            },
+        );
+
+        let (key, value) = (
+            U256::from(123),
+            FlaggedStorage::from(U256::from(456)).mark_private(),
+        );
+        let mut new_state = CacheDB::new(init_state);
+        new_state
+            .insert_account_storage(account, key, value)
+            .unwrap();
+
+        assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
+        assert_eq!(new_state.storage(account, key), Ok(value));
+    }
+
+    #[test]
+    fn test_replace_account_storage_private() {
+        let account = Address::with_last_byte(42);
+        let nonce = 42;
+        let mut init_state = CacheDB::new(EmptyDB::default());
+        init_state.insert_account_info(
+            account,
+            AccountInfo {
+                nonce,
+                ..Default::default()
+            },
+        );
+
+        let (key0, value0) = (
+            U256::from(123),
+            FlaggedStorage::from(U256::from(456)).mark_private(),
+        );
+        let (key1, value1) = (
+            U256::from(789),
+            FlaggedStorage::from(U256::from(999)).mark_private(),
+        );
+        init_state
+            .insert_account_storage(account, key0, value0)
+            .unwrap();
+
+        let mut new_state = CacheDB::new(init_state);
+        new_state
+            .replace_account_storage(account, [(key1, value1)].into())
+            .unwrap();
+
+        assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
+        assert_eq!(new_state.storage(account, key0), Ok(FlaggedStorage::ZERO));
+        assert_eq!(new_state.storage(account, key1), Ok(value1));
     }
 }

@@ -680,9 +680,37 @@ impl JournaledState {
         key: U256,
         db: &mut DB,
     ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
+        self.load(address, key, db, false)
+    }
+
+    /// Load storage slot
+    ///
+    /// # Panics
+    ///
+    /// Panics if the account is not present in the state.
+    ///
+    /// If slot is vacant, return 0 with visibility flagged as private.
+    #[inline]
+    pub fn cload<DB: Database>(
+        &mut self,
+        address: Address,
+        key: U256,
+        db: &mut DB,
+    ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
+        self.load(address, key, db, true)
+    }
+
+    #[inline]
+    pub fn load<DB: Database>(
+        &mut self,
+        address: Address,
+        key: U256,
+        db: &mut DB,
+        is_private: bool,
+    ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
-        // only if account is created in this tx we can assume that storage is empty.
+        // only if account is created in this tx can we assume that storage is empty.
         let is_newly_created = account.is_created();
         let (value, is_cold) = match account.storage.entry(key) {
             Entry::Occupied(occ) => {
@@ -691,9 +719,9 @@ impl JournaledState {
                 (slot.present_value, is_cold)
             }
             Entry::Vacant(vac) => {
-                // if storage was cleared, we don't need to ping db.
+                // if storage was cleared, we dont need to ping db.
                 let value = if is_newly_created {
-                    FlaggedStorage::ZERO
+                    FlaggedStorage::ZERO.set_visibility(is_private)
                 } else {
                     db.storage(address, key).map_err(EVMError::Database)?
                 };
@@ -743,7 +771,7 @@ impl JournaledState {
     ///
     /// marks storage as private.
     #[inline]
-    pub fn kstore<DB: Database>(
+    pub fn cstore<DB: Database>(
         &mut self,
         address: Address,
         key: U256,
@@ -763,7 +791,8 @@ impl JournaledState {
         is_private: bool,
     ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
         // assume that acc exists and load the slot.
-        let present = self.sload(address, key, db)?;
+        let present = self.load(address, key, db, is_private)?;
+
         let acc = self.state.get_mut(&address).unwrap();
 
         // if there is no original value in dirty return present value, that is our original.

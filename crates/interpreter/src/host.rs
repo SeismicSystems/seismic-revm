@@ -27,8 +27,11 @@ pub trait Host {
     /// Get code hash of `address` and if the account is cold.
     fn code_hash(&mut self, address: Address) -> Option<Eip7702CodeLoad<B256>>;
 
-    /// Get storage value of `address` at `index` and if the account is cold.
+    /// Get (public) storage value of `address` at `index` and if the account is cold.
     fn sload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>>;
+
+    /// Get (private) storage value of `address` at `index` and if the account is cold
+    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>>;
 
     /// Set storage value of account address at index.
     ///
@@ -43,7 +46,7 @@ pub trait Host {
     /// Set (private) storage value of account address at index.
     ///
     /// Returns [`StateLoad`] with [`SStoreResult`] that contains original/new/old storage value.
-    fn kstore(
+    fn cstore(
         &mut self,
         address: Address,
         index: U256,

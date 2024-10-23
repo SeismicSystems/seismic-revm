@@ -1,0 +1,151 @@
+use std::fmt;
+
+use revm::primitives::SpecId;
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum EVMVersion {
+    Homestead,
+    Byzantium,
+    Constantinople,
+    Istanbul,
+    Berlin,
+    London,
+    Paris,
+    Shangain,
+    Cancun,
+}
+
+// Not fully exhaustive list of versions, trying to cover all SOLIDITY VERSIONING is the goal here
+impl EVMVersion {
+    pub(crate) fn from_str(version: &str) -> Option<Self> {
+        match version.to_lowercase().as_str() {
+            "homestead" => Some(Self::Homestead),
+            "byzantium" => Some(Self::Byzantium),
+            "constantinople" => Some(Self::Constantinople),
+            "istanbul" => Some(Self::Istanbul),
+            "berlin" => Some(Self::Berlin),
+            "london" => Some(Self::London),
+            "paris" => Some(Self::Paris),
+            "shanghai" => Some(Self::Shangain),
+            "cancun" => Some(Self::Cancun),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn previous(&self) -> Option<&'static str> {
+        match self {
+            EVMVersion::Cancun => Some("shanghai"),
+            EVMVersion::Shangain => Some("paris"),
+            EVMVersion::Paris => Some("London"),
+            EVMVersion::London => Some("berlin"),
+            EVMVersion::Berlin => Some("istanbul"),
+            EVMVersion::Istanbul => Some("constantinople"),
+            EVMVersion::Constantinople => Some("byzantium"),
+            EVMVersion::Byzantium => Some("homestead"),
+            EVMVersion::Homestead => None,
+        }
+    }
+    pub(crate) fn next(&self) -> Option<&'static str> {
+        match self {
+            EVMVersion::Homestead => Some("byzantium"),
+            EVMVersion::Byzantium => Some("constantinople"),
+            EVMVersion::Constantinople => Some("istanbul"),
+            EVMVersion::Istanbul => Some("berlin"),
+            EVMVersion::Berlin => Some("london"),
+            EVMVersion::London => Some("arrowglacier"),
+            EVMVersion::Paris => Some("shanghai"),
+            EVMVersion::Shangain => Some("cancun"),
+            EVMVersion::Cancun => None,
+        }
+    }
+}
+
+impl fmt::Display for EVMVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let version_str = match self {
+            EVMVersion::Homestead => "homestead",
+            EVMVersion::Byzantium => "byzantium",
+            EVMVersion::Constantinople => "constantinople",
+            EVMVersion::Istanbul => "istanbul",
+            EVMVersion::Berlin => "berlin",
+            EVMVersion::London => "london",
+            EVMVersion::Paris => "paris",
+            EVMVersion::Shangain => "shanghai",
+            EVMVersion::Cancun => "cancun",
+        };
+        write!(f, "{}", version_str)
+    }
+}
+
+impl EVMVersion {
+    pub(crate) fn extract(content: &str) -> Option<Self> {
+        let parts: Vec<&str> = content.split("// ====").collect();
+        if parts.len() < 2 {
+            return None;
+        }
+
+        for line in parts[1].lines() {
+            if let Some(version_part) = line.trim().strip_prefix("// EVMVersion:") {
+                let version_str = version_part.trim();
+
+                let (comparison, version) = if version_str.starts_with("<=") {
+                    ("<=", version_str.trim_start_matches("<=").trim())
+                } else if version_str.starts_with('<') {
+                    ("<", version_str.trim_start_matches('<').trim())
+                } else if version_str.starts_with(">=") {
+                    (">=", version_str.trim_start_matches(">=").trim())
+                } else if version_str.starts_with('>') {
+                    (">", version_str.trim_start_matches('>').trim())
+                } else if version_str.starts_with('=') {
+                    ("=", version_str.trim_start_matches('=').trim())
+                } else {
+                    ("=", version_str)
+                };
+
+                if let Some(ev_version) = EVMVersion::from_str(version) {
+                    return match comparison {
+                        "<" => ev_version.previous().and_then(|v| EVMVersion::from_str(v)),
+                        "<=" | "=" => Some(ev_version),
+                        ">" => ev_version.next().and_then(|v| EVMVersion::from_str(v)),
+                        ">=" => Some(ev_version),
+                        _ => None,
+                    };
+                }
+            }
+        }
+        None
+    }
+}
+
+impl From<SpecId> for EVMVersion {
+    fn from(spec_id: SpecId) -> Self {
+        match spec_id {
+            SpecId::HOMESTEAD => EVMVersion::Homestead,
+            SpecId::BYZANTIUM => EVMVersion::Byzantium,
+            SpecId::CONSTANTINOPLE | SpecId::PETERSBURG => EVMVersion::Constantinople,
+            SpecId::ISTANBUL => EVMVersion::Istanbul,
+            SpecId::BERLIN => EVMVersion::Berlin,
+            SpecId::LONDON => EVMVersion::London,
+            SpecId::MERGE => EVMVersion::Paris,
+            SpecId::SHANGHAI => EVMVersion::Shangain,
+            SpecId::CANCUN => EVMVersion::Cancun,
+            _ => panic!("Unsupported SpecId for EVMVersion mapping"),
+        }
+    }
+}
+
+impl From<EVMVersion> for SpecId {
+    fn from(version: EVMVersion) -> Self {
+        match version {
+            EVMVersion::Homestead => SpecId::HOMESTEAD,
+            EVMVersion::Byzantium => SpecId::BYZANTIUM,
+            EVMVersion::Constantinople => SpecId::CONSTANTINOPLE,
+            EVMVersion::Istanbul => SpecId::ISTANBUL,
+            EVMVersion::Berlin => SpecId::BERLIN,
+            EVMVersion::London => SpecId::LONDON,
+            EVMVersion::Paris => SpecId::MERGE,
+            EVMVersion::Shangain => SpecId::SHANGHAI,
+            EVMVersion::Cancun => SpecId::CANCUN,
+        }
+    }
+}

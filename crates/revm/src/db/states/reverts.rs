@@ -3,7 +3,7 @@ use super::{
     StorageWithOriginalValues,
 };
 use core::ops::{Deref, DerefMut};
-use revm_interpreter::primitives::{AccountInfo, Address, HashMap, FlaggedStorage, U256};
+use revm_interpreter::primitives::{AccountInfo, Address, FlaggedStorage, HashMap, U256};
 use std::vec::Vec;
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).

@@ -613,8 +613,8 @@ opcodes! {
     // 0xAD
     // 0xAE
     // 0xAF
-    0xB0 => KSTORE   => host::kstore::<H, SPEC>  => stack_io(2, 0);
-    // 0xB1
+    0xB0 => CLOAD    => host::cload::<H, SPEC>   => stack_io(1, 1);
+    0xB1 => CSTORE   => host::cstore::<H, SPEC>  => stack_io(2, 0);
     // 0xB2
     // 0xB3
     // 0xB4
