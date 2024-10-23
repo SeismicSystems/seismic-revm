@@ -6,10 +6,10 @@ use revm::{
 use test_cases::TestCase;
 
 use log::{info, LevelFilter};
-use std::path::PathBuf;
-use structopt::StructOpt;
-use std::time::Instant;
 use rayon::prelude::*;
+use std::path::PathBuf;
+use std::time::Instant;
+use structopt::StructOpt;
 
 extern crate alloc;
 
@@ -59,9 +59,9 @@ impl Cmd {
             info!("Running in multi-threaded mode");
 
             // Use parallel iterator
-            test_files.par_iter().try_for_each(|test_file| {
-                self.process_test_file(test_file.clone())
-            })?;
+            test_files
+                .par_iter()
+                .try_for_each(|test_file| self.process_test_file(test_file.clone()))?;
         }
 
         let duration = start_time.elapsed();
@@ -148,7 +148,7 @@ impl Cmd {
                 }
             }
             Err(Errors::UnhandledTestFormat) => {
-                return Ok(());;
+                return Ok(());
             }
             Err(e) => {
                 return Err(e);
