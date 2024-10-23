@@ -242,6 +242,7 @@ impl<'a> EvmExecutor<'a> {
                 } else {
                     // for backward compatibility, we need to handle the case where we revert with
                     // but expected output was 0x!
+                    println!("Reverted with output: {:?}", output);
                     assert_eq!(output, test_case.expected_outputs.output);
                 }
             }
