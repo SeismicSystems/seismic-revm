@@ -225,7 +225,7 @@ impl<'a> EvmExecutor<'a> {
         };
 
         match out.clone().result {
-            ExecutionResult::Success { output, .. } => {
+            ExecutionResult::Success { output, reason, .. } => {
                 if test_case.expected_outputs.is_success() {
                     match output {
                         Output::Call(out) => {
@@ -234,6 +234,7 @@ impl<'a> EvmExecutor<'a> {
                         _ => return Err(Errors::EVMError),
                     }
                 } else {
+                    error!("Test case succeded but yet an error was raised: {:?}, with reason: {:?}", output, reason);
                     return Err(Errors::EVMError);
                 }
             }
