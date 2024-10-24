@@ -234,7 +234,7 @@ impl<'a> EvmExecutor<'a> {
                         _ => return Err(Errors::EVMError),
                     }
                 } else {
-                    error!("Test case succeded but yet an error was raised: {:?}, with reason: {:?}", output, reason);
+                    error!("an Error was expected from the testCase, and yet, the test passed with output: {:?}, with reason: {:?}", output, reason);
                     return Err(Errors::EVMError);
                 }
             }
