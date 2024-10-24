@@ -115,6 +115,7 @@ impl<'a> EvmExecutor<'a> {
         &mut self,
         deploy_data: Bytes,
         value: U256,
+        trace: bool
     ) -> Result<Address, Errors> {
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
@@ -127,10 +128,25 @@ impl<'a> EvmExecutor<'a> {
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
             .build();
 
-        let deploy_out = evm.transact().map_err(|err| {
-            error!("EVM transaction error: {:?}", err.to_string());
-            Errors::EVMError
-        })?;
+        let deploy_out = if trace {
+            let mut evm = evm
+                .modify()
+                .reset_handler_with_external_context(TracerEip3155::new(
+                    Box::new(std::io::stdout()),
+                ))
+                .append_handler_register(inspector_handle_register)
+                .build();
+
+            evm.transact().map_err(|err| {
+                error!("DEPLOY transaction error: {:?}", err.to_string());
+                Errors::EVMError
+            })?
+        } else {
+            evm.transact().map_err(|err| {
+                error!("DEPLOY transaction error: {:?}", err.to_string());
+                Errors::EVMError
+            })?
+        };
 
         let contract_address = match deploy_out.clone().result {
             ExecutionResult::Success { output, .. } => match output {
