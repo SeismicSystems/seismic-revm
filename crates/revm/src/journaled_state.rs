@@ -731,7 +731,7 @@ impl JournaledState {
 
                 vac.insert(EvmStorageSlot::new(value));
 
-                (value, true, false)
+                (value, true, value.is_private)
             }
         };
 
