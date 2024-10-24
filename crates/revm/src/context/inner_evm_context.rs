@@ -10,7 +10,6 @@ use crate::{
         Eof, HashSet, Spec,
         SpecId::{self, *},
         B256, EOF_MAGIC_BYTES, EOF_MAGIC_HASH, U256,
-        InvalidRights
     },
     JournalCheckpoint,
 };
@@ -206,7 +205,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             };
 
             return Ok(Eip7702CodeLoad::new(
-                StateLoad::new(bytes, is_cold),
+                StateLoad::new(bytes, is_cold, false),
                 delegated_account.is_cold,
             ));
         }
@@ -249,7 +248,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             };
 
             return Ok(Eip7702CodeLoad::new(
-                StateLoad::new(hash, is_cold),
+                StateLoad::new(hash, is_cold, false),
                 delegated_account.is_cold,
             ));
         }
@@ -275,6 +274,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         Ok(StateLoad {
             data: state_load.data.value,
             is_cold: state_load.is_cold,
+            is_private: state_load.is_private,
         })
     }
 
@@ -286,12 +286,10 @@ impl<DB: Database> InnerEvmContext<DB> {
         index: U256,
     ) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
         let state_load = self.journaled_state.cload(address, index, &mut self.db)?;
-        if !state_load.is_private {
-            return Err(EVMError::DatabaseAccess(InvalidRights::InvalidPublicStorageAccess));
-        }
         Ok(StateLoad {
             data: state_load.data.value,
             is_cold: state_load.is_cold,
+            is_private: state_load.is_private,
         })
     }
 
