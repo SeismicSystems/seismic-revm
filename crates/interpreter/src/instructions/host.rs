@@ -136,7 +136,7 @@ pub fn cload<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: 
     pop_top!(interpreter, index);
 
     if let Some(value) = host.cload(interpreter.contract.target_address, *index) {
-        if !value.is_private {
+        if !value.is_private & !value.data.is_zero() {
             interpreter.instruction_result = InstructionResult::InvalidPublicStorageAccess;
             return;
         }
