@@ -5,7 +5,7 @@ use revm::{
 };
 use test_cases::TestCase;
 
-use log::{info, LevelFilter};
+use log::{error, info, LevelFilter};
 use rayon::prelude::*;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -143,7 +143,7 @@ impl Cmd {
                     .filter(|test_case| !test_case.is_constructor);
 
                 for test_case in test_cases_to_process {
-                    evm_executor.run_test_case(test_case, self.trace)?;
+                    evm_executor.run_test_case(test_case, self.trace, test_file_path)?;
                     evm_executor.config.block_number =
                         evm_executor.config.block_number.wrapping_add(U256::from(1));
                 }

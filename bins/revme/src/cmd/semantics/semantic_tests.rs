@@ -4,7 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use log::info;
+use log::{error, info};
 use revm::primitives::{Bytes, SpecId};
 
 use crate::cmd::semantics::Errors;
@@ -120,11 +120,13 @@ impl SemanticTests {
             if e.kind() == std::io::ErrorKind::NotFound {
                 Errors::CompilerNotFound
             } else {
+                error!("Compilation failed for file: {:?}", path);
                 Errors::CompilationFailed
             }
         })?;
 
         if !output.status.success() {
+            error!("Compilation failed for file: {:?}", path);
             return Err(Errors::CompilationFailed);
         }
 
