@@ -5,7 +5,7 @@ use revm::{
 };
 use test_cases::TestCase;
 
-use log::{error, info, LevelFilter};
+use log::{info, LevelFilter};
 use rayon::prelude::*;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -41,6 +41,9 @@ pub struct Cmd {
     /// Run tests in a single thread.
     #[structopt(short = "s", long)]
     single_thread: bool,
+    /// Will not return on failure.
+    #[structopt(long, alias = "no-fail-fast")]
+    keep_going: bool,
 }
 
 impl Cmd {
@@ -143,7 +146,15 @@ impl Cmd {
                     .filter(|test_case| !test_case.is_constructor);
 
                 for test_case in test_cases_to_process {
-                    evm_executor.run_test_case(test_case, self.trace, test_file_path)?;
+                    let result = evm_executor.run_test_case(test_case, self.trace, test_file_path);
+                    match result {
+                        Ok(_) => {}
+                        Err(e) => {
+                            if !self.keep_going {
+                                return Err(e);
+                            }
+                        }
+                    };
                     evm_executor.config.block_number =
                         evm_executor.config.block_number.wrapping_add(U256::from(1));
                 }
