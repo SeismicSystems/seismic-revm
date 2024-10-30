@@ -126,7 +126,10 @@ impl SemanticTests {
         })?;
 
         if !output.status.success() {
-            error!("Compilation failed for file: {:?}, output: {:?}", path, output);
+            error!(
+                "Compilation failed for file: {:?}, output: {:?}",
+                path, output
+            );
             return Err(Errors::CompilationFailed);
         }
 

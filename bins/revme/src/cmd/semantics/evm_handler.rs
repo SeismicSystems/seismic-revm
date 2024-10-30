@@ -115,7 +115,7 @@ impl<'a> EvmExecutor<'a> {
         &mut self,
         deploy_data: Bytes,
         value: U256,
-        trace: bool
+        trace: bool,
     ) -> Result<Address, Errors> {
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
@@ -193,7 +193,7 @@ impl<'a> EvmExecutor<'a> {
         &mut self,
         test_case: &TestCase,
         trace: bool,
-        test_file: &str 
+        test_file: &str,
     ) -> Result<(), Errors> {
         debug!("running test_case: {:?}", test_case);
         let mut evm = Evm::builder()
@@ -231,12 +231,20 @@ impl<'a> EvmExecutor<'a> {
                 .build();
 
             evm.transact().map_err(|err| {
-                error!("EVM transaction error: {:?}, for the file: {:?}", err.to_string(), test_file);
+                error!(
+                    "EVM transaction error: {:?}, for the file: {:?}",
+                    err.to_string(),
+                    test_file
+                );
                 Errors::EVMError
             })?
         } else {
             evm.transact().map_err(|err| {
-                error!("EVM transaction error: {:?}, for the file: {:?}", err.to_string(), test_file);
+                error!(
+                    "EVM transaction error: {:?}, for the file: {:?}",
+                    err.to_string(),
+                    test_file
+                );
                 Errors::EVMError
             })?
         };
@@ -262,7 +270,11 @@ impl<'a> EvmExecutor<'a> {
                 } else {
                     // for backward compatibility, we need to handle the case where we revert with
                     // but expected output was 0x!
-                    error!("Reverted with output: {:?} for file {:?}", output.to_string(), test_file);
+                    error!(
+                        "Reverted with output: {:?} for file {:?}",
+                        output.to_string(),
+                        test_file
+                    );
                     assert_eq!(output, test_case.expected_outputs.output);
                 }
             }
