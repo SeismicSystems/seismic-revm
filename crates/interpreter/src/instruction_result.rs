@@ -92,6 +92,10 @@ pub enum InstructionResult {
     EofAuxDataTooSmall,
     /// `EXT*CALL` target address needs to be padded with 0s.
     InvalidEXTCALLTarget,
+    /// Invalid Private Storage Access: Cannot access private storage with public instructions
+    InvalidPrivateStorageAccess,
+    /// Invalid Public Storage Access: Cannot access public storage with private instructions
+    InvalidPublicStorageAccess,
 }
 
 impl From<SuccessReason> for InstructionResult {
@@ -137,6 +141,8 @@ impl From<HaltReason> for InstructionResult {
             HaltReason::EofAuxDataTooSmall => Self::EofAuxDataTooSmall,
             HaltReason::EOFFunctionStackOverflow => Self::EOFFunctionStackOverflow,
             HaltReason::InvalidEXTCALLTarget => Self::InvalidEXTCALLTarget,
+            HaltReason::InvalidPrivateStorageAccess => Self::InvalidPrivateStorageAccess,
+            HaltReason::InvalidPublicStorageAccess => Self::InvalidPublicStorageAccess,
             #[cfg(feature = "optimism")]
             HaltReason::FailedDeposit => Self::FatalExternalError,
         }
@@ -197,6 +203,8 @@ macro_rules! return_error {
             | InstructionResult::EofAuxDataTooSmall
             | InstructionResult::EofAuxDataOverflow
             | InstructionResult::InvalidEXTCALLTarget
+            | InstructionResult::InvalidPrivateStorageAccess
+            | InstructionResult::InvalidPublicStorageAccess
     };
 }
 
@@ -342,6 +350,12 @@ impl From<InstructionResult> for SuccessOrHalt {
             InstructionResult::InvalidEXTCALLTarget => Self::Halt(HaltReason::InvalidEXTCALLTarget),
             InstructionResult::InvalidExtDelegateCallTarget => {
                 Self::Internal(InternalResult::InvalidExtDelegateCallTarget)
+            }
+            InstructionResult::InvalidPrivateStorageAccess => {
+                Self::Halt(HaltReason::InvalidPrivateStorageAccess)
+            }
+            InstructionResult::InvalidPublicStorageAccess => {
+                Self::Halt(HaltReason::InvalidPublicStorageAccess)
             }
         }
     }

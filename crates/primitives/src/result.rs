@@ -434,7 +434,6 @@ impl fmt::Display for InvalidHeader {
         }
     }
 }
-
 /// Reason a transaction successfully completed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -483,6 +482,10 @@ pub enum HaltReason {
     EOFFunctionStackOverflow,
     /// Check for target address validity is only done inside subcall.
     InvalidEXTCALLTarget,
+    /// Invalid Private Storage Access: Cannot access private storage with public instructions
+    InvalidPrivateStorageAccess,
+    /// Invalid Public Storage Access: Cannot access public storage with private instructions
+    InvalidPublicStorageAccess,
 
     /* Optimism errors */
     #[cfg(feature = "optimism")]

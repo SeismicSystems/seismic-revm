@@ -72,10 +72,10 @@ impl Host for DummyHost {
     #[inline]
     fn sload(&mut self, _address: Address, index: U256) -> Option<StateLoad<U256>> {
         match self.storage.entry(index) {
-            Entry::Occupied(entry) => Some(StateLoad::new(*entry.get(), false)),
+            Entry::Occupied(entry) => Some(StateLoad::new(*entry.get(), false, false)),
             Entry::Vacant(entry) => {
                 entry.insert(U256::ZERO);
-                Some(StateLoad::new(U256::ZERO, true))
+                Some(StateLoad::new(U256::ZERO, true, false))
             }
         }
     }
@@ -83,10 +83,10 @@ impl Host for DummyHost {
     #[inline]
     fn cload(&mut self, _address: Address, index: U256) -> Option<StateLoad<U256>> {
         match self.storage.entry(index) {
-            Entry::Occupied(entry) => Some(StateLoad::new(*entry.get(), false)),
+            Entry::Occupied(entry) => Some(StateLoad::new(*entry.get(), false, true)),
             Entry::Vacant(entry) => {
                 entry.insert(U256::ZERO);
-                Some(StateLoad::new(U256::ZERO, true))
+                Some(StateLoad::new(U256::ZERO, true, false))
             }
         }
     }
@@ -106,6 +106,7 @@ impl Host for DummyHost {
                 new_value: value,
             },
             is_cold: present.is_none(),
+            is_private: false,
         })
     }
 
@@ -124,6 +125,7 @@ impl Host for DummyHost {
                 new_value: value,
             },
             is_cold: present.is_none(),
+            is_private: true,
         })
     }
 

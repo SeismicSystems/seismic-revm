@@ -543,6 +543,7 @@ impl JournaledState {
                 previously_destroyed,
             },
             is_cold,
+            is_private: false,
         })
     }
 
@@ -590,6 +591,7 @@ impl JournaledState {
                 StateLoad {
                     data: account,
                     is_cold,
+                    is_private: false,
                 }
             }
             Entry::Vacant(vac) => {
@@ -606,6 +608,7 @@ impl JournaledState {
                 StateLoad {
                     data: vac.insert(account),
                     is_cold,
+                    is_private: false,
                 }
             }
         };
@@ -680,7 +683,7 @@ impl JournaledState {
         key: U256,
         db: &mut DB,
     ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
-        self.load(address, key, db, false)
+        self.load(address, key, db)
     }
 
     /// Load storage slot
@@ -697,7 +700,7 @@ impl JournaledState {
         key: U256,
         db: &mut DB,
     ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
-        self.load(address, key, db, true)
+        self.load(address, key, db)
     }
 
     #[inline]
@@ -706,29 +709,29 @@ impl JournaledState {
         address: Address,
         key: U256,
         db: &mut DB,
-        is_private: bool,
     ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx can we assume that storage is empty.
         let is_newly_created = account.is_created();
-        let (value, is_cold) = match account.storage.entry(key) {
+        let (value, is_cold, is_private) = match account.storage.entry(key) {
             Entry::Occupied(occ) => {
                 let slot = occ.into_mut();
                 let is_cold = slot.mark_warm();
-                (slot.present_value, is_cold)
+                let is_private = slot.present_value().is_private;
+                (slot.present_value, is_cold, is_private)
             }
             Entry::Vacant(vac) => {
                 // if storage was cleared, we dont need to ping db.
                 let value = if is_newly_created {
-                    FlaggedStorage::ZERO.set_visibility(is_private)
+                    FlaggedStorage::ZERO.set_visibility(false)
                 } else {
                     db.storage(address, key).map_err(EVMError::Database)?
                 };
 
                 vac.insert(EvmStorageSlot::new(value));
 
-                (value, true)
+                (value, true, value.is_private)
             }
         };
 
@@ -740,7 +743,7 @@ impl JournaledState {
                 .push(JournalEntry::StorageWarmed { address, key });
         }
 
-        Ok(StateLoad::new(value, is_cold))
+        Ok(StateLoad::new(value, is_cold, is_private))
     }
 
     /// Stores storage slot.
@@ -791,7 +794,7 @@ impl JournaledState {
         is_private: bool,
     ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
         // assume that acc exists and load the slot.
-        let present = self.load(address, key, db, is_private)?;
+        let present = self.load(address, key, db)?;
 
         let acc = self.state.get_mut(&address).unwrap();
 
@@ -807,6 +810,7 @@ impl JournaledState {
                     new_value: new,
                 },
                 present.is_cold,
+                is_private,
             ));
         }
 
@@ -827,6 +831,7 @@ impl JournaledState {
                 new_value: new,
             },
             present.is_cold,
+            is_private,
         ))
     }
 

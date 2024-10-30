@@ -205,7 +205,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             };
 
             return Ok(Eip7702CodeLoad::new(
-                StateLoad::new(bytes, is_cold),
+                StateLoad::new(bytes, is_cold, false),
                 delegated_account.is_cold,
             ));
         }
@@ -248,7 +248,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             };
 
             return Ok(Eip7702CodeLoad::new(
-                StateLoad::new(hash, is_cold),
+                StateLoad::new(hash, is_cold, false),
                 delegated_account.is_cold,
             ));
         }
@@ -274,6 +274,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         Ok(StateLoad {
             data: state_load.data.value,
             is_cold: state_load.is_cold,
+            is_private: state_load.is_private,
         })
     }
 
@@ -288,6 +289,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         Ok(StateLoad {
             data: state_load.data.value,
             is_cold: state_load.is_cold,
+            is_private: state_load.is_private,
         })
     }
 
