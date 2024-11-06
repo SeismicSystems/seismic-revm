@@ -47,7 +47,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x1e049349c9818a490123fae61686941c5fcc2b65b4113c334e309057f69287bc",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -63,9 +63,9 @@
         "_info": {
             "hash": "0x42b4b6088b4fb0642266129f861310972bdab3786616b95b9f3215ce2be0e0c9",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\nTest EOF contracts calling EOF contracts that use SSTORE",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L190",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L190",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3540.md",
             "reference-spec-version": "2f013de4065babde7c02f84a2ce9864a3c5bfbd3"
         }
@@ -118,7 +118,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0xc4c4938ae87ee23c29d3ebd1a1675ee0a0afc8f181bc5f820e2d53c74697fb1e",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -134,9 +134,9 @@
         "_info": {
             "hash": "0xa02b9943cf6b9f45bd0fd0ac39e275f8cc220d8df52e1191eac300e96dc613eb",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\nTest EOF contracts calling EOF contracts that use SSTORE",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L190",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L190",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3540.md",
             "reference-spec-version": "2f013de4065babde7c02f84a2ce9864a3c5bfbd3"
         }
@@ -189,7 +189,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x8d511f10874068b6337c08160a5c4a19389ff49e49a0deb06a0923ea3b329cbd",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -205,9 +205,9 @@
         "_info": {
             "hash": "0x1900c32ade20388519d6d537e22f3fa423aeaa04a68d5dd7d0e5ae049c496e70",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\nTest EOF contracts calling EOF contracts that use SSTORE",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L190",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L190",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3540.md",
             "reference-spec-version": "2f013de4065babde7c02f84a2ce9864a3c5bfbd3"
         }

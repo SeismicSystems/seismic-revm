@@ -1,75 +1,65 @@
-use crate::{
-    db::Database,
-    interpreter::{
-        analysis::to_analysed, gas, return_ok, AccountLoad, Eip7702CodeLoad, InstructionResult,
-        InterpreterResult, SStoreResult, SelfDestructResult, StateLoad,
-    },
-    journaled_state::JournaledState,
-    primitives::{
-        AccessListItem, Account, Address, AnalysisKind, Bytecode, Bytes, CfgEnv, EVMError, Env,
-        Eof, HashSet, Spec,
-        SpecId::{self, *},
-        B256, EOF_MAGIC_BYTES, EOF_MAGIC_HASH, U256,
-    },
-    JournalCheckpoint,
+use crate::{journaled_state::JournaledState, JournalCheckpoint};
+use bytecode::{Bytecode, Eof, EOF_MAGIC_BYTES, EOF_MAGIC_HASH};
+use database_interface::Database;
+use derive_where::derive_where;
+use interpreter::{
+    gas, return_ok, AccountLoad, Eip7702CodeLoad, InstructionResult, InterpreterResult,
+    SStoreResult, SelfDestructResult, StateLoad,
 };
+use primitives::{Address, Bytes, HashSet, B256, U256};
+use specification::hardfork::{
+    Spec,
+    SpecId::{self, *},
+};
+use state::Account;
 use std::{boxed::Box, sync::Arc};
+use transaction::AccessListTrait;
+use wiring::{
+    default::{AnalysisKind, CfgEnv, EnvWiring},
+    EvmWiring, Transaction,
+};
 
 /// EVM contexts contains data that EVM needs for execution.
-#[derive(Debug)]
-pub struct InnerEvmContext<DB: Database> {
+#[derive_where(Clone, Debug; EvmWiringT::Block, EvmWiringT::ChainContext, EvmWiringT::Transaction, EvmWiringT::Database, <EvmWiringT::Database as Database>::Error)]
+pub struct InnerEvmContext<EvmWiringT: EvmWiring> {
     /// EVM Environment contains all the information about config, block and transaction that
     /// evm needs.
-    pub env: Box<Env>,
+    pub env: Box<EnvWiring<EvmWiringT>>,
     /// EVM State with journaling support.
     pub journaled_state: JournaledState,
     /// Database to load data from.
-    pub db: DB,
+    pub db: EvmWiringT::Database,
+    /// Inner context.
+    pub chain: EvmWiringT::ChainContext,
     /// Error that happened during execution.
-    pub error: Result<(), EVMError<DB::Error>>,
-    /// Used as temporary value holder to store L1 block info.
-    #[cfg(feature = "optimism")]
-    pub l1_block_info: Option<crate::optimism::L1BlockInfo>,
+    pub error: Result<(), <EvmWiringT::Database as Database>::Error>,
 }
 
-impl<DB: Database + Clone> Clone for InnerEvmContext<DB>
+impl<EvmWiringT> InnerEvmContext<EvmWiringT>
 where
-    DB::Error: Clone,
+    EvmWiringT: EvmWiring<Block: Default, Transaction: Default>,
 {
-    fn clone(&self) -> Self {
-        Self {
-            env: self.env.clone(),
-            journaled_state: self.journaled_state.clone(),
-            db: self.db.clone(),
-            error: self.error.clone(),
-            #[cfg(feature = "optimism")]
-            l1_block_info: self.l1_block_info.clone(),
-        }
-    }
-}
-
-impl<DB: Database> InnerEvmContext<DB> {
-    pub fn new(db: DB) -> Self {
+    pub fn new(db: EvmWiringT::Database) -> Self {
         Self {
             env: Box::default(),
-            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()),
+            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::default()),
             db,
+            chain: Default::default(),
             error: Ok(()),
-            #[cfg(feature = "optimism")]
-            l1_block_info: None,
         }
     }
+}
 
+impl<EvmWiringT: EvmWiring> InnerEvmContext<EvmWiringT> {
     /// Creates a new context with the given environment and database.
     #[inline]
-    pub fn new_with_env(db: DB, env: Box<Env>) -> Self {
+    pub fn new_with_env(db: EvmWiringT::Database, env: Box<EnvWiring<EvmWiringT>>) -> Self {
         Self {
             env,
-            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()),
+            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::default()),
             db,
+            chain: Default::default(),
             error: Ok(()),
-            #[cfg(feature = "optimism")]
-            l1_block_info: None,
         }
     }
 
@@ -77,14 +67,18 @@ impl<DB: Database> InnerEvmContext<DB> {
     ///
     /// Note that this will ignore the previous `error` if set.
     #[inline]
-    pub fn with_db<ODB: Database>(self, db: ODB) -> InnerEvmContext<ODB> {
+    pub fn with_db<
+        OWiring: EvmWiring<Block = EvmWiringT::Block, Transaction = EvmWiringT::Transaction>,
+    >(
+        self,
+        db: OWiring::Database,
+    ) -> InnerEvmContext<OWiring> {
         InnerEvmContext {
             env: self.env,
             journaled_state: self.journaled_state,
             db,
+            chain: Default::default(),
             error: Ok(()),
-            #[cfg(feature = "optimism")]
-            l1_block_info: self.l1_block_info,
         }
     }
 
@@ -98,15 +92,15 @@ impl<DB: Database> InnerEvmContext<DB> {
     ///
     /// Loading of accounts/storages is needed to make them warm.
     #[inline]
-    pub fn load_access_list(&mut self) -> Result<(), EVMError<DB::Error>> {
-        for AccessListItem {
-            address,
-            storage_keys,
-        } in self.env.tx.access_list.iter()
-        {
+    pub fn load_access_list(&mut self) -> Result<(), <EvmWiringT::Database as Database>::Error> {
+        let Some(access_list) = self.env.tx.access_list() else {
+            return Ok(());
+        };
+
+        for access_list in access_list.iter() {
             self.journaled_state.initial_account_load(
-                *address,
-                storage_keys.iter().map(|i| U256::from_be_bytes(i.0)),
+                access_list.0,
+                access_list.1.map(|i| U256::from_be_bytes(i.0)),
                 &mut self.db,
             )?;
         }
@@ -115,7 +109,7 @@ impl<DB: Database> InnerEvmContext<DB> {
 
     /// Return environment.
     #[inline]
-    pub fn env(&mut self) -> &mut Env {
+    pub fn env(&mut self) -> &mut EnvWiring<EvmWiringT> {
         &mut self.env
     }
 
@@ -126,14 +120,17 @@ impl<DB: Database> InnerEvmContext<DB> {
 
     /// Returns the error by replacing it with `Ok(())`, if any.
     #[inline]
-    pub fn take_error(&mut self) -> Result<(), EVMError<DB::Error>> {
+    pub fn take_error(&mut self) -> Result<(), <EvmWiringT::Database as Database>::Error> {
         core::mem::replace(&mut self.error, Ok(()))
     }
 
     /// Fetch block hash from database.
     #[inline]
-    pub fn block_hash(&mut self, number: u64) -> Result<B256, EVMError<DB::Error>> {
-        self.db.block_hash(number).map_err(EVMError::Database)
+    pub fn block_hash(
+        &mut self,
+        number: u64,
+    ) -> Result<B256, <EvmWiringT::Database as Database>::Error> {
+        self.db.block_hash(number)
     }
 
     /// Mark account as touched as only touched accounts will be added to state.
@@ -147,7 +144,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     pub fn load_account(
         &mut self,
         address: Address,
-    ) -> Result<StateLoad<&mut Account>, EVMError<DB::Error>> {
+    ) -> Result<StateLoad<&mut Account>, <EvmWiringT::Database as Database>::Error> {
         self.journaled_state.load_account(address, &mut self.db)
     }
 
@@ -158,14 +155,17 @@ impl<DB: Database> InnerEvmContext<DB> {
     pub fn load_account_delegated(
         &mut self,
         address: Address,
-    ) -> Result<AccountLoad, EVMError<DB::Error>> {
+    ) -> Result<AccountLoad, <EvmWiringT::Database as Database>::Error> {
         self.journaled_state
             .load_account_delegated(address, &mut self.db)
     }
 
     /// Return account balance and is_cold flag.
     #[inline]
-    pub fn balance(&mut self, address: Address) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
+    pub fn balance(
+        &mut self,
+        address: Address,
+    ) -> Result<StateLoad<U256>, <EvmWiringT::Database as Database>::Error> {
         self.journaled_state
             .load_account(address, &mut self.db)
             .map(|acc| acc.map(|a| a.info.balance))
@@ -178,7 +178,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     pub fn code(
         &mut self,
         address: Address,
-    ) -> Result<Eip7702CodeLoad<Bytes>, EVMError<DB::Error>> {
+    ) -> Result<Eip7702CodeLoad<Bytes>, <EvmWiringT::Database as Database>::Error> {
         let a = self.journaled_state.load_code(address, &mut self.db)?;
         // SAFETY: safe to unwrap as load_code will insert code if it is empty.
         let code = a.info.code.as_ref().unwrap();
@@ -224,7 +224,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     pub fn code_hash(
         &mut self,
         address: Address,
-    ) -> Result<Eip7702CodeLoad<B256>, EVMError<DB::Error>> {
+    ) -> Result<Eip7702CodeLoad<B256>, <EvmWiringT::Database as Database>::Error> {
         let acc = self.journaled_state.load_code(address, &mut self.db)?;
         if acc.is_empty() {
             return Ok(Eip7702CodeLoad::new_not_delegated(B256::ZERO, acc.is_cold));
@@ -268,7 +268,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         &mut self,
         address: Address,
         index: U256,
-    ) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
+    ) -> Result<StateLoad<U256>, <EvmWiringT::Database as Database>::Error> {
         // account is always warm. reference on that statement https://eips.ethereum.org/EIPS/eip-2929 see `Note 2:`
         let state_load = self.journaled_state.sload(address, index, &mut self.db)?;
         Ok(StateLoad {
@@ -284,7 +284,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         &mut self,
         address: Address,
         index: U256,
-    ) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
+    ) -> Result<StateLoad<U256>, <EvmWiringT::Database as Database>::Error> {
         let state_load = self.journaled_state.cload(address, index, &mut self.db)?;
         Ok(StateLoad {
             data: state_load.data.value,
@@ -300,7 +300,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         address: Address,
         index: U256,
         value: U256,
-    ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
+    ) -> Result<StateLoad<SStoreResult>, <EvmWiringT::Database as Database>::Error> {
         self.journaled_state
             .sstore(address, index, value, &mut self.db)
     }
@@ -312,7 +312,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         address: Address,
         index: U256,
         value: U256,
-    ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
+    ) -> Result<StateLoad<SStoreResult>, <EvmWiringT::Database as Database>::Error> {
         self.journaled_state
             .cstore(address, index, value, &mut self.db)
     }
@@ -335,7 +335,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         &mut self,
         address: Address,
         target: Address,
-    ) -> Result<StateLoad<SelfDestructResult>, EVMError<DB::Error>> {
+    ) -> Result<StateLoad<SelfDestructResult>, <EvmWiringT::Database as Database>::Error> {
         self.journaled_state
             .selfdestruct(address, target, &mut self.db)
     }
@@ -453,7 +453,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         let bytecode = match self.env.cfg.perf_analyse_created_bytecodes {
             AnalysisKind::Raw => Bytecode::new_legacy(interpreter_result.output.clone()),
             AnalysisKind::Analyse => {
-                to_analysed(Bytecode::new_legacy(interpreter_result.output.clone()))
+                Bytecode::new_legacy(interpreter_result.output.clone()).into_analyzed()
             }
         };
 

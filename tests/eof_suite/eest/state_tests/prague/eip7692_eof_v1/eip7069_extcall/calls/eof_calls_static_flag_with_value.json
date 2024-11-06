@@ -53,7 +53,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x73dbc1a2640bfe657056841769a76b3c0d92005c0787ce7b2490fe7480998b16",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -69,9 +69,9 @@
         "_info": {
             "hash": "0x634b6d9e392b377c4bbf1b07d610201a69f66e38d488faeff8468e0cb22834bb",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\nTest EOF contracts calls handle static flag and sending value correctly",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L662",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L662",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3540.md",
             "reference-spec-version": "2f013de4065babde7c02f84a2ce9864a3c5bfbd3"
         }
@@ -130,7 +130,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0xbfe0b0483a3f59d18a2a298f75d578e47f340dcc8799ca125ccef712ca6fdacc",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -146,9 +146,9 @@
         "_info": {
             "hash": "0xf3e7de82cbfe99ec3ea97014abb6488735c1de8fd4171e6de0cdc3410af76176",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\nTest EOF contracts calls handle static flag and sending value correctly",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L662",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L662",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3540.md",
             "reference-spec-version": "2f013de4065babde7c02f84a2ce9864a3c5bfbd3"
         }

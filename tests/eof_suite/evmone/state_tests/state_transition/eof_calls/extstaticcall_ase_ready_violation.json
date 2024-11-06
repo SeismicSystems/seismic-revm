@@ -5,10 +5,11 @@
       "currentCoinbase": "0x00000000000000000000000000000000c014bace",
       "currentGasLimit": "0xf4240",
       "currentNumber": "0x1",
+      "currentRandom": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "currentTimestamp": "0x0"
     },
     "post": {
-      "PragueEOF": [
+      "Prague": [
         {
           "hash": "0xc9293acd23b9c0b9e1553755988ddc3753f591d83284787928d066c43c20b75d",
           "indexes": {

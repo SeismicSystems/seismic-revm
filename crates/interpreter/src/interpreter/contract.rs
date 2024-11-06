@@ -1,10 +1,7 @@
-use revm_primitives::TxKind;
-
-use super::analysis::to_analysed;
-use crate::{
-    primitives::{Address, Bytecode, Bytes, Env, B256, U256},
-    CallInputs,
-};
+use crate::CallInputs;
+use bytecode::Bytecode;
+use primitives::{Address, Bytes, TxKind, B256, U256};
+use wiring::{default::EnvWiring, EvmWiring, Transaction};
 
 /// EVM contract information.
 #[derive(Clone, Debug, Default)]
@@ -40,7 +37,7 @@ impl Contract {
         caller: Address,
         call_value: U256,
     ) -> Self {
-        let bytecode = to_analysed(bytecode);
+        let bytecode = bytecode.into_analyzed();
 
         Self {
             input,
@@ -53,25 +50,27 @@ impl Contract {
         }
     }
 
-    /// Creates a new contract from the given [`Env`].
+    /// Creates a new contract from the given [`EnvWiring`].
     #[inline]
-    pub fn new_env(env: &Env, bytecode: Bytecode, hash: Option<B256>) -> Self {
-        let contract_address = match env.tx.transact_to {
-            TxKind::Call(caller) => caller,
-            TxKind::Create => Address::ZERO,
-        };
-        let bytecode_address = match env.tx.transact_to {
+    pub fn new_env<EvmWiringT: EvmWiring>(
+        env: &EnvWiring<EvmWiringT>,
+        bytecode: Bytecode,
+        hash: Option<B256>,
+    ) -> Self {
+        let bytecode_address = match env.tx.kind() {
             TxKind::Call(caller) => Some(caller),
             TxKind::Create => None,
         };
+        let target_address = bytecode_address.unwrap_or_default();
+
         Self::new(
-            env.tx.data.clone(),
+            env.tx.common_fields().input().clone(),
             bytecode,
             hash,
-            contract_address,
+            target_address,
             bytecode_address,
-            env.tx.caller,
-            env.tx.value,
+            env.tx.common_fields().caller(),
+            env.tx.common_fields().value(),
         )
     }
 

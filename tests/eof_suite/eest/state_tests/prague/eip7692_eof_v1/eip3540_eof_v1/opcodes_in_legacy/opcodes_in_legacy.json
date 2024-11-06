@@ -43,7 +43,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x940f8b9fda3b4b279337e71c8a1f091c61b107912470a3a58a68d275f0656638",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -59,9 +59,9 @@
         "_info": {
             "hash": "0x56297ec76b34bf9a865a7c3e011cdecb497e0ec003af87f75f4574d07b738d03",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -81,7 +81,7 @@
             "0x0000000000000000000000000000000000001000": {
                 "nonce": "0x01",
                 "balance": "0x00",
-                "code": "0x5fe7006365786563634558454355",
+                "code": "0x5f5fe7006365786563634558454355",
                 "storage": {
                     "0x45584543": "0x62726964"
                 }
@@ -110,9 +110,9 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
-                    "hash": "0x8078c68a8a433831e2eb3190d3bcca8fc4681829e33efe017a32cd8da208003e",
+                    "hash": "0xc9dcd21f548ca0e726458f84490b771d5169ee07424219278edc3d0de0b5b018",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
                     "txbytes": "0xf860800a834c4b4094000000000000000000000000000000000000100080801ca0637f7924fb742043b879a50ad44b31987521e6b5e7aa6418de1599599a58e423a059d245f205b8aaeb8713b7e65cbac6c350f64172ea6cecb6435541041778a330",
                     "indexes": {
@@ -124,11 +124,11 @@
             ]
         },
         "_info": {
-            "hash": "0x2396d830b85d3f4b38a9d8bb4c934d12d45ee64b24454491dfe9bd26f1b7704c",
+            "hash": "0x530f397f1698e12bc78e8d8a789ec918787e6fd6c0f2bc766e3d881f5a84753a",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -177,7 +177,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x6b914e3aec4bcb56ec0c1762500acaba60999f888df9bb30284fe16b75158659",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -193,9 +193,9 @@
         "_info": {
             "hash": "0xd131a67cffa2c953cf057777339baeb7dfc5ecd786b3a7bc778af6abdcd1bec5",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -244,7 +244,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0xc2beed5158d850588ee001df386e6057e242af5213dca6292870d14ec2e5e880",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -260,9 +260,9 @@
         "_info": {
             "hash": "0xfbc4b898e3ca88b73149c0cab1c012a99f45dafee846f7732d149f490b45350b",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -311,7 +311,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x3c39937b5ba6e4df08ba047da5cf78bed21cf98acd16c4aec43ccbd7abb8cfdd",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -327,9 +327,9 @@
         "_info": {
             "hash": "0x53eb280f241fd30def32334ba75271d92d0e93e7acc582ae19f52a26f23dad76",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -378,7 +378,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x21ac6a18f6e1f63512baaae4977e8dc9d2f8a6a4b35831bcef0aa551c682067f",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -394,9 +394,9 @@
         "_info": {
             "hash": "0x8d48bb669ae9dfa9448d01658cc7b6492f25349bf174a97eacc90c3051cb7489",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -445,7 +445,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x7382c96342888b0f01f4d1bbdcbe8ce8e20b53eba5bdfb076bb0c6cc403c92b9",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -461,9 +461,9 @@
         "_info": {
             "hash": "0x7fd90576284acc75fd248837297540d1cd77ddbcf171c826366f693ae02e8b74",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -512,7 +512,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x01bfc3988fdd3f1d079353c0f45b66a1421771936ce936d190da0b6398399a7d",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -528,9 +528,9 @@
         "_info": {
             "hash": "0xb9e9c8872794e9b140104856496ab18fa712f2b2efc19676e96f4c1938c06d9f",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -550,7 +550,7 @@
             "0x0000000000000000000000000000000000001000": {
                 "nonce": "0x01",
                 "balance": "0x00",
-                "code": "0xe56365786563634558454355",
+                "code": "0xe500006365786563634558454355",
                 "storage": {
                     "0x45584543": "0x62726964"
                 }
@@ -579,9 +579,9 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
-                    "hash": "0x47a3607089342b951314268f6f0556481b83c7d7ff4e234a8d56687692a3f5b3",
+                    "hash": "0x3971eecf2fc884343a01ec0f03dcb2c6ee70108125fc1ab7018617b9c7e460a9",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
                     "txbytes": "0xf860800a834c4b4094000000000000000000000000000000000000100080801ca0637f7924fb742043b879a50ad44b31987521e6b5e7aa6418de1599599a58e423a059d245f205b8aaeb8713b7e65cbac6c350f64172ea6cecb6435541041778a330",
                     "indexes": {
@@ -593,11 +593,11 @@
             ]
         },
         "_info": {
-            "hash": "0x6a9c8beb9bd41b16b305812a8c0f267ac951c9702531ec1bd1e3b0cfb046f3b2",
+            "hash": "0x3f45e7d169147a3837c7bafa8e20592c751f47ab90dba4f8f85c03f46cbf4dbc",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -646,7 +646,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x072cbf3e60b265f7e37cd289d5969919382e11015f5c8d9b5c964a5167a53729",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -662,9 +662,9 @@
         "_info": {
             "hash": "0x885277a21a9c2319a6d1873690cbf9dbd810613ba80cff491d422047af04504b",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -713,7 +713,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x526f44a18c981bda27542116b50adfec68a5c57d0a99c27c7f905dffdd20d755",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -729,9 +729,9 @@
         "_info": {
             "hash": "0x976a587e89c49884792a544e239de3463aabd5859ddfc77b2ed12005738ed6e7",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -780,7 +780,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x116f952b4dfa068f7849f835064ec71337dfd15748f1fdba0c0ec31bd19df406",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -796,9 +796,9 @@
         "_info": {
             "hash": "0x7e617c6af471a8c009a0eaf04a0a0cb9b7ce5cedf01d446e3af54220a749cf23",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -847,7 +847,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x0fc783fb0f35f7e6b665f8e030f3a09e7e750923d5dc22c826813f41367828e8",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -863,9 +863,9 @@
         "_info": {
             "hash": "0xf4264c5aa42a0edd2ae6512d17235f12a8fd8a187b4fba53919d053360e57500",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -914,7 +914,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0xb92d4f02d82c5057180dc8ae98783f1a2b0397b390a06551fbfcf11bb7b0ad76",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -930,9 +930,9 @@
         "_info": {
             "hash": "0x57079933a384d33858568cabf17693cd59c3cb84813238c53538451c32d75fe7",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -981,7 +981,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x8be82b1ce19dda6e6a6021b933ac81fede33c1e528c46fbc46238ccf12211ab8",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -997,9 +997,9 @@
         "_info": {
             "hash": "0x6bf94c46f3af3f6b1188a58491fefca9282c145e90071471cf008cdfa780b5d1",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -1048,7 +1048,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x42bf723f7c962834f0e25fa518c9e3d1d4f14f86ffdf7c8e3bfb11a3b2adf0a4",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -1064,9 +1064,9 @@
         "_info": {
             "hash": "0xcdf4db7f33996ba03a36c8df7b53035c3a1011f36c5db6209ef7e82c00d4b5ff",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -1115,7 +1115,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0xe20746f4fe63545b30365eeda89b7f44829653c8c1ef92d1042934dad3ea5adc",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -1131,9 +1131,9 @@
         "_info": {
             "hash": "0x4f1385f5194810acbedd63557bdc6cabb4f1be10bf130c7a9a82b1ec2c60671e",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }
@@ -1182,7 +1182,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x0dd02316bf484c0696ddc39d48573fb89a721d8b77129652ad891b0416ced35c",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -1198,9 +1198,9 @@
         "_info": {
             "hash": "0x08994d18bf2d676ea09ca76446afce32e263a390f543f897f05251e8417d9b13",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\n\n    Test all EOF only opcodes in legacy contracts and expects failure.",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L27",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_opcodes_in_legacy.py#L56",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-7692.md",
             "reference-spec-version": "f0e7661ee0d16e612e0931ec88b4c9f208e9d513"
         }

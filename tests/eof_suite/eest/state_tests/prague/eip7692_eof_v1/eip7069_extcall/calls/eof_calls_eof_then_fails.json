@@ -47,7 +47,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0xa5e5e93689ae7a02ed5875acd857b4b8d2bc7102e901b245d04e39ca029ba5b0",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -63,9 +63,9 @@
         "_info": {
             "hash": "0x8a801a319e65a8f61c8a7886e0e6d9df4e71a0b2467157dd4d657f438f643299",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\nTest EOF contracts calling EOF contracts and failing after the call",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L518",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L518",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3540.md",
             "reference-spec-version": "2f013de4065babde7c02f84a2ce9864a3c5bfbd3"
         }
@@ -118,7 +118,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0xebda66472ec19b19291629d331489ae488727301d6fa61e4078599436a415008",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -134,9 +134,9 @@
         "_info": {
             "hash": "0xdaa09ac1400094af8653cad16cdf034d60fbbee13b3fcf793a66eebdaf4d9ddb",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\nTest EOF contracts calling EOF contracts and failing after the call",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L518",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L518",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3540.md",
             "reference-spec-version": "2f013de4065babde7c02f84a2ce9864a3c5bfbd3"
         }
@@ -189,7 +189,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0x82e95c128a6e31a4830aeb7c6d2c3f0c2f5b1a838d43ae02b0b3565a69a436b6",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -205,9 +205,9 @@
         "_info": {
             "hash": "0xe9d764803fc629e25174c189b550a86285851ff13997b60c24cdbf947b0cb89e",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\nTest EOF contracts calling EOF contracts and failing after the call",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L518",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L518",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3540.md",
             "reference-spec-version": "2f013de4065babde7c02f84a2ce9864a3c5bfbd3"
         }
@@ -260,7 +260,7 @@
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
         },
         "post": {
-            "PragueEOF": [
+            "Prague": [
                 {
                     "hash": "0xfdafab4fb916b7008c9d5d68f63fadee13b5a2fbb415bea5cc3cf234ebb529a7",
                     "logs": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
@@ -276,9 +276,9 @@
         "_info": {
             "hash": "0x501e36338e29e08562b494945fc079237c9fffdce7cc1479c55045732902f092",
             "comment": "`execution-spec-tests` generated test",
-            "filling-transition-tool": "evmone-t8n 0.12.0-6+commit.2d20cc63.dirty",
+            "filling-transition-tool": "evmone-t8n 0.13.0-9+commit.8e4a055c",
             "description": "Test function documentation:\nTest EOF contracts calling EOF contracts and failing after the call",
-            "url": "https://github.com/ethereum/execution-spec-tests/blob/60b2036d3a8090e36595948846578af102666e65/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L518",
+            "url": "https://github.com/ethereum/execution-spec-tests/blob/eip7692@v1.1.1/tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py#L518",
             "reference-spec": "https://github.com/ethereum/EIPs/blob/master/EIPS/eip-3540.md",
             "reference-spec-version": "2f013de4065babde7c02f84a2ce9864a3c5bfbd3"
         }
