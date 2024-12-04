@@ -638,3 +638,19 @@ mod test {
         evm.transact().unwrap();
     }
 }
+
+#[cfg(feature = "seismic")]
+#[cfg(test)]
+mod seismic_test {
+    use super::SpecId;
+    use crate::Evm;
+    
+    #[test]
+    fn simple_seismic_build() {
+        // build with spec
+        Evm::builder()
+            .with_empty_db()
+            .with_spec_id(SpecId::MERCURY)
+            .build();
+    }
+}
