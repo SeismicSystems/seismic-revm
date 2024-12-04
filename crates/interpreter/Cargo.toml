@@ -49,7 +49,6 @@ arbitrary = ["std", "revm-primitives/arbitrary"]
 asm-keccak = ["revm-primitives/asm-keccak"]
 portable = ["revm-primitives/portable"]
 parse = ["dep:paste", "dep:phf"]
-seismic = ["revm-primitives/seismic"]
 
 optimism = ["revm-primitives/optimism"]
 # Optimism default handler enabled Optimism handler register by default in EvmBuilder.
