@@ -298,6 +298,8 @@ impl PrecompileSpecId {
             BEDROCK | REGOLITH | CANYON => Self::BERLIN,
             #[cfg(feature = "optimism")]
             ECOTONE | FJORD | GRANITE | HOLOCENE => Self::CANCUN,
+            #[cfg(feature = "seismic")]
+            MERCURY => Self::PRAGUE,
         }
     }
 }
