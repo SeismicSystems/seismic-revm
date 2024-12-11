@@ -16,6 +16,7 @@ pub fn seismic_handle_register<DB: Database, EXT>(handler: &mut EvmHandler<'_, E
         handler.pre_execution.load_precompiles = Arc::new(load_precompiles::<SPEC, EXT, DB>);
     });
 }
+
 // Load precompiles for Optimism chain.
 #[inline]
 pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<DB> {
