@@ -1,4 +1,4 @@
-//! Handler related to Optimism chain
+//! Handler related to Seismic chain
 
 use crate::{
     handler::register::EvmHandler,
@@ -17,7 +17,7 @@ pub fn seismic_handle_register<DB: Database, EXT>(handler: &mut EvmHandler<'_, E
     });
 }
 
-// Load precompiles for Optimism chain.
+// Load precompiles for Seismic chain.
 #[inline]
 pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<DB> {
     let mut precompiles = ContextPrecompiles::new(PrecompileSpecId::from_spec_id(SPEC::SPEC_ID));
