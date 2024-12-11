@@ -18,3 +18,9 @@ contract SEISMICRNG {
         require(success, "RNG Precompile call failed");
     }
 }
+// ====
+// EVMVersion: >=mercury
+// ====
+// ----
+// seismicRNG() -> 1
+
