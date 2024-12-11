@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 pub fn seismic_handle_register<DB: Database, EXT>(handler: &mut EvmHandler<'_, EXT, DB>) {
     spec_to_generic!(handler.cfg.spec_id, {
-        // validate environment
         handler.pre_execution.load_precompiles = Arc::new(load_precompiles::<SPEC, EXT, DB>);
     });
 }
