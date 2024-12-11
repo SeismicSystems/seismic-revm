@@ -1,13 +1,9 @@
 use hex::FromHex;
 use log::{debug, error, info};
 use revm::{
-    db::{CacheDB, EmptyDB},
-    inspector_handle_register,
-    inspectors::TracerEip3155,
-    primitives::{
+    db::{CacheDB, EmptyDB}, inspector_handle_register, inspectors::TracerEip3155, primitives::{
         Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256,
-    },
-    DatabaseCommit, Evm,
+    }, seismic::seismic_handle_register, DatabaseCommit, Evm
 };
 
 use std::{path::PathBuf, str::FromStr, u64};
@@ -126,6 +122,7 @@ impl<'a> EvmExecutor<'a> {
                 tx.value = value;
             })
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
+            .append_handler_register(seismic_handle_register)
             .build();
 
         let deploy_out = if trace {
@@ -135,6 +132,7 @@ impl<'a> EvmExecutor<'a> {
                     Box::new(std::io::stdout()),
                 ))
                 .append_handler_register(inspector_handle_register)
+                .append_handler_register(seismic_handle_register)
                 .build();
 
             evm.transact().map_err(|err| {
@@ -219,6 +217,7 @@ impl<'a> EvmExecutor<'a> {
                 env.block.number = self.config.block_number;
             })
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
+            .append_handler_register(seismic_handle_register)
             .build();
 
         let out = if trace {
@@ -228,6 +227,7 @@ impl<'a> EvmExecutor<'a> {
                     Box::new(std::io::stdout()),
                 ))
                 .append_handler_register(inspector_handle_register)
+                .append_handler_register(seismic_handle_register)
                 .build();
 
             evm.transact().map_err(|err| {
