@@ -1,4 +1,4 @@
-use super::hashing;
+use super::env_hash::*;
 use crate::primitives::Env;
 
 use anyhow::{anyhow, Error};
@@ -11,7 +11,7 @@ use alloy_primitives::B256;
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
 
-// // TODO: remove this?
+// // TODO: evaluate if this is still needed
 // /// Per-block root VRF key domain separation context.
 // const VRF_KEY_CONTEXT: &[u8] = b"seismic vrf key context";
 
@@ -41,7 +41,7 @@ impl RootRng {
     // TODO: evaluate if anything else needs to be hashed beside the BlockEnv, ex the TxEnv
     fn derive_root_vrf_key(env: &Env) -> Result<Keypair, Error> {
         // Hash all the relevant data to get bytes for the VRF secret key
-        let env_hash = hashing::hash_block_env(&env.block);
+        let env_hash = hash_block_env(&env.block);
 
         // "expanded" form to use with schnorrkel
         let kp = MiniSecretKey::from_bytes(&env_hash.as_slice())

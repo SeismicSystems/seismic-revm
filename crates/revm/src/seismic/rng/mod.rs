@@ -3,9 +3,9 @@
 //!
 //! ## Submodules
 //! - `domain_sep_rng`: Implements a domain-separated random number generator.
-//! - `hashing`: Provides functions related to hashing the provided env context.
+//! - `env_hash`: Provides functions related to hashing the provided env context.
 //! - `precompile`: Provides the precompile to be called by other contracts.
 
 pub mod domain_sep_rng; 
-pub mod hashing;
+pub mod env_hash;
 pub mod precompile;
