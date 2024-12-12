@@ -6,7 +6,7 @@ use crate::{
         db::Database, spec_to_generic, Spec, SpecId
     },
     ContextPrecompiles,
-    seismic::rng::RNG,
+    seismic::rng::domain_sep_rng::RNG,
 };
 use revm_precompile::{secp256r1, PrecompileSpecId};
 use std::sync::Arc;
