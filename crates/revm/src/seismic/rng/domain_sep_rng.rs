@@ -1,3 +1,11 @@
+//! This module provides a domain separation RNG for the Seismic chain.
+//! It uses the Merlin transcript to generate a root RNG that is used to derive
+//! a leaf RNG for each transaction.
+//! The Merlin transcript is initialized with a hash of the block environment.
+//! The Merlin transcript is then forked for each transaction
+//! The leaf RNG is then used to generate random bytes.
+//! 
+//! This module is heavily inspired Oasis Network's RNG implementation.
 use super::env_hash::*;
 use crate::primitives::Env;
 
