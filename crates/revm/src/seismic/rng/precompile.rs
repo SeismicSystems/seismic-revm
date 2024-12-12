@@ -6,7 +6,7 @@ use revm_precompile::{
 };
 use rand_core::RngCore;
 
-pub const RNG: PrecompileWithAddress =
+pub const RNG_PRECOMPILE: PrecompileWithAddress =
     PrecompileWithAddress(u64_to_address(100), Precompile::Env(run));
 
 pub fn run(input: &Bytes, gas_limit: u64, _env: &Env) -> PrecompileResult {

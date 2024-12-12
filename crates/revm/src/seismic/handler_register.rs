@@ -6,7 +6,7 @@ use crate::{
         db::Database, spec_to_generic, Spec, SpecId
     },
     ContextPrecompiles,
-    seismic::rng::precompile::RNG,
+    seismic::rng::precompile::RNG_PRECOMPILE,
 };
 use revm_precompile::{secp256r1, PrecompileSpecId};
 use std::sync::Arc;
@@ -26,7 +26,7 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
         precompiles.extend([
             // EIP-7212: secp256r1 P256verify
             secp256r1::P256VERIFY,
-            RNG
+            RNG_PRECOMPILE,
         ])
     }
     precompiles
