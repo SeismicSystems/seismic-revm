@@ -138,26 +138,30 @@ const HEADER: [u8; 32] = [
 pub const RNG: PrecompileWithAddress=
     PrecompileWithAddress(u64_to_address(100), Precompile::Env(run));
 
-// to refine: gas usage.
-// use actual block randomness
+
 pub fn run(input: &Bytes, gas_limit: u64, _env: &Env) -> PrecompileResult {
-    let gas_used = 100;
+    let gas_used = 100; // TODO: refine this constant
     if gas_used > gas_limit {
         return Err(REVM_ERROR::OutOfGas.into());
     }
 
-    let context = Context::new(HEADER);
+    let context = Context::new(HEADER); // TODO: recieve context from somewhere else
+    let pers = input.as_ref(); // pers is the personalized entropy added by the caller 
 
-    // Create first root RNG.
-    let root_rng = RootRng::new();
+    // Get the random bytes
+    // TODO: Root rng passed in?
+    // TODO: Better error handling for fork
+    let root_rng = RootRng::new(); 
+    let mut leaf_rng = root_rng.fork(context,  pers.as_ref()).expect("rng fork should work");
+    let mut rng_bytes = [0u8; 32];
+    leaf_rng.fill_bytes(&mut rng_bytes);
+  
 
-    let mut leaf_rng = root_rng.fork(context,  &[]).expect("rng fork should work");
-    let mut bytes1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1);
+    // Hardcoded value for testing
     let value = U256::from(1);
-
-    // Convert U256 to a byte array
     let bytes = Bytes::from(value.to_be_bytes::<32>().to_vec());
     println!("bytes: {:?}", Bytes::from(HEADER));
-    Ok(PrecompileOutput::new(gas_used, Bytes::from(HEADER)))
+    let output = Bytes::from(HEADER);
+
+    Ok(PrecompileOutput::new(gas_used, output))
 }
