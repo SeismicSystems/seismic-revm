@@ -1,13 +1,13 @@
 use super::domain_sep_rng::RootRng;
 use super::rng_env::RngEnv;
 use crate::primitives::{Bytes, Env, TxEnv};
-use alloy_primitives::{B256, keccak256};
+use alloy_primitives::{keccak256, B256};
 use alloy_rlp::encode;
 
 use rand_core::RngCore;
 use revm_precompile::{
-    u64_to_address, Error as REVM_ERROR, Precompile, PrecompileOutput, PrecompileResult,
-    PrecompileWithAddress,
+    u64_to_address, Error as REVM_ERROR, Precompile, PrecompileError, PrecompileOutput,
+    PrecompileResult, PrecompileWithAddress,
 };
 
 pub const RNG_PRECOMPILE: PrecompileWithAddress =
@@ -24,12 +24,15 @@ pub fn run(input: &Bytes, gas_limit: u64, env: &Env) -> PrecompileResult {
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
 
     // Get the random bytes
-    // TODO: Root rng passed in?
-    // TODO: Better error handling for fork
+    // TODO: Root rng goes in Env, fork, then append tx hash
     let root_rng = RootRng::new();
-    let mut leaf_rng = root_rng
-        .fork(rng_env, pers.as_ref())
-        .expect("rng fork should work");
+    let mut leaf_rng = match root_rng.fork(rng_env, pers.as_ref()) {
+        Ok(rng) => rng,
+        Err(_err) => {
+            return Err(PrecompileError::Other("Rng fork failed".to_string()).into());
+        }
+    };
+
     let mut rng_bytes = [0u8; 32];
     leaf_rng.fill_bytes(&mut rng_bytes);
     let output = Bytes::from(rng_bytes);
