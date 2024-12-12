@@ -155,13 +155,7 @@ pub fn run(input: &Bytes, gas_limit: u64, _env: &Env) -> PrecompileResult {
     let mut leaf_rng = root_rng.fork(context,  pers.as_ref()).expect("rng fork should work");
     let mut rng_bytes = [0u8; 32];
     leaf_rng.fill_bytes(&mut rng_bytes);
-  
-
-    // Hardcoded value for testing
-    let value = U256::from(1);
-    let bytes = Bytes::from(value.to_be_bytes::<32>().to_vec());
-    println!("bytes: {:?}", Bytes::from(HEADER));
-    let output = Bytes::from(HEADER);
+    let output = Bytes::from(rng_bytes);
 
     Ok(PrecompileOutput::new(gas_used, output))
 }

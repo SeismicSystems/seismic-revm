@@ -22,5 +22,6 @@ contract SEISMICRNG {
 // EVMVersion: >=mercury
 // ====
 // ----
-// seismicRNG() -> 1
+// seismicRNG() -> 0x891848b6044647ec2b698357ee73fc5cc83e907c9b6575b74f2cf75882ccb445
+
 
