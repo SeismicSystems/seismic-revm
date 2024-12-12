@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract SEISMICRNG {
+    // TODO: take in pers bytes as input, don't use hardcoded value
     function seismicRNG() public view returns (bytes32 result) {
         address rngPrecompile = address(0x64);
 
