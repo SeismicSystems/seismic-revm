@@ -55,6 +55,8 @@ serde = { version = "1.0", default-features = false, features = [
     "derive",
     "rc",
 ], optional = true }
+proptest = { version = "1.4", optional = true }
+proptest-derive = { version = "0.5", optional = true }
 
 [build-dependencies]
 hex = { version = "0.4", default-features = false }
@@ -83,6 +85,8 @@ serde = [
 ]
 arbitrary = [
     "std",
+    "dep:proptest",
+	"dep:proptest-derive",
     "alloy-primitives/arbitrary",
     "bitflags/arbitrary",
     "alloy-eip7702/arbitrary",

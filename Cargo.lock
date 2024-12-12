@@ -3310,6 +3310,8 @@ dependencies = [
  "enumn",
  "hex",
  "kzg-rs",
+ "proptest",
+ "proptest-derive",
  "serde",
 ]
 
