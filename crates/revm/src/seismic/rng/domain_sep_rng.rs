@@ -1,4 +1,5 @@
-use super::rng_env::RngEnv;
+use super::hashing;
+use crate::primitives::Env;
 
 use anyhow::{anyhow, Error};
 use merlin::{Transcript, TranscriptRng};
@@ -37,12 +38,13 @@ impl RootRng {
         }
     }
 
-    fn derive_root_vrf_key(env: RngEnv) -> Result<Keypair, Error> {
+    // TODO: evaluate if anything else needs to be hashed beside the BlockEnv, ex the TxEnv
+    fn derive_root_vrf_key(env: &Env) -> Result<Keypair, Error> {
         // Hash all the relevant data to get bytes for the VRF secret key
-        let env_hash = env.hash();
+        let env_hash = hashing::hash_block_env(&env.block);
 
         // "expanded" form to use with schnorrkel
-        let kp = MiniSecretKey::from_bytes(&env_hash)
+        let kp = MiniSecretKey::from_bytes(&env_hash.as_slice())
             .map_err(|err| anyhow!("schnorrkel conversion error: {}", err))?
             .expand_to_keypair(ExpansionMode::Uniform);
 
@@ -75,13 +77,13 @@ impl RootRng {
     }
 
     /// Create an independent leaf RNG using this RNG as its parent.
-    pub fn fork(&self, rng_env: RngEnv, pers: &[u8]) -> Result<LeafRng, Error> {
+    pub fn fork(&self, env: &Env, pers: &[u8]) -> Result<LeafRng, Error> {
         let mut inner = self.inner.borrow_mut();
 
         // Ensure the RNG is initialized and initialize it if not.
         if inner.rng.is_none() {
             // Derive the root VRF key for the current block.
-            let root_vrf_key = Self::derive_root_vrf_key(rng_env)?;
+            let root_vrf_key = Self::derive_root_vrf_key(env)?;
 
             // Initialize the root RNG.
             let rng = root_vrf_key
