@@ -5,9 +5,7 @@ use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 use schnorrkel::keys::{ExpansionMode, Keypair, MiniSecretKey};
 use std::cell::RefCell;
-
-// // TODO: Replace with reth tx Hash type
-pub type Hash = [u8; 32];
+use alloy_primitives::B256;
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
@@ -65,7 +63,7 @@ impl RootRng {
     }
 
     /// Append an observed transaction hash to RNG transcript.
-    pub fn append_tx(&self, tx_hash: Hash) {
+    pub fn append_tx(&self, tx_hash: B256) {
         let mut inner = self.inner.borrow_mut();
         inner.transcript.append_message(b"tx", tx_hash.as_ref());
     }
