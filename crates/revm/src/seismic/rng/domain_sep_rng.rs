@@ -1,4 +1,4 @@
-use super::context::{Context, hash_context};
+use super::rng_env::RngEnv;
 
 use anyhow::{anyhow, Error};
 use merlin::{Transcript, TranscriptRng};
@@ -11,8 +11,10 @@ pub type Hash = [u8; 32];
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
-/// Per-block root VRF key domain separation context.
-const VRF_KEY_CONTEXT: &[u8] = b"seismic vrf key context";
+
+// // TODO: remove this?
+// /// Per-block root VRF key domain separation context.
+// const VRF_KEY_CONTEXT: &[u8] = b"seismic vrf key context";
 
 /// A root RNG that can be used to derive domain-separated leaf RNGs.
 pub struct RootRng {
@@ -37,12 +39,12 @@ impl RootRng {
         }
     }
 
-    fn derive_root_vrf_key(ctx: Context) -> Result<Keypair, Error> {
+    fn derive_root_vrf_key(env: RngEnv) -> Result<Keypair, Error> {
         // Hash all the relevant data to get bytes for the VRF secret key
-        let context_hash = hash_context([VRF_KEY_CONTEXT, ctx.header.as_slice()]);
+        let env_hash = env.hash();
 
         // "expanded" form to use with schnorrkel
-        let kp = MiniSecretKey::from_bytes(&context_hash)
+        let kp = MiniSecretKey::from_bytes(&env_hash)
             .map_err(|err| anyhow!("schnorrkel conversion error: {}", err))?
             .expand_to_keypair(ExpansionMode::Uniform);
 
@@ -75,13 +77,13 @@ impl RootRng {
     }
 
     /// Create an independent leaf RNG using this RNG as its parent.
-    pub fn fork(&self, ctx: Context, pers: &[u8]) -> Result<LeafRng, Error> {
+    pub fn fork(&self, rng_env: RngEnv, pers: &[u8]) -> Result<LeafRng, Error> {
         let mut inner = self.inner.borrow_mut();
 
         // Ensure the RNG is initialized and initialize it if not.
         if inner.rng.is_none() {
             // Derive the root VRF key for the current block.
-            let root_vrf_key = Self::derive_root_vrf_key(ctx)?;
+            let root_vrf_key = Self::derive_root_vrf_key(rng_env)?;
 
             // Initialize the root RNG.
             let rng = root_vrf_key

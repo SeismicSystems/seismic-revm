@@ -3306,7 +3306,9 @@ name = "revm"
 version = "18.0.0"
 dependencies = [
  "alloy-eips",
+ "alloy-primitives 0.8.11",
  "alloy-provider",
+ "alloy-rlp",
  "alloy-sol-types",
  "alloy-transport",
  "anyhow",
