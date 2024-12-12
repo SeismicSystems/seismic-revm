@@ -11,10 +11,6 @@ use alloy_primitives::B256;
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
 
-// // TODO: evaluate if this is still needed
-// /// Per-block root VRF key domain separation context.
-// const VRF_KEY_CONTEXT: &[u8] = b"seismic vrf key context";
-
 /// A root RNG that can be used to derive domain-separated leaf RNGs.
 pub struct RootRng {
     inner: RefCell<Inner>,

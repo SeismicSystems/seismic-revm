@@ -1,7 +1,12 @@
 // TODO: evaluate if these hashing methods are well designed
+//       specifically if omited fields from the env are ok
+//       and if adding the context strings as extra entropy is good/necessary
 use crate::primitives::{TxEnv, BlockEnv};
 use alloy_primitives::{keccak256, B256};
 use alloy_rlp::encode;
+
+const TX_CONTEXT: &[u8] = b"seismic hash_tx_env context";
+const BLOCK_CONTEXT: &[u8] = b"seismic hash_block_env context";
 
 // Computes the hash of the transaction fields
 // This will not be equal to the hash of the transaction itself
@@ -9,6 +14,7 @@ use alloy_rlp::encode;
 pub fn hash_tx_env(tx_env: &TxEnv) -> B256 {
     // RLP encode the transaction fields and concatenate them
     let mut tx_bytes = Vec::new();
+    tx_bytes.extend_from_slice(&encode(TX_CONTEXT));
     tx_bytes.extend_from_slice(&encode(tx_env.caller));
     tx_bytes.extend_from_slice(&encode(tx_env.gas_limit));
     tx_bytes.extend_from_slice(&encode(tx_env.gas_price));
@@ -25,6 +31,7 @@ pub fn hash_tx_env(tx_env: &TxEnv) -> B256 {
 
 pub fn hash_block_env(block_env: &BlockEnv) -> B256 {
     let mut block_bytes = Vec::new();
+    block_bytes.extend_from_slice(&encode(BLOCK_CONTEXT));
     block_bytes.extend_from_slice(&encode(block_env.number));
     block_bytes.extend_from_slice(&encode(block_env.coinbase));
     block_bytes.extend_from_slice(&encode(block_env.timestamp));

@@ -20,7 +20,7 @@ pub fn run(input: &Bytes, gas_limit: u64, env: &Env) -> PrecompileResult {
     // TODO: Root rng goes in Env. Appending the TxEnv hash happens at some point
     let root_rng = RootRng::new();
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
-    let mut leaf_rng = match root_rng.fork(env, pers.as_ref()) {
+    let mut leaf_rng = match root_rng.fork(env, pers) {
         Ok(rng) => rng,
         Err(_err) => {
             return Err(PrecompileError::Other("Rng fork failed".to_string()).into());
