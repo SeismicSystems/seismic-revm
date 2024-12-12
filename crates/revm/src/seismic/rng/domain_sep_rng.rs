@@ -1,11 +1,13 @@
-use super::context::Context;
-use super::helpers::{get_key_pair_id, Hash};
+use super::context::{Context, hash_context};
 
 use anyhow::{anyhow, Error};
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 use schnorrkel::keys::{ExpansionMode, Keypair, MiniSecretKey};
 use std::cell::RefCell;
+
+// // TODO: Replace with reth tx Hash type
+pub type Hash = [u8; 32];
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
@@ -37,10 +39,10 @@ impl RootRng {
 
     fn derive_root_vrf_key(ctx: Context) -> Result<Keypair, Error> {
         // Hash all the relevant data to get bytes for the VRF secret key
-        let key_id = get_key_pair_id([VRF_KEY_CONTEXT, ctx.header.as_slice()]);
+        let context_hash = hash_context([VRF_KEY_CONTEXT, ctx.header.as_slice()]);
 
         // "expanded" form to use with schnorrkel
-        let kp = MiniSecretKey::from_bytes(&key_id)
+        let kp = MiniSecretKey::from_bytes(&context_hash)
             .map_err(|err| anyhow!("schnorrkel conversion error: {}", err))?
             .expand_to_keypair(ExpansionMode::Uniform);
 
