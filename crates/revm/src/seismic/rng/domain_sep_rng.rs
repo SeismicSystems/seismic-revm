@@ -31,7 +31,7 @@ struct Inner {
     rng: Option<TranscriptRng>,
 }
 
-// TODO: clone rng option as well?
+// TODO: fix
 impl Clone for RootRng {
     fn clone(&self) -> Self {
         let mut inner = self.inner.borrow_mut();
