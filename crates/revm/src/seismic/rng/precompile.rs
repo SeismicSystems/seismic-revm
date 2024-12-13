@@ -22,14 +22,14 @@ impl<DB: Database>  ContextStatefulPrecompile<DB> for RngPrecompile {
         if gas_used > gas_limit {
             return Err(REVM_ERROR::OutOfGas.into());
         }
+        
+        let pers = input.as_ref(); // pers is the personalized entropy added by the caller
 
         // Get the random bytes
-        // TODO: Root rng goes in Env. Appending the TxEnv hash happens at some point
-        // We're using Clone, which is a dummy implementation
-        let root_rng = evmctx.kernel.root_rng.clone();
-        let pers = input.as_ref(); // pers is the personalized entropy added by the caller
+        // TODO: Appending the TxEnv hash happens at some point?
         // The below is to be checked
-        let mut leaf_rng = match root_rng.fork(evmctx.env(), pers) {
+        let env = evmctx.env().clone();
+        let mut leaf_rng = match evmctx.kernel.root_rng.fork(&env, pers) {
             Ok(rng) => rng,
             Err(_err) => {
                 return Err(PrecompileError::Other("Rng fork failed".to_string()).into());
@@ -41,7 +41,6 @@ impl<DB: Database>  ContextStatefulPrecompile<DB> for RngPrecompile {
         let output = Bytes::from(rng_bytes);
 
         Ok(PrecompileOutput::new(gas_used, output))
-       
     }
 }
 
