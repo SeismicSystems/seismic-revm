@@ -6,6 +6,11 @@
 //! - `env_hash`: Provides functions related to hashing the provided env context.
 //! - `precompile`: Provides the precompile to be called by other contracts.
 
-pub mod domain_sep_rng; 
+pub mod domain_sep_rng;
 pub mod env_hash;
 pub mod precompile;
+
+#[cfg(test)]
+mod test;
+
+pub use domain_sep_rng::RootRng;

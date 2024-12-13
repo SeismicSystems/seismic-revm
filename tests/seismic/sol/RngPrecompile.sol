@@ -34,18 +34,11 @@ contract SEISMICRNG {
         }
         
     }
-
-    function test_seismicRngPers() public view returns (bytes32 result) {
-        bytes32 pers = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
-        result = seismicRngPers(pers);
-    }
-
 }
-// TODO: figure out how to test seismicRngPers() better, remove test_seismicRngPers()
 // ====
 // EVMVersion: >=mercury
 // ====
 // ----
-// seismicRng() -> 0x825cc461d9bdde5725c73c657110151844251343ec047a9d1be7dd4af9288482
-// seismicRng() ->  0x11703112df339aa0322e9c4d506178094adf3c624eb61ad94407575428ab3e37
-// test_seismicRngPers() ->  0x6ec20a48cc3b4adc7c8a8c85b73698a6068868469d582d2b7711ada95baaa3b5
+// seismicRng() -> 0xf8ccad14448fe0e553d7be21e443ff6b32e7fff1f5962c5630d94f07f30af177
+// seismicRng() -> 0x4769d00c3b88a5b0c12c11920fc71cb77a6750989d25dfb7f6c64ff93612e324
+// seismicRngPers(bytes32): 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef ->  0xffc30e88edc4fb9bb3aefc69a4243e81eb8b158ca5686c6edaeb177f7d276585
