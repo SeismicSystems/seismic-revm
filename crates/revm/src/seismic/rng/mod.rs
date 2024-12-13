@@ -10,4 +10,7 @@ pub mod domain_sep_rng;
 pub mod env_hash;
 pub mod precompile;
 
+#[cfg(test)]
+mod test;
+
 pub use domain_sep_rng::RootRng;
