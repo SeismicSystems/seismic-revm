@@ -169,3 +169,33 @@ fn test_rng_parent_fork_propagation() {
         "forks should propagate domain separator to parent"
     );
 }
+
+#[test]
+fn test_rng_clone() {
+    let env = Env::default();
+
+    // Use the root RNG and call fork to initialize the inner RNG
+    let root_rng = RootRng::new();
+    let _ = root_rng.fork(&env,  &[]).expect("rng fork should work");
+
+
+    // clone the root RNG
+    let root_rng_clone = root_rng.clone();
+    
+    // check that root and clone produce the same things
+    let mut leaf_rng2 = root_rng.fork(&env,  &[]).expect("rng fork should work");
+    let mut bytes2 = [0u8; 32];
+    leaf_rng2.fill_bytes(&mut bytes2);
+    println!("bytes 2: {:?}\n", bytes2);
+
+    let mut clone_leaf_rng2 = root_rng_clone.fork(&env,  &[]).expect("rng fork should work");
+    let mut clone_bytes2 = [0u8; 32];
+    clone_leaf_rng2.fill_bytes(&mut clone_bytes2);
+    println!("clone bytes 2: {:?}", clone_bytes2);
+
+    assert!(false);
+
+
+    // assert_eq!(bytes2, clone_bytes2, "clone should produce the same bytes");
+
+}
