@@ -1,36 +1,44 @@
 use super::domain_sep_rng::RootRng;
-use crate::primitives::{Bytes, Env};
+use crate::{db::EmptyDB, evm, primitives::{db::Database, Bytes, Env, Address}, ContextPrecompile, ContextStatefulPrecompile, EvmContext, InnerEvmContext};
+use std::sync::Arc;
 
 use rand_core::RngCore;
 use revm_precompile::{
     u64_to_address, Error as REVM_ERROR, Precompile, PrecompileError, PrecompileOutput,
-    PrecompileResult, PrecompileWithAddress,
+    PrecompileResult, PrecompileWithAddress, StatefulPrecompile,
 };
 
-pub const RNG_PRECOMPILE: PrecompileWithAddress =
-    PrecompileWithAddress(u64_to_address(100), Precompile::Env(run));
+pub struct RngPrecompile;
 
-pub fn run(input: &Bytes, gas_limit: u64, env: &Env) -> PrecompileResult {
-    let gas_used = 100; // TODO: refine this constant
-    if gas_used > gas_limit {
-        return Err(REVM_ERROR::OutOfGas.into());
-    }
-
-    // Get the random bytes
-    // TODO: Root rng goes in Env. Appending the TxEnv hash happens at some point
-    let root_rng = RootRng::new();
-    let pers = input.as_ref(); // pers is the personalized entropy added by the caller
-    let mut leaf_rng = match root_rng.fork(env, pers) {
-        Ok(rng) => rng,
-        Err(_err) => {
-            return Err(PrecompileError::Other("Rng fork failed".to_string()).into());
+impl ContextStatefulPrecompile<EmptyDB> for RngPrecompile {
+    fn call(&self, input: &Bytes, gas_limit: u64, evmctx: &mut InnerEvmContext<EmptyDB>) -> PrecompileResult {
+        let gas_used = 100; // TODO: refine this constant
+        if gas_used > gas_limit {
+            return Err(REVM_ERROR::OutOfGas.into());
         }
-    };
 
-    let mut rng_bytes = [0u8; 32];
-    leaf_rng.fill_bytes(&mut rng_bytes);
-    let output = Bytes::from(rng_bytes);
+        // Get the random bytes
+        // TODO: Root rng goes in Env. Appending the TxEnv hash happens at some point
+        // We're using Clone, which is a dummy implementation
+        let root_rng = evmctx.kernel.root_rng.clone();
+        let pers = input.as_ref(); // pers is the personalized entropy added by the caller
+        // The below is to be checked
+        let mut leaf_rng = match root_rng.fork(evmctx.env(), pers) {
+            Ok(rng) => rng,
+            Err(_err) => {
+                return Err(PrecompileError::Other("Rng fork failed".to_string()).into());
+            }
+        };
 
-    Ok(PrecompileOutput::new(gas_used, output))
+        let mut rng_bytes = [0u8; 32];
+        leaf_rng.fill_bytes(&mut rng_bytes);
+        let output = Bytes::from(rng_bytes);
+
+        Ok(PrecompileOutput::new(gas_used, output))
+       
+    }
 }
+
+pub const RNG_PRECOMPILE: (Address, ContextPrecompile<EmptyDB>)  =
+    (u64_to_address(100), ContextPrecompile::ContextStateful(Arc::new(RngPrecompile)));
 
