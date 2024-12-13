@@ -9,3 +9,5 @@
 pub mod domain_sep_rng; 
 pub mod env_hash;
 pub mod precompile;
+
+pub use domain_sep_rng::RootRng;

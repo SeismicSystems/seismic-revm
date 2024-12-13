@@ -31,6 +31,17 @@ struct Inner {
     rng: Option<TranscriptRng>,
 }
 
+//Dummy clone for now
+impl Clone for RootRng {
+    fn clone(&self) -> Self {
+        let new_inner = Inner {
+            transcript: self.inner.borrow().transcript.clone(),
+            rng: None,
+        };
+
+        Self { inner: RefCell::new(new_inner) }
+    }
+}
 impl RootRng {
     /// Create a new root RNG.
     pub fn new() -> Self {
