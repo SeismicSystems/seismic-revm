@@ -34,16 +34,26 @@ struct Inner {
 // TODO: clone rng option as well?
 impl Clone for RootRng {
     fn clone(&self) -> Self {
+        let mut inner = self.inner.borrow_mut();
+        let rng_builder = inner.transcript.build_rng();
+        let rng_copy: Option<TranscriptRng>;
+        if inner.rng.is_some() {
+            let parent_rng = inner.rng.as_mut().expect("rng must be initialized");
+            let rng = rng_builder.finalize(parent_rng); // this mutates the new transcript based on the parent_rng, so not an exact clone
+            rng_copy = Some(rng);
+        } else {
+            rng_copy = None;
+        }
+
         let new_inner = Inner {
-            transcript: self.inner.borrow().transcript.clone(),
-            rng: None,
+            transcript: inner.transcript.clone(),
+            rng: rng_copy,
         };
 
-        Self {
-            inner: RefCell::new(new_inner),
-        }
+        Self { inner: RefCell::new(new_inner) }
     }
 }
+
 impl RootRng {
     /// Create a new root RNG.
     pub fn new() -> Self {
