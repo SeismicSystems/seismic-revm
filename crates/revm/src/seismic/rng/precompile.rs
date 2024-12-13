@@ -1,14 +1,20 @@
 use super::domain_sep_rng::RootRng;
-use crate::{db::EmptyDB, evm, primitives::{db::Database, Bytes, Env, Address}, ContextPrecompile, ContextStatefulPrecompile, EvmContext, InnerEvmContext};
+use crate::{primitives::{db::Database, Bytes, Address}, ContextPrecompile, ContextStatefulPrecompile,InnerEvmContext};
 use std::sync::Arc;
 
 use rand_core::RngCore;
 use revm_precompile::{
-    u64_to_address, Error as REVM_ERROR, Precompile, PrecompileError, PrecompileOutput,
-    PrecompileResult, PrecompileWithAddress, StatefulPrecompile,
+    u64_to_address, Error as REVM_ERROR, PrecompileError, PrecompileOutput,
+    PrecompileResult
 };
 
 pub struct RngPrecompile;
+
+impl RngPrecompile {
+    pub fn address_and_precompile<DB: Database>() -> (Address, ContextPrecompile<DB>) {
+        (u64_to_address(100), ContextPrecompile::ContextStateful(Arc::new(RngPrecompile)))
+    }
+}
 
 impl<DB: Database>  ContextStatefulPrecompile<DB> for RngPrecompile {
     fn call(&self, input: &Bytes, gas_limit: u64, evmctx: &mut InnerEvmContext<DB>) -> PrecompileResult {
@@ -38,7 +44,4 @@ impl<DB: Database>  ContextStatefulPrecompile<DB> for RngPrecompile {
        
     }
 }
-
-// pub const RNG_PRECOMPILE: (Address, ContextPrecompile<EmptyDB>)  =
-//     (u64_to_address(100), ContextPrecompile::ContextStateful(Arc::new(RngPrecompile)));
 
