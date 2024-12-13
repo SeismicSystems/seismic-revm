@@ -2,7 +2,7 @@
 
 use crate::{
     handler::register::EvmHandler, primitives::{
-        db::Database, spec_to_generic, EVMError, Env, InvalidTransaction, Spec, SpecId
+        db::Database, spec_to_generic, EVMError, Spec, SpecId
     }, seismic::{rng::precompile::RNG_PRECOMPILE, Kernel}, Context, ContextPrecompiles, Frame
 };
 use revm_interpreter::{opcode::InstructionTables, Host, InterpreterAction, SharedMemory};
@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 pub fn seismic_handle_register<DB: Database, EXT>(handler: &mut EvmHandler<'_, EXT, DB>) {
     spec_to_generic!(handler.cfg.spec_id, {
-        // Load seismic PreCompiles
         handler.validation.tx_against_state = Arc::new(validate_tx_against_state::<SPEC, EXT, DB>);
         handler.execution.execute_frame = Arc::new(execute_frame::<SPEC, EXT, DB>);
         handler.pre_execution.load_precompiles = Arc::new(load_precompiles::<SPEC, EXT, DB>);
