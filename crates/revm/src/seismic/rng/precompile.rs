@@ -10,8 +10,8 @@ use revm_precompile::{
 
 pub struct RngPrecompile;
 
-impl ContextStatefulPrecompile<EmptyDB> for RngPrecompile {
-    fn call(&self, input: &Bytes, gas_limit: u64, evmctx: &mut InnerEvmContext<EmptyDB>) -> PrecompileResult {
+impl<DB: Database>  ContextStatefulPrecompile<DB> for RngPrecompile {
+    fn call(&self, input: &Bytes, gas_limit: u64, evmctx: &mut InnerEvmContext<DB>) -> PrecompileResult {
         let gas_used = 100; // TODO: refine this constant
         if gas_used > gas_limit {
             return Err(REVM_ERROR::OutOfGas.into());
@@ -39,6 +39,6 @@ impl ContextStatefulPrecompile<EmptyDB> for RngPrecompile {
     }
 }
 
-pub const RNG_PRECOMPILE: (Address, ContextPrecompile<EmptyDB>)  =
-    (u64_to_address(100), ContextPrecompile::ContextStateful(Arc::new(RngPrecompile)));
+// pub const RNG_PRECOMPILE: (Address, ContextPrecompile<EmptyDB>)  =
+//     (u64_to_address(100), ContextPrecompile::ContextStateful(Arc::new(RngPrecompile)));
 
