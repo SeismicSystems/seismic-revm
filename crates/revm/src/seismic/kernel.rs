@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::primitives::{B256, Env};
+use crate::primitives::{Env, B256};
 
 use crate::seismic::rng::RootRng;
 
@@ -37,7 +37,7 @@ impl Clone for Kernel {
 #[derive(Debug, Clone, Default)]
 struct Ctx {
     transaction_hash: B256,
-    previous_block_hash: B256
+    previous_block_hash: B256,
 }
 
 impl Ctx {
@@ -45,12 +45,12 @@ impl Ctx {
         Self {
             //Note, we can access block hash from database implementation
             transaction_hash: hash_tx_env(&env.tx),
-            previous_block_hash: hash_block_env(&env.block)
+            previous_block_hash: hash_block_env(&env.block),
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.transaction_hash.is_empty() || self.previous_block_hash.is_empty() 
+    fn is_empty(&self) -> bool {
+        self.transaction_hash.is_empty() || self.previous_block_hash.is_empty()
     }
 }
 
@@ -59,14 +59,14 @@ impl Kernel {
     pub fn new(env: &Env) -> Self {
         Self {
             root_rng: RootRng::new(),
-            ctx: Ctx::new(env) 
+            ctx: Ctx::new(env),
         }
     }
 
     pub fn default() -> Self {
         Self {
             root_rng: RootRng::new(),
-            ctx: Ctx::default() 
+            ctx: Ctx::default(),
         }
     }
 
@@ -74,4 +74,3 @@ impl Kernel {
         self.ctx.is_empty()
     }
 }
-

@@ -4,17 +4,17 @@
 //! The Merlin transcript is initialized with a hash of the block environment.
 //! The Merlin transcript is then forked for each transaction
 //! The leaf RNG is then used to generate random bytes.
-//! 
+//!
 //! This module is heavily inspired Oasis Network's RNG implementation.
 use super::env_hash::*;
 use crate::primitives::Env;
 
+use alloy_primitives::B256;
 use anyhow::{anyhow, Error};
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 use schnorrkel::keys::{ExpansionMode, Keypair, MiniSecretKey};
 use std::cell::RefCell;
-use alloy_primitives::B256;
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
@@ -31,7 +31,7 @@ struct Inner {
     rng: Option<TranscriptRng>,
 }
 
-//Dummy clone for now
+// TODO: clone rng option as well?
 impl Clone for RootRng {
     fn clone(&self) -> Self {
         let new_inner = Inner {
@@ -39,7 +39,9 @@ impl Clone for RootRng {
             rng: None,
         };
 
-        Self { inner: RefCell::new(new_inner) }
+        Self {
+            inner: RefCell::new(new_inner),
+        }
     }
 }
 impl RootRng {

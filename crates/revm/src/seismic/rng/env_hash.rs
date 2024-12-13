@@ -1,7 +1,7 @@
 // TODO: evaluate if these hashing methods are well designed
 //       specifically if omited fields from the env are ok
 //       and if adding the context strings as extra entropy is good/necessary
-use crate::primitives::{TxEnv, BlockEnv};
+use crate::primitives::{BlockEnv, TxEnv};
 use alloy_primitives::{keccak256, B256};
 use alloy_rlp::encode;
 
