@@ -73,6 +73,10 @@ secp256k1 = { version = ">=0.28, <=0.29", default-features = false, features = [
     "rand",
     "global-context",
 ] }
+# sha2 = "0.10"
+# hkdf = "0.12" 
+aes-gcm = "0.10"
+tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "544b83711c53c8d72cd339718097f324add7adfc"}
 
 [dev-dependencies]
 alloy-sol-types = { version = "0.8.2", default-features = false, features = [
