@@ -2,15 +2,16 @@ use crate::{
     primitives::{db::Database, Address, Bytes},
     ContextPrecompile, ContextStatefulPrecompile, InnerEvmContext,
 };
-use core::hash;
 use std::sync::Arc;
+use anyhow::anyhow;
 
 use rand_core::RngCore;
 use revm_precompile::{
-    u64_to_address, Error as REVM_ERROR, PrecompileError, PrecompileOutput, PrecompileResult,
+    u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult,
 };
+use crate::precompile::Error as PCError;
 
-use super::env_hash::hash_tx_env;
+use super::{domain_sep_rng::LeafRng, env_hash::hash_tx_env};
 
 pub struct RngPrecompile;
 
@@ -35,20 +36,9 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
             return Err(REVM_ERROR::OutOfGas.into());
         }
 
-        let pers = input.as_ref(); // pers is the personalized entropy added by the caller
-
         // Get the random bytes
         // TODO: evaluate if this is good, ex if the tx_hash is correct
-        let env = evmctx.env().clone();
-        let root_rng = &mut evmctx.kernel.root_rng;
-        let tx_hash = hash_tx_env(&env.tx);
-        root_rng.append_tx(tx_hash);
-        let mut leaf_rng = match root_rng.fork(&env, pers) {
-            Ok(rng) => rng,
-            Err(_err) => {
-                return Err(PrecompileError::Other("Rng fork failed".to_string()).into());
-            }
-        };
+        let mut leaf_rng = get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
 
         let mut rng_bytes = [0u8; 32];
         leaf_rng.fill_bytes(&mut rng_bytes);
@@ -56,4 +46,22 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
 
         Ok(PrecompileOutput::new(gas_used, output))
     }
+}
+
+pub fn get_leaf_rng<DB: Database>(
+    input: &Bytes,
+    evmctx: &mut InnerEvmContext<DB>,
+) -> Result<LeafRng, anyhow::Error> {
+    let pers = input.as_ref(); // pers is the personalized entropy added by the caller
+    let env = evmctx.env().clone();
+    let tx_hash = hash_tx_env(&env.tx);
+    let root_rng = &mut evmctx.kernel.root_rng;
+    root_rng.append_tx(tx_hash);
+    let leaf_rng = match root_rng.fork(&env, pers) {
+        Ok(rng) => rng,
+        Err(_err) => {
+            return Err(anyhow!("Rng fork failed".to_string()));
+        }
+    };
+    Ok(leaf_rng)
 }
