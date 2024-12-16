@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// TODO: make sk a bytes32?
+
 contract DERIVEAESKEY {
     /// @notice Derives an AES key using a precompiled contract.
     /// @param sk The secret key as 32 bytes.
