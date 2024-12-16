@@ -6,14 +6,13 @@ use secp256k1::{
 };
 use revm_precompile::{
     u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult,
-    PrecompileWithAddress, Precompile,
+    PrecompileWithAddress, Precompile, Error as REVM_ERROR,
 };
 use tee_service_api::derive_aes_key;
 use crate::precompile::Error as PCError;
 
 pub const PRECOMPILE: PrecompileWithAddress =
     PrecompileWithAddress(ADDRESS, Precompile::Standard(derive_symmetric_key));
-
 
 pub const ADDRESS: Address = u64_to_address(102);
 pub const INPUT_LENGTH: usize = 64;
@@ -22,6 +21,11 @@ pub const INPUT_LENGTH: usize = 64;
 /// The input is a concatenation of the secret key and the public key.
 /// The output is the AES key.
 pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+    let gas_used = 100; // TODO: refine this constant
+    if gas_used > gas_limit {
+        return Err(REVM_ERROR::OutOfGas.into());
+    }
+
     // Process the input
     if input.len() != INPUT_LENGTH {
         let err_msg = format!(
