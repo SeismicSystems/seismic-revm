@@ -21,24 +21,6 @@ use aes_gcm::{
 };
 use tee_service_api::{aes_decrypt, aes_encrypt, derive_aes_key};
 
-pub fn gen_secp256k1_sk<DB: Database>(
-    input: &Bytes,
-    gas_limit: u64,
-    evmctx: &mut InnerEvmContext<DB>,
-) -> PrecompileResult {
-    let gas_used = 100; // TODO: refine this constant
-    if gas_used > gas_limit {
-        return Err(REVM_ERROR::OutOfGas.into());
-    }
-
-    // get a leaf_rng 
-    let mut leaf_rng = get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
-
-    // generate the keys
-    let (secret_key, public_key) = generate_keypair(&mut leaf_rng);
-    let sk_bytes: [u8; 32] = secret_key.secret_bytes();
-    Ok(PrecompileOutput::new(gas_used, sk_bytes.into()))
-}
 
 pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     // Process the input

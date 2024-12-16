@@ -18,11 +18,13 @@ pub struct RngPrecompile;
 impl RngPrecompile {
     pub fn address_and_precompile<DB: Database>() -> (Address, ContextPrecompile<DB>) {
         (
-            u64_to_address(100),
+            ADDRESS,
             ContextPrecompile::ContextStateful(Arc::new(RngPrecompile)),
         )
     }
 }
+
+pub const ADDRESS: Address = u64_to_address(100);
 
 impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
     fn call(
