@@ -240,7 +240,9 @@ impl FlaggedStorage {
         }
     }
 
-    pub fn collect_value<S: BuildHasher>(container: HashMap<B256, FlaggedStorage, S>) -> HashMap<B256, U256, S> {
+    pub fn collect_value<S: BuildHasher + Default>(
+        container: HashMap<B256, FlaggedStorage, S>,
+    ) -> HashMap<B256, U256, S> {
         container
             .into_iter()
             .map(|(key, flagged_storage)| (key, flagged_storage.value))
