@@ -1,6 +1,7 @@
 //! Seismic specific precompiles and handler_register.
 
 mod handler_register;
+pub mod eph_key;
 pub mod rng;
 pub mod kernel;
 

@@ -67,7 +67,12 @@ schnorrkel = "0.11.2"
 merlin = "3.0.0"
 rand_core = { version = "0.6.4", default-features = false }
 tiny-keccak = { version = "2.0", features = ["tuple_hash"] }
-
+secp256k1 = { version = ">=0.28, <=0.29", default-features = false, features = [
+    "alloc",
+    "recovery",
+    "rand",
+    "global-context",
+] }
 
 [dev-dependencies]
 alloy-sol-types = { version = "0.8.2", default-features = false, features = [
