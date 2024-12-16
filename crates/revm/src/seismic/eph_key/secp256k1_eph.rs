@@ -22,24 +22,7 @@ use aes_gcm::{
 use tee_service_api::{aes_decrypt, aes_encrypt, derive_aes_key};
 
 
-pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
-    // Process the input
-    // if input.len() != INPUT_LENGTH {
-    //     return Err(Error::Blake2WrongLength.into());
-    // }
-    let sk_bytes = &input[0..32];
-    let pk_bytes = &input[32..64];
-    let sk = SecretKey::from_slice(sk_bytes).map_err(|_| PrecompileError::Other("invalid sk".to_string()))?;
-    let pk = PublicKey::from_slice(pk_bytes).map_err(|_| PrecompileError::Other("invalid pk".to_string()))?;
 
-    // derive the shared secret
-    let shared_secret = SharedSecret::new( &pk, &sk);
-    // derive the AES key
-    let aes_key = derive_aes_key(&shared_secret).unwrap(); // TODO: no unwraps 
-    let output = aes_key.to_vec(); // TODO: coerce this to be a specific size
-
-    Ok(PrecompileOutput::new(gas_limit, output.into()))
-}
 
 pub fn encrypt_event(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     // Process the input
