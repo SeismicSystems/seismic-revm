@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract SEISMICRNG {
-    function seismicRng() public view returns (bytes32 result) {
+    function seismicRng() public view returns (bytes memory) {
         address rngPrecompile = address(0x64);
 
         bytes memory input = bytes.concat(bytes1(0x00));
@@ -13,12 +13,13 @@ contract SEISMICRNG {
         require(success, "RNG Precompile call failed");
 
         assembly {
-            result := mload(add(output, 32))
+            let len := mload(output)
+            let data := add(output, 32)
+            return(data, len)
         }
-        
     }
 
-    function seismicRngPers(bytes32 pers) public view returns (bytes32 result) {
+    function seismicRngPers(bytes32 pers) public view returns (bytes memory) {
         address rngPrecompile = address(0x64);
 
         bytes memory input = bytes.concat(pers);
@@ -28,9 +29,11 @@ contract SEISMICRNG {
         
         // Ensure the call was successful
         require(success, "RNG Precompile call failed");
-
+        
         assembly {
-            result := mload(add(output, 32))
+            let len := mload(output)
+            let data := add(output, 32)
+            return(data, len)
         }
         
     }
