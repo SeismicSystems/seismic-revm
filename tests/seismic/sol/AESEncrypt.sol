@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 contract DERIVEAESKEY {
     // TODO: fix out of gas error. its related to result being too long
-    function AESEncrypt(bytes32 aes_key, bytes memory plaintext) public view returns (bytes memory result) {
+    function AESEncrypt(bytes32 aes_key, bytes memory plaintext) public view returns (bytes memory) {
         // Address of the precompiled contract
         address AESEncryptAddr = address(0x67);
 
@@ -21,10 +21,10 @@ contract DERIVEAESKEY {
        
         require(success, "Precompile call failed");
 
-        
-        // Decode the result
         assembly {
-            result := add(output, 32)
+            let len := mload(output)
+            let data := add(output, 32)
+            return(data, len)
         }
         
     }
@@ -40,4 +40,4 @@ contract DERIVEAESKEY {
 // EVMVersion: >=mercury
 // ====
 // ----
-// testAESEncrypt()
+// testAESEncrypt() -> hex"0000000000000011f577b2b34b7dbafad6647accfaa9194d7a39c839e618fdbe9fc304691385c6fdcb1a8bf1c84560871726c31334884d85b463b0d9930c50370b9cdcc492dfcfb232dd38f0b0beb1c75e6f5c07e3a9ad"
