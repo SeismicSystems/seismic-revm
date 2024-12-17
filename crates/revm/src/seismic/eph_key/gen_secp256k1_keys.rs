@@ -41,7 +41,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for GenSecp256k1KeysPrecompile 
     
         // generate the keys
         let (secret_key, public_key) = generate_keypair(&mut leaf_rng);
-        let sk_bytes = bincode::serialize(&secret_key).unwrap(); // TODO: get rid of this unwrap?
+        let sk_bytes = bincode::serialize(&secret_key).unwrap();
         let pk_bytes = bincode::serialize(&public_key).unwrap();
         let output: [u8; 65] = [sk_bytes, pk_bytes].concat().try_into().unwrap();
         Ok(PrecompileOutput::new(gas_used, output.into()))

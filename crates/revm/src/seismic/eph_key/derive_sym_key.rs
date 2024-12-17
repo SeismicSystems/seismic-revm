@@ -35,13 +35,13 @@ pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 
     let sk_bytes = &input[0..32];
     let pk_bytes = &input[32..65];
-    let sk: SecretKey = bincode::deserialize(&sk_bytes).unwrap();
-    let pk: PublicKey = bincode::deserialize(&pk_bytes).unwrap();
+    let sk: SecretKey = bincode::deserialize(&sk_bytes).map_err(|e|PCError::Other(e.to_string()))?;
+    let pk: PublicKey = bincode::deserialize(&pk_bytes).map_err(|e|PCError::Other(e.to_string()))?;
 
     // derive the shared secret
     let shared_secret = SharedSecret::new(&pk, &sk);
     // derive the AES key
-    let aes_key = derive_aes_key(&shared_secret).unwrap(); // TODO: error handling
+    let aes_key = derive_aes_key(&shared_secret).map_err(|e| PCError::Other(e.to_string()))?;
     let output: [u8; 32] = aes_key.to_vec().try_into().unwrap();
 
     Ok(PrecompileOutput::new(gas_limit, output.into()))

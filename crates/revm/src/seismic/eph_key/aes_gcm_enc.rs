@@ -33,12 +33,12 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
         return Err(PCError::Other(err_msg).into());
     }
     let aes_key = Key::<Aes256Gcm>::from_slice(&input[0..32]);
-    let nonce_bytes: [u8; 8] = input[32..40].try_into().unwrap();     // Interpret bytes as a big-endian `u64`
+    let nonce_bytes: [u8; 8] = input[32..40].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
     let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);
     let plaintext = input[40..].to_vec();
 
     // encrypt the plaintext
-    let ciphertext = aes_encrypt(&aes_key, &plaintext, nonce_be).unwrap(); // TODO: no unwraps
+    let ciphertext = aes_encrypt(&aes_key, &plaintext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
 
     // prepare the output: (nonce, ciphertext + authtag)
     let output: Bytes = Bytes::from(nonce_bytes.to_vec().into_iter().chain(ciphertext.into_iter()).collect::<Vec<u8>>());
