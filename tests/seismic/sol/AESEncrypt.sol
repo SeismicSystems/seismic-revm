@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract DERIVEAESKEY {
+contract AESENCRYPT {
     function AESEncrypt(bytes32 aes_key, bytes32 nonce, bytes memory plaintext) public view returns (bytes memory) {
         // Address of the precompiled contract
         address AESEncryptAddr = address(0x67);
@@ -35,4 +35,4 @@ contract DERIVEAESKEY {
 // EVMVersion: >=mercury
 // ====
 // ----
-// testAESEncrypt() -> hex"1100000000000000d04ba6b89d92c660e4b8984b8072f6561d0fdd677f41a5f1ea516cefe163070e2a937a59b1dd4ff5708f6107ed101b493731c50c37f69bd516565d7972e85407885c73c8e459b7e59e3081f60551a35167e89ccd1df42836bb859540385897e9dcfc476b4349a9"
+// testAESEncrypt() -> hex"1100000000000000d149a5bc9894c168edb293478d7cf9460c1dce736a57b2e9f24974f7f97b1f2602bb527199f567cd48b7593fd52823611f19ed241fdeb3cd0e4e45616af04cdab1573e61c20f02e31eab10ab0f570f"

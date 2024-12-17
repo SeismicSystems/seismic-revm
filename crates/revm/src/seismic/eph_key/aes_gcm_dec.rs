@@ -1,4 +1,4 @@
-use crate:: primitives::{Address, Bytes};
+use crate::primitives::{Address, Bytes};
 use crate::precompile::Error as PCError;
 use revm_precompile::{
     u64_to_address, PrecompileOutput, PrecompileResult,
@@ -8,17 +8,17 @@ use aes_gcm::{
     Aes256Gcm, 
     Key
 };
-use tee_service_api::aes_encrypt;
+use tee_service_api::aes_decrypt;
 
 pub const PRECOMPILE: PrecompileWithAddress =
-    PrecompileWithAddress(ADDRESS, Precompile::Standard(precompile_encrypt));
+    PrecompileWithAddress(ADDRESS, Precompile::Standard(precompile_decrypt));
    
 
-pub const ADDRESS: Address = u64_to_address(103);
+pub const ADDRESS: Address = u64_to_address(104);
 pub const MIN_INPUT_LENGTH: usize = 64;
 
 
-pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let gas_used = 1; // TODO: refine this constant. Should scale with input size
     if gas_used > gas_limit {
         return Err(REVM_ERROR::OutOfGas.into());
@@ -34,14 +34,15 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     }
     let aes_key = Key::<Aes256Gcm>::from_slice(&input[0..32]);
     let nonce_bytes: [u8; 8] = input[32..40].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
+    // let nonce_be: u64 = U256::from_be_bytes(nonce_bytes).as_u64();
     let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);
-    let plaintext = input[64..].to_vec();
+    let ciphertext = input[64..].to_vec();
 
-    // encrypt the plaintext
-    let ciphertext = aes_encrypt(&aes_key, &plaintext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
+    // decrypt the ciphertext
+    let plaintext = aes_decrypt(&aes_key, &ciphertext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
 
-    // prepare the output: (nonce, ciphertext + authtag)
-    let output: Bytes = Bytes::from(nonce_bytes.to_vec().into_iter().chain(ciphertext.into_iter()).collect::<Vec<u8>>());
+    // prepare the output
+    let output: Bytes = Bytes::from(plaintext);
 
     Ok(PrecompileOutput::new(gas_limit, output))
-}
+} 
