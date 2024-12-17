@@ -34,7 +34,7 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     }
     let aes_key = Key::<Aes256Gcm>::from_slice(&input[0..32]);
     let nonce_bytes: [u8; 8] = input[32..40].try_into().unwrap();     // Interpret bytes as a big-endian `u64`
-    let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);   // TODO: nonce comes from the contract instead of the input
+    let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);
     let plaintext = input[40..].to_vec();
 
     // encrypt the plaintext
