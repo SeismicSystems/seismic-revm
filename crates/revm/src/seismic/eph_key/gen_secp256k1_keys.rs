@@ -40,9 +40,10 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for GenSecp256k1KeysPrecompile 
         let mut leaf_rng = get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
     
         // generate the keys
-        // TODO: return public key as well
-        let (secret_key, _) = generate_keypair(&mut leaf_rng);
-        let sk_bytes: [u8; 32] = secret_key.secret_bytes();
-        Ok(PrecompileOutput::new(gas_used, sk_bytes.into()))
+        let (secret_key, public_key) = generate_keypair(&mut leaf_rng);
+        let sk_bytes = bincode::serialize(&secret_key).unwrap(); // TODO: get rid of this unwrap?
+        let pk_bytes = bincode::serialize(&public_key).unwrap();
+        let output: [u8; 65] = [sk_bytes, pk_bytes].concat().try_into().unwrap();
+        Ok(PrecompileOutput::new(gas_used, output.into()))
     }
 }

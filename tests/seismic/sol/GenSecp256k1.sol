@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 contract GENSECP256K1 {
     function genKey(bytes32 rngPers) public view returns (bytes memory) {
-        // require(false, "hardcode fail");
         address gen_precompile = address(0x65);
 
         bytes memory input = bytes.concat(rngPers);
