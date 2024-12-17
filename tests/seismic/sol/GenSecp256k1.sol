@@ -19,7 +19,6 @@ contract GENSECP256K1 {
         }
     }
 }
-// TODO: fix the test case. won't accept long expected values
 // ====
 // EVMVersion: >=mercury
 // ====
