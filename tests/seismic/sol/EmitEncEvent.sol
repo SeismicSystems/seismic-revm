@@ -16,16 +16,10 @@ contract EMITENCEVENT {
 
         bytes memory input = bytes.concat(rngPers);
 
-        // Call the precompile
         (bool success, bytes memory output) = gen_precompile.staticcall(input);
-        // Ensure the call was successful
         require(success, "GenSecp256k1KeysPrecompile call failed");
 
-        assembly {
-            let len := mload(output)
-            let data := add(output, 32)
-            return(data, len)
-        }
+        return output;
     }
     
     /// @notice Derives an AES key using a precompiled contract.
@@ -70,11 +64,7 @@ contract EMITENCEVENT {
         // Ensure the call was successful
         require(success, "Precompile call failed");
 
-        assembly {
-            let len := mload(output)
-            let data := add(output, 32)
-            return(data, len)
-        } 
+        return output;
     }
 
     function EmitEncEvent(bytes32 rngPers, bytes memory plaintext, bytes memory recipient_pk) public {
@@ -98,6 +88,10 @@ contract EMITENCEVENT {
         emit EncryptedEvent(recipient_pk, ciphertext);
     }
 }
-
+// ====
+// EVMVersion: >=mercury
+// ====
+// ----
+// testDeriveAESKey()
 
 // some of these functions are view. should they be pure?
