@@ -92,6 +92,4 @@ contract EMITENCEVENT {
 // EVMVersion: >=mercury
 // ====
 // ----
-// testDeriveAESKey()
-
-// some of these functions are view. should they be pure?
+// TODO: add tests
