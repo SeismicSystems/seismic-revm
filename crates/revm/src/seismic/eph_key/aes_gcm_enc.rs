@@ -19,6 +19,8 @@ pub const MIN_INPUT_LENGTH: usize = 64;
 
 
 pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+    println!("precompile_encrypt");
+    println!("input: {:?}", input);
     let gas_used = 1; // TODO: refine this constant. Should scale with input size
     if gas_used > gas_limit {
         return Err(REVM_ERROR::OutOfGas.into());
@@ -33,8 +35,9 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
         return Err(PCError::Other(err_msg).into());
     }
     let aes_key = Key::<Aes256Gcm>::from_slice(&input[0..32]);
-    let nonce_bytes: [u8; 8] = input[32..40].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
+    let nonce_bytes: [u8; 8] = input[56..64].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
     let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);
+    println!("{nonce_be}");
     let plaintext = input[64..].to_vec();
 
     // encrypt the plaintext
