@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract AESDECRYPT {
-    function AESDecrypt(bytes32 aes_key, bytes32 nonce, bytes memory ciphertext) public view returns (bytes memory) {
+    function AESDecrypt(bytes32 aes_key, uint256 nonce, bytes memory ciphertext) public view returns (bytes memory) {
         // Address of the precompiled contract
         address AESDecryptAddr = address(0x68);
 
@@ -32,10 +32,10 @@ contract AESDECRYPT {
     }
 
     function testAESDecrypt() public view returns (bytes memory result) {
-        bytes32 nonce = hex"11";
+        uint256 nonce = 17;
         bytes32 aes_key = hex"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
         bytes memory ciphertext =
-            hex"d149a5bc9894c168edb293478d7cf9460c1dce736a57b2e9f24974f7f97b1f2602bb527199f567cd48b7593fd52823611f19ed241fdeb3cd0e4e45616af04cdab1573e61c20f02e31eab10ab0f570f";
+            hex"f577b2b34b7dbafad6647accfaa9194d7a39c839e618fdbe9fc304691385c6fdcb1a8bf1c84560871726c31334884d85b463b0d9930c50370b9cdcc492dfcfb232dd38f0b0beb1c75e6f5c07e3a9ad";
         result = AESDecrypt(aes_key, nonce, ciphertext);
     }
 }
