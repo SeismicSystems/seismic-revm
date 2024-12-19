@@ -6,21 +6,15 @@ contract GENSECP256K1 {
     /// @param rngPers The RNG personalization bytes to include caller entropy
     /// returns the generated Secp256k1 key pair, with the first 32 bytes being the secret key 
     ///         and the last 32 bytes being the public key.
-    function genKey(bytes32 rngPers) public view returns (bytes memory) {
+    function genKeypair(bytes32 rngPers) public view returns (bytes memory) {
         address gen_precompile = address(0x65);
 
         bytes memory input = bytes.concat(rngPers);
 
-        // Call the precompile
         (bool success, bytes memory output) = gen_precompile.staticcall(input);
-        // Ensure the call was successful
         require(success, "GenSecp256k1KeysPrecompile call failed");
 
-        assembly {
-            let len := mload(output)
-            let data := add(output, 32)
-            return(data, len)
-        }
+        return output;
     }
 }
 // ====
