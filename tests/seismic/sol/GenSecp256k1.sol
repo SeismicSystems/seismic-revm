@@ -2,6 +2,10 @@
 pragma solidity ^0.8.0;
 
 contract GENSECP256K1 {
+    /// @notice Generates a Secp256k1 key pair using the provided RNG personalization.
+    /// @param rngPers The RNG personalization bytes to include caller entropy
+    /// returns the generated Secp256k1 key pair, with the first 32 bytes being the secret key 
+    ///         and the last 32 bytes being the public key.
     function genKey(bytes32 rngPers) public view returns (bytes memory) {
         address gen_precompile = address(0x65);
 

@@ -3,6 +3,11 @@
 pragma solidity ^0.8.0;
 
 contract AESENCRYPT {
+    /// @notice Endcrypts the plaintext using AES-256 GCM with the provided key and nonce.
+    /// @param aes_key The 32 bit AES-256 GCM key used for encryption.
+    /// @param plaintext The bytes to encrypt.
+    /// @param nonce the u64 nonce for encryption, encoded as a big-endian bytes32.
+    /// returns the encrypted bytes.
     function AESEncrypt(bytes32 aes_key, bytes32 nonce, bytes memory plaintext) public view returns (bytes memory) {
         // Address of the precompiled contract
         address AESEncryptAddr = address(0x67);
