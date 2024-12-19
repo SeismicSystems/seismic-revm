@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -7,7 +6,7 @@ contract AESDECRYPT {
         // Address of the precompiled contract
         address AESDecryptAddr = address(0x68);
 
-        // Concatenate secret key and public key
+        // Concatenate secret key, nonce, and ciphertext
         bytes memory input = abi.encodePacked(aes_key, nonce, ciphertext);
 
         // Call the precompiled contract
@@ -16,22 +15,29 @@ contract AESDECRYPT {
         // Ensure the call was successful
         require(success, "Precompile call failed");
 
-
+        // Copy the output into a new bytes array and return it
+        bytes memory result = new bytes(output.length);
         assembly {
             let len := mload(output)
             let data := add(output, 32)
-            return(data, len)
+
+            // Copy the content of `output` into `result`
+            for { let i := 0 } lt(i, len) { i := add(i, 32) } { mstore(add(result, add(32, i)), mload(add(data, i))) }
+
+            // Set the length of the result
+            mstore(result, len)
         }
-        
-        
+
+        return result;
     }
 
     function testAESDecrypt() public view returns (bytes memory result) {
         bytes32 nonce = hex"11";
         bytes32 aes_key = hex"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
-        bytes memory ciphertext = hex"d149a5bc9894c168edb293478d7cf9460c1dce736a57b2e9f24974f7f97b1f2602bb527199f567cd48b7593fd52823611f19ed241fdeb3cd0e4e45616af04cdab1573e61c20f02e31eab10ab0f570f";
+        bytes memory ciphertext =
+            hex"d149a5bc9894c168edb293478d7cf9460c1dce736a57b2e9f24974f7f97b1f2602bb527199f567cd48b7593fd52823611f19ed241fdeb3cd0e4e45616af04cdab1573e61c20f02e31eab10ab0f570f";
         result = AESDecrypt(aes_key, nonce, ciphertext);
-    }   
+    }
 }
 // ====
 // EVMVersion: >=mercury
