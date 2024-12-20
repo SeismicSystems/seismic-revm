@@ -73,8 +73,8 @@ pub enum SpecId {
     LATEST = u8::MAX,
 }
 
-// Used when 'seismic' feature is enabled and 'optimism' is not
-#[cfg(all(not(feature = "optimism"), feature = "seismic"))]
+// Used when 'seismic' feature is enabled
+#[cfg(feature = "seismic")]
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, enumn::N)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
