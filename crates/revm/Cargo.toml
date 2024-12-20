@@ -66,7 +66,7 @@ rstest = "0.22.0"
 alloy-provider = "0.5.3"
 
 [features]
-default = ["std", "c-kzg", "secp256k1", "portable", "blst"]
+default = ["std", "c-kzg", "secp256k1", "portable", "blst", "seismic"]
 std = [
     "serde?/std",
     "serde_json?/std",
@@ -83,6 +83,7 @@ portable = ["revm-precompile/portable", "revm-interpreter/portable"]
 test-utils = []
 
 optimism = ["revm-interpreter/optimism", "revm-precompile/optimism"]
+seismic = ["revm-precompile/seismic"]
 # Optimism default handler enabled Optimism handler register by default in EvmBuilder.
 optimism-default-handler = [
     "optimism",

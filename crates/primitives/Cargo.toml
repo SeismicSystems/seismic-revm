@@ -100,6 +100,8 @@ optimism = []
 optimism-default-handler = ["optimism"]
 negate-optimism-default-handler = []
 
+seismic = []
+
 dev = [
     "memory_limit",
     "optional_balance_check",
