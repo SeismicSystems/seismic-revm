@@ -643,19 +643,17 @@ mod test {
 #[cfg(test)]
 mod seismic_test {
     use super::SpecId;
-    use crate::{Evm,
-        seismic::seismic_handle_register
-    };
-    
+    use crate::{seismic::seismic_handle_register, Evm};
+
     #[test]
     fn simple_seismic_build() {
         // build with spec
         let mut evm = Evm::builder()
-                .with_empty_db()
-                .with_spec_id(SpecId::MERCURY)
-                .append_handler_register(seismic_handle_register)
-                .build();
-            
+            .with_empty_db()
+            .with_spec_id(SpecId::MERCURY)
+            .append_handler_register(seismic_handle_register)
+            .build();
+
         evm.transact().unwrap();
     }
 }

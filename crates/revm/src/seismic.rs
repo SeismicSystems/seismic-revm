@@ -2,4 +2,4 @@
 
 mod handler_register;
 
-pub use handler_register::{seismic_handle_register, load_precompiles};
+pub use handler_register::{load_precompiles, seismic_handle_register};

@@ -2,10 +2,8 @@
 
 use crate::{
     handler::register::EvmHandler,
-    primitives::{
-        db::Database, spec_to_generic, Spec, SpecId
-    },
-    ContextPrecompiles
+    primitives::{db::Database, spec_to_generic, Spec, SpecId},
+    ContextPrecompiles,
 };
 use revm_precompile::{secp256r1, PrecompileSpecId};
 use std::sync::Arc;
@@ -29,4 +27,3 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
     }
     precompiles
 }
-
