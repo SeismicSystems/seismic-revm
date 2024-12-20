@@ -87,8 +87,8 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
         shared_memory.new_context();
 
         // Peek the last stack frame.
-        let mut stack_frame = call_stack.last_mut().unwrap();
         
+        let mut stack_frame = call_stack.last_mut().unwrap();
         loop {
             // Execute the frame.
             let next_action =
