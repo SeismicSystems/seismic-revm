@@ -104,8 +104,6 @@ pub enum SpecId {
     LATEST = u8::MAX,
 }
 
-
-
 impl SpecId {
     /// Returns the `SpecId` for the given `u8`.
     #[inline]
@@ -270,7 +268,6 @@ spec!(FJORD, FjordSpec);
 spec!(GRANITE, GraniteSpec);
 #[cfg(feature = "optimism")]
 spec!(HOLOCENE, HoloceneSpec);
-
 
 // Seismic Hardforks
 #[cfg(feature = "seismic")]
@@ -744,7 +741,7 @@ mod seismic_tests {
 
     #[test]
     fn test_mercury_post_merge_hardforks_spec_id() {
-        // from MERGE to MERCURY 
+        // from MERGE to MERCURY
         for i in 15..=20 {
             if let Some(spec) = SpecId::try_from_u8(i) {
                 assert!(SpecId::enabled(SpecId::MERCURY, spec));

@@ -432,7 +432,7 @@ impl Database for BenchmarkDB {
 #[cfg(test)]
 mod tests {
     use super::{CacheDB, EmptyDB};
-    use crate::primitives::{db::Database, AccountInfo, Address, FlaggedStorage, U256, HashMap};
+    use crate::primitives::{db::Database, AccountInfo, Address, FlaggedStorage, HashMap, U256};
 
     #[test]
     fn test_insert_account_storage() {

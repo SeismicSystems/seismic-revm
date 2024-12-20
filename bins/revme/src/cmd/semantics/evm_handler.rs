@@ -1,9 +1,14 @@
 use hex::FromHex;
 use log::{debug, error, info};
 use revm::{
-    db::{CacheDB, EmptyDB}, inspector_handle_register, inspectors::TracerEip3155, primitives::{
+    db::{CacheDB, EmptyDB},
+    inspector_handle_register,
+    inspectors::TracerEip3155,
+    primitives::{
         Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256,
-    }, seismic::seismic_handle_register, DatabaseCommit, Evm
+    },
+    seismic::seismic_handle_register,
+    DatabaseCommit, Evm,
 };
 
 use std::{path::PathBuf, str::FromStr, u64};
