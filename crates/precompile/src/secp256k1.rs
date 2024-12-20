@@ -1,5 +1,4 @@
 use crate::{utilities::right_pad, Error, Precompile, PrecompileResult, PrecompileWithAddress};
-use k256::pkcs8::der::Encode;
 use revm_primitives::{alloy_primitives::B512, Bytes, PrecompileOutput, B256};
 
 pub const ECRECOVER: PrecompileWithAddress = PrecompileWithAddress(
