@@ -88,7 +88,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
 
         // Peek the last stack frame.
         let mut stack_frame = call_stack.last_mut().unwrap();
-        
+
         loop {
             // Execute the frame.
             let next_action =
@@ -398,8 +398,8 @@ mod tests {
         db::BenchmarkDB,
         interpreter::opcode::{PUSH1, SSTORE},
         primitives::{
-            address, Authorization, Bytecode, FlaggedStorage, RecoveredAuthorization, RecoveredAuthority,
-            U256,
+            address, Authorization, Bytecode, FlaggedStorage, RecoveredAuthority,
+            RecoveredAuthorization, U256,
         },
     };
 
