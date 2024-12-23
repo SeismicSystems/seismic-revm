@@ -2,8 +2,8 @@ use crate::ruint::UintTryFrom;
 use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
 use alloy_primitives::FixedBytes;
 use bitflags::bitflags;
-use core::hash::{Hash, Hasher};
-#[cfg(feature = "arbitrary")]
+use core::hash::{BuildHasher, Hash, Hasher};
+#[cfg(any(test, feature = "arbitrary"))]
 use proptest_derive::Arbitrary as PropTestArbitrary;
 
 /// EVM State is a mapping from addresses to accounts.
@@ -240,7 +240,9 @@ impl FlaggedStorage {
         }
     }
 
-    pub fn collect_value(container: HashMap<B256, FlaggedStorage>) -> HashMap<B256, U256> {
+    pub fn collect_value<S: BuildHasher + Default>(
+        container: HashMap<B256, FlaggedStorage, S>,
+    ) -> HashMap<B256, U256, S> {
         container
             .into_iter()
             .map(|(key, flagged_storage)| (key, flagged_storage.value))

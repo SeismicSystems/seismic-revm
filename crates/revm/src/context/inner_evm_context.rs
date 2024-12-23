@@ -48,7 +48,6 @@ where
             l1_block_info: self.l1_block_info.clone(),
             #[cfg(feature = "seismic")]
             kernel: self.kernel.clone(),
-
         }
     }
 }

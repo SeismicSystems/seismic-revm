@@ -66,6 +66,7 @@ impl RootRng {
     }
 
     // TODO: evaluate if anything else needs to be hashed beside the BlockEnv, ex the TxEnv
+    //       this might include some local entropy
     fn derive_root_vrf_key(env: &Env) -> Result<Keypair, Error> {
         // Hash all the relevant data to get bytes for the VRF secret key
         let env_hash = hash_block_env(&env.block);
