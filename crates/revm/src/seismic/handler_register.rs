@@ -38,7 +38,8 @@ fn execute_frame<SPEC: Spec, EXT, DB: Database>(
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
     context: &mut Context<EXT, DB>,
 ) -> Result<InterpreterAction, EVMError<DB::Error>> {
-    context.evm.inner.kernel.root_rng.append_subcontext();
+    let rng = &mut context.evm.inner.kernel.get_rng();
+    rng.append_subcontext();
     crate::handler::mainnet::execute_frame::<SPEC, EXT, DB>(
         frame,
         shared_memory,
