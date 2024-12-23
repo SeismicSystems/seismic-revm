@@ -529,12 +529,14 @@ pub(crate) mod test_utils {
     ) -> EvmContext<CacheDB<EmptyDB>> {
         EvmContext {
             inner: InnerEvmContext {
-                env,
+                env: env.clone(),
                 journaled_state: JournaledState::new(SpecId::CANCUN, HashSet::default()),
                 db,
                 error: Ok(()),
                 #[cfg(feature = "optimism")]
                 l1_block_info: None,
+                #[cfg(feature = "seismic")]
+                kernel: crate::seismic::Kernel::new(env.as_ref()),
             },
             precompiles: ContextPrecompiles::default(),
         }
@@ -544,12 +546,14 @@ pub(crate) mod test_utils {
     pub fn create_empty_evm_context(env: Box<Env>, db: EmptyDB) -> EvmContext<EmptyDB> {
         EvmContext {
             inner: InnerEvmContext {
-                env,
+                env: env.clone(),
                 journaled_state: JournaledState::new(SpecId::CANCUN, HashSet::default()),
                 db,
                 error: Ok(()),
                 #[cfg(feature = "optimism")]
                 l1_block_info: None,
+                #[cfg(feature = "seismic")]
+                kernel: crate::seismic::Kernel::new(env.as_ref()),
             },
             precompiles: ContextPrecompiles::default(),
         }
