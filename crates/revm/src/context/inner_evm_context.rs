@@ -98,6 +98,13 @@ impl<DB: Database> InnerEvmContext<DB> {
         }
     }
 
+    //builder method for passing in different kernel instances
+    #[cfg(feature = "seismic")]
+    pub fn with_kernel(mut self, kernel: crate::seismic::Kernel) -> Self {
+        self.kernel = kernel;
+        self
+    }
+
     /// Returns the configured EVM spec ID.
     #[inline]
     pub const fn spec_id(&self) -> SpecId {
