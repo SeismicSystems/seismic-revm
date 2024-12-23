@@ -18,6 +18,9 @@ pub const ADDRESS: Address = u64_to_address(103);
 pub const MIN_INPUT_LENGTH: usize = 64;
 
 
+/// Encrypts a plaintext using AES-256 GCM
+/// The input is a concatenation of the AES key, nonce, and plaintext
+/// returns the concatenation of the nonce and the ciphertext
 pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     println!("precompile_encrypt");
     println!("input: {:?}", input);

@@ -17,7 +17,9 @@ pub const PRECOMPILE: PrecompileWithAddress =
 pub const ADDRESS: Address = u64_to_address(104);
 pub const MIN_INPUT_LENGTH: usize = 64;
 
-
+/// Decrypts a ciphertext using AES-256 GCM
+/// The input is a concatenation of the AES key, nonce, and ciphertext
+/// returns the decrypted plaintext
 pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let gas_used = 1; // TODO: refine this constant. Should scale with input size
     if gas_used > gas_limit {
