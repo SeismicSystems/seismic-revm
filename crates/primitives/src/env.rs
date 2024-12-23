@@ -596,6 +596,10 @@ pub struct TxEnv {
     #[cfg(feature = "optimism")]
     /// Optimism fields.
     pub optimism: OptimismFields,
+    
+    #[cfg(feature = "seismic")]
+    /// Optimism fields.
+    pub tx_hash: B256,
 }
 
 pub enum TxType {
@@ -639,6 +643,8 @@ impl Default for TxEnv {
             authorization_list: None,
             #[cfg(feature = "optimism")]
             optimism: OptimismFields::default(),
+            #[cfg(feature = "seismic")]
+            tx_hash: B256::ZERO,
         }
     }
 }
