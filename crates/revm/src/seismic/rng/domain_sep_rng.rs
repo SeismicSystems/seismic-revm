@@ -14,54 +14,35 @@ use anyhow::{anyhow, Error};
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 use schnorrkel::keys::{ExpansionMode, Keypair, MiniSecretKey};
-use std::cell::RefCell;
+use std::{
+    cell::RefCell,
+    rc::Rc,
+};
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
 
 /// A root RNG that can be used to derive domain-separated leaf RNGs.
+#[derive(Clone)]
 pub struct RootRng {
-    inner: RefCell<Inner>,
+    pub inner: Rc<RefCell<Inner>>,
 }
 
-struct Inner {
+pub struct Inner {
     /// Merlin transcript for initializing the RNG.
-    transcript: Transcript,
+    pub transcript: Transcript,
     /// A transcript-based RNG (when initialized).
-    rng: Option<TranscriptRng>,
-}
-
-// TODO: fix
-impl Clone for RootRng {
-    fn clone(&self) -> Self {
-        let mut inner = self.inner.borrow_mut();
-        let rng_builder = inner.transcript.build_rng();
-        let rng_copy: Option<TranscriptRng>;
-        if inner.rng.is_some() {
-            let parent_rng = inner.rng.as_mut().expect("rng must be initialized");
-            let rng = rng_builder.finalize(parent_rng); // this mutates the new transcript based on the parent_rng, so not an exact clone
-            rng_copy = Some(rng);
-        } else {
-            rng_copy = None;
-        }
-
-        let new_inner = Inner {
-            transcript: inner.transcript.clone(),
-            rng: rng_copy,
-        };
-
-        Self { inner: RefCell::new(new_inner) }
-    }
+    pub rng: Option<TranscriptRng>,
 }
 
 impl RootRng {
     /// Create a new root RNG.
     pub fn new() -> Self {
         Self {
-            inner: RefCell::new(Inner {
+            inner: Rc::new(RefCell::new(Inner {
                 transcript: Transcript::new(RNG_CONTEXT),
                 rng: None,
-            }),
+            })),
         }
     }
 
