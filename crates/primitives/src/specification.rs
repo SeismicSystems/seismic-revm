@@ -99,7 +99,45 @@ pub enum SpecId {
     CANCUN = 17,          // Cancun                 19426587 (Timestamp: 1710338135)
     PRAGUE = 18,          // Prague                 TBD
     OSAKA = 19,           // Prague+EOF             TBD
-    MERCURY = 20,         // First Seismic Version  TBD
+    MERCURY = 100,        // First Seismic Version  TBD
+    #[default]
+    LATEST = u8::MAX,
+}
+
+// Used when 'seismic' feature is enabled and 'optimism' is not
+#[cfg(all(feature = "optimism", feature = "seismic"))]
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, enumn::N)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SpecId {
+    FRONTIER = 0,
+    FRONTIER_THAWING = 1,
+    HOMESTEAD = 2,
+    DAO_FORK = 3,
+    TANGERINE = 4,
+    SPURIOUS_DRAGON = 5,
+    BYZANTIUM = 6,
+    CONSTANTINOPLE = 7,
+    PETERSBURG = 8,
+    ISTANBUL = 9,
+    MUIR_GLACIER = 10,
+    BERLIN = 11,
+    LONDON = 12,
+    ARROW_GLACIER = 13,
+    GRAY_GLACIER = 14,
+    MERGE = 15,
+    BEDROCK = 16,
+    REGOLITH = 17,
+    SHANGHAI = 18,
+    CANYON = 19,
+    CANCUN = 20,
+    ECOTONE = 21,
+    FJORD = 22,
+    GRANITE = 23,
+    HOLOCENE = 24,
+    PRAGUE = 25,
+    OSAKA = 26,
+    MERCURY = 100,
     #[default]
     LATEST = u8::MAX,
 }
@@ -508,6 +546,109 @@ macro_rules! spec_to_generic {
             }
             $crate::SpecId::OSAKA => {
                 use $crate::OsakaSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::MERCURY => {
+                use $crate::MercurySpec as SPEC;
+                $e
+            }
+        }
+    }};
+}
+
+#[cfg(all(feature = "optimism", feature = "seismic"))]
+#[macro_export]
+macro_rules! spec_to_generic {
+    ($spec_id:expr, $e:expr) => {{
+        match $spec_id {
+            $crate::SpecId::FRONTIER | SpecId::FRONTIER_THAWING => {
+                use $crate::FrontierSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::HOMESTEAD | SpecId::DAO_FORK => {
+                use $crate::HomesteadSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::TANGERINE => {
+                use $crate::TangerineSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SPURIOUS_DRAGON => {
+                use $crate::SpuriousDragonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BYZANTIUM => {
+                use $crate::ByzantiumSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PETERSBURG | $crate::SpecId::CONSTANTINOPLE => {
+                use $crate::PetersburgSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::ISTANBUL | $crate::SpecId::MUIR_GLACIER => {
+                use $crate::IstanbulSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BERLIN => {
+                use $crate::BerlinSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LONDON
+            | $crate::SpecId::ARROW_GLACIER
+            | $crate::SpecId::GRAY_GLACIER => {
+                use $crate::LondonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::MERGE => {
+                use $crate::MergeSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SHANGHAI => {
+                use $crate::ShanghaiSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::CANCUN => {
+                use $crate::CancunSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LATEST => {
+                use $crate::LatestSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PRAGUE => {
+                use $crate::PragueSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::OSAKA => {
+                use $crate::OsakaSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BEDROCK => {
+                use $crate::BedrockSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::REGOLITH => {
+                use $crate::RegolithSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::CANYON => {
+                use $crate::CanyonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::ECOTONE => {
+                use $crate::EcotoneSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::FJORD => {
+                use $crate::FjordSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::GRANITE => {
+                use $crate::GraniteSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::HOLOCENE => {
+                use $crate::HoloceneSpec as SPEC;
                 $e
             }
             $crate::SpecId::MERCURY => {
