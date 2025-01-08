@@ -3589,7 +3589,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tee_service_api",
- "tiny-keccak",
  "tokio",
 ]
 
