@@ -1,6 +1,7 @@
 pub mod authorization_list;
 pub mod bytecode;
 
+#[allow(deprecated)]
 pub use authorization_list::{
     Authorization, AuthorizationList, RecoveredAuthority, RecoveredAuthorization, Signature,
     SignedAuthorization,

@@ -29,6 +29,8 @@ pub use alloy_primitives::{
 pub use bitvec;
 pub use bytecode::*;
 pub use constants::*;
+
+#[allow(deprecated)]
 pub use eip7702::{
     Authorization, AuthorizationList, Eip7702Bytecode, Eip7702DecodeError, RecoveredAuthority,
     RecoveredAuthorization, Signature, SignedAuthorization, EIP7702_MAGIC, EIP7702_MAGIC_BYTES,

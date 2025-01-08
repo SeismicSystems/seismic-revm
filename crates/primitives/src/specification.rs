@@ -659,7 +659,6 @@ macro_rules! spec_to_generic {
     }};
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
