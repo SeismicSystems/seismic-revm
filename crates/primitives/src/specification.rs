@@ -99,7 +99,7 @@ pub enum SpecId {
     CANCUN = 17,          // Cancun                 19426587 (Timestamp: 1710338135)
     PRAGUE = 18,          // Prague                 TBD
     OSAKA = 19,           // Prague+EOF             TBD
-    MERCURY = 100,         // First Seismic Version  TBD
+    MERCURY = 100,        // First Seismic Version  TBD
     #[default]
     LATEST = u8::MAX,
 }
