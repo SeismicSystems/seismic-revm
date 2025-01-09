@@ -99,7 +99,7 @@ pub enum SpecId {
     CANCUN = 17,          // Cancun                 19426587 (Timestamp: 1710338135)
     PRAGUE = 18,          // Prague                 TBD
     OSAKA = 19,           // Prague+EOF             TBD
-    MERCURY = 20,         // First Seismic Version  TBD
+    MERCURY = 100,        // First Seismic Version  TBD
     #[default]
     LATEST = u8::MAX,
 }
@@ -137,7 +137,7 @@ pub enum SpecId {
     HOLOCENE = 24,
     PRAGUE = 25,
     OSAKA = 26,
-    MERCURY = 120,
+    MERCURY = 100,
     #[default]
     LATEST = u8::MAX,
 }
@@ -658,7 +658,6 @@ macro_rules! spec_to_generic {
         }
     }};
 }
-
 
 #[cfg(test)]
 mod tests {
