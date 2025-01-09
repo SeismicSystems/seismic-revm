@@ -142,44 +142,6 @@ pub enum SpecId {
     LATEST = u8::MAX,
 }
 
-// Used when 'seismic' feature is enabled and 'optimism' is not
-#[cfg(all(feature = "optimism", feature = "seismic"))]
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, enumn::N)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum SpecId {
-    FRONTIER = 0,
-    FRONTIER_THAWING = 1,
-    HOMESTEAD = 2,
-    DAO_FORK = 3,
-    TANGERINE = 4,
-    SPURIOUS_DRAGON = 5,
-    BYZANTIUM = 6,
-    CONSTANTINOPLE = 7,
-    PETERSBURG = 8,
-    ISTANBUL = 9,
-    MUIR_GLACIER = 10,
-    BERLIN = 11,
-    LONDON = 12,
-    ARROW_GLACIER = 13,
-    GRAY_GLACIER = 14,
-    MERGE = 15,
-    BEDROCK = 16,
-    REGOLITH = 17,
-    SHANGHAI = 18,
-    CANYON = 19,
-    CANCUN = 20,
-    ECOTONE = 21,
-    FJORD = 22,
-    GRANITE = 23,
-    HOLOCENE = 24,
-    PRAGUE = 25,
-    OSAKA = 26,
-    MERCURY = 120,
-    #[default]
-    LATEST = u8::MAX,
-}
-
 impl SpecId {
     /// Returns the `SpecId` for the given `u8`.
     #[inline]
