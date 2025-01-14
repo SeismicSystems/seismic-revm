@@ -9,6 +9,7 @@ use aes_gcm::{
     Key
 };
 use tee_service_api::aes_decrypt;
+use crate::primitives::hex;
 
 pub const PRECOMPILE: PrecompileWithAddress =
     PrecompileWithAddress(ADDRESS, Precompile::Standard(precompile_decrypt));
@@ -34,20 +35,19 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
         );
         return Err(PCError::Other(err_msg).into());
     }
-    println!("input: {:?}", input);
+    println!("input: {:?}", hex::encode(input));
     let aes_key = Key::<Aes256Gcm>::from_slice(&input[0..32]);
-    println!("aes_key: {:?}", aes_key);
+    println!("aes_key: {:?}", hex::encode(aes_key));
     let nonce_bytes: [u8; 8] = input[56..64].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
-    println!("nonce_bytes: {:?}", nonce_bytes);
+    println!("nonce_bytes: {:?}", hex::encode(nonce_bytes));
     let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);
-    println!("nonce_be: {:?}", nonce_be);
     let ciphertext = input[64..].to_vec();
-    println!("ciphertext: {:?}", ciphertext);
+    println!("ciphertext: {:?}", hex::encode(ciphertext.clone()));
     // decrypt the ciphertext
     let plaintext = aes_decrypt(&aes_key, &ciphertext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
-    println!("plaintext: {:?}", plaintext);
+    println!("plaintext: {:?}", hex::encode(plaintext.clone()));
     // prepare the output
     let output: Bytes = Bytes::from(plaintext);
-    println!("output: {:?}", output);
+    println!("output: {:?}", hex::encode(output.clone()));
     Ok(PrecompileOutput::new(gas_limit, output))
 } 
