@@ -44,7 +44,15 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let ciphertext = input[64..].to_vec();
     println!("ciphertext: {:?}", hex::encode(ciphertext.clone()));
     // decrypt the ciphertext
-    let plaintext = aes_decrypt(&aes_key, &ciphertext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
+    let plaintext = match aes_decrypt(&aes_key, &ciphertext, nonce_be) {
+        Ok(result) => result,
+        Err(e) => {
+                let err_msg = e.to_string();
+                println!("Error during decryption: {}", err_msg);
+                return Err(PCError::Other(err_msg).into());
+            }
+        };
+
     println!("plaintext: {:?}", hex::encode(plaintext.clone()));
     // prepare the output
     let output: Bytes = Bytes::from(plaintext);
