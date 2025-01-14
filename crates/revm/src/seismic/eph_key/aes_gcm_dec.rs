@@ -38,10 +38,10 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     println!("input: {:?}", hex::encode(input));
     let aes_key = Key::<Aes256Gcm>::from_slice(&input[0..32]);
     println!("aes_key: {:?}", hex::encode(aes_key));
-    let nonce_bytes: [u8; 8] = input[56..64].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
+    let nonce_bytes: [u8; 8] = input[32..40].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
     println!("nonce_bytes: {:?}", hex::encode(nonce_bytes));
     let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);
-    let ciphertext = input[64..].to_vec();
+    let ciphertext = input[40..].to_vec();
     println!("ciphertext: {:?}", hex::encode(ciphertext.clone()));
     // decrypt the ciphertext
     let plaintext = match aes_decrypt(&aes_key, &ciphertext, nonce_be) {
