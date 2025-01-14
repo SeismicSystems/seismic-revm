@@ -44,7 +44,6 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
     /// Internally it calls `mainnet_with_spec` with the given spec id.
     /// Or `optimism_with_spec` if the optimism feature is enabled and `cfg.is_optimism` is set.
     pub fn new(cfg: HandlerCfg) -> Self {
-        println!("Setting Up Handler");
         cfg_if::cfg_if! {
             if #[cfg(feature = "optimism")] {
                 if cfg.is_optimism {
@@ -54,7 +53,6 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
                 }
             }
             else if #[cfg(feature = "seismic")] {
-                    println!("Setting Up Handler, WITH SEISMIC");
                     Handler::seismic_with_spec(cfg.spec_id)
             }
             else {

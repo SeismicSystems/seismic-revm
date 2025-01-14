@@ -38,6 +38,7 @@ fn execute_frame<SPEC: Spec, EXT, DB: Database>(
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
     context: &mut Context<EXT, DB>,
 ) -> Result<InterpreterAction, EVMError<DB::Error>> {
+    println!("Executing frame Seismic");
     context.evm.inner.kernel.root_rng.append_subcontext();
     crate::handler::mainnet::execute_frame::<SPEC, EXT, DB>(
         frame,
