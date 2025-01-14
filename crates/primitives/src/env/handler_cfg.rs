@@ -57,6 +57,18 @@ impl HandlerCfg {
             }
         }
     }
+
+    /// Returns `true` if the seismic feature is enabled and flag is set to `true`.
+    pub fn is_seismic(&self) -> bool {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "seismic")] {
+                true
+            } else {
+                false
+            }
+        }
+    }
+
 }
 
 /// Configuration environment with the chain spec id.

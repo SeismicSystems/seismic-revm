@@ -44,12 +44,17 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
     /// Internally it calls `mainnet_with_spec` with the given spec id.
     /// Or `optimism_with_spec` if the optimism feature is enabled and `cfg.is_optimism` is set.
     pub fn new(cfg: HandlerCfg) -> Self {
+        println!("Setting Up Handler");
         cfg_if::cfg_if! {
             if #[cfg(feature = "optimism")] {
                 if cfg.is_optimism {
                     Handler::optimism_with_spec(cfg.spec_id)
                 } else {
                     Handler::mainnet_with_spec(cfg.spec_id)
+                }
+            else if #[cfg(feature = "seismic")] {
+                    println!("Setting Up Handler, WITH SEISMIC");
+                    Handler::seismic_with_spec(cfg.spec_id)
                 }
             } else {
                 Handler::mainnet_with_spec(cfg.spec_id)
@@ -74,6 +79,11 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
     pub fn is_optimism(&self) -> bool {
         self.cfg.is_optimism()
     }
+    
+    /// Returns `true` if the seismic feature is enabled and flag is set to `true`.
+    pub fn is_seismic(&self) -> bool {
+        self.cfg.is_seismic()
+    }
 
     /// Handler for optimism
     #[cfg(feature = "optimism")]
@@ -90,6 +100,22 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
     #[cfg(feature = "optimism")]
     pub fn optimism_with_spec(spec_id: SpecId) -> Self {
         spec_to_generic!(spec_id, Self::optimism::<SPEC>())
+    }
+    
+    /// Handler for seismic 
+    #[cfg(feature = "seismic")]
+    pub fn seismic<SPEC: Spec>() -> Self {
+        let mut handler = Self::mainnet::<SPEC>();
+        handler.append_handler_register(HandleRegisters::Plain(
+            crate::seismic::seismic_handle_register::<DB, EXT>,
+        ));
+        handler
+    }
+
+    /// Optimism with spec. Similar to [`Self::mainnet_with_spec`].
+    #[cfg(feature = "seismic")]
+    pub fn optimism_with_spec(spec_id: SpecId) -> Self {
+        spec_to_generic!(spec_id, Self::seismic::<SPEC>())
     }
 
     /// Creates handler with variable spec id, inside it will call `mainnet::<SPEC>` for
