@@ -52,11 +52,12 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
                 } else {
                     Handler::mainnet_with_spec(cfg.spec_id)
                 }
+            }
             else if #[cfg(feature = "seismic")] {
                     println!("Setting Up Handler, WITH SEISMIC");
                     Handler::seismic_with_spec(cfg.spec_id)
-                }
-            } else {
+            }
+            else {
                 Handler::mainnet_with_spec(cfg.spec_id)
             }
         }
@@ -114,7 +115,7 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
 
     /// Optimism with spec. Similar to [`Self::mainnet_with_spec`].
     #[cfg(feature = "seismic")]
-    pub fn optimism_with_spec(spec_id: SpecId) -> Self {
+    pub fn seismic_with_spec(spec_id: SpecId) -> Self {
         spec_to_generic!(spec_id, Self::seismic::<SPEC>())
     }
 
