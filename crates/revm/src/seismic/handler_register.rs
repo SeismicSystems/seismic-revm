@@ -1,14 +1,13 @@
 //! Handler related to Seismic chain
 
-use super::eph_key::{
+use super::{eph_key::{
     aes_gcm_dec, aes_gcm_enc, ecdh_derive_sym_key, gen_secp256k1_keys::GenSecp256k1KeysPrecompile,
     hkdf_derive_sym_key,
-};
+}, kernel::new_test_kernel_box};
 use crate::{
     handler::register::EvmHandler,
     primitives::{db::Database, spec_to_generic, EVMError, Spec, SpecId},
     seismic::rng::precompile::RngPrecompile,
-    seismic::Kernel,
     Context, ContextPrecompiles, Frame,
 };
 use revm_interpreter::{opcode::InstructionTables, Host, InterpreterAction, SharedMemory};
@@ -28,7 +27,7 @@ fn validate_tx_against_state<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
 ) -> Result<(), EVMError<DB::Error>> {
     if context.evm.kernel.ctx_is_empty() {
-        context.evm.kernel = Kernel::new(context.env())
+        context.evm.kernel = new_test_kernel_box(context.env())
     }
     crate::handler::mainnet::validate_tx_against_state::<SPEC, EXT, DB>(context)
 }
@@ -41,7 +40,8 @@ fn execute_frame<SPEC: Spec, EXT, DB: Database>(
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
     context: &mut Context<EXT, DB>,
 ) -> Result<InterpreterAction, EVMError<DB::Error>> {
-    context.evm.inner.kernel.root_rng.append_subcontext();
+    let rng = &mut context.evm.kernel.rng_mut_ref();
+    rng.append_subcontext();
     crate::handler::mainnet::execute_frame::<SPEC, EXT, DB>(
         frame,
         shared_memory,
@@ -67,7 +67,6 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
         // extend with ContextPrecompile<DB>
         precompiles.extend([
             RngPrecompile::address_and_precompile::<DB>(),
-            GenSecp256k1KeysPrecompile::address_and_precompile::<DB>(),
         ]);
     }
     precompiles

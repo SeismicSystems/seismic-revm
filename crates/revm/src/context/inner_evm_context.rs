@@ -77,7 +77,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             #[cfg(feature = "optimism")]
             l1_block_info: None,
             #[cfg(feature = "seismic")]
-            kernel: crate::seismic::Kernel::new(&env.as_ref()),
+            kernel: crate::seismic::new_test_kernel_box(env.as_ref()),
         }
     }
 
@@ -96,6 +96,13 @@ impl<DB: Database> InnerEvmContext<DB> {
             #[cfg(feature = "seismic")]
             kernel: self.kernel,
         }
+    }
+
+    //builder method for passing in different kernel instances
+    #[cfg(feature = "seismic")]
+    pub fn with_kernel(mut self, kernel: crate::seismic::Kernel) -> Self {
+        self.kernel = kernel;
+        self
     }
 
     /// Returns the configured EVM spec ID.

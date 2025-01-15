@@ -536,7 +536,7 @@ pub(crate) mod test_utils {
                 #[cfg(feature = "optimism")]
                 l1_block_info: None,
                 #[cfg(feature = "seismic")]
-                kernel: crate::seismic::Kernel::new(env.as_ref()),
+                kernel: crate::seismic::new_test_kernel_box(env.as_ref()),
             },
             precompiles: ContextPrecompiles::default(),
         }
@@ -553,7 +553,7 @@ pub(crate) mod test_utils {
                 #[cfg(feature = "optimism")]
                 l1_block_info: None,
                 #[cfg(feature = "seismic")]
-                kernel: crate::seismic::Kernel::new(env.as_ref()),
+                kernel: crate::seismic::new_test_kernel_box(env.as_ref()),
             },
             precompiles: ContextPrecompiles::default(),
         }
