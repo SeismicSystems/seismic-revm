@@ -1,25 +1,44 @@
+use core::fmt::Debug;
+
 use dyn_clone::DynClone;
 use secp256k1::SecretKey;
 
-use crate::{primitives::{BlockEnv, TxEnv, B256}, seismic::rng::RootRng};
+use crate::{primitives::{B256, Env}, seismic::rng::{env_hash::{hash_block_env, hash_tx_env}, RootRng}};
 
-pub trait KernelInterface: DynClone {
-    /// === Kernel Functionalities ===
-    /// Return the private key (dummy for testnet, real for mainnet, etc.).
-    fn get_private_key(&self) -> SecretKey;
+use super::context::Ctx;
 
-    /// Append entropy if needed. (E.g. only for mainnet-simulation.)
+pub trait KernelInterface: KernelRng + KernelKeys + KernelContextBuilder + DynClone + Debug {}
+impl<T: KernelRng + KernelKeys + KernelContextBuilder + DynClone + Debug> KernelInterface for T {}
+
+
+pub trait KernelRng {
+    fn rng_mut_ref(&mut self) -> &mut RootRng;
     fn maybe_append_entropy(&mut self);
-
-    /// === RNG Functionalities ===
-    fn get_rng(&mut self) -> &mut RootRng;
-
-    // ===  Ctx functionalities ===
-    // Build Ctx with different entrypoints for test environment and mainnet.
-    fn build_ctx_from_env(&mut self, tx_env: &TxEnv, block_env: &BlockEnv);
-    fn build_ctx_from_hashes(&mut self, tx_hash: B256, block_hash: B256);
-    fn ctx_is_empty(&self) -> bool;
 }
 
-dyn_clone::clone_trait_object!(KernelInterface);
+pub trait KernelKeys {
+    fn get_secret_key(&self) -> SecretKey;
+}
+
+pub trait KernelContextBuilder {
+    fn ctx_mut(&mut self) -> &mut Option<Ctx>;
+    fn ctx_ref(&self) -> &Option<Ctx>;
+    fn build_ctx_from_env(&mut self, env: &Env) {
+        let tx_hash = hash_tx_env(&env.tx);
+        let block_hash = hash_block_env(&env.block);
+        *self.ctx_mut() = Some(Ctx {
+            transaction_hash: tx_hash,
+            previous_block_hash: block_hash,
+        });
+    }
+    fn build_ctx_from_raw(&mut self, tx_hash: B256, block_hash: B256) {
+        *self.ctx_mut() = Some(Ctx {
+            transaction_hash: tx_hash,
+            previous_block_hash: block_hash,
+        });
+    }
+    fn ctx_is_empty(&self) -> bool {
+        self.ctx_ref().is_none()
+    }
+}
 

@@ -1,71 +1,78 @@
+use core::fmt;
+use crate::primitives::Env;
 use secp256k1::SecretKey;
 use tee_service_api::get_sample_secp256k1_sk;
 
-use crate::primitives::{B256, BlockEnv, TxEnv};
-use crate::seismic::rng::{env_hash::{hash_block_env, hash_tx_env}, RootRng};
+use crate::seismic::rng::RootRng;
 
 use super::context::Ctx;
-use super::kernel_interface::KernelInterface;
+use super::kernel_interface::{KernelContextBuilder, KernelKeys, KernelRng};
 
-
-pub struct TestEnvKernel {
+pub(crate) struct TestKernel {
     rng: RootRng,
-    private_key: SecretKey,
+    secret_key: SecretKey,
     ctx: Option<Ctx>,
 }
 
+impl fmt::Debug for TestKernel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // We can’t easily peek into the trait object, so just say "Kernel { ... }"
+        write!(f, "Kernel {{ ... }}")
+    }
+}
+
+impl KernelRng for TestKernel {
+    fn rng_mut_ref(&mut self) -> &mut RootRng {
+        &mut self.rng
+    }
+
+    fn maybe_append_entropy(&mut self) {
+        // noop for tests 
+    }
+}
+
+impl KernelKeys for TestKernel {
+    fn get_secret_key(&self) -> SecretKey {
+        self.secret_key
+    }
+}
+
+impl KernelContextBuilder for TestKernel {
+    fn ctx_mut(&mut self) -> &mut Option<Ctx> {
+        &mut self.ctx
+    }
+    
+    fn ctx_ref(&self) -> &Option<Ctx> {
+        &self.ctx
+    }
+}
 
 //Dummy clone
-impl Clone for TestEnvKernel {
+impl Clone for TestKernel {
     fn clone(&self) -> Self {
         Self {
             rng: self.rng.clone(),
-            private_key: self.private_key.clone(),
+            secret_key: self.secret_key,
             ctx: self.ctx.clone(),
         }
     }
 }
 
-impl TestEnvKernel {
-    pub fn new() -> Self {
+impl TestKernel {
+    pub(crate) fn new(env: &Env) -> Self {
         Self {
             rng: RootRng::new(),
-            private_key: get_sample_secp256k1_sk(),
+            secret_key: get_sample_secp256k1_sk(),
+            ctx: Some(Ctx::new_from_env(env)),
+        }
+    }
+
+    pub(crate) fn default() -> Self {
+        Self {
+            rng: RootRng::new(),
+            secret_key: get_sample_secp256k1_sk(),
             ctx: None,
         }
     }
 }
 
-impl KernelInterface for TestEnvKernel {
-    fn get_private_key(&self) -> SecretKey {
-        self.private_key
-    }
-    fn maybe_append_entropy(&mut self) {
-        // no-op
-    }
-
-    fn get_rng(&mut self) -> &mut RootRng {
-        &mut self.rng
-    }
-
-    fn build_ctx_from_env(&mut self, tx_env: &TxEnv, block_env: &BlockEnv) {
-        let tx_hash = hash_tx_env(tx_env);
-        let block_hash = hash_block_env(block_env);
-        self.ctx = Some(Ctx {
-            transaction_hash: tx_hash,
-            previous_block_hash: block_hash,
-        })
-    }
-
-    fn build_ctx_from_hashes(&mut self, tx_hash: B256, block_hash: B256) {
-        // Testnet rarely needs this, but we can do it anyway
-        self.ctx = Some(Ctx {
-            transaction_hash: tx_hash,
-            previous_block_hash: block_hash,
-        })
-    }
-    
-    fn ctx_is_empty(&self) -> bool {
-        !self.ctx.is_some() 
-    }
-}
