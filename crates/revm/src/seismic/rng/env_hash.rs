@@ -18,7 +18,7 @@ pub fn hash_tx_env(tx_env: &TxEnv) -> B256 {
     tx_bytes.extend_from_slice(&encode(tx_env.caller));
     tx_bytes.extend_from_slice(&encode(tx_env.gas_limit));
     tx_bytes.extend_from_slice(&encode(tx_env.gas_price));
-    tx_bytes.extend_from_slice(&encode(&tx_env.transact_to));
+    tx_bytes.extend_from_slice(&encode(tx_env.transact_to));
     tx_bytes.extend_from_slice(&encode(tx_env.value));
     tx_bytes.extend_from_slice(&encode(tx_env.data.clone()));
 
@@ -36,7 +36,7 @@ pub fn hash_block_env(block_env: &BlockEnv) -> B256 {
     block_bytes.extend_from_slice(&encode(block_env.coinbase));
     block_bytes.extend_from_slice(&encode(block_env.timestamp));
     block_bytes.extend_from_slice(&encode(block_env.gas_limit));
-    block_bytes.extend_from_slice(&encode(&block_env.basefee));
+    block_bytes.extend_from_slice(&encode(block_env.basefee));
     block_bytes.extend_from_slice(&encode(block_env.difficulty));
     if let Some(ref prevrandao) = block_env.prevrandao {
         block_bytes.extend_from_slice(&encode(prevrandao));

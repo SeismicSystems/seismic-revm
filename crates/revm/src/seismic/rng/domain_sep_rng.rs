@@ -50,7 +50,7 @@ impl RootRng {
         let env_hash = hash_block_env(&env.block);
 
         // "expanded" form to use with schnorrkel
-        let kp = MiniSecretKey::from_bytes(&env_hash.as_slice())
+        let kp = MiniSecretKey::from_bytes(env_hash.as_slice())
             .map_err(|err| anyhow!("schnorrkel conversion error: {}", err))?
             .expand_to_keypair(ExpansionMode::Uniform);
 

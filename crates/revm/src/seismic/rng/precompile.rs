@@ -56,7 +56,7 @@ pub fn get_leaf_rng<DB: Database>(
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
     let env = evmctx.env().clone();
     let tx_hash = hash_tx_env(&env.tx);
-    let root_rng = &mut evmctx.kernel.get_rng();
+    let root_rng = &mut evmctx.kernel.rng_mut_ref();
     root_rng.append_tx(tx_hash);
     let leaf_rng = match root_rng.fork(&env, pers) {
         Ok(rng) => rng,
