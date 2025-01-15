@@ -78,7 +78,7 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
     pub fn is_optimism(&self) -> bool {
         self.cfg.is_optimism()
     }
-    
+
     /// Returns `true` if the seismic feature is enabled and flag is set to `true`.
     pub fn is_seismic(&self) -> bool {
         self.cfg.is_seismic()
@@ -100,8 +100,8 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
     pub fn optimism_with_spec(spec_id: SpecId) -> Self {
         spec_to_generic!(spec_id, Self::optimism::<SPEC>())
     }
-    
-    /// Handler for seismic 
+
+    /// Handler for seismic
     #[cfg(feature = "seismic")]
     pub fn seismic<SPEC: Spec>() -> Self {
         let mut handler = Self::mainnet::<SPEC>();

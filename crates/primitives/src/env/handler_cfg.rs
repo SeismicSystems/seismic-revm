@@ -68,7 +68,6 @@ impl HandlerCfg {
             }
         }
     }
-
 }
 
 /// Configuration environment with the chain spec id.

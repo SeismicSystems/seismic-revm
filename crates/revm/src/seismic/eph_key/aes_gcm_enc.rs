@@ -1,22 +1,17 @@
-use crate:: primitives::{Address, Bytes};
 use crate::precompile::Error as PCError;
+use crate::primitives::{Address, Bytes};
+use aes_gcm::{Aes256Gcm, Key};
 use revm_precompile::{
-    u64_to_address, PrecompileOutput, PrecompileResult,
-    PrecompileWithAddress, Precompile, Error as REVM_ERROR
-};
-use aes_gcm::{
-    Aes256Gcm, 
-    Key
+    u64_to_address, Error as REVM_ERROR, Precompile, PrecompileOutput, PrecompileResult,
+    PrecompileWithAddress,
 };
 use tee_service_api::aes_encrypt;
 
 pub const PRECOMPILE: PrecompileWithAddress =
     PrecompileWithAddress(ADDRESS, Precompile::Standard(precompile_encrypt));
-   
 
 pub const ADDRESS: Address = u64_to_address(103);
 pub const MIN_INPUT_LENGTH: usize = 64;
-
 
 /// Encrypts a plaintext using AES-256 GCM
 /// The input is a concatenation of the AES key, nonce, and plaintext
@@ -41,10 +36,17 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let plaintext = input[64..].to_vec();
 
     // encrypt the plaintext
-    let ciphertext = aes_encrypt(&aes_key, &plaintext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
+    let ciphertext =
+        aes_encrypt(&aes_key, &plaintext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
 
     // prepare the output: (nonce, ciphertext + authtag)
-    let output: Bytes = Bytes::from(nonce_bytes.to_vec().into_iter().chain(ciphertext.into_iter()).collect::<Vec<u8>>());
+    let output: Bytes = Bytes::from(
+        nonce_bytes
+            .to_vec()
+            .into_iter()
+            .chain(ciphertext.into_iter())
+            .collect::<Vec<u8>>(),
+    );
 
     Ok(PrecompileOutput::new(gas_limit, output))
 }
