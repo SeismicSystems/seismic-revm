@@ -2,12 +2,12 @@
 pragma solidity ^0.8.0;
 
 contract AESDECRYPT {
-    function AESDecrypt(bytes32 aes_key, bytes memory ciphertext) public view returns (bytes memory) {
+    function AESDecrypt(bytes32 aes_key, uint256 nonce, bytes memory ciphertext) public view returns (bytes memory) {
         // Address of the precompiled contract
         address AESDecryptAddr = address(0x68);
 
         // Concatenate secret key, nonce, and ciphertext
-        bytes memory input = abi.encodePacked(aes_key, ciphertext);
+        bytes memory input = abi.encodePacked(aes_key, nonce, ciphertext);
 
         // Call the precompiled contract
         (bool success, bytes memory output) = AESDecryptAddr.staticcall(input);
@@ -32,10 +32,11 @@ contract AESDECRYPT {
     }
 
     function testAESDecrypt() public view returns (bytes memory result) {
+        uint256 nonce = 17;
         bytes32 aes_key = hex"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
         bytes memory ciphertext =
-            hex"000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000570000000000000011f577b2b34b7dbafad6647accfaa9194d7a39c839e618fdbe9fc304691385c6fdcb1a8bf1c84560871726c31334884d85b463b0d9930c50370b9cdcc492dfcfb232dd38f0b0beb1c75e6f5c07e3a9ad000000000000000000";
-        result = AESDecrypt(aes_key, ciphertext);
+            hex"f577b2b34b7dbafad6647accfaa9194d7a39c839e618fdbe9fc304691385c6fdcb1a8bf1c84560871726c31334884d85b463b0d9930c50370b9cdcc492dfcfb232dd38f0b0beb1c75e6f5c07e3a9ad";
+        result = AESDecrypt(aes_key, nonce, ciphertext);
     }
 }
 // ====
