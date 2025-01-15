@@ -15,7 +15,9 @@ pub const MIN_INPUT_LENGTH: usize = 64;
 
 /// Encrypts a plaintext using AES-256 GCM
 /// The input is a concatenation of the AES key, nonce, and plaintext
-/// returns the concatenation of the nonce and the ciphertext
+/// returns the ciphertext
+/// Note: decryption will not be possible without the nonce,
+/// and storage of the nonce must be handled by the caller
 pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let gas_used = 1; // TODO: refine this constant. Should scale with input size
     if gas_used > gas_limit {
@@ -39,7 +41,7 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let ciphertext =
         aes_encrypt(aes_key, &plaintext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
 
-    // prepare the output: (nonce, ciphertext + authtag)
+    // prepare the output
     let output: Bytes = Bytes::from(ciphertext);
 
     Ok(PrecompileOutput::new(gas_limit, output))
