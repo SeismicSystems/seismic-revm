@@ -639,8 +639,6 @@ impl Default for TxEnv {
             authorization_list: None,
             #[cfg(feature = "optimism")]
             optimism: OptimismFields::default(),
-            #[cfg(feature = "seismic")]
-            tx_hash: B256::ZERO,
         }
     }
 }
