@@ -30,13 +30,17 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
         );
         return Err(PCError::Other(err_msg).into());
     }
-
     let aes_key = Key::<Aes256Gcm>::from_slice(&input[0..32]);
-    let nonce_bytes: [u8; 8] = input[32..40].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
+    let nonce_bytes: [u8; 8] = input[56..64].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
     let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);
-    let ciphertext = input[40..].to_vec();
+    let ciphertext = input[64..].to_vec();
+
+    // decrypt the ciphertext
     let plaintext =
-        aes_decrypt(aes_key, &ciphertext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
+        aes_decrypt(&aes_key, &ciphertext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
+
+    // prepare the output
     let output: Bytes = Bytes::from(plaintext);
+
     Ok(PrecompileOutput::new(gas_limit, output))
 }
