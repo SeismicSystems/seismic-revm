@@ -24,18 +24,10 @@ pub trait KernelContextBuilder {
     fn ctx_mut(&mut self) -> &mut Option<Ctx>;
     fn ctx_ref(&self) -> &Option<Ctx>;
     fn build_ctx_from_env(&mut self, env: &Env) {
-        let tx_hash = hash_tx_env(&env.tx);
-        let block_hash = hash_block_env(&env.block);
-        *self.ctx_mut() = Some(Ctx {
-            transaction_hash: tx_hash,
-            previous_block_hash: block_hash,
-        });
+        *self.ctx_mut() = Some(Ctx::new_from_env(env));
     }
     fn build_ctx_from_raw(&mut self, tx_hash: B256, block_hash: B256) {
-        *self.ctx_mut() = Some(Ctx {
-            transaction_hash: tx_hash,
-            previous_block_hash: block_hash,
-        });
+        *self.ctx_mut() = Some(Ctx::new_from_hashes(tx_hash, block_hash));
     }
     fn ctx_is_empty(&self) -> bool {
         self.ctx_ref().is_none()
