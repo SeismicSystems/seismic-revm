@@ -1,18 +1,14 @@
-use crate::primitives::{Address, Bytes};
 use crate::precompile::Error as PCError;
+use crate::primitives::{Address, Bytes};
+use aes_gcm::{Aes256Gcm, Key};
 use revm_precompile::{
-    u64_to_address, PrecompileOutput, PrecompileResult,
-    PrecompileWithAddress, Precompile, Error as REVM_ERROR
-};
-use aes_gcm::{
-    Aes256Gcm, 
-    Key
+    u64_to_address, Error as REVM_ERROR, Precompile, PrecompileOutput, PrecompileResult,
+    PrecompileWithAddress,
 };
 use tee_service_api::aes_decrypt;
 
 pub const PRECOMPILE: PrecompileWithAddress =
     PrecompileWithAddress(ADDRESS, Precompile::Standard(precompile_decrypt));
-   
 
 pub const ADDRESS: Address = u64_to_address(104);
 pub const MIN_INPUT_LENGTH: usize = 64;
@@ -34,16 +30,13 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
         );
         return Err(PCError::Other(err_msg).into());
     }
+
     let aes_key = Key::<Aes256Gcm>::from_slice(&input[0..32]);
-    let nonce_bytes: [u8; 8] = input[56..64].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
+    let nonce_bytes: [u8; 8] = input[32..40].try_into().unwrap(); // Interpret bytes as a big-endian `u64`
     let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);
-    let ciphertext = input[64..].to_vec();
-
-    // decrypt the ciphertext
-    let plaintext = aes_decrypt(&aes_key, &ciphertext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
-
-    // prepare the output
+    let ciphertext = input[40..].to_vec();
+    let plaintext =
+        aes_decrypt(&aes_key, &ciphertext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
     let output: Bytes = Bytes::from(plaintext);
-
     Ok(PrecompileOutput::new(gas_limit, output))
-} 
+}
