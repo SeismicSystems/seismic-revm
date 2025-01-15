@@ -37,14 +37,14 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 
     // encrypt the plaintext
     let ciphertext =
-        aes_encrypt(&aes_key, &plaintext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
+        aes_encrypt(aes_key, &plaintext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
 
     // prepare the output: (nonce, ciphertext + authtag)
     let output: Bytes = Bytes::from(
         nonce_bytes
-            .to_vec()
-            .into_iter()
-            .chain(ciphertext.into_iter())
+            .iter()
+            .copied()
+            .chain(ciphertext)
             .collect::<Vec<u8>>(),
     );
 

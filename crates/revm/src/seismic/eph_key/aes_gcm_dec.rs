@@ -36,7 +36,7 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let nonce_be: u64 = u64::from_be_bytes(nonce_bytes);
     let ciphertext = input[40..].to_vec();
     let plaintext =
-        aes_decrypt(&aes_key, &ciphertext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
+        aes_decrypt(aes_key, &ciphertext, nonce_be).map_err(|e| PCError::Other(e.to_string()))?;
     let output: Bytes = Bytes::from(plaintext);
     Ok(PrecompileOutput::new(gas_limit, output))
 }

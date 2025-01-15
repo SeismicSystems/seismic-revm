@@ -17,7 +17,7 @@ pub const INPUT_LENGTH: usize = 65;
 /// The output is 32 bytes
 pub fn hkdf_derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     // Initialize HKDF with SHA-256
-    let hk = Hkdf::<Sha256>::new(None, &input);
+    let hk = Hkdf::<Sha256>::new(None, input);
 
     // Output a 32-byte key for AES-256
     let mut okm: [u8; 32] = [0u8; 32];
