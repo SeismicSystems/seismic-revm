@@ -21,6 +21,8 @@ impl GenSecp256k1KeysPrecompile {
 
 pub const ADDRESS: Address = u64_to_address(101);
 
+
+//TODO: Below has non-deterministic gas cost. Need to fix before added to evm-specs.
 impl<DB: Database> ContextStatefulPrecompile<DB> for GenSecp256k1KeysPrecompile {
     fn call(
         &self,
@@ -33,11 +35,9 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for GenSecp256k1KeysPrecompile 
             return Err(REVM_ERROR::OutOfGas.into());
         }
 
-        // get a leaf_rng
         let mut leaf_rng =
             get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
 
-        // generate the keys
         let (secret_key, public_key) = generate_keypair(&mut leaf_rng);
         let sk_bytes = bincode::serialize(&secret_key).unwrap();
         let pk_bytes = bincode::serialize(&public_key).unwrap();

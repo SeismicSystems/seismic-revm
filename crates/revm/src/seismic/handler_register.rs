@@ -67,7 +67,6 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
         // extend with ContextPrecompile<DB>
         precompiles.extend([
             RngPrecompile::address_and_precompile::<DB>(),
-            GenSecp256k1KeysPrecompile::address_and_precompile::<DB>(),
         ]);
     }
     precompiles
