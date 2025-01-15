@@ -11,9 +11,6 @@ pub trait KernelInterface: DynClone {
     /// Append entropy if needed. (E.g. only for mainnet-simulation.)
     fn maybe_append_entropy(&mut self);
 
-    /// Whether this kernel is in "simulation" mode.
-    fn is_sim(&self) -> bool;
-
     /// === RNG Functionalities ===
     fn get_rng(&mut self) -> &mut RootRng;
 

@@ -44,10 +44,6 @@ impl KernelInterface for TestEnvKernel {
         // no-op
     }
 
-    fn is_sim(&self) -> bool {
-        false
-    }
-
     fn get_rng(&mut self) -> &mut RootRng {
         &mut self.rng
     }

@@ -70,10 +70,6 @@ impl Kernel {
         self.inner.maybe_append_entropy();
     }
     
-    pub fn is_sim(&self) -> bool {
-        self.inner.is_sim()
-    }
-    
     pub fn get_rng(&mut self) -> &mut RootRng {
         self.inner.get_rng()
     }
