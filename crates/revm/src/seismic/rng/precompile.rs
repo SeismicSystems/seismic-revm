@@ -2,14 +2,12 @@ use crate::{
     primitives::{db::Database, Address, Bytes},
     ContextPrecompile, ContextStatefulPrecompile, InnerEvmContext,
 };
-use std::sync::Arc;
 use anyhow::anyhow;
+use std::sync::Arc;
 
-use rand_core::RngCore;
-use revm_precompile::{
-    u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult,
-};
 use crate::precompile::Error as PCError;
+use rand_core::RngCore;
+use revm_precompile::{u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult};
 
 use super::{domain_sep_rng::LeafRng, env_hash::hash_tx_env};
 
@@ -40,7 +38,8 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
 
         // Get the random bytes
         // TODO: evaluate if this is good, ex if the tx_hash is correct
-        let mut leaf_rng = get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
+        let mut leaf_rng =
+            get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
 
         let mut rng_bytes = [0u8; 32];
         leaf_rng.fill_bytes(&mut rng_bytes);

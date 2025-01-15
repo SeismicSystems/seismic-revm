@@ -14,14 +14,15 @@ use anyhow::{anyhow, Error};
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 use schnorrkel::keys::{ExpansionMode, Keypair, MiniSecretKey};
-use std::cell::RefCell;
+use std::{cell::RefCell, rc::Rc};
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
 
 /// A root RNG that can be used to derive domain-separated leaf RNGs.
+#[derive(Clone)]
 pub struct RootRng {
-    inner: RefCell<Inner>,
+    inner: Rc<RefCell<Inner>>,
 }
 
 struct Inner {
@@ -31,27 +32,14 @@ struct Inner {
     rng: Option<TranscriptRng>,
 }
 
-// TODO: clone rng option as well?
-impl Clone for RootRng {
-    fn clone(&self) -> Self {
-        let new_inner = Inner {
-            transcript: self.inner.borrow().transcript.clone(),
-            rng: None,
-        };
-
-        Self {
-            inner: RefCell::new(new_inner),
-        }
-    }
-}
 impl RootRng {
     /// Create a new root RNG.
     pub fn new() -> Self {
         Self {
-            inner: RefCell::new(Inner {
+            inner: Rc::new(RefCell::new(Inner {
                 transcript: Transcript::new(RNG_CONTEXT),
                 rng: None,
-            }),
+            })),
         }
     }
 
@@ -143,3 +131,30 @@ impl RngCore for LeafRng {
 }
 
 impl CryptoRng for LeafRng {}
+
+#[cfg(test)]
+mod test {
+
+    use super::RootRng;
+    use crate::primitives::Env;
+
+    #[test]
+    fn test_rng_clone() {
+        let env = Env::default();
+
+        // Use the root RNG and call fork to initialize the inner RNG
+        let root_rng = RootRng::new();
+        let _ = root_rng.fork(&env, &[]).expect("rng fork should work");
+
+        // clone the root RNG
+        let root_rng_clone = root_rng.clone();
+
+        use std::ptr;
+        assert_eq!(root_rng_clone.inner.borrow().rng.is_some(), true);
+        let thing1 = root_rng.inner.borrow();
+        let rng1 = thing1.rng.as_ref().unwrap();
+        let thing2 = root_rng_clone.inner.borrow();
+        let rng2 = thing2.rng.as_ref().unwrap();
+        assert!(ptr::eq(rng1, rng2));
+    }
+}

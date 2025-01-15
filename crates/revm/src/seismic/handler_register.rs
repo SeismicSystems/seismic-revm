@@ -1,5 +1,9 @@
 //! Handler related to Seismic chain
 
+use super::eph_key::{
+    aes_gcm_dec, aes_gcm_enc, ecdh_derive_sym_key, gen_secp256k1_keys::GenSecp256k1KeysPrecompile,
+    hkdf_derive_sym_key,
+};
 use crate::{
     handler::register::EvmHandler,
     primitives::{db::Database, spec_to_generic, EVMError, Spec, SpecId},
@@ -10,7 +14,6 @@ use crate::{
 use revm_interpreter::{opcode::InstructionTables, Host, InterpreterAction, SharedMemory};
 use revm_precompile::{secp256r1, PrecompileSpecId};
 use std::sync::Arc;
-use super::eph_key::{derive_sym_key, gen_secp256k1_keys::GenSecp256k1KeysPrecompile, aes_gcm_enc, aes_gcm_dec};
 
 pub fn seismic_handle_register<DB: Database, EXT>(handler: &mut EvmHandler<'_, EXT, DB>) {
     spec_to_generic!(handler.cfg.spec_id, {
@@ -57,7 +60,8 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
         // extend with PrecompileWithAddress
         precompiles.extend([
             secp256r1::P256VERIFY,
-            derive_sym_key::PRECOMPILE,
+            ecdh_derive_sym_key::PRECOMPILE,
+            hkdf_derive_sym_key::PRECOMPILE,
             aes_gcm_enc::PRECOMPILE,
             aes_gcm_dec::PRECOMPILE,
         ]);
