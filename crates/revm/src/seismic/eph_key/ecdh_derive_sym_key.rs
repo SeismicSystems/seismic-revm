@@ -9,6 +9,8 @@ use crate::primitives::{Address, Bytes};
 
 use tee_service_api::derive_aes_key;
 
+use super::hkdf_derive_sym_key::EXPAND_FIXED_COST;
+
 /// On-chain address for the ECDH-based AES derivation precompile.
 pub const ADDRESS: Address = u64_to_address(102);
 
@@ -42,8 +44,7 @@ pub const INPUT_LENGTH: usize = 65;
 ///
 /// You can tune this value to your chain's performance profile.
 const SHARED_SECRET_COST: u64 = 3000;
-const DERIVE_AES_KEY_COST: u64 = 144;
-const DERIVE_SYM_KEY_COST: u64 = SHARED_SECRET_COST + DERIVE_AES_KEY_COST;
+const DERIVE_SYM_KEY_COST: u64 = SHARED_SECRET_COST + EXPAND_FIXED_COST;
 
 /* --------------------------------------------------------------------------
     Precompile Logic

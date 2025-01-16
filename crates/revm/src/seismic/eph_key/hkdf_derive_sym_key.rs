@@ -38,7 +38,7 @@ fn calc_hmac_sha256_cost(input_len: usize) -> u64 {
 ///
 /// We'll treat `Expand` as another HMAC with small input => we approximate with a
 /// constant cost derived from HMAC-SHA256 on a ~64-byte buffer, i.e. ~2 * single SHA-256 base.
-const EXPAND_FIXED_COST: u64 = (2 * SHA256_BASE) as u64;
+pub const EXPAND_FIXED_COST: u64 = (2 * SHA256_BASE) as u64;
 
 /// This is the label used in the `expand(...)` step.
 const APPLICATION_INFO_BYTES: &[u8] = b"seismic_hkdf_105";
