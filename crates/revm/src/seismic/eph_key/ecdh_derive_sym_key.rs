@@ -1,6 +1,6 @@
 use bincode;
 use revm_precompile::{
-    u64_to_address, PrecompileError, Precompile, PrecompileOutput, PrecompileResult,
+    u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult,
     PrecompileWithAddress,
 };
 use secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
@@ -24,8 +24,8 @@ pub const PRECOMPILE: PrecompileWithAddress =
 pub const INPUT_LENGTH: usize = 65;
 
 /* --------------------------------------------------------------------------
-    Cost Model
-   -------------------------------------------------------------------------- */
+ Cost Model
+-------------------------------------------------------------------------- */
 
 /// We adopt an intentionally *high* (ceiling) gas price for ECDH + HKDF:
 ///
@@ -33,7 +33,7 @@ pub const INPUT_LENGTH: usize = 65;
 ///    but we price it near or above `ECRecover` (~3000 gas) to be safe. ECRecover
 ///    has many scalar multiplications and additions compared to ECDH scalar mul.
 /// 2. **HKDF** overhead is minor (see the HKDF precompile doc for details),
-///    but we account for it anyways. 
+///    but we account for it anyways.
 ///
 /// By setting a single constant (`DERIVE_SYM_KEY_COST`), we cover the entire
 /// flow (uncompressing the secp256k1 public key, scalar-multiplying, plus
@@ -47,8 +47,8 @@ const SHARED_SECRET_COST: u64 = 3000;
 const DERIVE_SYM_KEY_COST: u64 = SHARED_SECRET_COST + EXPAND_FIXED_COST;
 
 /* --------------------------------------------------------------------------
-    Precompile Logic
-   -------------------------------------------------------------------------- */
+ Precompile Logic
+-------------------------------------------------------------------------- */
 
 /// # Derive Symmetric Key (ECDH + HKDF-AES)
 ///
@@ -104,7 +104,7 @@ pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 mod tests {
     use super::*;
     use alloy_primitives::hex;
-    use revm_precompile::{PrecompileError, PrecompileErrors} ;
+    use revm_precompile::{PrecompileError, PrecompileErrors};
 
     /// 1) Tests normal usage with valid 65-byte input,
     ///    ensuring we get a 32-byte output and don't exceed gas.
@@ -141,7 +141,7 @@ mod tests {
         assert!(result.is_err(), "Should fail due to out of gas");
 
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {} 
+            Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {}
             other => panic!("Expected OutOfGas, got {:?}", other),
         }
     }
@@ -160,7 +160,10 @@ mod tests {
         // We check it's not `OutOfGas`, but a parse error
         match result.err() {
             Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
-                assert!(msg.contains("invalid input length"), "Expected length error");
+                assert!(
+                    msg.contains("invalid input length"),
+                    "Expected length error"
+                );
             }
             other => panic!("Expected invalid length error, got {:?}", other),
         }
@@ -179,14 +182,17 @@ mod tests {
 
         match result.err() {
             Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
-                assert!(msg.contains("deser err"), "Should mention deserialization error");
+                assert!(
+                    msg.contains("deser err"),
+                    "Should mention deserialization error"
+                );
             }
             other => panic!("Expected deserialization failure, got {:?}", other),
         }
     }
 
     /// 5) (Optional) Tests that derivation for a specific input is reproducible.
-    ///    i.e., same input => same derived key. 
+    ///    i.e., same input => same derived key.
     ///    This checks there's no hidden randomness in the precompile logic.
     #[test]
     fn test_reproducibility() {
@@ -195,10 +201,17 @@ mod tests {
 
         let gas_limit = 10_000;
 
-        let out1 = derive_symmetric_key(&Bytes::from(input_data.clone()), gas_limit).unwrap().bytes;
-        let out2 = derive_symmetric_key(&Bytes::from(input_data), gas_limit).unwrap().bytes;
+        let out1 = derive_symmetric_key(&Bytes::from(input_data.clone()), gas_limit)
+            .unwrap()
+            .bytes;
+        let out2 = derive_symmetric_key(&Bytes::from(input_data), gas_limit)
+            .unwrap()
+            .bytes;
 
-        assert_eq!(out1, out2, "Derivation must be deterministic for identical input");
+        assert_eq!(
+            out1, out2,
+            "Derivation must be deterministic for identical input"
+        );
     }
 
     /// 6) Test that swapping the private/public keys from two pairs
@@ -219,10 +232,16 @@ mod tests {
 
         let gas_limit = 10_000;
 
-        let out1 = derive_symmetric_key(&Bytes::from(input_1), gas_limit).unwrap().bytes;
-        let out2 = derive_symmetric_key(&Bytes::from(input_2), gas_limit).unwrap().bytes;
+        let out1 = derive_symmetric_key(&Bytes::from(input_1), gas_limit)
+            .unwrap()
+            .bytes;
+        let out2 = derive_symmetric_key(&Bytes::from(input_2), gas_limit)
+            .unwrap()
+            .bytes;
 
-        assert_eq!(out1, out2, "Swapped key pairs must derive the same shared secret");
+        assert_eq!(
+            out1, out2,
+            "Swapped key pairs must derive the same shared secret"
+        );
     }
 }
-

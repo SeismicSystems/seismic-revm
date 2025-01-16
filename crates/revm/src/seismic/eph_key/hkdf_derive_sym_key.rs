@@ -118,8 +118,8 @@ mod tests {
         // Suppose we have a random 64-byte input
         let input = vec![42u8; 64];
         // Some comfortable gas limit
-        let gas_limit = 80_000; 
-        
+        let gas_limit = 80_000;
+
         // cf gas computation comments to understand the below line
         let gas_theoretically_spent = 2 * calc_linear_cost_u32(input.len(), 60, 12) + 2 * 60;
 
@@ -129,8 +129,14 @@ mod tests {
 
         // Ensure gas used is not zero and is within limit
         assert!(output.gas_used > 0, "Gas used should be > 0");
-        assert!(output.gas_used <= gas_limit, "Should not exceed the provided gas");
-        assert!(output.gas_used == gas_theoretically_spent, "Gas spent should be equal to theoretical gas");
+        assert!(
+            output.gas_used <= gas_limit,
+            "Should not exceed the provided gas"
+        );
+        assert!(
+            output.gas_used == gas_theoretically_spent,
+            "Gas spent should be equal to theoretical gas"
+        );
 
         // We produce exactly 32 bytes
         assert_eq!(output.bytes.len(), 32, "HKDF output must be 32 bytes");
@@ -145,11 +151,18 @@ mod tests {
         let gas_limit = 50_000;
 
         let result = hkdf_derive_symmetric_key(&input, gas_limit);
-        assert!(result.is_ok(), "Empty input should still produce a valid key");
+        assert!(
+            result.is_ok(),
+            "Empty input should still produce a valid key"
+        );
         let output = result.unwrap();
 
         // 32-byte output
-        assert_eq!(output.bytes.len(), 32, "Output should be 32 bytes for AES-256");
+        assert_eq!(
+            output.bytes.len(),
+            32,
+            "Output should be 32 bytes for AES-256"
+        );
         // Gas check
         assert!(output.gas_used > 0);
         assert!(output.gas_used <= gas_limit);
@@ -161,14 +174,16 @@ mod tests {
     #[test]
     fn test_hkdf_derive_out_of_gas() {
         // Very large input to drive cost high
-        let input = vec![0u8; 10_000]; 
+        let input = vec![0u8; 10_000];
         let small_gas_limit = 1_000; // artificially small
 
         let result = hkdf_derive_symmetric_key(&Bytes::from(input), small_gas_limit);
         assert!(result.is_err(), "Should fail due to out of gas");
         assert_eq!(
             result.err(),
-            Some(revm_precompile::PrecompileErrors::Error(PrecompileError::OutOfGas)),
+            Some(revm_precompile::PrecompileErrors::Error(
+                PrecompileError::OutOfGas
+            )),
             "Expected OutOfGas error"
         );
     }
@@ -218,7 +233,8 @@ mod tests {
             .expect("expand should never fail on 32-byte output");
 
         assert_eq!(
-            precompile_okm.as_ref(), direct_okm,
+            precompile_okm.as_ref(),
+            direct_okm,
             "Precompile output should match direct HKDF library usage"
         );
     }
@@ -237,7 +253,9 @@ mod tests {
         let out2 = hkdf_derive_symmetric_key(&Bytes::from(input), gas_limit)
             .unwrap()
             .bytes;
-        assert_eq!(out1, out2, "HKDF must produce the same key for identical input");
+        assert_eq!(
+            out1, out2,
+            "HKDF must produce the same key for identical input"
+        );
     }
 }
-
