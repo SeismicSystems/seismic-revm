@@ -36,7 +36,6 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         }
 
         // Get the random bytes
-        // TODO: evaluate if this is good, ex if the tx_hash is correct
         let mut leaf_rng =
             get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
 
