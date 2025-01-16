@@ -6,7 +6,7 @@ use tee_service_api::get_sample_secp256k1_sk;
 use crate::seismic::rng::RootRng;
 
 use super::context::Ctx;
-use super::kernel_interface::{KernelContextBuilder, KernelKeys, KernelRng};
+use super::kernel_interface::{KernelContext, KernelKeys, KernelRng};
 
 pub(crate) struct TestKernel {
     rng: RootRng,
@@ -37,7 +37,7 @@ impl KernelKeys for TestKernel {
     }
 }
 
-impl KernelContextBuilder for TestKernel {
+impl KernelContext for TestKernel {
     fn ctx_mut(&mut self) -> &mut Option<Ctx> {
         &mut self.ctx
     }

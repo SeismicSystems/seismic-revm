@@ -1,6 +1,6 @@
 use crate::{primitives::{Env, B256}, seismic::rng::env_hash::{hash_block_env, hash_tx_env}};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Copy)]
 pub struct Ctx {
     pub transaction_hash: B256,
     pub previous_block_hash: B256,
