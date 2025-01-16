@@ -20,6 +20,7 @@ pub trait KernelRng {
 
 pub trait KernelKeys {
     fn get_secret_key(&self) -> SecretKey;
+    fn get_block_rng_entropy(&self) -> B256;
 }
 
 pub trait KernelContext {

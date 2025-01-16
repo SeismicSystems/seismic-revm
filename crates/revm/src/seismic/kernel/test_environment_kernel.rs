@@ -2,6 +2,7 @@ use crate::primitives::Env;
 use core::fmt;
 use secp256k1::SecretKey;
 use tee_service_api::get_sample_secp256k1_sk;
+use alloy_primitives::B256;
 
 use crate::seismic::rng::RootRng;
 
@@ -11,6 +12,7 @@ use super::kernel_interface::{KernelContext, KernelKeys, KernelRng};
 pub(crate) struct TestKernel {
     rng: RootRng,
     secret_key: SecretKey,
+    block_rng_entropy: B256,
     ctx: Option<Ctx>,
 }
 
@@ -35,6 +37,9 @@ impl KernelKeys for TestKernel {
     fn get_secret_key(&self) -> SecretKey {
         self.secret_key
     }
+    fn get_block_rng_entropy(&self) -> revm_precompile::B256 {
+        self.block_rng_entropy
+    }
 }
 
 impl KernelContext for TestKernel {
@@ -53,6 +58,7 @@ impl Clone for TestKernel {
         Self {
             rng: self.rng.clone(),
             secret_key: self.secret_key,
+            block_rng_entropy: self.block_rng_entropy,
             ctx: self.ctx.clone(),
         }
     }
@@ -63,6 +69,7 @@ impl TestKernel {
         Self {
             rng: RootRng::new(),
             secret_key: get_sample_secp256k1_sk(),
+            block_rng_entropy: B256::ZERO,
             ctx: Some(Ctx::new_from_env(env)),
         }
     }
@@ -71,6 +78,7 @@ impl TestKernel {
         Self {
             rng: RootRng::new(),
             secret_key: get_sample_secp256k1_sk(),
+            block_rng_entropy: B256::ZERO,
             ctx: None,
         }
     }
