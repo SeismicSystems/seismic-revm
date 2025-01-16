@@ -128,7 +128,6 @@ mod tests {
         let output = result.unwrap();
 
         // Ensure gas used is not zero and is within limit
-        println!("gas_used: {:?}", output.gas_used);
         assert!(output.gas_used > 0, "Gas used should be > 0");
         assert!(output.gas_used <= gas_limit, "Should not exceed the provided gas");
         assert!(output.gas_used == gas_theoretically_spent, "Gas spent should be equal to theoretical gas");
