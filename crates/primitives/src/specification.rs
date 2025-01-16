@@ -5,7 +5,7 @@ pub use SpecId::*;
 /// Specification IDs and their activation block.
 ///
 /// Information was obtained from the [Ethereum Execution Specifications](https://github.com/ethereum/execution-specs)
-#[cfg(not(feature = "optimism"))]
+#[cfg(all(not(feature = "optimism"), not(feature = "seismic")))]
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, enumn::N)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -29,7 +29,7 @@ pub enum SpecId {
     SHANGHAI = 16,        // Shanghai               17034870 (Timestamp: 1681338455)
     CANCUN = 17,          // Cancun                 19426587 (Timestamp: 1710338135)
     PRAGUE = 18,          // Prague                 TBD
-    PRAGUE_EOF = 19,      // Prague+EOF             TBD
+    OSAKA = 19,           // Prague+EOF             TBD
     #[default]
     LATEST = u8::MAX,
 }
@@ -37,7 +37,7 @@ pub enum SpecId {
 /// Specification IDs and their activation block.
 ///
 /// Information was obtained from the [Ethereum Execution Specifications](https://github.com/ethereum/execution-specs)
-#[cfg(feature = "optimism")]
+#[cfg(all(feature = "optimism", not(feature = "seismic")))]
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, enumn::N)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -66,8 +66,78 @@ pub enum SpecId {
     ECOTONE = 21,
     FJORD = 22,
     GRANITE = 23,
-    PRAGUE = 24,
-    PRAGUE_EOF = 25,
+    HOLOCENE = 24,
+    PRAGUE = 25,
+    OSAKA = 26,
+    #[default]
+    LATEST = u8::MAX,
+}
+
+// Used when 'seismic' feature is enabled and 'optimism' is not
+#[cfg(all(not(feature = "optimism"), feature = "seismic"))]
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, enumn::N)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SpecId {
+    FRONTIER = 0,         // Frontier               0
+    FRONTIER_THAWING = 1, // Frontier Thawing       200000
+    HOMESTEAD = 2,        // Homestead              1150000
+    DAO_FORK = 3,         // DAO Fork               1920000
+    TANGERINE = 4,        // Tangerine Whistle      2463000
+    SPURIOUS_DRAGON = 5,  // Spurious Dragon        2675000
+    BYZANTIUM = 6,        // Byzantium              4370000
+    CONSTANTINOPLE = 7,   // Constantinople         7280000 is overwritten with PETERSBURG
+    PETERSBURG = 8,       // Petersburg             7280000
+    ISTANBUL = 9,         // Istanbul	            9069000
+    MUIR_GLACIER = 10,    // Muir Glacier           9200000
+    BERLIN = 11,          // Berlin	                12244000
+    LONDON = 12,          // London	                12965000
+    ARROW_GLACIER = 13,   // Arrow Glacier          13773000
+    GRAY_GLACIER = 14,    // Gray Glacier           15050000
+    MERGE = 15,           // Paris/Merge            15537394 (TTD: 58750000000000000000000)
+    SHANGHAI = 16,        // Shanghai               17034870 (Timestamp: 1681338455)
+    CANCUN = 17,          // Cancun                 19426587 (Timestamp: 1710338135)
+    PRAGUE = 18,          // Prague                 TBD
+    OSAKA = 19,           // Prague+EOF             TBD
+    MERCURY = 100,        // First Seismic Version  TBD
+    #[default]
+    LATEST = u8::MAX,
+}
+
+// Used when 'seismic' feature is enabled and 'optimism' is not
+#[cfg(all(feature = "optimism", feature = "seismic"))]
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, enumn::N)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SpecId {
+    FRONTIER = 0,
+    FRONTIER_THAWING = 1,
+    HOMESTEAD = 2,
+    DAO_FORK = 3,
+    TANGERINE = 4,
+    SPURIOUS_DRAGON = 5,
+    BYZANTIUM = 6,
+    CONSTANTINOPLE = 7,
+    PETERSBURG = 8,
+    ISTANBUL = 9,
+    MUIR_GLACIER = 10,
+    BERLIN = 11,
+    LONDON = 12,
+    ARROW_GLACIER = 13,
+    GRAY_GLACIER = 14,
+    MERGE = 15,
+    BEDROCK = 16,
+    REGOLITH = 17,
+    SHANGHAI = 18,
+    CANYON = 19,
+    CANCUN = 20,
+    ECOTONE = 21,
+    FJORD = 22,
+    GRANITE = 23,
+    HOLOCENE = 24,
+    PRAGUE = 25,
+    OSAKA = 26,
+    MERCURY = 100,
     #[default]
     LATEST = u8::MAX,
 }
@@ -110,7 +180,7 @@ impl From<&str> for SpecId {
             "Shanghai" => Self::SHANGHAI,
             "Cancun" => Self::CANCUN,
             "Prague" => Self::PRAGUE,
-            "PragueEOF" => Self::PRAGUE_EOF,
+            "Osaka" => Self::OSAKA,
             #[cfg(feature = "optimism")]
             "Bedrock" => SpecId::BEDROCK,
             #[cfg(feature = "optimism")]
@@ -123,6 +193,10 @@ impl From<&str> for SpecId {
             "Fjord" => SpecId::FJORD,
             #[cfg(feature = "optimism")]
             "Granite" => SpecId::GRANITE,
+            #[cfg(feature = "optimism")]
+            "Holocene" => SpecId::HOLOCENE,
+            #[cfg(feature = "seismic")]
+            "Mercury" => SpecId::MERCURY,
             _ => Self::LATEST,
         }
     }
@@ -150,7 +224,7 @@ impl From<SpecId> for &'static str {
             SpecId::SHANGHAI => "Shanghai",
             SpecId::CANCUN => "Cancun",
             SpecId::PRAGUE => "Prague",
-            SpecId::PRAGUE_EOF => "PragueEOF",
+            SpecId::OSAKA => "Osaka",
             #[cfg(feature = "optimism")]
             SpecId::BEDROCK => "Bedrock",
             #[cfg(feature = "optimism")]
@@ -163,6 +237,10 @@ impl From<SpecId> for &'static str {
             SpecId::FJORD => "Fjord",
             #[cfg(feature = "optimism")]
             SpecId::GRANITE => "Granite",
+            #[cfg(feature = "optimism")]
+            SpecId::HOLOCENE => "Holocene",
+            #[cfg(feature = "seismic")]
+            SpecId::MERCURY => "Mercury",
             SpecId::LATEST => "Latest",
         }
     }
@@ -209,7 +287,7 @@ spec!(MERGE, MergeSpec);
 spec!(SHANGHAI, ShanghaiSpec);
 spec!(CANCUN, CancunSpec);
 spec!(PRAGUE, PragueSpec);
-spec!(PRAGUE_EOF, PragueEofSpec);
+spec!(OSAKA, OsakaSpec);
 
 spec!(LATEST, LatestSpec);
 
@@ -226,8 +304,14 @@ spec!(ECOTONE, EcotoneSpec);
 spec!(FJORD, FjordSpec);
 #[cfg(feature = "optimism")]
 spec!(GRANITE, GraniteSpec);
+#[cfg(feature = "optimism")]
+spec!(HOLOCENE, HoloceneSpec);
 
-#[cfg(not(feature = "optimism"))]
+// Seismic Hardforks
+#[cfg(feature = "seismic")]
+spec!(MERCURY, MercurySpec);
+
+#[cfg(all(not(feature = "optimism"), not(feature = "seismic")))]
 #[macro_export]
 macro_rules! spec_to_generic {
     ($spec_id:expr, $e:expr) => {{
@@ -290,15 +374,15 @@ macro_rules! spec_to_generic {
                 use $crate::PragueSpec as SPEC;
                 $e
             }
-            $crate::SpecId::PRAGUE_EOF => {
-                use $crate::PragueEofSpec as SPEC;
+            $crate::SpecId::OSAKA => {
+                use $crate::OsakaSpec as SPEC;
                 $e
             }
         }
     }};
 }
 
-#[cfg(feature = "optimism")]
+#[cfg(all(feature = "optimism", not(feature = "seismic")))]
 #[macro_export]
 macro_rules! spec_to_generic {
     ($spec_id:expr, $e:expr) => {{
@@ -361,8 +445,8 @@ macro_rules! spec_to_generic {
                 use $crate::PragueSpec as SPEC;
                 $e
             }
-            $crate::SpecId::PRAGUE_EOF => {
-                use $crate::PragueEofSpec as SPEC;
+            $crate::SpecId::OSAKA => {
+                use $crate::OsakaSpec as SPEC;
                 $e
             }
             $crate::SpecId::BEDROCK => {
@@ -387,6 +471,188 @@ macro_rules! spec_to_generic {
             }
             $crate::SpecId::GRANITE => {
                 use $crate::GraniteSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::HOLOCENE => {
+                use $crate::HoloceneSpec as SPEC;
+                $e
+            }
+        }
+    }};
+}
+
+#[cfg(all(not(feature = "optimism"), feature = "seismic"))]
+#[macro_export]
+macro_rules! spec_to_generic {
+    ($spec_id:expr, $e:expr) => {{
+        match $spec_id {
+            $crate::SpecId::FRONTIER | SpecId::FRONTIER_THAWING => {
+                use $crate::FrontierSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::HOMESTEAD | SpecId::DAO_FORK => {
+                use $crate::HomesteadSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::TANGERINE => {
+                use $crate::TangerineSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SPURIOUS_DRAGON => {
+                use $crate::SpuriousDragonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BYZANTIUM => {
+                use $crate::ByzantiumSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PETERSBURG | $crate::SpecId::CONSTANTINOPLE => {
+                use $crate::PetersburgSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::ISTANBUL | $crate::SpecId::MUIR_GLACIER => {
+                use $crate::IstanbulSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BERLIN => {
+                use $crate::BerlinSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LONDON
+            | $crate::SpecId::ARROW_GLACIER
+            | $crate::SpecId::GRAY_GLACIER => {
+                use $crate::LondonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::MERGE => {
+                use $crate::MergeSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SHANGHAI => {
+                use $crate::ShanghaiSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::CANCUN => {
+                use $crate::CancunSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LATEST => {
+                use $crate::LatestSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PRAGUE => {
+                use $crate::PragueSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::OSAKA => {
+                use $crate::OsakaSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::MERCURY => {
+                use $crate::MercurySpec as SPEC;
+                $e
+            }
+        }
+    }};
+}
+
+#[cfg(all(feature = "optimism", feature = "seismic"))]
+#[macro_export]
+macro_rules! spec_to_generic {
+    ($spec_id:expr, $e:expr) => {{
+        match $spec_id {
+            $crate::SpecId::FRONTIER | SpecId::FRONTIER_THAWING => {
+                use $crate::FrontierSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::HOMESTEAD | SpecId::DAO_FORK => {
+                use $crate::HomesteadSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::TANGERINE => {
+                use $crate::TangerineSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SPURIOUS_DRAGON => {
+                use $crate::SpuriousDragonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BYZANTIUM => {
+                use $crate::ByzantiumSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PETERSBURG | $crate::SpecId::CONSTANTINOPLE => {
+                use $crate::PetersburgSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::ISTANBUL | $crate::SpecId::MUIR_GLACIER => {
+                use $crate::IstanbulSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BERLIN => {
+                use $crate::BerlinSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LONDON
+            | $crate::SpecId::ARROW_GLACIER
+            | $crate::SpecId::GRAY_GLACIER => {
+                use $crate::LondonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::MERGE => {
+                use $crate::MergeSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SHANGHAI => {
+                use $crate::ShanghaiSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::CANCUN => {
+                use $crate::CancunSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LATEST => {
+                use $crate::LatestSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PRAGUE => {
+                use $crate::PragueSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::OSAKA => {
+                use $crate::OsakaSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BEDROCK => {
+                use $crate::BedrockSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::REGOLITH => {
+                use $crate::RegolithSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::CANYON => {
+                use $crate::CanyonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::ECOTONE => {
+                use $crate::EcotoneSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::FJORD => {
+                use $crate::FjordSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::GRANITE => {
+                use $crate::GraniteSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::HOLOCENE => {
+                use $crate::HoloceneSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::MERCURY => {
+                use $crate::MercurySpec as SPEC;
                 $e
             }
         }
@@ -431,8 +697,12 @@ mod tests {
         spec_to_generic!(FJORD, assert_eq!(SPEC::SPEC_ID, FJORD));
         #[cfg(feature = "optimism")]
         spec_to_generic!(GRANITE, assert_eq!(SPEC::SPEC_ID, GRANITE));
+        #[cfg(feature = "optimism")]
+        spec_to_generic!(HOLOCENE, assert_eq!(SPEC::SPEC_ID, HOLOCENE));
+        #[cfg(feature = "seismic")]
+        spec_to_generic!(MERCURY, assert_eq!(SPEC::SPEC_ID, MERCURY));
         spec_to_generic!(PRAGUE, assert_eq!(SPEC::SPEC_ID, PRAGUE));
-        spec_to_generic!(PRAGUE_EOF, assert_eq!(SPEC::SPEC_ID, PRAGUE_EOF));
+        spec_to_generic!(OSAKA, assert_eq!(SPEC::SPEC_ID, OSAKA));
         spec_to_generic!(LATEST, assert_eq!(SPEC::SPEC_ID, LATEST));
     }
 }
@@ -580,5 +850,44 @@ mod optimism_tests {
         assert!(SpecId::enabled(SpecId::GRANITE, SpecId::ECOTONE));
         assert!(SpecId::enabled(SpecId::GRANITE, SpecId::FJORD));
         assert!(SpecId::enabled(SpecId::GRANITE, SpecId::GRANITE));
+    }
+
+    #[test]
+    fn test_holocene_post_merge_hardforks() {
+        // from MERGE to HOLOCENE
+        for i in 15..=24 {
+            if let Some(spec) = SpecId::try_from_u8(i) {
+                assert!(HoloceneSpec::enabled(spec));
+            }
+        }
+        assert!(!HoloceneSpec::enabled(SpecId::LATEST));
+    }
+
+    #[test]
+    fn test_holocene_post_merge_hardforks_spec_id() {
+        // from MERGE to HOLOCENE
+        for i in 15..=24 {
+            if let Some(spec) = SpecId::try_from_u8(i) {
+                assert!(SpecId::enabled(SpecId::HOLOCENE, spec));
+            }
+        }
+        assert!(!SpecId::enabled(SpecId::HOLOCENE, SpecId::LATEST));
+    }
+}
+
+#[cfg(feature = "seismic")]
+#[cfg(test)]
+mod seismic_tests {
+    use super::*;
+
+    #[test]
+    fn test_mercury_post_merge_hardforks_spec_id() {
+        // from MERGE to MERCURY
+        for i in 15..=20 {
+            if let Some(spec) = SpecId::try_from_u8(i) {
+                assert!(SpecId::enabled(SpecId::MERCURY, spec));
+            }
+        }
+        assert!(!SpecId::enabled(SpecId::MERCURY, SpecId::LATEST));
     }
 }

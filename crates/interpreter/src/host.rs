@@ -152,6 +152,8 @@ pub struct StateLoad<T> {
     pub data: T,
     /// True if account is cold loaded.
     pub is_cold: bool,
+    /// True if slot was tagged as private.
+    pub is_private: bool,
 }
 
 impl<T> Deref for StateLoad<T> {
@@ -170,8 +172,12 @@ impl<T> DerefMut for StateLoad<T> {
 
 impl<T> StateLoad<T> {
     /// Returns a new [`StateLoad`] with the given data and cold load status.
-    pub fn new(data: T, is_cold: bool) -> Self {
-        Self { data, is_cold }
+    pub fn new(data: T, is_cold: bool, is_private: bool) -> Self {
+        Self {
+            data,
+            is_cold,
+            is_private,
+        }
     }
 
     /// Maps the data of the [`StateLoad`] to a new value.
@@ -181,7 +187,7 @@ impl<T> StateLoad<T> {
     where
         F: FnOnce(T) -> B,
     {
-        StateLoad::new(f(self.data), self.is_cold)
+        StateLoad::new(f(self.data), self.is_cold, self.is_private)
     }
 }
 
@@ -223,7 +229,7 @@ impl<T> Eip7702CodeLoad<T> {
     /// Returns a new [`Eip7702CodeLoad`] with the given data and without delegation.
     pub fn new_not_delegated(data: T, is_cold: bool) -> Self {
         Self {
-            state_load: StateLoad::new(data, is_cold),
+            state_load: StateLoad::new(data, is_cold, false),
             is_delegate_account_cold: None,
         }
     }
@@ -235,7 +241,7 @@ impl<T> Eip7702CodeLoad<T> {
         (
             self.state_load.data,
             Eip7702CodeLoad {
-                state_load: StateLoad::new((), is_cold),
+                state_load: StateLoad::new((), is_cold, false),
                 is_delegate_account_cold: self.is_delegate_account_cold,
             },
         )

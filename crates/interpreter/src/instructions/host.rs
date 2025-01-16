@@ -119,22 +119,33 @@ pub fn blockhash<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
 
 pub fn sload<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     pop_top!(interpreter, index);
-    let Some(value) = host.sload(interpreter.contract.target_address, *index) else {
+    if let Some(value) = host.sload(interpreter.contract.target_address, *index) {
+        if value.is_private {
+            interpreter.instruction_result = InstructionResult::InvalidPrivateStorageAccess;
+            return;
+        }
+        gas!(interpreter, gas::sload_cost(SPEC::SPEC_ID, value.is_cold));
+        *index = value.data;
+    } else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
-    };
-    gas!(interpreter, gas::sload_cost(SPEC::SPEC_ID, value.is_cold));
-    *index = value.data;
+    }
 }
 
 pub fn cload<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     pop_top!(interpreter, index);
-    let Some(value) = host.cload(interpreter.contract.target_address, *index) else {
+
+    if let Some(value) = host.cload(interpreter.contract.target_address, *index) {
+        if !value.is_private & !value.data.is_zero() {
+            interpreter.instruction_result = InstructionResult::InvalidPublicStorageAccess;
+            return;
+        }
+        gas!(interpreter, gas::sload_cost(SPEC::SPEC_ID, value.is_cold));
+        *index = value.data;
+    } else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
-    };
-    gas!(interpreter, gas::sload_cost(SPEC::SPEC_ID, value.is_cold));
-    *index = value.data;
+    }
 }
 
 pub fn sstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {

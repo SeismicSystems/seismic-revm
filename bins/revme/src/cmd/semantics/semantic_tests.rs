@@ -4,6 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
+use log::{error, info};
 use revm::primitives::{Bytes, SpecId};
 
 use crate::cmd::semantics::Errors;
@@ -119,11 +120,16 @@ impl SemanticTests {
             if e.kind() == std::io::ErrorKind::NotFound {
                 Errors::CompilerNotFound
             } else {
+                error!("Compilation failed for file: {:?}", path);
                 Errors::CompilationFailed
             }
         })?;
 
         if !output.status.success() {
+            error!(
+                "Compilation failed for file: {:?}, output: {:?}",
+                path, output
+            );
             return Err(Errors::CompilationFailed);
         }
 
@@ -165,7 +171,7 @@ impl SemanticTests {
                 let compile_binary = match hex::decode(bytecode_line.trim()) {
                     Ok(decoded_bytes) => Bytes::from(decoded_bytes),
                     Err(decode_error) => {
-                        eprintln!(
+                        info!(
                             "Failed to decode bytecode line: {}, error: {:?}",
                             bytecode_line.trim(),
                             decode_error

@@ -6,6 +6,7 @@ use super::{
 };
 use alloy_primitives::{keccak256, I256, U256};
 use hex::FromHex;
+use log::error;
 use revm::primitives::{Bytes, FixedBytes};
 
 pub struct Parser {}
@@ -151,7 +152,7 @@ impl Parser {
             match hex::decode(inner) {
                 Ok(decoded) => Some(Bytes::from(decoded)),
                 Err(e) => {
-                    println!("Failed to decode hex: {:?}", e);
+                    error!("Failed to decode hex: {:?}", e);
                     None
                 }
             }

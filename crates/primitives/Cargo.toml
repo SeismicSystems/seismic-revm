@@ -6,7 +6,7 @@ keywords = ["no_std", "ethereum", "evm", "revm", "types"]
 license = "MIT"
 name = "revm-primitives"
 repository = "https://github.com/bluealloy/revm"
-version = "9.0.0"
+version = "14.0.0"
 readme = "../../README.md"
 
 [package.metadata.docs.rs]
@@ -22,18 +22,20 @@ rust_2018_idioms = "deny"
 all = "warn"
 
 [dependencies]
-alloy-eips = { version = "0.3", default-features = false, features = ["k256"] }
-alloy-primitives = { version = "0.8.1", default-features = false, features = [
-    "rlp"
+# alloy
+alloy-eip2930 = { version = "0.1", default-features = false }
+alloy-eip7702 = { version = "0.4", default-features = false, features = [
+    "k256",
 ] }
-hashbrown = "0.14"
+alloy-primitives = { version = "0.8.8", default-features = false, features = [
+    "rlp",
+    "map",
+] }
+
+# mics
 auto_impl = "1.2"
 bitvec = { version = "1", default-features = false, features = ["alloc"] }
 bitflags = { version = "2.6.0", default-features = false }
-
-# arbitrary utils
-proptest = { version = "1.4", optional = true }
-proptest-derive = { version = "0.5", optional = true}
 
 # For setting the CfgEnv KZGSettings. Enabled by c-kzg flag.
 c-kzg = { version = "1.0.3", default-features = false, optional = true, features = [
@@ -53,6 +55,8 @@ serde = { version = "1.0", default-features = false, features = [
     "derive",
     "rc",
 ], optional = true }
+proptest = { version = "1.4", optional = true }
+proptest-derive = { version = "0.5", optional = true }
 
 [build-dependencies]
 hex = { version = "0.4", default-features = false }
@@ -61,39 +65,42 @@ hex = { version = "0.4", default-features = false }
 default = ["std", "c-kzg", "portable"]
 std = [
     "serde?/std",
-    "alloy-eips/std",
     "alloy-primitives/std",
     "hex/std",
     "bitvec/std",
     "bitflags/std",
+    "alloy-eip7702/std",
+    "alloy-eip2930/std",
 ]
-hashbrown = []
+hashbrown = ["alloy-primitives/map-hashbrown"]
 serde = [
     "dep:serde",
-    "alloy-eips/serde",
     "alloy-primitives/serde",
     "hex/serde",
-    "hashbrown/serde",
     "bitvec/serde",
     "bitflags/serde",
     "c-kzg?/serde",
+    "alloy-eip7702/serde",
+    "alloy-eip2930/serde",
 ]
 arbitrary = [
     "std",
-    "alloy-eips/arbitrary",
+    "dep:proptest",
+	"dep:proptest-derive",
     "alloy-primitives/arbitrary",
     "bitflags/arbitrary",
-    "proptest-derive",
-    "proptest",
+    "alloy-eip7702/arbitrary",
+    "alloy-eip2930/arbitrary",
 ]
 asm-keccak = ["alloy-primitives/asm-keccak"]
 portable = ["c-kzg?/portable"]
-seismic = ["alloy-primitives/seismic"]
 
 optimism = []
 # Optimism default handler enabled Optimism handler register by default in EvmBuilder.
 optimism-default-handler = ["optimism"]
 negate-optimism-default-handler = []
+
+seismic = []
 
 dev = [
     "memory_limit",

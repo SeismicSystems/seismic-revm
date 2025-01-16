@@ -2,8 +2,8 @@ use crate::ruint::UintTryFrom;
 use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
 use alloy_primitives::FixedBytes;
 use bitflags::bitflags;
-use core::hash::{Hash, Hasher};
-#[cfg(feature = "arbitrary")]
+use core::hash::{BuildHasher, Hash, Hasher};
+#[cfg(any(test, feature = "arbitrary"))]
 use proptest_derive::Arbitrary as PropTestArbitrary;
 
 /// EVM State is a mapping from addresses to accounts.
@@ -61,7 +61,7 @@ impl Account {
     pub fn new_not_existing() -> Self {
         Self {
             info: AccountInfo::default(),
-            storage: HashMap::new(),
+            storage: HashMap::default(),
             status: AccountStatus::LoadedAsNotExisting,
         }
     }
@@ -162,7 +162,7 @@ impl From<AccountInfo> for Account {
     fn from(info: AccountInfo) -> Self {
         Self {
             info,
-            storage: HashMap::new(),
+            storage: HashMap::default(),
             status: AccountStatus::Loaded,
         }
     }
@@ -240,7 +240,9 @@ impl FlaggedStorage {
         }
     }
 
-    pub fn collect_value(container: HashMap<B256, FlaggedStorage>) -> HashMap<B256, U256> {
+    pub fn collect_value<S: BuildHasher + Default>(
+        container: HashMap<B256, FlaggedStorage, S>,
+    ) -> HashMap<B256, U256, S> {
         container
             .into_iter()
             .map(|(key, flagged_storage)| (key, flagged_storage.value))
@@ -383,7 +385,33 @@ impl AccountInfo {
         }
     }
 
-    /// Returns account info without the code.
+    /// Returns a copy of this account with the [`Bytecode`] removed. This is
+    /// useful when creating journals or snapshots of the state, where it is
+    /// desirable to store the code blobs elsewhere.
+    ///
+    /// ## Note
+    ///
+    /// This is distinct from [`AccountInfo::without_code`] in that it returns
+    /// a new `AccountInfo` instance with the code removed.
+    /// [`AccountInfo::without_code`] will modify and return the same instance.
+    pub fn copy_without_code(&self) -> Self {
+        Self {
+            balance: self.balance,
+            nonce: self.nonce,
+            code_hash: self.code_hash,
+            code: None,
+        }
+    }
+
+    /// Strip the [`Bytecode`] from this account and drop it. This is
+    /// useful when creating journals or snapshots of the state, where it is
+    /// desirable to store the code blobs elsewhere.
+    ///
+    /// ## Note
+    ///
+    /// This is distinct from [`AccountInfo::copy_without_code`] in that it
+    /// modifies the account in place. [`AccountInfo::copy_without_code`]
+    /// will copy the non-code fields and return a new `AccountInfo` instance.
     pub fn without_code(mut self) -> Self {
         self.take_bytecode();
         self

@@ -5,7 +5,10 @@ use revm::{
 };
 use test_cases::TestCase;
 
+use log::{info, LevelFilter};
+use rayon::prelude::*;
 use std::path::PathBuf;
+use std::time::Instant;
 use structopt::StructOpt;
 
 extern crate alloc;
@@ -32,67 +35,53 @@ pub struct Cmd {
     /// Print the trace.
     #[structopt(long)]
     trace: bool,
+    /// Increase output verbosity. Can be used multiple times. For example `-vvv` will set the log level to `TRACE`.
+    #[structopt(short, long, parse(from_occurrences))]
+    verbose: usize,
+    /// Run tests in a single thread.
+    #[structopt(short = "s", long)]
+    single_thread: bool,
+    /// Will not return on failure.
+    #[structopt(long, alias = "no-fail-fast")]
+    keep_going: bool,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Errors> {
+        self.setup_logging();
+        let start_time = Instant::now();
         let test_files = self.find_test_files()?;
 
-        for test_file in test_files {
-            println!("test_file: {:?}", test_file);
-            let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
+        if self.single_thread {
+            info!("Running in single-threaded mode");
 
-            match SemanticTests::new(test_file_path) {
-                Ok(semantic_tests) => {
-                    let evm_version = semantic_tests.contract_infos[0].evm_version;
-                    let mut evm_config = EvmConfig::new(evm_version);
-                    let mut db = self.prepare_database(&evm_config)?;
-
-                    let constructor_test_case = semantic_tests
-                        .test_cases
-                        .iter()
-                        .find(|test_case| test_case.is_constructor)
-                        .cloned();
-
-                    let deploy_data =
-                        self.prepare_deploy_data(&semantic_tests, &constructor_test_case)?;
-                    if deploy_data.is_empty() {
-                        continue;
-                    }
-                    let mut evm_executor =
-                        EvmExecutor::new(db, evm_config.clone(), evm_version, &semantic_tests);
-
-                    let contract_address = evm_executor.deploy_contract(
-                        deploy_data,
-                        constructor_test_case
-                            .as_ref()
-                            .map_or(U256::ZERO, |tc| tc.value),
-                    )?;
-                    evm_executor.config.block_number =
-                        evm_executor.config.block_number.wrapping_add(U256::from(1));
-                    evm_executor.copy_contract_to_env(contract_address);
-
-                    let test_cases_to_process = semantic_tests
-                        .test_cases
-                        .iter()
-                        .filter(|test_case| !test_case.is_constructor);
-
-                    for test_case in test_cases_to_process {
-                        evm_executor.run_test_case(test_case, self.trace)?;
-                        evm_executor.config.block_number =
-                            evm_executor.config.block_number.wrapping_add(U256::from(1));
-                    }
-                }
-                Err(Errors::UnhandledTestFormat) => {
-                    continue;
-                }
-                Err(e) => {
-                    return Err(e);
-                }
+            for test_file in test_files {
+                self.process_test_file(test_file)?;
             }
+        } else {
+            info!("Running in multi-threaded mode");
+
+            // Use parallel iterator
+            test_files
+                .par_iter()
+                .try_for_each(|test_file| self.process_test_file(test_file.clone()))?;
         }
 
+        let duration = start_time.elapsed();
+        info!("Execution time: {:?}", duration);
+
         Ok(())
+    }
+
+    fn setup_logging(&self) {
+        let log_level = match self.verbose {
+            0 => LevelFilter::Warn,
+            1 => LevelFilter::Info,
+            2 => LevelFilter::Debug,
+            _ => LevelFilter::Trace,
+        };
+
+        env_logger::Builder::new().filter_level(log_level).init();
     }
 
     fn find_test_files(&self) -> Result<Vec<PathBuf>, Errors> {
@@ -117,6 +106,67 @@ impl Cmd {
                 parent_dir.join("seismic-solidity-new/test/libsolidity/semanticTests/");
             find_test_files(&semantic_tests_path)
         }
+    }
+
+    fn process_test_file(&self, test_file: PathBuf) -> Result<(), Errors> {
+        info!("test_file: {:?}", test_file);
+        let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
+
+        match SemanticTests::new(test_file_path) {
+            Ok(semantic_tests) => {
+                let evm_version = semantic_tests.contract_infos[0].evm_version;
+                let evm_config = EvmConfig::new(evm_version);
+                let db = self.prepare_database(&evm_config)?;
+
+                let constructor_test_case = semantic_tests
+                    .test_cases
+                    .iter()
+                    .find(|test_case| test_case.is_constructor)
+                    .cloned();
+
+                let deploy_data =
+                    self.prepare_deploy_data(&semantic_tests, &constructor_test_case)?;
+                let mut evm_executor =
+                    EvmExecutor::new(db, evm_config.clone(), evm_version, &semantic_tests);
+
+                let contract_address = evm_executor.deploy_contract(
+                    deploy_data,
+                    constructor_test_case
+                        .as_ref()
+                        .map_or(U256::ZERO, |tc| tc.value),
+                    self.trace,
+                )?;
+                evm_executor.config.block_number =
+                    evm_executor.config.block_number.wrapping_add(U256::from(1));
+                evm_executor.copy_contract_to_env(contract_address);
+
+                let test_cases_to_process = semantic_tests
+                    .test_cases
+                    .iter()
+                    .filter(|test_case| !test_case.is_constructor);
+
+                for test_case in test_cases_to_process {
+                    let result = evm_executor.run_test_case(test_case, self.trace, test_file_path);
+                    match result {
+                        Ok(_) => {}
+                        Err(e) => {
+                            if !self.keep_going {
+                                return Err(e);
+                            }
+                        }
+                    };
+                    evm_executor.config.block_number =
+                        evm_executor.config.block_number.wrapping_add(U256::from(1));
+                }
+            }
+            Err(Errors::UnhandledTestFormat) => {
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
+        Ok(())
     }
 
     fn prepare_database(&self, config: &EvmConfig) -> Result<CacheDB<EmptyDB>, Errors> {

@@ -1,4 +1,5 @@
 use hex::FromHex;
+use log::{debug, error, info};
 use revm::{
     db::{CacheDB, EmptyDB},
     inspector_handle_register,
@@ -6,10 +7,11 @@ use revm::{
     primitives::{
         Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256,
     },
+    seismic::seismic_handle_register,
     DatabaseCommit, Evm,
 };
 
-use std::{str::FromStr, u64};
+use std::{path::PathBuf, str::FromStr, u64};
 
 use super::{semantic_tests::SemanticTests, test_cases::TestCase, Errors};
 
@@ -114,6 +116,7 @@ impl<'a> EvmExecutor<'a> {
         &mut self,
         deploy_data: Bytes,
         value: U256,
+        trace: bool,
     ) -> Result<Address, Errors> {
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
@@ -124,12 +127,29 @@ impl<'a> EvmExecutor<'a> {
                 tx.value = value;
             })
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
+            .append_handler_register(seismic_handle_register)
             .build();
 
-        let deploy_out = evm.transact().map_err(|err| {
-            println!("EVM transaction error: {:?}", err);
-            Errors::EVMError
-        })?;
+        let deploy_out = if trace {
+            let mut evm = evm
+                .modify()
+                .reset_handler_with_external_context(TracerEip3155::new(
+                    Box::new(std::io::stdout()),
+                ))
+                .append_handler_register(inspector_handle_register)
+                .append_handler_register(seismic_handle_register)
+                .build();
+
+            evm.transact().map_err(|err| {
+                error!("DEPLOY transaction error: {:?}", err.to_string());
+                Errors::EVMError
+            })?
+        } else {
+            evm.transact().map_err(|err| {
+                error!("DEPLOY transaction error: {:?}", err.to_string());
+                Errors::EVMError
+            })?
+        };
 
         let contract_address = match deploy_out.clone().result {
             ExecutionResult::Success { output, .. } => match output {
@@ -138,11 +158,11 @@ impl<'a> EvmExecutor<'a> {
                 _ => return Err(Errors::EVMError),
             },
             ExecutionResult::Revert { output, .. } => {
-                println!("Execution reverted during deployment: {:?}", output);
+                error!("EVM transaction error: {:?}", output.to_string());
                 return Err(Errors::EVMError);
             }
             ExecutionResult::Halt { reason, .. } => {
-                println!("Execution halted during deployment: {:?}", reason);
+                error!("Execution halted during deployment: {:?}", reason);
                 return Err(Errors::EVMError);
             }
         };
@@ -176,7 +196,9 @@ impl<'a> EvmExecutor<'a> {
         &mut self,
         test_case: &TestCase,
         trace: bool,
+        test_file: &str,
     ) -> Result<(), Errors> {
+        debug!("running test_case: {:?}", test_case);
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
             .modify_tx_env(|tx| {
@@ -200,6 +222,7 @@ impl<'a> EvmExecutor<'a> {
                 env.block.number = self.config.block_number;
             })
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
+            .append_handler_register(seismic_handle_register)
             .build();
 
         let out = if trace {
@@ -209,21 +232,30 @@ impl<'a> EvmExecutor<'a> {
                     Box::new(std::io::stdout()),
                 ))
                 .append_handler_register(inspector_handle_register)
+                .append_handler_register(seismic_handle_register)
                 .build();
 
             evm.transact().map_err(|err| {
-                println!("EVM transaction error: {:?}", err);
+                error!(
+                    "EVM transaction error: {:?}, for the file: {:?}",
+                    err.to_string(),
+                    test_file
+                );
                 Errors::EVMError
             })?
         } else {
             evm.transact().map_err(|err| {
-                println!("EVM transaction error: {:?}", err);
+                error!(
+                    "EVM transaction error: {:?}, for the file: {:?}",
+                    err.to_string(),
+                    test_file
+                );
                 Errors::EVMError
             })?
         };
 
         match out.clone().result {
-            ExecutionResult::Success { output, .. } => {
+            ExecutionResult::Success { output, reason, .. } => {
                 if test_case.expected_outputs.is_success() {
                     match output {
                         Output::Call(out) => {
@@ -232,6 +264,7 @@ impl<'a> EvmExecutor<'a> {
                         _ => return Err(Errors::EVMError),
                     }
                 } else {
+                    error!("an Error was expected from the testCase, and yet, the test passed with output: {:?}, with reason: {:?}, for file: {:?}", output, reason, test_file);
                     return Err(Errors::EVMError);
                 }
             }
@@ -242,7 +275,11 @@ impl<'a> EvmExecutor<'a> {
                 } else {
                     // for backward compatibility, we need to handle the case where we revert with
                     // but expected output was 0x!
-                    println!("Reverted with output: {:?}", output);
+                    error!(
+                        "Reverted with output: {:?} for file {:?}",
+                        output.to_string(),
+                        test_file
+                    );
                     assert_eq!(output, test_case.expected_outputs.output);
                 }
             }
@@ -251,7 +288,7 @@ impl<'a> EvmExecutor<'a> {
                 if !test_case.expected_outputs.is_success() {
                     return Ok(());
                 } else {
-                    println!("Execution halted: {:?}", reason);
+                    error!("Execution halted: {:?} for file {:?}", reason, test_file);
                     return Err(Errors::EVMError);
                 }
             }

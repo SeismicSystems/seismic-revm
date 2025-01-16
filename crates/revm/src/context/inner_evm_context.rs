@@ -30,6 +30,8 @@ pub struct InnerEvmContext<DB: Database> {
     /// Used as temporary value holder to store L1 block info.
     #[cfg(feature = "optimism")]
     pub l1_block_info: Option<crate::optimism::L1BlockInfo>,
+    #[cfg(feature = "seismic")]
+    pub kernel: crate::seismic::Kernel,
 }
 
 impl<DB: Database + Clone> Clone for InnerEvmContext<DB>
@@ -44,6 +46,8 @@ where
             error: self.error.clone(),
             #[cfg(feature = "optimism")]
             l1_block_info: self.l1_block_info.clone(),
+            #[cfg(feature = "seismic")]
+            kernel: self.kernel.clone(),
         }
     }
 }
@@ -52,11 +56,13 @@ impl<DB: Database> InnerEvmContext<DB> {
     pub fn new(db: DB) -> Self {
         Self {
             env: Box::default(),
-            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()),
+            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::default()),
             db,
             error: Ok(()),
             #[cfg(feature = "optimism")]
             l1_block_info: None,
+            #[cfg(feature = "seismic")]
+            kernel: crate::seismic::Kernel::default(),
         }
     }
 
@@ -64,12 +70,14 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn new_with_env(db: DB, env: Box<Env>) -> Self {
         Self {
-            env,
-            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()),
+            env: env.clone(),
+            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::default()),
             db,
             error: Ok(()),
             #[cfg(feature = "optimism")]
             l1_block_info: None,
+            #[cfg(feature = "seismic")]
+            kernel: crate::seismic::new_test_kernel_box(env.as_ref()),
         }
     }
 
@@ -85,7 +93,16 @@ impl<DB: Database> InnerEvmContext<DB> {
             error: Ok(()),
             #[cfg(feature = "optimism")]
             l1_block_info: self.l1_block_info,
+            #[cfg(feature = "seismic")]
+            kernel: self.kernel,
         }
+    }
+
+    //builder method for passing in different kernel instances
+    #[cfg(feature = "seismic")]
+    pub fn with_kernel(mut self, kernel: crate::seismic::Kernel) -> Self {
+        self.kernel = kernel;
+        self
     }
 
     /// Returns the configured EVM spec ID.
@@ -205,7 +222,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             };
 
             return Ok(Eip7702CodeLoad::new(
-                StateLoad::new(bytes, is_cold),
+                StateLoad::new(bytes, is_cold, false),
                 delegated_account.is_cold,
             ));
         }
@@ -248,7 +265,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             };
 
             return Ok(Eip7702CodeLoad::new(
-                StateLoad::new(hash, is_cold),
+                StateLoad::new(hash, is_cold, false),
                 delegated_account.is_cold,
             ));
         }
@@ -274,6 +291,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         Ok(StateLoad {
             data: state_load.data.value,
             is_cold: state_load.is_cold,
+            is_private: state_load.is_private,
         })
     }
 
@@ -288,6 +306,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         Ok(StateLoad {
             data: state_load.data.value,
             is_cold: state_load.is_cold,
+            is_private: state_load.is_private,
         })
     }
 
