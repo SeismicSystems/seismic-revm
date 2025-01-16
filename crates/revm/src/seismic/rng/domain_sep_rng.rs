@@ -71,7 +71,7 @@ impl RootRng {
     }
 
     /// Append an observed transaction hash to RNG transcript.
-    pub fn append_tx(&self, tx_hash: B256) {
+    pub fn append_tx(&self, tx_hash: &B256) {
         let mut inner = self.inner.borrow_mut();
         inner.transcript.append_message(b"tx", tx_hash.as_ref());
     }

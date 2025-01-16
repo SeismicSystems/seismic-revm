@@ -55,7 +55,7 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with different history.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
 
@@ -67,7 +67,7 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with different history.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
 
@@ -79,7 +79,7 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with same history as four.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
 
@@ -91,10 +91,10 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with different history.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
 
@@ -106,11 +106,11 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with different init point.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
     let _ = root_rng.fork(&env, &[]).expect("rng fork should work"); // Force init.
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
 
