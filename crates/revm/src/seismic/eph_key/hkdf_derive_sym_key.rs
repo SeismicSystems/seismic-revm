@@ -1,22 +1,22 @@
 use crate::primitives::{Address, Bytes};
 use hkdf::Hkdf;
 use revm_precompile::{
-    calc_linear_cost_u32, u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress
+    calc_linear_cost_u32, u64_to_address, Precompile, PrecompileError, PrecompileOutput,
+    PrecompileResult, PrecompileWithAddress,
 };
 use sha2::Sha256;
 
-
 /* --------------------------------------------------------------------------
-   Precompile Wiring 
-   -------------------------------------------------------------------------- */
+Precompile Wiring
+-------------------------------------------------------------------------- */
 pub const ADDRESS: Address = u64_to_address(105);
 
 pub const PRECOMPILE: PrecompileWithAddress =
     PrecompileWithAddress(ADDRESS, Precompile::Standard(hkdf_derive_symmetric_key));
 
 /* --------------------------------------------------------------------------
-    Cost Constants
-   -------------------------------------------------------------------------- */
+ Cost Constants
+-------------------------------------------------------------------------- */
 
 /// Single SHA-256 precompile cost: 60 + 12 * (#words) as per the sha256 precompile.
 /// - 60 is a base cost
@@ -38,15 +38,14 @@ fn calc_hmac_sha256_cost(input_len: usize) -> u64 {
 ///
 /// We'll treat `Expand` as another HMAC with small input => we approximate with a
 /// constant cost derived from HMAC-SHA256 on a ~64-byte buffer, i.e. ~2 * single SHA-256 base.
-const EXPAND_FIXED_COST: u64 = (2 * SHA256_BASE) as u64; 
+const EXPAND_FIXED_COST: u64 = (2 * SHA256_BASE) as u64;
 
-/// This is the label used in the `expand(...)` step. 
+/// This is the label used in the `expand(...)` step.
 const AES_GCM_KEY_INFO: &[u8] = b"Seismic: aes-gcm key";
 
-
 /* --------------------------------------------------------------------------
-    HKDF with Gas Calculation
-   -------------------------------------------------------------------------- */
+ HKDF with Gas Calculation
+-------------------------------------------------------------------------- */
 
 /// # HKDF-based AES symmetric key derivation
 ///

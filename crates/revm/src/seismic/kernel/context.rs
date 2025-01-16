@@ -1,4 +1,7 @@
-use crate::{primitives::{Env, B256}, seismic::rng::env_hash::{hash_block_env, hash_tx_env}};
+use crate::{
+    primitives::{Env, B256},
+    seismic::rng::env_hash::{hash_block_env, hash_tx_env},
+};
 
 #[derive(Debug, Clone, Default, Copy)]
 pub struct Ctx {

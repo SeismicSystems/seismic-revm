@@ -8,7 +8,6 @@ use test_environment_kernel::TestKernel;
 use crate::primitives::Env;
 use std::ops::{Deref, DerefMut};
 
-
 #[derive(Debug)]
 pub struct Kernel(Box<dyn KernelInterface>);
 
@@ -48,4 +47,3 @@ pub fn new_test_kernel_box(env: &Env) -> Kernel {
     let kernel = TestKernel::new(env);
     Kernel::from_boxed(Box::new(kernel))
 }
-

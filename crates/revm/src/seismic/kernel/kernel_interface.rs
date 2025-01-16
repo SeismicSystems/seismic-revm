@@ -3,13 +3,15 @@ use core::fmt::Debug;
 use dyn_clone::DynClone;
 use secp256k1::SecretKey;
 
-use crate::{primitives::{B256, Env}, seismic::rng::RootRng};
+use crate::{
+    primitives::{Env, B256},
+    seismic::rng::RootRng,
+};
 
 use super::context::Ctx;
 
 pub trait KernelInterface: KernelRng + KernelKeys + KernelContext + DynClone + Debug {}
 impl<T: KernelRng + KernelKeys + KernelContext + DynClone + Debug> KernelInterface for T {}
-
 
 pub trait KernelRng {
     fn rng_mut_ref(&mut self) -> &mut RootRng;
@@ -33,4 +35,3 @@ pub trait KernelContext {
         self.ctx_ref().is_none()
     }
 }
-
