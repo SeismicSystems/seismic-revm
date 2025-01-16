@@ -43,8 +43,17 @@ fn execute_frame<SPEC: Spec, EXT, DB: Database>(
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
     context: &mut Context<EXT, DB>,
 ) -> Result<InterpreterAction, EVMError<DB::Error>> {
-    let rng = &mut context.evm.kernel.rng_mut_ref();
-    rng.append_subcontext();
+    let kernel = &mut context.evm.kernel;
+    let tx_hash = kernel.ctx_ref().unwrap().transaction_hash;
+
+    // // TODO: consider if we should apply local entropy here
+    // kernel.maybe_append_entropy();
+    
+    // TODO: test this works as expected
+    // apply tx_hash to the rng
+    let rng = kernel.rng_mut_ref();
+    rng.append_tx(&tx_hash);
+   
     crate::handler::mainnet::execute_frame::<SPEC, EXT, DB>(
         frame,
         shared_memory,

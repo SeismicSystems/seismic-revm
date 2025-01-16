@@ -53,15 +53,7 @@ pub fn get_leaf_rng<DB: Database>(
 ) -> Result<LeafRng, anyhow::Error> {
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
     let eph_rng_keypair = evmctx.kernel.get_eph_rng_keypair();
-    // let kernel = evmctx.kernel.clone(); // NOTE: this will trigger RootRng clone, which regenerates a new rng based on the current transcript
-    // let tx_hash = evmctx.kernel.ctx_ref().unwrap().transaction_hash;
     let root_rng = &mut evmctx.kernel.rng_mut_ref();
-    
-    // TODO: decide if tx_hash should be applied here or before the precompile call
-    // root_rng.append_tx(&tx_hash);
-    // TODO: decide if local entropy should be applied here or before the precompile call
-    // kernel.maybe_append_entropy(); // do with real kernel not clone
-
     let leaf_rng = root_rng.fork(&eph_rng_keypair, pers);
     Ok(leaf_rng)
 }
