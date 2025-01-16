@@ -57,7 +57,11 @@ pub fn get_leaf_rng<DB: Database>(
     let env = evmctx.env().clone();
     let tx_hash = evmctx.kernel.ctx_ref().unwrap().transaction_hash;
     let root_rng = &mut evmctx.kernel.rng_mut_ref();
+    
+    // TODO: decide if tx_hash should be applied here or before the precompile call
     root_rng.append_tx(&tx_hash);
+    // TODO: apply local entropy if flag is active
+
     let leaf_rng = match root_rng.fork(&env, pers) {
         Ok(rng) => rng,
         Err(_err) => {
