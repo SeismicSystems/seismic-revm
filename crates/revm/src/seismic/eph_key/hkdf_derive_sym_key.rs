@@ -41,7 +41,7 @@ fn calc_hmac_sha256_cost(input_len: usize) -> u64 {
 const EXPAND_FIXED_COST: u64 = (2 * SHA256_BASE) as u64;
 
 /// This is the label used in the `expand(...)` step.
-const AES_GCM_KEY_INFO: &[u8] = b"Seismic: aes-gcm key";
+const APPLICATION_INFO_BYTES: &[u8] = b"seismic_hkdf_105";
 
 /* --------------------------------------------------------------------------
  HKDF with Gas Calculation
@@ -97,7 +97,7 @@ pub fn hkdf_derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileRes
     let hkdf = Hkdf::<Sha256>::new(None, input);
 
     let mut okm = [0u8; 32];
-    hkdf.expand(AES_GCM_KEY_INFO, &mut okm)
+    hkdf.expand(APPLICATION_INFO_BYTES, &mut okm)
         .map_err(|_| PrecompileError::Other("HKDF expansion error".into()))?;
 
     Ok(PrecompileOutput::new(total_cost, okm.to_vec().into()))
