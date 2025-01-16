@@ -3,7 +3,7 @@
 use super::{
     eph_key::{
         aes_gcm_dec, aes_gcm_enc, ecdh_derive_sym_key,
-        gen_secp256k1_keys::GenSecp256k1KeysPrecompile, hkdf_derive_sym_key,
+        hkdf_derive_sym_key,
     },
     kernel::new_test_kernel_box,
 };
