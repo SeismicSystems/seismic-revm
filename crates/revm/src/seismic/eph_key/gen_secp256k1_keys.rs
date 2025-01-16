@@ -21,7 +21,6 @@ impl GenSecp256k1KeysPrecompile {
 
 pub const ADDRESS: Address = u64_to_address(101);
 
-
 //TODO: Below has non-deterministic gas cost. Need to fix before added to evm-specs.
 impl<DB: Database> ContextStatefulPrecompile<DB> for GenSecp256k1KeysPrecompile {
     fn call(

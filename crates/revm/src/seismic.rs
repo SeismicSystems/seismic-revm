@@ -6,4 +6,4 @@ pub mod kernel;
 pub mod rng;
 
 pub use handler_register::{load_precompiles, seismic_handle_register};
-pub use kernel::{Kernel, KernelInterface, new_test_kernel_box};
+pub use kernel::{new_test_kernel_box, Kernel, KernelInterface};

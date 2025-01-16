@@ -1,5 +1,5 @@
-use core::fmt;
 use crate::primitives::Env;
+use core::fmt;
 use secp256k1::SecretKey;
 use tee_service_api::get_sample_secp256k1_sk;
 
@@ -27,7 +27,7 @@ impl KernelRng for TestKernel {
     }
 
     fn maybe_append_entropy(&mut self) {
-        // noop for tests 
+        // noop for tests
     }
 }
 
@@ -41,7 +41,7 @@ impl KernelContext for TestKernel {
     fn ctx_mut(&mut self) -> &mut Option<Ctx> {
         &mut self.ctx
     }
-    
+
     fn ctx_ref(&self) -> &Option<Ctx> {
         &self.ctx
     }
@@ -75,4 +75,3 @@ impl TestKernel {
         }
     }
 }
-
