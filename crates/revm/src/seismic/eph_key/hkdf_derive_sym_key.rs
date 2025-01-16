@@ -211,7 +211,7 @@ mod tests {
 
         // Direct library usage (mirror the same HKDF calls).
         use hkdf::Hkdf;
-        const AES_GCM_KEY_INFO: &[u8] = b"Seismic: aes-gcm key";
+        const AES_GCM_KEY_INFO: &[u8] = b"seismic_hkdf_105";
         let hkdf = Hkdf::<Sha256>::new(None, input.as_ref());
         let mut direct_okm = [0u8; 32];
         hkdf.expand(AES_GCM_KEY_INFO, &mut direct_okm)
