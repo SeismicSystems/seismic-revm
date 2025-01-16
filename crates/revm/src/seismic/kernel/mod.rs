@@ -3,6 +3,11 @@ use dyn_clone::clone_box;
 pub use kernel_interface::KernelInterface;
 mod context;
 mod test_environment_kernel;
+use schnorrkel::{
+    keys::Keypair as SchnorrkelKeypair,
+    MiniSecretKey,
+    ExpansionMode
+};
 use test_environment_kernel::TestKernel;
 
 use crate::primitives::Env;
@@ -46,4 +51,9 @@ impl DerefMut for Kernel {
 pub fn new_test_kernel_box(env: &Env) -> Kernel {
     let kernel = TestKernel::new(env);
     Kernel::from_boxed(Box::new(kernel))
+}
+
+pub fn get_sample_schnorrkel_keypair() -> SchnorrkelKeypair {
+    let mini_secret_key = MiniSecretKey::generate();
+    mini_secret_key.expand(ExpansionMode::Uniform).into()
 }

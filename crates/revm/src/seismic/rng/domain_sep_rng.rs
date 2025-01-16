@@ -6,14 +6,11 @@
 //! The leaf RNG is then used to generate random bytes.
 //!
 //! This module is heavily inspired Oasis Network's RNG implementation.
-use super::env_hash::*;
-use crate::primitives::Env;
+use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 
 use alloy_primitives::B256;
-use anyhow::{anyhow, Error};
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
-use schnorrkel::keys::{ExpansionMode, Keypair, MiniSecretKey};
 use std::{cell::RefCell, rc::Rc};
 
 /// RNG domain separation context.
@@ -43,20 +40,6 @@ impl RootRng {
         }
     }
 
-    // TODO: evaluate if anything else needs to be hashed beside the BlockEnv, ex the TxEnv
-    //       this might include some local entropy
-    fn derive_root_vrf_key(env: &Env) -> Result<Keypair, Error> {
-        // Hash all the relevant data to get bytes for the VRF secret key
-        let env_hash = hash_block_env(&env.block);
-
-        // "expanded" form to use with schnorrkel
-        let kp = MiniSecretKey::from_bytes(env_hash.as_slice())
-            .map_err(|err| anyhow!("schnorrkel conversion error: {}", err))?
-            .expand_to_keypair(ExpansionMode::Uniform);
-
-        Ok(kp)
-    }
-
     /// Append local entropy to the root RNG.
     ///
     /// # Non-determinism
@@ -83,16 +66,13 @@ impl RootRng {
     }
 
     /// Create an independent leaf RNG using this RNG as its parent.
-    pub fn fork(&self, env: &Env, pers: &[u8]) -> Result<LeafRng, Error> {
+    pub fn fork(&self, rng_eph_key: &SchnorrkelKeypair, pers: &[u8]) -> LeafRng {
         let mut inner = self.inner.borrow_mut();
 
         // Ensure the RNG is initialized and initialize it if not.
         if inner.rng.is_none() {
-            // Derive the root VRF key for the current block.
-            let root_vrf_key = Self::derive_root_vrf_key(env)?;
-
             // Initialize the root RNG.
-            let rng = root_vrf_key
+            let rng = rng_eph_key
                 .vrf_create_hash(&mut inner.transcript)
                 .make_merlin_rng(&[]);
             inner.rng = Some(rng);
@@ -105,7 +85,7 @@ impl RootRng {
         let parent_rng = inner.rng.as_mut().expect("rng must be initialized");
         let rng = rng_builder.finalize(parent_rng);
 
-        Ok(LeafRng(rng))
+        LeafRng(rng)
     }
 }
 
@@ -136,15 +116,15 @@ impl CryptoRng for LeafRng {}
 mod test {
 
     use super::RootRng;
-    use crate::primitives::Env;
+    use crate::seismic::kernel::get_sample_schnorrkel_keypair;
 
     #[test]
     fn test_rng_clone() {
-        let env = Env::default();
+        let rng_eph_key = get_sample_schnorrkel_keypair();
 
         // Use the root RNG and call fork to initialize the inner RNG
         let root_rng = RootRng::new();
-        let _ = root_rng.fork(&env, &[]).expect("rng fork should work");
+        let _ = root_rng.fork(&rng_eph_key, &[]);
 
         // clone the root RNG
         let root_rng_clone = root_rng.clone();
