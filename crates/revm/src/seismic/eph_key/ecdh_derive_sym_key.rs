@@ -42,7 +42,6 @@ pub const INPUT_LENGTH: usize = 65;
 /// This ensures we don't underprice the operation, even though ECDH is
 /// arguably simpler than a full ECDSA recover (which includes signature checks).
 ///
-/// You can tune this value to your chain's performance profile.
 const SHARED_SECRET_COST: u64 = 3000;
 const DERIVE_SYM_KEY_COST: u64 = SHARED_SECRET_COST + EXPAND_FIXED_COST;
 
