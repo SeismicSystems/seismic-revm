@@ -1,6 +1,6 @@
 //TODO: cleanup
 use super::*;
-use crate::primitives::Env;
+use crate::seismic::Kernel;
 use alloy_primitives::B256;
 use rand_core::RngCore;
 use std::str::FromStr;
@@ -11,16 +11,17 @@ fn hex_to_hash_bytes(input: &str) -> B256 {
 
 #[test]
 fn test_rng_basic() {
-    let env = Env::default();
+    let kernel = Kernel::default();
+
 
     // Create first root RNG.
     let root_rng = RootRng::new();
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes1 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes1);
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes1_1 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes1_1);
 
@@ -29,13 +30,13 @@ fn test_rng_basic() {
     // Create second root RNG using the same context so the ephemeral key is shared.
     let root_rng = RootRng::new();
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes2 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes2);
 
     assert_eq!(bytes1, bytes2, "rng should be deterministic");
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes2_1 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes2_1);
 
@@ -46,8 +47,8 @@ fn test_rng_basic() {
     let root_rng = RootRng::new();
 
     let mut leaf_rng = root_rng
-        .fork(&env, b"domsep")
-        .expect("rng fork should work");
+        .fork(&kernel.get_eph_rng_keypair(), b"domsep")
+        ;
     let mut bytes3 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes3);
 
@@ -55,11 +56,11 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with different history.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes4 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes4);
 
@@ -67,11 +68,11 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with different history.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes5 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes5);
 
@@ -79,11 +80,11 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with same history as four.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes6 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes6);
 
@@ -91,14 +92,14 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with different history.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes7 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes7);
 
@@ -106,15 +107,15 @@ fn test_rng_basic() {
 
     // Create another root RNG using the same context, but with different init point.
     let root_rng = RootRng::new();
-    root_rng.append_tx(hex_to_hash_bytes(
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
-    let _ = root_rng.fork(&env, &[]).expect("rng fork should work"); // Force init.
-    root_rng.append_tx(hex_to_hash_bytes(
+    let _ = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]); // Force init.
+    root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes8 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes8);
 
@@ -124,12 +125,12 @@ fn test_rng_basic() {
 
 #[test]
 fn test_rng_local_entropy() {
-    let env = Env::default();
+    let kernel = Kernel::default();
 
     // Create first root RNG.
     let root_rng = RootRng::new();
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes1 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes1);
 
@@ -137,7 +138,7 @@ fn test_rng_local_entropy() {
     let root_rng = RootRng::new();
     root_rng.append_local_entropy();
 
-    let mut leaf_rng = root_rng.fork(&env, &[]).expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes2 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes2);
 
@@ -146,27 +147,27 @@ fn test_rng_local_entropy() {
 
 #[test]
 fn test_rng_parent_fork_propagation() {
-    let env = Env::default();
+    let kernel = Kernel::default();
 
     // Create first root RNG.
     let root_rng = RootRng::new();
 
-    let mut leaf_rng = root_rng.fork(&env, b"a").expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), b"a");
     let mut bytes1 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes1);
 
-    let mut leaf_rng = root_rng.fork(&env, b"a").expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), b"a");
     let mut bytes1_1 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes1_1);
 
     // Create second root RNG.
     let root_rng = RootRng::new();
 
-    let mut leaf_rng = root_rng.fork(&env, b"b").expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), b"b");
     let mut bytes2 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes2);
 
-    let mut leaf_rng = root_rng.fork(&env, b"a").expect("rng fork should work");
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), b"a");
     let mut bytes2_1 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes2_1);
 

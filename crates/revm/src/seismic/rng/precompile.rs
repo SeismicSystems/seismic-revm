@@ -2,14 +2,13 @@ use crate::{
     primitives::{db::Database, Address, Bytes},
     ContextPrecompile, ContextStatefulPrecompile, InnerEvmContext,
 };
-use anyhow::anyhow;
 use std::sync::Arc;
 
 use crate::precompile::Error as PCError;
 use rand_core::RngCore;
 use revm_precompile::{u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult};
 
-use super::{domain_sep_rng::LeafRng, env_hash::hash_tx_env};
+use super::domain_sep_rng::LeafRng;
 
 pub struct RngPrecompile;
 
@@ -37,7 +36,6 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         }
 
         // Get the random bytes
-        // TODO: evaluate if this is good, ex if the tx_hash is correct
         let mut leaf_rng =
             get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
 
@@ -54,15 +52,8 @@ pub fn get_leaf_rng<DB: Database>(
     evmctx: &mut InnerEvmContext<DB>,
 ) -> Result<LeafRng, anyhow::Error> {
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
-    let env = evmctx.env().clone();
-    let tx_hash = hash_tx_env(&env.tx);
+    let eph_rng_keypair = evmctx.kernel.get_eph_rng_keypair();
     let root_rng = &mut evmctx.kernel.rng_mut_ref();
-    root_rng.append_tx(tx_hash);
-    let leaf_rng = match root_rng.fork(&env, pers) {
-        Ok(rng) => rng,
-        Err(_err) => {
-            return Err(anyhow!("Rng fork failed".to_string()));
-        }
-    };
+    let leaf_rng = root_rng.fork(&eph_rng_keypair, pers);
     Ok(leaf_rng)
 }

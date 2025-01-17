@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use dyn_clone::DynClone;
-use secp256k1::SecretKey;
+use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 
 use crate::{
     primitives::{Env, B256},
@@ -19,7 +19,8 @@ pub trait KernelRng {
 }
 
 pub trait KernelKeys {
-    fn get_secret_key(&self) -> SecretKey;
+    fn get_io_key(&self) -> secp256k1::SecretKey;
+    fn get_eph_rng_keypair(&self) -> SchnorrkelKeypair;
 }
 
 pub trait KernelContext {
