@@ -3,10 +3,12 @@ use aes_gcm::{
     Aes256Gcm, Key,
 };
 use revm_precompile::{
-    calc_linear_cost, u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress
+    u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress
 };
 use sha2::digest::consts::U12;
 use crate::primitives::{Address, Bytes};
+
+use super::common::{calculate_cost, parse_aes_key, parse_nonce, validate_gas_limit, validate_input_length, validate_nonce_length};
 
 /* --------------------------------------------------------------------------
    Constants & Setup
@@ -26,12 +28,6 @@ pub const PRECOMPILE: PrecompileWithAddress =
 /// => at least 40 if you want to allow zero-length plaintext.
 pub const MIN_INPUT_LENGTH: usize = 44;
 
-/// The below gas cost are very rough estimates.
-/// Overhead cost for AES-GCM setup & finalization. We intentionally overprice to stay safe.
-const AES_GCM_BASE: u64 = 1000;
-
-/// Per 16-byte block cost. One AES encryption + one GHASH multiply per block, plus cushion.
-const AES_GCM_PER_BLOCK: u64 = 30;
 
 /* --------------------------------------------------------------------------
    Precompile Logic
@@ -61,7 +57,7 @@ const AES_GCM_PER_BLOCK: u64 = 30;
 ///
 /// We set the final `gas_used` = `cost`.
 pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
-    validate_input_length(input.len())?;
+    validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
 
     let aes_key = parse_aes_key(&input[0..32])?;
     validate_nonce_length(&input[32..44])?;
@@ -73,47 +69,9 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     validate_gas_limit(cost, gas_limit)?;
 
     let ciphertext = perform_encryption(aes_key, nonce, plaintext)?;
+    println!("ciphertext: {:?}", crate::primitives::hex::encode(ciphertext.clone()));
 
     Ok(PrecompileOutput::new(cost, ciphertext.into()))
-}
-
-fn validate_input_length(input_len: usize) -> Result<(), PrecompileError> {
-    if input_len < MIN_INPUT_LENGTH {
-        let err_msg = format!(
-            "invalid input length: must be >= {MIN_INPUT_LENGTH}, got {}",
-            input_len
-        );
-        return Err(PrecompileError::Other(err_msg).into());
-    }
-    Ok(())
-}
-
-fn parse_aes_key(slice: &[u8]) -> Result<Key<Aes256Gcm>, PrecompileError> {
-    Ok(Key::<Aes256Gcm>::from_slice(slice).to_owned())
-}
-
-fn validate_nonce_length(slice: &[u8]) -> Result<(), PrecompileError> {
-    if slice.len() != 12 {
-        return Err(PrecompileError::Other("Invalid nonce length: expected 12 bytes".to_string()).into());
-    }
-    Ok(())
-}
-
-fn parse_nonce(slice: &[u8]) -> GenericArray<u8, U12> {
-    let nonce = GenericArray::<u8, U12>::from_slice(slice).to_owned();
-    nonce
-}
-
-fn calculate_cost(plaintext_len: usize) -> u64 {
-    let cost = calc_linear_cost(16, plaintext_len, AES_GCM_BASE, AES_GCM_PER_BLOCK);
-    cost
-}
-
-fn validate_gas_limit(cost: u64, gas_limit: u64) -> Result<(), PrecompileError> {
-    if cost > gas_limit {
-        return Err(PrecompileError::OutOfGas.into());
-    }
-    Ok(())
 }
 
 fn perform_encryption(
@@ -126,8 +84,6 @@ fn perform_encryption(
         .encrypt(&nonce, plaintext)
         .map_err(|e| PrecompileError::Other(format!("Encryption failed: {e}")))
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -168,9 +124,7 @@ mod tests {
         let input = vec![0u8; 44];
         // cost = 1000 + 30 * 0 = 1000
         let gas_limit = 2_000;
-
         let result = precompile_encrypt(&Bytes::from(input), gas_limit);
-        println!("result: {:?}", result);
         assert!(result.is_ok(), "Empty plaintext should be valid");
 
         let output = result.unwrap();

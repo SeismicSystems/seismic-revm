@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract AESDECRYPT {
-    function AESDecrypt(bytes32 aes_key, uint256 nonce, bytes memory ciphertext) public view returns (bytes memory) {
+    function AESDecrypt(bytes32 aes_key, uint96 nonce, bytes memory ciphertext) public view returns (bytes memory) {
         // Address of the precompiled contract
         address AESDecryptAddr = address(0x68);
 
@@ -30,12 +30,13 @@ contract AESDECRYPT {
 
         return result;
     }
-
+    
+    // in the test output, there are two 00 at the end, that's just solidity padding!
     function testAESDecrypt() public view returns (bytes memory result) {
-        uint256 nonce = 17;
+        uint96 nonce = 17;
         bytes32 aes_key = hex"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
         bytes memory ciphertext =
-            hex"f577b2b34b7dbafad6647accfaa9194d7a39c839e618fdbe9fc304691385c6fdcb1a8bf1c84560871726c31334884d85b463b0d9930c50370b9cdcc492dfcfb232dd38f0b0beb1c75e6f5c07e3a9ad";
+            hex"9915a626bc11d2f0bc37db72832936b6518c6b2e24a22467ba4259e03c1486f3e9110b69eb498f9213f11796b64b84eaabc145aaf209469a4d15698df70f0e8e98695496179a239d701803cfc922bd";
         result = AESDecrypt(aes_key, nonce, ciphertext);
     }
 }

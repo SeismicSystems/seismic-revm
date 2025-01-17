@@ -1,7 +1,7 @@
 //! Handler related to Seismic chain
 
 use super::{
-    eph_key::{aes_gcm_dec, aes_gcm_enc, ecdh_derive_sym_key, hkdf_derive_sym_key},
+    eph_key::{aes::{aes_gcm_dec,aes_gcm_enc}, ecdh_derive_sym_key, hkdf_derive_sym_key},
     kernel::new_test_kernel_box,
 };
 use crate::{
