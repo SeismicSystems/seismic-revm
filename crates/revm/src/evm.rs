@@ -334,6 +334,9 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         // deduce caller balance with its limit.
         pre_exec.deduct_caller(ctx)?;
 
+        #[cfg(feature = "seismic")]
+        pre_exec.set_up_seismic_kernel(ctx)?;
+
         let gas_limit = ctx.evm.env.tx.gas_limit - initial_gas_spend;
 
         // apply EIP-7702 auth list.
