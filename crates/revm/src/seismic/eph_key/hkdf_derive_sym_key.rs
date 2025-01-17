@@ -28,7 +28,7 @@ const SHA256_PER_WORD: u64 = 12;
 /// So each HMAC run costs about 2×(SHA256_BASE + SHA256_PER_WORD * (#words)).
 fn calc_hmac_sha256_cost(input_len: usize) -> u64 {
     let cost_single_sha256 = calc_linear_cost_u32(input_len, SHA256_BASE, SHA256_PER_WORD);
-    (2 * cost_single_sha256) as u64
+    2 * cost_single_sha256
 }
 
 /// For HKDF, we do:
@@ -38,7 +38,7 @@ fn calc_hmac_sha256_cost(input_len: usize) -> u64 {
 ///
 /// We'll treat `Expand` as another HMAC with small input => we approximate with a
 /// constant cost derived from HMAC-SHA256 on a ~64-byte buffer, i.e. ~2 * single SHA-256 base.
-pub const EXPAND_FIXED_COST: u64 = (2 * SHA256_BASE) as u64;
+pub const EXPAND_FIXED_COST: u64 = 2 * SHA256_BASE;
 
 /// This is the label used in the `expand(...)` step.
 const APPLICATION_INFO_BYTES: &[u8] = b"seismic_hkdf_105";

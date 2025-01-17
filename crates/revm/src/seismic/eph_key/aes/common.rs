@@ -18,7 +18,7 @@ pub(crate) fn validate_input_length(
             "invalid input length: must be >= {min_input_length}, got {}",
             input_len
         );
-        return Err(PrecompileError::Other(err_msg).into());
+        return Err(PrecompileError::Other(err_msg));
     }
     Ok(())
 }

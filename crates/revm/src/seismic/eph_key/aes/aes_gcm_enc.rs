@@ -27,9 +27,9 @@ pub const PRECOMPILE: PrecompileWithAddress =
 
 /// Minimal input size:
 /// - 32 bytes for the AES key,
-/// - 12 bytes for the nonce,
-/// - 0+ bytes for plaintext (we allow empty plaintext).
-/// => at least 40 if you want to allow zero-length plaintext.
+/// + 12 bytes for the nonce,
+/// + 0+ bytes for plaintext (we allow empty plaintext).
+/// = at least 40 if you want to allow zero-length plaintext.
 pub const MIN_INPUT_LENGTH: usize = 44;
 
 /* --------------------------------------------------------------------------
