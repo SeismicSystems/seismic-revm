@@ -1,21 +1,24 @@
+use crate::primitives::{Address, Bytes};
 use aes_gcm::{
     aead::{generic_array::GenericArray, Aead, KeyInit},
     Aes256Gcm, Key,
 };
 use revm_precompile::{
-    u64_to_address, Precompile, PrecompileError, PrecompileOutput,
-    PrecompileResult, PrecompileWithAddress,
+    u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult,
+    PrecompileWithAddress,
 };
 use sha2::digest::consts::U12;
-use crate::primitives::{Address, Bytes};
 
-use super::common::{calculate_cost, parse_aes_key, parse_nonce, validate_gas_limit, validate_input_length, validate_nonce_length};
+use super::common::{
+    calculate_cost, parse_aes_key, parse_nonce, validate_gas_limit, validate_input_length,
+    validate_nonce_length,
+};
 
 /* --------------------------------------------------------------------------
-   Constants & Setup
-   -------------------------------------------------------------------------- */
+Constants & Setup
+-------------------------------------------------------------------------- */
 
-/// On-chain address for the AES-256-GCM decryption precompile. 
+/// On-chain address for the AES-256-GCM decryption precompile.
 pub const ADDRESS: Address = u64_to_address(104);
 
 /// Register the AES-GCM decryption precompile at `0x104`.
@@ -26,8 +29,8 @@ pub const PRECOMPILE: PrecompileWithAddress =
 pub const MIN_INPUT_LENGTH: usize = 60;
 
 /* --------------------------------------------------------------------------
-   Precompile Logic
-   -------------------------------------------------------------------------- */
+Precompile Logic
+-------------------------------------------------------------------------- */
 
 /// # AES-256-GCM Decryption Precompile
 ///
@@ -37,7 +40,7 @@ pub const MIN_INPUT_LENGTH: usize = 60;
 /// [32..44]  :  12-byte nonce
 /// [44.. ]   :  ciphertext + tag
 /// ```
-/// We decrypt `[44..]` using the key & nonce. 
+/// We decrypt `[44..]` using the key & nonce.
 /// If the tag doesn't match, decryption fails with an error.
 ///
 /// **Gas Model**:
@@ -62,7 +65,7 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 fn perform_decryption(
     aes_key: Key<Aes256Gcm>,
     nonce: GenericArray<u8, U12>,
-    ciphertext: &[u8]
+    ciphertext: &[u8],
 ) -> Result<Vec<u8>, PrecompileError> {
     let cipher = Aes256Gcm::new(&aes_key);
     cipher
@@ -73,9 +76,9 @@ fn perform_decryption(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::primitives::Bytes;
     use alloy_primitives::hex;
     use revm_precompile::{PrecompileError, PrecompileErrors};
-    use crate::primitives::Bytes;
 
     /// 1) Test the smallest possible cyphertext:
     ///    - 32-byte key + 12-byte nonce + 16-byte ciphertext (one block)
@@ -114,7 +117,7 @@ mod tests {
     /// 3) Test invalid input length: fewer than 60 bytes => immediate error
     #[test]
     fn test_decrypt_invalid_input_length() {
-        let input = vec![0u8; 20]; 
+        let input = vec![0u8; 20];
         let gas_limit = 2000;
 
         let result = precompile_decrypt(&Bytes::from(input), gas_limit);
@@ -122,11 +125,12 @@ mod tests {
 
         match result.err() {
             Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
-                assert!(msg.contains("invalid input length"),
-                        "Should mention invalid input length");
+                assert!(
+                    msg.contains("invalid input length"),
+                    "Should mention invalid input length"
+                );
             }
             other => panic!("Expected invalid length error, got {:?}", other),
         }
     }
 }
-

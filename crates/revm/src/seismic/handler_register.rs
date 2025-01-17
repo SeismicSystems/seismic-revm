@@ -1,7 +1,10 @@
 //! Handler related to Seismic chain
 
 use super::{
-    eph_key::{aes::{aes_gcm_dec,aes_gcm_enc}, ecdh_derive_sym_key, hkdf_derive_sym_key},
+    eph_key::{
+        aes::{aes_gcm_dec, aes_gcm_enc},
+        ecdh_derive_sym_key, hkdf_derive_sym_key,
+    },
     kernel::new_test_kernel_box,
 };
 use crate::{
@@ -45,12 +48,12 @@ fn execute_frame<SPEC: Spec, EXT, DB: Database>(
 
     // // TODO: consider if we should apply local entropy here
     // kernel.maybe_append_entropy();
-    
+
     // TODO: test this works as expected
     // apply tx_hash to the rng
     let rng = kernel.rng_mut_ref();
     rng.append_tx(&tx_hash);
-   
+
     crate::handler::mainnet::execute_frame::<SPEC, EXT, DB>(
         frame,
         shared_memory,

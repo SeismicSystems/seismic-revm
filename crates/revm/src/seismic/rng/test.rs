@@ -13,7 +13,6 @@ fn hex_to_hash_bytes(input: &str) -> B256 {
 fn test_rng_basic() {
     let kernel = Kernel::default();
 
-
     // Create first root RNG.
     let root_rng = RootRng::new();
 
@@ -46,9 +45,7 @@ fn test_rng_basic() {
     // Create third root RNG using the same context, but with different personalization.
     let root_rng = RootRng::new();
 
-    let mut leaf_rng = root_rng
-        .fork(&kernel.get_eph_rng_keypair(), b"domsep")
-        ;
+    let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), b"domsep");
     let mut bytes3 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes3);
 

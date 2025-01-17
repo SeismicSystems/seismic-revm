@@ -24,8 +24,8 @@ pub const PRECOMPILE: PrecompileWithAddress =
 pub const INPUT_LENGTH: usize = 65;
 
 /* --------------------------------------------------------------------------
-    Cost Model
-   -------------------------------------------------------------------------- */
+ Cost Model
+-------------------------------------------------------------------------- */
 
 /// We adopt an intentionally *high* (ceiling) gas price for ECDH + HKDF:
 ///
@@ -244,4 +244,3 @@ mod tests {
         );
     }
 }
-

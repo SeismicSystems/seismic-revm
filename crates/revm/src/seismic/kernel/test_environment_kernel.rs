@@ -1,9 +1,9 @@
+use super::get_sample_schnorrkel_keypair;
 use crate::primitives::Env;
 use core::fmt;
+use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use secp256k1::SecretKey;
 use tee_service_api::get_sample_secp256k1_sk;
-use super::get_sample_schnorrkel_keypair;
-use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 
 use crate::seismic::rng::RootRng;
 

@@ -1,18 +1,22 @@
+use crate::primitives::{Address, Bytes};
 use aes_gcm::{
     aead::{generic_array::GenericArray, Aead, KeyInit},
     Aes256Gcm, Key,
 };
 use revm_precompile::{
-    u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress
+    u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult,
+    PrecompileWithAddress,
 };
 use sha2::digest::consts::U12;
-use crate::primitives::{Address, Bytes};
 
-use super::common::{calculate_cost, parse_aes_key, parse_nonce, validate_gas_limit, validate_input_length, validate_nonce_length};
+use super::common::{
+    calculate_cost, parse_aes_key, parse_nonce, validate_gas_limit, validate_input_length,
+    validate_nonce_length,
+};
 
 /* --------------------------------------------------------------------------
-   Constants & Setup
-   -------------------------------------------------------------------------- */
+Constants & Setup
+-------------------------------------------------------------------------- */
 
 /// On-chain address for the AES-256-GCM precompile. Adjust as desired.
 pub const ADDRESS: Address = u64_to_address(103);
@@ -28,10 +32,9 @@ pub const PRECOMPILE: PrecompileWithAddress =
 /// => at least 40 if you want to allow zero-length plaintext.
 pub const MIN_INPUT_LENGTH: usize = 44;
 
-
 /* --------------------------------------------------------------------------
-   Precompile Logic
-   -------------------------------------------------------------------------- */
+Precompile Logic
+-------------------------------------------------------------------------- */
 
 /// # AES-256-GCM Encryption Precompile
 ///
@@ -76,7 +79,7 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 fn perform_encryption(
     aes_key: Key<Aes256Gcm>,
     nonce: GenericArray<u8, U12>,
-    plaintext: &[u8]
+    plaintext: &[u8],
 ) -> Result<Vec<u8>, PrecompileError> {
     let cipher = Aes256Gcm::new(&aes_key);
     cipher
@@ -87,8 +90,8 @@ fn perform_encryption(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use revm_precompile::PrecompileErrors;
     use crate::primitives::Bytes;
+    use revm_precompile::PrecompileErrors;
 
     /// 1) Test a normal case: a small non-empty plaintext,
     ///    verifying correct gas usage and successful encryption.
@@ -102,7 +105,7 @@ mod tests {
         // Key can be any random 32 bytes; here all zero for test
         // Nonce next 8 bytes = also zero
         // Plaintext next 16 bytes => we do [40..56]
-        input[44..60].copy_from_slice(&[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]);
+        input[44..60].copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
 
         // The cost formula is:
         //   cost = 1000 (AES_GCM_BASE) + 30 (AES_GCM_PER_BLOCK) * 1 block => 1030
@@ -112,8 +115,15 @@ mod tests {
         assert!(result.is_ok(), "Should succeed for small plaintext");
 
         let output = result.unwrap();
-        assert_eq!(output.gas_used, 1000 + 30, "Should consume exactly 1030 gas");
-        assert!(!output.bytes.is_empty(), "Encryption output shouldn't be empty");
+        assert_eq!(
+            output.gas_used,
+            1000 + 30,
+            "Should consume exactly 1030 gas"
+        );
+        assert!(
+            !output.bytes.is_empty(),
+            "Encryption output shouldn't be empty"
+        );
     }
 
     /// 2) Test an empty plaintext scenario:
@@ -146,7 +156,7 @@ mod tests {
         assert!(result.is_err());
 
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {} 
+            Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {}
             other => panic!("Expected OutOfGas, got {:?}", other),
         }
     }
@@ -155,7 +165,7 @@ mod tests {
     ///    Must fail with "invalid input length".
     #[test]
     fn test_invalid_input_length() {
-        let input = vec![0u8; 20]; 
+        let input = vec![0u8; 20];
         let gas_limit = 2_000;
 
         let result = precompile_encrypt(&Bytes::from(input), gas_limit);
@@ -164,7 +174,8 @@ mod tests {
         // We expect a PCError::Other complaining about input length
         match result.err() {
             Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
-                assert!(msg.contains("invalid input length"),
+                assert!(
+                    msg.contains("invalid input length"),
                     "Should mention invalid input length"
                 );
             }
@@ -172,4 +183,3 @@ mod tests {
         }
     }
 }
-

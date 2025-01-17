@@ -1,10 +1,5 @@
-use aes_gcm::{
-    aead::generic_array::GenericArray,
-    Aes256Gcm, Key,
-};
-use revm_precompile::{
-    calc_linear_cost,PrecompileError
-};
+use aes_gcm::{aead::generic_array::GenericArray, Aes256Gcm, Key};
+use revm_precompile::{calc_linear_cost, PrecompileError};
 use sha2::digest::consts::U12;
 
 /// The below gas cost are very rough estimates.
@@ -14,7 +9,10 @@ const AES_GCM_BASE: u64 = 1000;
 /// Per 16-byte block cost. One AES encryption + one GHASH multiply per block, plus cushion.
 const AES_GCM_PER_BLOCK: u64 = 30;
 
-pub(crate) fn validate_input_length(input_len: usize, min_input_length: usize) -> Result<(), PrecompileError> {
+pub(crate) fn validate_input_length(
+    input_len: usize,
+    min_input_length: usize,
+) -> Result<(), PrecompileError> {
     if input_len < min_input_length {
         let err_msg = format!(
             "invalid input length: must be >= {min_input_length}, got {}",
@@ -31,7 +29,9 @@ pub(crate) fn parse_aes_key(slice: &[u8]) -> Result<Key<Aes256Gcm>, PrecompileEr
 
 pub(crate) fn validate_nonce_length(slice: &[u8]) -> Result<(), PrecompileError> {
     if slice.len() != 12 {
-        return Err(PrecompileError::Other("Invalid nonce length: expected 12 bytes".to_string()));
+        return Err(PrecompileError::Other(
+            "Invalid nonce length: expected 12 bytes".to_string(),
+        ));
     }
     Ok(())
 }
