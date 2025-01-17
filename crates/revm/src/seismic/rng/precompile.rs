@@ -10,8 +10,20 @@ use revm_precompile::{u64_to_address, Error as REVM_ERROR, PrecompileOutput, Pre
 
 use super::domain_sep_rng::LeafRng;
 
+/* --------------------------------------------------------------------------
+Constants & Setup
+-------------------------------------------------------------------------- */
+
+/// On-chain address for the RNG precompile. Adjust as desired.
+pub const ADDRESS: Address = u64_to_address(100);
+
 pub struct RngPrecompile;
 
+// Register the RNG precompile at `0x100`.
+// The RNG precompile is a stateful precompile based on Merlin transcripts
+// At each transaction in a block executes, the tx hash is appended to 
+// the transcript as domain seperation, causing identical transactions 
+// to produce different randomness
 impl RngPrecompile {
     pub fn address_and_precompile<DB: Database>() -> (Address, ContextPrecompile<DB>) {
         (
@@ -21,8 +33,21 @@ impl RngPrecompile {
     }
 }
 
-pub const ADDRESS: Address = u64_to_address(100);
-
+/* --------------------------------------------------------------------------
+Precompile Logic
+-------------------------------------------------------------------------- */
+/// # RNG Precompile
+///
+/// ## Overview
+/// We interpret the input as a [u8] slice of bytes used as personalization 
+/// for the RNG entropy. 
+///
+/// Using the pers bytes, the block rng transcript, and the block VRF key,
+/// we produce a leaf RNG that impliments the RngCore interface and query 
+/// it for bytes.
+/// 
+/// ## Gas Cost
+/// 
 impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
     fn call(
         &self,
