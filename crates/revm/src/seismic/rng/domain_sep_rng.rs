@@ -137,4 +137,27 @@ mod test {
         let rng2 = thing2.rng.as_ref().unwrap();
         assert!(ptr::eq(rng1, rng2));
     }
+
+    use crate::seismic::Kernel;
+    use alloy_primitives::B256;
+    use rand_core::RngCore;
+    #[test]
+    fn test_consistent_clone() {
+        let kernel = Kernel::default();
+
+        let root_rng = RootRng::new();
+        // let root_rng_2 = RootRng::new();
+        let root_rng_2 = root_rng.clone();
+
+
+        let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut bytes1 = [0u8; 32];
+        leaf_rng.fill_bytes(&mut bytes1);
+
+        let mut leaf_rng_2 = root_rng_2.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut bytes2 = [0u8; 32];
+        leaf_rng_2.fill_bytes(&mut bytes2);
+
+        assert_eq!(bytes1, bytes2, "rng should be deterministic");
+    }
 }
