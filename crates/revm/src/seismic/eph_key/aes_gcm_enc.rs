@@ -175,7 +175,7 @@ mod tests {
                     "Should mention invalid input length"
                 );
             }
-            other => panic!("Expected PCError::Other with length msg, got {:?}", other),
+            other => panic!("Expected PrecompileError with length msg, got {:?}", other),
         }
     }
 }
