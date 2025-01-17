@@ -1,4 +1,7 @@
-use aes_gcm::{Aes256Gcm, Key};
+use aes_gcm::{
+    aead::{generic_array::GenericArray, Aead, KeyInit},
+    Aes256Gcm, Key,
+};
 use revm_precompile::{
     calc_linear_cost, u64_to_address, PrecompileError, Precompile, PrecompileOutput,
     PrecompileResult, PrecompileWithAddress,
@@ -7,6 +10,7 @@ use crate::precompile::Error as PCError;
 use crate::primitives::{Address, Bytes};
 use tee_service_api::aes_encrypt;
 
+use crate::primitives::hex;
 /* --------------------------------------------------------------------------
    Constants & Setup
    -------------------------------------------------------------------------- */
@@ -20,10 +24,10 @@ pub const PRECOMPILE: PrecompileWithAddress =
 
 /// Minimal input size:
 /// - 32 bytes for the AES key,
-/// - 8 bytes for the nonce,
+/// - 12 bytes for the nonce,
 /// - 0+ bytes for plaintext (we allow empty plaintext).
 /// => at least 40 if you want to allow zero-length plaintext.
-pub const MIN_INPUT_LENGTH: usize = 40;
+pub const MIN_INPUT_LENGTH: usize = 44;
 
 /// The below gas cost are very rough estimates.
 /// Overhead cost for AES-GCM setup & finalization. We intentionally overprice to stay safe.
@@ -43,14 +47,14 @@ const AES_GCM_PER_BLOCK: u64 = 30;
 /// ┌───────────────────── 32 bytes (AES Key, 256 bits) ─────────────────────┐
 /// │    [0..32]:  Aes256Gcm key                                           │
 /// └────────────────────────────────────────────────────────────────────────┘
-/// ┌───────────────────── 8 bytes (nonce in big-endian) ────────────────────┐
-/// │   [32..40]:  64-bit nonce                                            │
+/// ┌───────────────────── 12 bytes (nonce in big-endian) ────────────────────┐
+/// │   [32..44]:  96-bit nonce                                            │
 /// └────────────────────────────────────────────────────────────────────────┘
 /// ┌────────────────────────────────────────────────────────────────────────┐
-/// │   [40..] :  Plaintext bytes                                          │
+/// │   [44..] :  Plaintext bytes                                          │
 /// └────────────────────────────────────────────────────────────────────────┘
 ///
-/// We encrypt `[40..]` using AES-256 in CTR mode (via `aes_encrypt()`),
+/// We encrypt `[44..]` using AES-256 in CTR mode (via `aes_encrypt()`),
 /// and produce a GCM authentication tag. The output is `[ciphertext + tag]`.
 ///
 /// ## Gas Model
@@ -67,15 +71,16 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
         );
         return Err(PrecompileError::Other(err_msg).into());
     }
-
+    
     let aes_key = Key::<Aes256Gcm>::from_slice(&input[0..32]);
-    let nonce_be = u64::from_be_bytes(
-        input[32..40]
-            .try_into()
-            .map_err(|e| PCError::Other(format!("nonce parse error: {e}")))?
-    );
 
-    let plaintext = &input[40..];
+    if input[32..44].len() != 12 {
+        return Err(PrecompileError::Other("Invalid nonce length: expected 12 bytes".to_string()).into());
+    }
+
+    let cipher = Aes256Gcm::new(aes_key);
+    let nonce = GenericArray::from_slice(&input[32..44]);
+    let plaintext = &input[44..];
 
     let plaintext_len = plaintext.len();
     let cost = calc_linear_cost(16, plaintext_len, AES_GCM_BASE, AES_GCM_PER_BLOCK);
@@ -84,8 +89,9 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
         return Err(PrecompileError::OutOfGas.into());
     }
 
-    let ciphertext = aes_encrypt(aes_key, plaintext, nonce_be)
-        .map_err(|e| PCError::Other(e.to_string()))?;
+    let ciphertext = cipher
+        .encrypt(&nonce, plaintext)
+        .map_err(|e| PrecompileError::Other(format!("Encryption failed: {e}")))?;
 
     Ok(PrecompileOutput::new(cost, ciphertext.into()))
 }
@@ -102,13 +108,13 @@ mod tests {
     fn test_encrypt_small_plaintext() {
         // Prepare input:
         //   [0..32]: AES key
-        //   [32..40]: 8-byte nonce
-        //   [40..]: small plaintext (16 bytes => exactly 1 block)
-        let mut input = vec![0u8; 40 + 16];
+        //   [32..44]: 12-byte nonce
+        //   [44..]: small plaintext (16 bytes => exactly 1 block)
+        let mut input = vec![0u8; 44 + 16];
         // Key can be any random 32 bytes; here all zero for test
         // Nonce next 8 bytes = also zero
         // Plaintext next 16 bytes => we do [40..56]
-        input[40..56].copy_from_slice(&[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]);
+        input[44..60].copy_from_slice(&[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]);
 
         // The cost formula is:
         //   cost = 1000 (AES_GCM_BASE) + 30 (AES_GCM_PER_BLOCK) * 1 block => 1030
@@ -123,14 +129,15 @@ mod tests {
     }
 
     /// 2) Test an empty plaintext scenario:
-    ///    i.e. 32-byte key + 8-byte nonce + 0 plaintext => exactly 40 bytes.
+    ///    i.e. 32-byte key + 12-byte nonce + 0 plaintext => exactly 44 bytes.
     #[test]
     fn test_encrypt_empty_plaintext() {
-        let input = vec![0u8; 40];
+        let input = vec![0u8; 44];
         // cost = 1000 + 30 * 0 = 1000
         let gas_limit = 2_000;
 
         let result = precompile_encrypt(&Bytes::from(input), gas_limit);
+        println!("result: {:?}", result);
         assert!(result.is_ok(), "Empty plaintext should be valid");
 
         let output = result.unwrap();
@@ -145,7 +152,7 @@ mod tests {
         // 32 + 8 + 96 => 6 blocks (since 96 / 16 = 6)
         // cost = 1000 + 6*30 = 1180
         // We'll give less than that
-        let input = vec![0u8; 40 + 96];
+        let input = vec![0u8; 44 + 96];
         // Just fill with zeros
         let small_gas_limit = 500; // well below 1180
 
