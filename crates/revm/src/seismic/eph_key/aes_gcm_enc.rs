@@ -3,14 +3,11 @@ use aes_gcm::{
     Aes256Gcm, Key,
 };
 use revm_precompile::{
-    calc_linear_cost, u64_to_address, PrecompileError, Precompile, PrecompileOutput,
+    u64_to_address, PrecompileError, Precompile, PrecompileOutput,
     PrecompileResult, PrecompileWithAddress,
 };
-use crate::precompile::Error as PCError;
 use crate::primitives::{Address, Bytes};
-use tee_service_api::aes_encrypt;
 
-use crate::primitives::hex;
 /* --------------------------------------------------------------------------
    Constants & Setup
    -------------------------------------------------------------------------- */
