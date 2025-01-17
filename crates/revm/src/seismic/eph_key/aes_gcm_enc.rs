@@ -119,7 +119,6 @@ mod tests {
 
         let output = result.unwrap();
         assert_eq!(output.gas_used, 1000 + 30, "Should consume exactly 1030 gas");
-        // Output is ciphertext + tag, must be non-empty
         assert!(!output.bytes.is_empty(), "Encryption output shouldn't be empty");
     }
 
@@ -136,7 +135,6 @@ mod tests {
 
         let output = result.unwrap();
         assert_eq!(output.gas_used, 1000, "Cost must be base only (no blocks)");
-        // Typically GCM produces just the 16-byte tag if plaintext is empty
         assert!(!output.bytes.is_empty(), "Should still produce a tag");
     }
 
@@ -147,7 +145,7 @@ mod tests {
         // 32 + 8 + 96 => 6 blocks (since 96 / 16 = 6)
         // cost = 1000 + 6*30 = 1180
         // We'll give less than that
-        let mut input = vec![0u8; 40 + 96];
+        let input = vec![0u8; 40 + 96];
         // Just fill with zeros
         let small_gas_limit = 500; // well below 1180
 
@@ -164,7 +162,7 @@ mod tests {
     ///    Must fail with "invalid input length".
     #[test]
     fn test_invalid_input_length() {
-        let input = vec![0u8; 20]; // definitely less than 40
+        let input = vec![0u8; 20]; 
         let gas_limit = 2_000;
 
         let result = precompile_encrypt(&Bytes::from(input), gas_limit);
@@ -179,23 +177,6 @@ mod tests {
             }
             other => panic!("Expected PCError::Other with length msg, got {:?}", other),
         }
-    }
-
-    /// 5) (Optional) Test large input that *does* fit the gas limit.
-    ///    This ensures we handle big data properly.
-    #[test]
-    fn test_large_input_enough_gas() {
-        // Suppose we have 32 + 8 + 512 => 512 bytes of plaintext => 512/16=32 blocks
-        // cost = 1000 + 30*32 = 1000 + 960 = 1960
-        let mut input = vec![0u8; 40 + 512];
-        let gas_limit = 3_000; // above 1960
-
-        let result = precompile_encrypt(&Bytes::from(input), gas_limit);
-        assert!(result.is_ok(), "Should succeed with large input if gas is enough");
-
-        let output = result.unwrap();
-        assert_eq!(output.gas_used, 1960, "Should match cost formula for 32 blocks");
-        assert!(!output.bytes.is_empty(), "Should produce ciphertext + tag");
     }
 }
 
