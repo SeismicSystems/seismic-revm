@@ -69,7 +69,6 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     validate_gas_limit(cost, gas_limit)?;
 
     let ciphertext = perform_encryption(aes_key, nonce, plaintext)?;
-    println!("ciphertext: {:?}", crate::primitives::hex::encode(ciphertext.clone()));
 
     Ok(PrecompileOutput::new(cost, ciphertext.into()))
 }
