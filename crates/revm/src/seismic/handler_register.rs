@@ -43,17 +43,6 @@ fn execute_frame<SPEC: Spec, EXT, DB: Database>(
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
     context: &mut Context<EXT, DB>,
 ) -> Result<InterpreterAction, EVMError<DB::Error>> {
-    let kernel = &mut context.evm.kernel;
-    let tx_hash = kernel.ctx_ref().unwrap().transaction_hash;
-
-    // // TODO: consider if we should apply local entropy here
-    // kernel.maybe_append_entropy();
-
-    // TODO: test this works as expected
-    // apply tx_hash to the rng
-    let rng = kernel.rng_mut_ref();
-    rng.append_tx(&tx_hash);
-
     crate::handler::mainnet::execute_frame::<SPEC, EXT, DB>(
         frame,
         shared_memory,
@@ -81,3 +70,21 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
     }
     precompiles
 }
+
+/// Deduct max balance from caller
+#[inline]
+pub fn set_up_seismic_kernel<SPEC: Spec, EXT, DB: Database>(
+    context: &mut Context<EXT, DB>,
+) -> Result<(), EVMError<DB::Error>> {
+    let kernel = &mut context.evm.kernel;
+    let tx_hash = kernel.ctx_ref().unwrap().transaction_hash;
+
+    kernel.maybe_append_entropy();
+    
+    // TODO: test this works as expected
+    // apply tx_hash to the rng
+    let rng = kernel.rng_mut_ref();
+    rng.append_tx(&tx_hash);
+    Ok(()) 
+}
+

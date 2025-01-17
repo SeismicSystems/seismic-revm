@@ -1,9 +1,7 @@
 // Includes.
 use super::{GenericContextHandle, GenericContextHandleRet};
 use crate::{
-    handler::mainnet,
-    primitives::{db::Database, EVMError, Spec},
-    Context, ContextPrecompiles,
+    handler::mainnet, primitives::{db::Database, EVMError, Spec}, seismic, Context, ContextPrecompiles
 };
 use std::sync::Arc;
 
@@ -21,6 +19,10 @@ pub type DeductCallerHandle<'a, EXT, DB> = GenericContextHandle<'a, EXT, DB>;
 /// Load Auth list for EIP-7702, and returns number of created accounts.
 pub type ApplyEIP7702AuthListHandle<'a, EXT, DB> = GenericContextHandleRet<'a, EXT, DB, u64>;
 
+/// Set-up seismic kernel
+pub type SetUpSeismicKernel<'a, EXT, DB> = GenericContextHandle<'a, EXT, DB>;
+
+
 /// Handles related to pre execution before the stack loop is started.
 pub struct PreExecutionHandler<'a, EXT, DB: Database> {
     /// Load precompiles
@@ -31,6 +33,10 @@ pub struct PreExecutionHandler<'a, EXT, DB: Database> {
     pub deduct_caller: DeductCallerHandle<'a, EXT, DB>,
     /// Apply EIP-7702 auth list
     pub apply_eip7702_auth_list: ApplyEIP7702AuthListHandle<'a, EXT, DB>,
+    /// Set-up seismic kernel
+    #[cfg(feature = "seismic")]
+    pub set_up_seismic_kernel: SetUpSeismicKernel<'a, EXT, DB>,
+
 }
 
 impl<'a, EXT: 'a, DB: Database + 'a> PreExecutionHandler<'a, EXT, DB> {
@@ -41,6 +47,8 @@ impl<'a, EXT: 'a, DB: Database + 'a> PreExecutionHandler<'a, EXT, DB> {
             load_accounts: Arc::new(mainnet::load_accounts::<SPEC, EXT, DB>),
             deduct_caller: Arc::new(mainnet::deduct_caller::<SPEC, EXT, DB>),
             apply_eip7702_auth_list: Arc::new(mainnet::apply_eip7702_auth_list::<SPEC, EXT, DB>),
+            #[cfg(feature = "seismic")]
+            set_up_seismic_kernel: Arc::new(seismic::set_up_seismic_kernel::<SPEC, EXT, DB>),
         }
     }
 }
@@ -67,5 +75,11 @@ impl<EXT, DB: Database> PreExecutionHandler<'_, EXT, DB> {
     /// Load precompiles
     pub fn load_precompiles(&self) -> ContextPrecompiles<DB> {
         (self.load_precompiles)()
+    }
+    
+    /// set up seismic kernel 
+    #[cfg(feature = "seismic")]
+    pub fn set_up_seismic_kernel(&self, context: &mut Context<EXT, DB>) -> Result<(), EVMError<DB::Error>> {
+        (self.set_up_seismic_kernel)(context)
     }
 }
