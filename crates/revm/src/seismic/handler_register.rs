@@ -1,7 +1,10 @@
 //! Handler related to Seismic chain
 
 use super::{
-    eph_key::{aes_gcm_dec, aes_gcm_enc, ecdh_derive_sym_key, hkdf_derive_sym_key},
+    eph_key::{
+        aes::{aes_gcm_dec, aes_gcm_enc},
+        ecdh_derive_sym_key, hkdf_derive_sym_key,
+    },
     kernel::new_test_kernel_box,
 };
 use crate::{
@@ -40,7 +43,6 @@ fn execute_frame<SPEC: Spec, EXT, DB: Database>(
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
     context: &mut Context<EXT, DB>,
 ) -> Result<InterpreterAction, EVMError<DB::Error>> {
-   
     crate::handler::mainnet::execute_frame::<SPEC, EXT, DB>(
         frame,
         shared_memory,
