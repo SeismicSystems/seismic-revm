@@ -111,6 +111,12 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
             return Err(REVM_ERROR::OutOfGas.into());
         }
 
+        // append to root_tx for domain separation
+        evmctx.kernel.maybe_append_entropy();
+        let tx_hash = evmctx.kernel.ctx_ref().unwrap().transaction_hash;
+        let rng = evmctx.kernel.root_rng_mut_ref();
+        rng.append_tx(&tx_hash);
+
         // if the leaf rng is not initialized, initialize it
         if evmctx.kernel.leaf_rng_mut_ref().is_none() {
             let leaf_rng =
