@@ -74,7 +74,7 @@ impl Clone for TestKernel {
 impl TestKernel {
     pub(crate) fn new(env: &Env) -> Self {
         Self {
-            rng: RootRng::new(),
+            rng: RootRng::new(get_sample_schnorrkel_keypair()),
             leaf_rng: None,
             secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
@@ -84,7 +84,7 @@ impl TestKernel {
 
     pub(crate) fn default() -> Self {
         Self {
-            rng: RootRng::new(),
+            rng: RootRng::new(get_sample_schnorrkel_keypair()),
             leaf_rng: None,
             secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
