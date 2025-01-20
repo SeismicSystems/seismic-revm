@@ -37,31 +37,27 @@ struct Inner {
 
 impl Clone for RootRng {
     fn clone(&self) -> Self {
-        let mut inner = self.inner.borrow_mut();
+        let inner = self.inner.borrow_mut();
         let rng_copy: Option<TranscriptRng>;
         let vrf_clone = inner.root_vrf_key.clone();
         if inner.rng.is_some() {
             // make a new rng with the same transcript and vrf key
             let cloning_transcript = inner.cloning_transcript.as_ref().unwrap().clone();
-            println!("in clone. vrf hash: {:?}", vrf_clone.vrf_create_hash(&mut cloning_transcript.clone()));
             
             let mut rng = vrf_clone
                 .vrf_create_hash(cloning_transcript)
                 .make_merlin_rng(&[]);
-            println!("first bytes: {:?}", rng.next_u64());
 
             // fast foward the rng to the same point as the original
-            println!("in clone. num_forks: {}", inner.num_forks);
             for _ in 0..inner.num_forks {
                 let mut bytes = [0u8; 32];
                 rng.fill_bytes(&mut bytes);
             }
+            
             rng_copy = Some(rng);
         } else {
             rng_copy = None;
         }
-
-        
 
         let new_inner = Inner {
             root_vrf_key: vrf_clone,
@@ -128,13 +124,10 @@ impl RootRng {
         if inner.rng.is_none() {
             // Initialize the root RNG.
             inner.cloning_transcript = Some(inner.transcript.clone());
-            let vrf_hash_copy = rng_eph_key.vrf_create_hash(&mut inner.transcript.clone());
-            println!("in clone. vrf hash: {:?}", rng_eph_key.vrf_create_hash(&mut inner.transcript.clone()));
-            
-            let mut rng = rng_eph_key
+          
+            let rng = rng_eph_key
                 .vrf_create_hash(&mut inner.transcript)
                 .make_merlin_rng(&[]);
-            println!("first bytes: {:?}", rng.next_u64());
 
             inner.rng = Some(rng);
         }
@@ -146,7 +139,9 @@ impl RootRng {
         let parent_rng = inner.rng.as_mut().expect("rng must be initialized");
         let rng = rng_builder.finalize(parent_rng);
 
+        // Increment the number of forks
         inner.num_forks += 1;
+
         LeafRng(rng)
     }
 }
@@ -211,32 +206,26 @@ mod test {
         let root_rng = RootRng::new();
         root_rng.append_tx(&B256::from([1u8; 32]));
 
-        println!("start fork\n\n\n\n");
+        // fork
         let _ = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
-        println!("end fork\n\n\n");
 
-
-
-        // clone and test leaves are the same
+        // clone and test rng is same
         let root_rng_2 = root_rng.clone();
+        assert_eq!(root_rng.next_u64(), root_rng_2.next_u64(), "rng's should match after clone");
 
-        // let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
-        // let mut bytes1 = [0u8; 32];
-        // leaf_rng.fill_bytes(&mut bytes1);
+        let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut bytes1 = [0u8; 32];
+        leaf_rng.fill_bytes(&mut bytes1);
 
-        // let mut leaf_rng_2 = root_rng_2.fork(&kernel.get_eph_rng_keypair(), &[]);
-        // let mut bytes2 = [0u8; 32];
-        // leaf_rng_2.fill_bytes(&mut bytes2);
+        let mut leaf_rng_2 = root_rng_2.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut bytes2 = [0u8; 32];
+        leaf_rng_2.fill_bytes(&mut bytes2);
 
-        // assert_eq!(bytes1, bytes2, "rng should be deterministic");
+        assert_eq!(bytes1, bytes2, "rng should be deterministic");
 
-        // for _ in 0..3 {
-        //     println!("{}", root_rng.next_u64());
-        //     println!("{}", root_rng_2.next_u64());
-        //     println!();
-        // }
-
-        assert_eq!(root_rng.next_u64(), root_rng_2.next_u64());
+        // // clone and test rng is same
+        // let root_rng_3 = root_rng.clone();
+        // assert_eq!(root_rng.next_u64(), root_rng_3.next_u64(), "rng's should match after clone");
     }
 
 }
