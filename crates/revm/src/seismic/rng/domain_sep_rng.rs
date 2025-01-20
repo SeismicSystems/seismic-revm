@@ -37,16 +37,18 @@ struct Inner {
 
 impl Clone for RootRng {
     fn clone(&self) -> Self {
-        let inner = self.inner.borrow_mut();
+        let mut inner = self.inner.borrow_mut();
         let rng_copy: Option<TranscriptRng>;
         let vrf_clone = inner.root_vrf_key.clone();
         if inner.rng.is_some() {
             // make a new rng with the same transcript and vrf key
             let cloning_transcript = inner.cloning_transcript.as_ref().unwrap().clone();
             println!("in clone. vrf hash: {:?}", vrf_clone.vrf_create_hash(&mut cloning_transcript.clone()));
+            
             let mut rng = vrf_clone
                 .vrf_create_hash(cloning_transcript)
                 .make_merlin_rng(&[]);
+            println!("first bytes: {:?}", rng.next_u64());
 
             // fast foward the rng to the same point as the original
             println!("in clone. num_forks: {}", inner.num_forks);
@@ -128,25 +130,11 @@ impl RootRng {
             inner.cloning_transcript = Some(inner.transcript.clone());
             let vrf_hash_copy = rng_eph_key.vrf_create_hash(&mut inner.transcript.clone());
             println!("in clone. vrf hash: {:?}", rng_eph_key.vrf_create_hash(&mut inner.transcript.clone()));
+            
             let mut rng = rng_eph_key
                 .vrf_create_hash(&mut inner.transcript)
                 .make_merlin_rng(&[]);
-           
-            // println!("hash1: {:?}", rng_eph_key.vrf_create_hash(&mut inner.transcript.clone()));
-            // println!("hash2: {:?}", rng_eph_key.vrf_create_hash(&mut inner.transcript));
-            // println!("hash3: {:?}", rng_eph_key.vrf_create_hash(&mut inner.transcript));
-
-            // let mut rng2 = rng_eph_key
-            //     .vrf_create_hash(&mut inner.transcript.clone())
-            //     .make_merlin_rng(&[]);
-            // println!("first bytes: {:?}", rng2.next_u64());
-
-            // let mut rng3 = rng_eph_key
-            //     .vrf_create_hash(&mut inner.transcript.clone())
-            //     .make_merlin_rng(&[]);
-            // println!("first bytes: {:?}", rng3.next_u64());
-
-
+            println!("first bytes: {:?}", rng.next_u64());
 
             inner.rng = Some(rng);
         }
@@ -159,7 +147,6 @@ impl RootRng {
         let rng = rng_builder.finalize(parent_rng);
 
         inner.num_forks += 1;
-
         LeafRng(rng)
     }
 }
@@ -195,6 +182,7 @@ mod test {
     use crate::seismic::Kernel;
     use alloy_primitives::B256;
     use rand_core::RngCore;
+
     #[test]
     fn test_clone_rng_before_init() {
         let kernel = Kernel::default();
@@ -223,7 +211,11 @@ mod test {
         let root_rng = RootRng::new();
         root_rng.append_tx(&B256::from([1u8; 32]));
 
+        println!("start fork\n\n\n\n");
         let _ = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+        println!("end fork\n\n\n");
+
+
 
         // clone and test leaves are the same
         let root_rng_2 = root_rng.clone();
@@ -246,4 +238,5 @@ mod test {
 
         assert_eq!(root_rng.next_u64(), root_rng_2.next_u64());
     }
+
 }
