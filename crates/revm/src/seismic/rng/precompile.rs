@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::precompile::Error as PCError;
 use rand_core::RngCore;
-use revm_precompile::{u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult};
+use revm_precompile::{calc_linear_cost,u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult};
 
 use super::domain_sep_rng::LeafRng;
 
@@ -53,15 +53,17 @@ Precompile Logic
 /// g=30+6×ceil(input size/32). Strobe128 has a more complex initialization than SHA,
 /// so we price a base cost of 100 gas plus 6×ceil(input size/32). 
 /// The transcripts also use points on the Ristretto group for Curve25519, and require
-/// scalar multiplications. These EC operations are 2-3x more efficient than BLS12-381 
-/// operations, so we price it at g = 6000, half the cost of a BLS12-381 G1 operation.
+/// scalar multiplications. Scalar multiplication is optimized through the use of the 
+/// Montgomery ladder for Curve25519, so this should beas fast or faster than 
+/// a Secp256k1 scalar multiplication. We bound the cost at that of ecrecover,
+/// which is 3000 gas
 /// 
 /// ### Pricing RNG Operations
 /// The cost of the RNG comes from the following:
 /// * The RNG initialization requires a running hash of the transcript using strobe128.
 /// where a 32 byte tx_hash and label 2 bytes are added per transaction. 
 /// * A seperate VRF Hash function that performs a single EC scalar multiplication 
-/// is used whenever the RNG is forked as domain seperation
+/// is used whenever the RNG is forked as domain seperation. 
 /// * The Root rng is initialized, which involves adding 13 bytes to the transcript 
 /// and then keying the rng (essentially hashing)
 /// * The leaf RNG is initialized, which involves keying the rng based on 32 random bytes
@@ -69,15 +71,22 @@ Precompile Logic
 /// * Filling bytes once the rng is initialized. This requires the squeeze operation,
 /// which is just copying bytes since we currently restring the rng request to 32 bytes
 /// 
-/// This is 100 gas from setting up Strobe128
+/// To calculate the base cost of the RNG precompile, we get:
+/// 100 gas from setting up Strobe128
 /// 79 bytes of hashing to initialize the RNG. 79 * 6 = 474 gas
-/// 6000 gas for the EC scalar multiplication
+/// 3000 gas for the EC scalar multiplication
 /// We add a 50 percent buffer to our gas calculations, which may be lowered in the future
-/// (100 + 474 + 6000) * 1.25 = 9800 gas
+
+/// BASE_GAS = Round((100 + 474 + 3000) * 1.5) = 5400 
+/// RNG_PER_BYTE = 6
+/// gas_used = BASE_GAS + RNG_PER_BYTE * len(input)
 /// 
-/// TODO: add cost of pers bytes. Perhaps force this to be a bytes32 if used?
 /// TODO: add a way to request a longer output than 32 bytes for efficiency
 /// TODO: TBD if root rng needs to be initialized for every transaction
+
+const RNG_BASE: u64 = 5400;
+const RNG_PER_BYTE: u64 = 6;
+
 impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
     fn call(
         &self,
@@ -85,7 +94,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         gas_limit: u64,
         evmctx: &mut InnerEvmContext<DB>,
     ) -> PrecompileResult {
-        let gas_used = 9800;
+        let gas_used = calculate_cost(input.len());
         if gas_used > gas_limit {
             return Err(REVM_ERROR::OutOfGas.into());
         }
@@ -110,4 +119,8 @@ pub fn get_leaf_rng<DB: Database>(
     let root_rng = &mut evmctx.kernel.rng_mut_ref();
     let leaf_rng = root_rng.fork(&eph_rng_keypair, pers);
     Ok(leaf_rng)
+}
+
+pub(crate) fn calculate_cost(ciphertext_len: usize) -> u64 {
+    calc_linear_cost(6, ciphertext_len, RNG_BASE, RNG_PER_BYTE)
 }
