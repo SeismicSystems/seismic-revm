@@ -69,7 +69,7 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let cost = calculate_cost(plaintext.len());
     validate_gas_limit(cost, gas_limit)?;
 
-    let ciphertext = aes_encrypt(&aes_key, nonce, plaintext) 
+    let ciphertext = aes_encrypt(&aes_key, &plaintext, nonce) 
                      .map_err(|e| PrecompileError::Other(format!("Encryption failed: {e}")))?;
 
     Ok(PrecompileOutput::new(cost, ciphertext.into()))
