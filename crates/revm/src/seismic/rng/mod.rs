@@ -13,4 +13,4 @@ pub mod precompile;
 #[cfg(test)]
 mod test;
 
-pub use domain_sep_rng::RootRng;
+pub use domain_sep_rng::{RootRng, LeafRng};
