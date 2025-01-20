@@ -134,11 +134,130 @@ pub fn get_leaf_rng<DB: Database>(
 ) -> Result<LeafRng, anyhow::Error> {
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
     let eph_rng_keypair = evmctx.kernel.get_eph_rng_keypair();
-    let root_rng = &mut evmctx.kernel.rng_mut_ref();
+    let root_rng = &mut evmctx.kernel.root_rng_mut_ref();
     let leaf_rng = root_rng.fork(&eph_rng_keypair, pers);
     Ok(leaf_rng)
 }
 
-pub(crate) fn calculate_cost(ciphertext_len: usize) -> u64 {
-    calc_linear_cost(6, ciphertext_len, RNG_INIT_BASE, RNG_PER_BYTE)
+pub(crate) fn calculate_cost(pers_len: usize) -> u64 {
+    calc_linear_cost(1, pers_len, RNG_INIT_BASE, RNG_PER_BYTE)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use std::vec;
+
+    use super::*;
+    use crate::db::EmptyDB;
+    use crate::precompile::PrecompileErrors;
+    use crate::precompile::PrecompileError;
+
+    #[test]
+    fn test_rng_init_no_pers() {
+        let gas_limit = 6000;
+        let input = Bytes::from(vec![]); // no pers
+        let mut evmctx = InnerEvmContext::new(EmptyDB::default());
+        let precompile = RngPrecompile;
+
+        let result = precompile.call(&input, gas_limit, &mut evmctx);
+        assert!(result.is_ok(), "Should succeed without personalization");
+
+        let output = result.unwrap();
+        assert_eq!(
+            output.gas_used,
+            5400,
+            "Should consume exactly 5400 gas"
+        );
+        assert!(
+            output.bytes.len() == 32,
+            "RNG output should be 32 bytes"
+        );
+    }
+
+    #[test]
+    fn test_rng_init_with_pers() {
+        let gas_limit = 6000;
+        let input = Bytes::from(vec![1, 2, 3, 4]); // with pers
+        let mut evmctx = InnerEvmContext::new(EmptyDB::default());
+        let precompile = RngPrecompile;
+
+        let result = precompile.call(&input, gas_limit, &mut evmctx);
+        assert!(result.is_ok(), "Should succeed with personalization");
+
+        let output = result.unwrap();
+        assert_eq!(
+            output.gas_used,
+            5424,
+            "Should consume exactly 5424 gas"
+        );
+        assert!(
+            output.bytes.len() == 32,
+            "RNG output should be 32 bytes"
+        );
+    }
+
+    #[test]
+    fn test_rng_already_initialized() {
+        let gas_limit = 500;
+        let input = Bytes::from(vec![]); 
+        let mut evmctx = InnerEvmContext::new(EmptyDB::default());
+        let precompile = RngPrecompile;
+
+        // call once to initialize the RNG
+        let _ = precompile.call(&input, 6000, &mut evmctx);
+
+        // make a second call with the leaf rng already initialized
+        let result = precompile.call(&input, gas_limit, &mut evmctx);
+        assert!(result.is_ok(), "Should succeed with initialized RNG");
+
+        let output = result.unwrap();
+        assert_eq!(
+            output.gas_used,
+            192,
+            "Should consume exactly 192 gas"
+        );
+        assert!(
+            output.bytes.len() == 32,
+            "RNG output should be 32 bytes"
+        );
+    }
+
+    #[test]
+    fn test_rng_out_of_gas_on_init() {
+        let gas_limit = 5000;
+        let input = Bytes::from(vec![]); // no pers
+        let mut evmctx = InnerEvmContext::new(EmptyDB::default());
+        let precompile = RngPrecompile;
+
+        let result = precompile.call(&input, gas_limit, &mut evmctx);
+        assert!(result.is_err());
+
+        match result.err() {
+            Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {}
+            other => panic!("Expected OutOfGas, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_rng_out_of_gas_on_fill() {
+        let gas_limit = 100; // below expected 192 gas for a repeat call
+        let input = Bytes::from(vec![]); 
+        let mut evmctx = InnerEvmContext::new(EmptyDB::default());
+        let precompile = RngPrecompile;
+
+        // call once to initialize the RNG
+        let _ = precompile.call(&input, 6000, &mut evmctx);
+
+        // make a second call with the leaf rng already initialized
+        let result = precompile.call(&input, gas_limit, &mut evmctx);
+        assert!(result.is_err());
+
+        match result.err() {
+            Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {}
+            other => panic!("Expected OutOfGas, got {:?}", other),
+        }
+    }
+
+
 }

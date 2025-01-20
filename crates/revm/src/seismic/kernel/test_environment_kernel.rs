@@ -26,7 +26,7 @@ impl fmt::Debug for TestKernel {
 }
 
 impl KernelRng for TestKernel {
-    fn rng_mut_ref(&mut self) -> &mut RootRng {
+    fn root_rng_mut_ref(&mut self) -> &mut RootRng {
         &mut self.rng
     }
 

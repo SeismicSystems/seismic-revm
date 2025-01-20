@@ -15,7 +15,7 @@ impl<T: KernelRng + KernelKeys + KernelContext + DynClone + Debug> KernelInterfa
 
 pub trait KernelRng {
     // returns the root rng for the entire block
-    fn rng_mut_ref(&mut self) -> &mut RootRng;
+    fn root_rng_mut_ref(&mut self) -> &mut RootRng;
 
     // returns a LeafRng Option for the current transaction, None if not initialized
     fn leaf_rng_mut_ref(&mut self) -> &mut Option<LeafRng>;

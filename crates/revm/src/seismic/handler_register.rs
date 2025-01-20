@@ -83,7 +83,7 @@ pub fn set_up_seismic_kernel<SPEC: Spec, EXT, DB: Database>(
 
     // TODO: test this works as expected
     // apply tx_hash to the rng
-    let rng = kernel.rng_mut_ref();
+    let rng = kernel.root_rng_mut_ref();
     rng.append_tx(&tx_hash);
     Ok(())
 }
