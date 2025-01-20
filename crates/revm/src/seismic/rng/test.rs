@@ -14,7 +14,7 @@ fn test_rng_basic() {
     let kernel = Kernel::default();
 
     // Create first root RNG.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
 
     let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes1 = [0u8; 32];
@@ -27,7 +27,7 @@ fn test_rng_basic() {
     assert_ne!(bytes1, bytes1_1, "rng should apply domain separation");
 
     // Create second root RNG using the same context so the ephemeral key is shared.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
 
     let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes2 = [0u8; 32];
@@ -43,7 +43,7 @@ fn test_rng_basic() {
     assert_eq!(bytes1_1, bytes2_1, "rng should be deterministic");
 
     // Create third root RNG using the same context, but with different personalization.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
 
     let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), b"domsep");
     let mut bytes3 = [0u8; 32];
@@ -52,7 +52,7 @@ fn test_rng_basic() {
     assert_ne!(bytes2, bytes3, "rng should apply domain separation");
 
     // Create another root RNG using the same context, but with different history.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
     root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -64,7 +64,7 @@ fn test_rng_basic() {
     assert_ne!(bytes2, bytes4, "rng should apply domain separation");
 
     // Create another root RNG using the same context, but with different history.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
     root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
@@ -76,7 +76,7 @@ fn test_rng_basic() {
     assert_ne!(bytes4, bytes5, "rng should apply domain separation");
 
     // Create another root RNG using the same context, but with same history as four.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
     root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -88,7 +88,7 @@ fn test_rng_basic() {
     assert_eq!(bytes4, bytes6, "rng should be deterministic");
 
     // Create another root RNG using the same context, but with different history.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
     root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -103,7 +103,7 @@ fn test_rng_basic() {
     assert_ne!(bytes4, bytes7, "rng should apply domain separation");
 
     // Create another root RNG using the same context, but with different init point.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
     root_rng.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -125,14 +125,14 @@ fn test_rng_local_entropy() {
     let kernel = Kernel::default();
 
     // Create first root RNG.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
 
     let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
     let mut bytes1 = [0u8; 32];
     leaf_rng.fill_bytes(&mut bytes1);
 
     // Create second root RNG using the same context, but mix in local entropy.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
     root_rng.append_local_entropy();
 
     let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
@@ -147,7 +147,7 @@ fn test_rng_parent_fork_propagation() {
     let kernel = Kernel::default();
 
     // Create first root RNG.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
 
     let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), b"a");
     let mut bytes1 = [0u8; 32];
@@ -158,7 +158,7 @@ fn test_rng_parent_fork_propagation() {
     leaf_rng.fill_bytes(&mut bytes1_1);
 
     // Create second root RNG.
-    let root_rng = RootRng::new();
+    let root_rng = RootRng::default();
 
     let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), b"b");
     let mut bytes2 = [0u8; 32];

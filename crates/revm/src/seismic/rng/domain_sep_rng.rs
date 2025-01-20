@@ -72,12 +72,18 @@ impl Clone for RootRng {
     }
 }
 
+impl Default for RootRng {
+    fn default() -> Self {
+        Self::new(get_sample_schnorrkel_keypair())
+    }
+}
+
 impl RootRng {
     /// Create a new root RNG.
-    pub fn new() -> Self {
+    pub fn new(root_vrf_key: SchnorrkelKeypair) -> Self {
         Self {
             inner: Rc::new(RefCell::new(Inner {
-                root_vrf_key: get_sample_schnorrkel_keypair(),
+                root_vrf_key,
                 transcript: Transcript::new(RNG_CONTEXT),
                 rng: None,
                 cloning_transcript: None,
@@ -177,7 +183,7 @@ mod test {
     fn test_clone_rng_before_init() {
         let kernel = Kernel::default();
 
-        let root_rng = RootRng::new();
+        let root_rng = RootRng::default();
         root_rng.append_tx(&B256::from([1u8; 32]));
 
         // clone and test leaves are the same
@@ -198,7 +204,7 @@ mod test {
     fn test_clone_rng_after_init() {
         let kernel = Kernel::default();
 
-        let root_rng = RootRng::new();
+        let root_rng = RootRng::default();
         root_rng.append_tx(&B256::from([1u8; 32]));
 
         // fork
