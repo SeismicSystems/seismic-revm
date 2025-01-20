@@ -4,7 +4,7 @@ pub use kernel_interface::KernelInterface;
 mod context;
 mod test_environment_kernel;
 use schnorrkel::{keys::Keypair as SchnorrkelKeypair, ExpansionMode, MiniSecretKey};
-use test_environment_kernel::TestKernel;
+pub use test_environment_kernel::TestKernel;
 
 use crate::primitives::Env;
 use std::ops::{Deref, DerefMut};
