@@ -10,7 +10,7 @@ use crate::seismic::rng::{RootRng, LeafRng};
 use super::context::Ctx;
 use super::kernel_interface::{KernelContext, KernelKeys, KernelRng};
 
-pub(crate) struct TestKernel {
+pub struct TestKernel {
     rng: RootRng,
     leaf_rng: Option<LeafRng>,
     secret_key: SecretKey,
@@ -88,7 +88,7 @@ impl TestKernel {
             leaf_rng: None,
             secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
-            ctx: None,
+            ctx: Some(Ctx::default()),
         }
     }
 }

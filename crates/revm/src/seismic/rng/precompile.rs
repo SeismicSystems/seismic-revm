@@ -156,6 +156,7 @@ mod tests {
 
     use super::*;
     use crate::db::EmptyDB;
+    use alloy_primitives::B256;
     use crate::precompile::PrecompileErrors;
     use crate::precompile::PrecompileError;
 
@@ -164,6 +165,7 @@ mod tests {
         let gas_limit = 6000;
         let input = Bytes::from(vec![]); // no pers
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
+        evmctx.kernel.ctx_ref().unwrap().transaction_hash = B256::from([0u8; 32]);
         let precompile = RngPrecompile;
 
         let result = precompile.call(&input, gas_limit, &mut evmctx);
