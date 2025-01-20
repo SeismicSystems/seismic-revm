@@ -1,6 +1,5 @@
-use aes_gcm::{aead::generic_array::GenericArray, Aes256Gcm, Key};
+use aes_gcm::{Aes256Gcm, Key};
 use revm_precompile::{calc_linear_cost, PrecompileError};
-use sha2::digest::consts::U12;
 
 /// The below gas cost are very rough estimates.
 /// Overhead cost for AES-GCM setup & finalization. We intentionally overprice to stay safe.
@@ -34,10 +33,6 @@ pub(crate) fn validate_nonce_length(slice: &[u8]) -> Result<(), PrecompileError>
         ));
     }
     Ok(())
-}
-
-pub(crate) fn parse_nonce(slice: &[u8]) -> GenericArray<u8, U12> {
-    GenericArray::<u8, U12>::from_slice(slice).to_owned()
 }
 
 pub(crate) fn calculate_cost(ciphertext_len: usize) -> u64 {
