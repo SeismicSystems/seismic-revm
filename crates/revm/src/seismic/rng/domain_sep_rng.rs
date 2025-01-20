@@ -85,12 +85,6 @@ impl RootRng {
         }
     }
 
-    pub fn next_u64(&self) -> u64 {
-        let mut inner = self.inner.borrow_mut();
-        let parent_rng = inner.rng.as_mut().expect("rng must be initialized");
-        parent_rng.next_u64()
-    }
-
     /// Append local entropy to the root RNG.
     ///
     /// # Non-determinism
@@ -211,7 +205,6 @@ mod test {
 
         // clone and test rng is same
         let root_rng_2 = root_rng.clone();
-        assert_eq!(root_rng.next_u64(), root_rng_2.next_u64(), "rng's should match after clone");
 
         let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
         let mut bytes1 = [0u8; 32];
@@ -222,10 +215,6 @@ mod test {
         leaf_rng_2.fill_bytes(&mut bytes2);
 
         assert_eq!(bytes1, bytes2, "rng should be deterministic");
-
-        // // clone and test rng is same
-        // let root_rng_3 = root_rng.clone();
-        // assert_eq!(root_rng.next_u64(), root_rng_3.next_u64(), "rng's should match after clone");
     }
 
 }
