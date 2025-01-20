@@ -12,21 +12,65 @@ use alloy_primitives::B256;
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 use std::{cell::RefCell, rc::Rc};
+use crate::seismic::kernel::get_sample_schnorrkel_keypair;
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
 
 /// A root RNG that can be used to derive domain-separated leaf RNGs.
-#[derive(Clone)]
 pub struct RootRng {
     inner: Rc<RefCell<Inner>>,
 }
 
 struct Inner {
+    /// The VRF key for the block
+    root_vrf_key: SchnorrkelKeypair,
     /// Merlin transcript for initializing the RNG.
     transcript: Transcript,
     /// A transcript-based RNG (when initialized).
     rng: Option<TranscriptRng>,
+    /// the transcript used to initialize the rng, saved for cloning
+    cloning_transcript: Option<Transcript>,
+    /// number of forks, saved for cloning
+    num_forks: u64,
+}
+
+impl Clone for RootRng {
+    fn clone(&self) -> Self {
+        let inner = self.inner.borrow_mut();
+        let rng_copy: Option<TranscriptRng>;
+        let vrf_clone = inner.root_vrf_key.clone();
+        if inner.rng.is_some() {
+            // make a new rng with the same transcript and vrf key
+            let cloning_transcript = inner.cloning_transcript.as_ref().unwrap().clone();
+            println!("in clone. vrf hash: {:?}", vrf_clone.vrf_create_hash(&mut cloning_transcript.clone()));
+            let mut rng = vrf_clone
+                .vrf_create_hash(cloning_transcript)
+                .make_merlin_rng(&[]);
+
+            // fast foward the rng to the same point as the original
+            println!("in clone. num_forks: {}", inner.num_forks);
+            for _ in 0..inner.num_forks {
+                let mut bytes = [0u8; 32];
+                rng.fill_bytes(&mut bytes);
+            }
+            rng_copy = Some(rng);
+        } else {
+            rng_copy = None;
+        }
+
+        
+
+        let new_inner = Inner {
+            root_vrf_key: vrf_clone,
+            transcript: inner.transcript.clone(),
+            rng: rng_copy,
+            cloning_transcript: inner.cloning_transcript.clone(),
+            num_forks: inner.num_forks,
+        };
+
+        Self { inner: Rc::new(RefCell::new(new_inner)) }
+    }
 }
 
 impl RootRng {
@@ -34,10 +78,19 @@ impl RootRng {
     pub fn new() -> Self {
         Self {
             inner: Rc::new(RefCell::new(Inner {
+                root_vrf_key: get_sample_schnorrkel_keypair(),
                 transcript: Transcript::new(RNG_CONTEXT),
                 rng: None,
+                cloning_transcript: None,
+                num_forks: 0,
             })),
         }
+    }
+
+    pub fn next_u64(&self) -> u64 {
+        let mut inner = self.inner.borrow_mut();
+        let parent_rng = inner.rng.as_mut().expect("rng must be initialized");
+        parent_rng.next_u64()
     }
 
     /// Append local entropy to the root RNG.
@@ -72,9 +125,29 @@ impl RootRng {
         // Ensure the RNG is initialized and initialize it if not.
         if inner.rng.is_none() {
             // Initialize the root RNG.
-            let rng = rng_eph_key
+            inner.cloning_transcript = Some(inner.transcript.clone());
+            let vrf_hash_copy = rng_eph_key.vrf_create_hash(&mut inner.transcript.clone());
+            println!("in clone. vrf hash: {:?}", rng_eph_key.vrf_create_hash(&mut inner.transcript.clone()));
+            let mut rng = rng_eph_key
                 .vrf_create_hash(&mut inner.transcript)
                 .make_merlin_rng(&[]);
+           
+            // println!("hash1: {:?}", rng_eph_key.vrf_create_hash(&mut inner.transcript.clone()));
+            // println!("hash2: {:?}", rng_eph_key.vrf_create_hash(&mut inner.transcript));
+            // println!("hash3: {:?}", rng_eph_key.vrf_create_hash(&mut inner.transcript));
+
+            // let mut rng2 = rng_eph_key
+            //     .vrf_create_hash(&mut inner.transcript.clone())
+            //     .make_merlin_rng(&[]);
+            // println!("first bytes: {:?}", rng2.next_u64());
+
+            // let mut rng3 = rng_eph_key
+            //     .vrf_create_hash(&mut inner.transcript.clone())
+            //     .make_merlin_rng(&[]);
+            // println!("first bytes: {:?}", rng3.next_u64());
+
+
+
             inner.rng = Some(rng);
         }
 
@@ -84,6 +157,8 @@ impl RootRng {
         let rng_builder = inner.transcript.build_rng();
         let parent_rng = inner.rng.as_mut().expect("rng must be initialized");
         let rng = rng_builder.finalize(parent_rng);
+
+        inner.num_forks += 1;
 
         LeafRng(rng)
     }
@@ -116,39 +191,19 @@ impl CryptoRng for LeafRng {}
 mod test {
 
     use super::RootRng;
-    use crate::seismic::kernel::get_sample_schnorrkel_keypair;
-
-    #[test]
-    fn test_rng_clone() {
-        let rng_eph_key = get_sample_schnorrkel_keypair();
-
-        // Use the root RNG and call fork to initialize the inner RNG
-        let root_rng = RootRng::new();
-        let _ = root_rng.fork(&rng_eph_key, &[]);
-
-        // clone the root RNG
-        let root_rng_clone = root_rng.clone();
-
-        use std::ptr;
-        assert_eq!(root_rng_clone.inner.borrow().rng.is_some(), true);
-        let thing1 = root_rng.inner.borrow();
-        let rng1 = thing1.rng.as_ref().unwrap();
-        let thing2 = root_rng_clone.inner.borrow();
-        let rng2 = thing2.rng.as_ref().unwrap();
-        assert!(ptr::eq(rng1, rng2));
-    }
 
     use crate::seismic::Kernel;
     use alloy_primitives::B256;
     use rand_core::RngCore;
     #[test]
-    fn test_consistent_clone() {
+    fn test_clone_rng_before_init() {
         let kernel = Kernel::default();
 
         let root_rng = RootRng::new();
-        // let root_rng_2 = RootRng::new();
-        let root_rng_2 = root_rng.clone();
+        root_rng.append_tx(&B256::from([1u8; 32]));
 
+        // clone and test leaves are the same
+        let root_rng_2 = root_rng.clone();
 
         let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
         let mut bytes1 = [0u8; 32];
@@ -159,5 +214,36 @@ mod test {
         leaf_rng_2.fill_bytes(&mut bytes2);
 
         assert_eq!(bytes1, bytes2, "rng should be deterministic");
+    }
+
+    #[test]
+    fn test_clone_rng_after_init() {
+        let kernel = Kernel::default();
+
+        let root_rng = RootRng::new();
+        root_rng.append_tx(&B256::from([1u8; 32]));
+
+        let _ = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+
+        // clone and test leaves are the same
+        let root_rng_2 = root_rng.clone();
+
+        // let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+        // let mut bytes1 = [0u8; 32];
+        // leaf_rng.fill_bytes(&mut bytes1);
+
+        // let mut leaf_rng_2 = root_rng_2.fork(&kernel.get_eph_rng_keypair(), &[]);
+        // let mut bytes2 = [0u8; 32];
+        // leaf_rng_2.fill_bytes(&mut bytes2);
+
+        // assert_eq!(bytes1, bytes2, "rng should be deterministic");
+
+        // for _ in 0..3 {
+        //     println!("{}", root_rng.next_u64());
+        //     println!("{}", root_rng_2.next_u64());
+        //     println!();
+        // }
+
+        assert_eq!(root_rng.next_u64(), root_rng_2.next_u64());
     }
 }
