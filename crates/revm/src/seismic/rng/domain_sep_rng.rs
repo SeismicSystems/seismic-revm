@@ -215,6 +215,18 @@ mod test {
         leaf_rng_2.fill_bytes(&mut bytes2);
 
         assert_eq!(bytes1, bytes2, "rng should be deterministic");
+
+        let root_rng_3 = root_rng.clone();
+
+        let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut bytes1 = [0u8; 32];
+        leaf_rng.fill_bytes(&mut bytes1);
+
+        let mut leaf_rng_3 = root_rng_3.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut bytes3 = [0u8; 32];
+        leaf_rng_3.fill_bytes(&mut bytes3);
+
+        assert_eq!(bytes1, bytes3, "rng should be deterministic");
     }
 
 }
