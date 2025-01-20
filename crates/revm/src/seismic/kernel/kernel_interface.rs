@@ -5,7 +5,7 @@ use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 
 use crate::{
     primitives::{Env, B256},
-    seismic::rng::RootRng,
+    seismic::rng::{RootRng, LeafRng},
 };
 
 use super::context::Ctx;
@@ -14,12 +14,21 @@ pub trait KernelInterface: KernelRng + KernelKeys + KernelContext + DynClone + D
 impl<T: KernelRng + KernelKeys + KernelContext + DynClone + Debug> KernelInterface for T {}
 
 pub trait KernelRng {
+    // returns the root rng for the entire block
     fn rng_mut_ref(&mut self) -> &mut RootRng;
+
+    // returns a LeafRng Option for the current transaction, None if not initialized
+    fn leaf_rng_mut_ref(&mut self) -> &mut Option<LeafRng>;
+
+    // maybe appends entropy to the root rng
     fn maybe_append_entropy(&mut self);
 }
 
 pub trait KernelKeys {
+    // returns the key for decrypting transaction data
     fn get_io_key(&self) -> secp256k1::SecretKey;
+
+    // returns the vrf key for rng transcripts
     fn get_eph_rng_keypair(&self) -> SchnorrkelKeypair;
 }
 

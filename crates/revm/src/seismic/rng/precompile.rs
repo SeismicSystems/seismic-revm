@@ -59,24 +59,30 @@ Precompile Logic
 /// which is 3000 gas
 /// 
 /// ### Pricing RNG Operations
-/// The cost of the RNG comes from the following:
-/// * The RNG initialization requires a running hash of the transcript using strobe128.
-/// where a 32 byte tx_hash and label 2 bytes are added per transaction. 
-/// * A seperate VRF Hash function that performs a single EC scalar multiplication 
-/// is used whenever the RNG is forked as domain seperation. 
-/// * The Root rng is initialized, which involves adding 13 bytes to the transcript 
-/// and then keying the rng (essentially hashing)
+/// The cost of the initializing the leaf_rng comes from the following:
+/// * The Root RNG initialization requires a running hash of the transcript. The Root RNG
+/// is initialized by adding 13 bytes to the transcript and then keying the rng 
+/// (essentially hashing) using strobe128.
+/// * (optional) if personalization bytes are provided, the RNG is seeded with 
+/// those bytes
+/// * Each leaf rng requires forking the root_rng, which involves adding
+/// a 32 byte tx_hash and label 2 bytes are added per transaction. Then a seperate 
+/// VRF Hash function is used that performs a single EC scalar multiplication 
 /// * The leaf RNG is initialized, which involves keying the rng based on 32 random bytes
 /// from the parent RNG. 
-/// * Filling bytes once the rng is initialized. This requires the squeeze operation,
-/// which is just copying bytes since we currently restring the rng request to 32 bytes
+/// Once the leaf RNG is initialized 
+/// 
+/// Filling bytes once the rng is initialized. 
+/// * Bytes are filled by squeezing the keccak sponge, so we again charge 6 gas 
+/// per byte. 32 * 6 = 192 gas for keccak sponge. This is waived on the first call
+/// to the leaf_rng, since it is included in the initialization cost.
 /// 
 /// To calculate the base cost of the RNG precompile, we get:
 /// 100 gas from setting up Strobe128
-/// 79 bytes of hashing to initialize the RNG. 79 * 6 = 474 gas
+/// (13 + len(pers) + 32 + 2 + 32) * 6 = 474 + len(pers) * 6 gas for hashing bytes
 /// 3000 gas for the EC scalar multiplication
 /// We add a 50 percent buffer to our gas calculations, which may be lowered in the future
-
+/// 
 /// BASE_GAS = Round((100 + 474 + 3000) * 1.5) = 5400 
 /// RNG_PER_BYTE = 6
 /// gas_used = BASE_GAS + RNG_PER_BYTE * len(input)
@@ -84,8 +90,10 @@ Precompile Logic
 /// TODO: add a way to request a longer output than 32 bytes for efficiency
 /// TODO: TBD if root rng needs to be initialized for every transaction
 
-const RNG_BASE: u64 = 5400;
+const RNG_INIT_BASE: u64 = 5400;
+const RNG_REPEAT_BASE: u64 = 192;
 const RNG_PER_BYTE: u64 = 6;
+
 
 impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
     fn call(
@@ -94,14 +102,24 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         gas_limit: u64,
         evmctx: &mut InnerEvmContext<DB>,
     ) -> PrecompileResult {
-        let gas_used = calculate_cost(input.len());
+        let gas_used = match evmctx.kernel.leaf_rng_mut_ref() {
+            Some(_) => RNG_REPEAT_BASE,
+            None => calculate_cost(input.len()),
+        };
+
         if gas_used > gas_limit {
             return Err(REVM_ERROR::OutOfGas.into());
         }
 
-        // Get the random bytes
-        let mut leaf_rng =
+        // if the leaf rng is not initialized, initialize it
+        if evmctx.kernel.leaf_rng_mut_ref().is_none() {
+            let leaf_rng =
             get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
+            evmctx.kernel.leaf_rng_mut_ref().replace(leaf_rng);
+        }
+
+        // Get the random bytes
+        let leaf_rng = evmctx.kernel.leaf_rng_mut_ref().as_mut().unwrap();
         let mut rng_bytes = [0u8; 32];
         leaf_rng.fill_bytes(&mut rng_bytes);
         let output = Bytes::from(rng_bytes);
@@ -122,5 +140,5 @@ pub fn get_leaf_rng<DB: Database>(
 }
 
 pub(crate) fn calculate_cost(ciphertext_len: usize) -> u64 {
-    calc_linear_cost(6, ciphertext_len, RNG_BASE, RNG_PER_BYTE)
+    calc_linear_cost(6, ciphertext_len, RNG_INIT_BASE, RNG_PER_BYTE)
 }

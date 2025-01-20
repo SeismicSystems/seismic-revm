@@ -5,13 +5,14 @@ use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use secp256k1::SecretKey;
 use tee_service_api::get_sample_secp256k1_sk;
 
-use crate::seismic::rng::RootRng;
+use crate::seismic::rng::{RootRng, LeafRng};
 
 use super::context::Ctx;
 use super::kernel_interface::{KernelContext, KernelKeys, KernelRng};
 
 pub(crate) struct TestKernel {
     rng: RootRng,
+    leaf_rng: Option<LeafRng>,
     secret_key: SecretKey,
     eph_rng_keypair: SchnorrkelKeypair,
     ctx: Option<Ctx>,
@@ -27,6 +28,10 @@ impl fmt::Debug for TestKernel {
 impl KernelRng for TestKernel {
     fn rng_mut_ref(&mut self) -> &mut RootRng {
         &mut self.rng
+    }
+
+    fn leaf_rng_mut_ref(&mut self) -> &mut Option<LeafRng> {
+        &mut self.leaf_rng
     }
 
     fn maybe_append_entropy(&mut self) {
@@ -58,6 +63,7 @@ impl Clone for TestKernel {
     fn clone(&self) -> Self {
         Self {
             rng: self.rng.clone(),
+            leaf_rng: None,
             secret_key: self.secret_key,
             eph_rng_keypair: self.eph_rng_keypair.clone(),
             ctx: self.ctx.clone(),
@@ -69,6 +75,7 @@ impl TestKernel {
     pub(crate) fn new(env: &Env) -> Self {
         Self {
             rng: RootRng::new(),
+            leaf_rng: None,
             secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
             ctx: Some(Ctx::new_from_env(env)),
@@ -78,6 +85,7 @@ impl TestKernel {
     pub(crate) fn default() -> Self {
         Self {
             rng: RootRng::new(),
+            leaf_rng: None,
             secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
             ctx: None,
