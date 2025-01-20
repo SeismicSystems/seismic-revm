@@ -7,8 +7,7 @@ use revm_precompile::{
 use tee_service_api::aes_decrypt;
 
 use super::common::{
-    calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length,
-    validate_nonce_length,
+    calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length, validate_nonce_length,
 };
 
 /* --------------------------------------------------------------------------
@@ -54,8 +53,8 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let cost = calculate_cost(ciphertext.len());
     validate_gas_limit(cost, gas_limit)?;
 
-    let plaintext = aes_decrypt(&aes_key, &ciphertext, nonce) 
-                    .map_err(|e| PrecompileError::Other(format!("Decryption failed: {e}")))?;
+    let plaintext = aes_decrypt(&aes_key, &ciphertext, nonce)
+        .map_err(|e| PrecompileError::Other(format!("Decryption failed: {e}")))?;
 
     Ok(PrecompileOutput::new(cost, plaintext.into()))
 }
