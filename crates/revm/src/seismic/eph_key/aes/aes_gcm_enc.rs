@@ -1,16 +1,14 @@
 use crate::primitives::{Address, Bytes};
-use aes_gcm::{
-    aead::{generic_array::GenericArray, Aead, KeyInit},
-    Aes256Gcm, Key,
-};
+
 use revm_precompile::{
     u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult,
     PrecompileWithAddress,
 };
-use sha2::digest::consts::U12;
+
+use tee_service_api::aes_encrypt;
 
 use super::common::{
-    calculate_cost, parse_aes_key, parse_nonce, validate_gas_limit, validate_input_length,
+    calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length,
     validate_nonce_length,
 };
 
@@ -65,26 +63,16 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let aes_key = parse_aes_key(&input[0..32])?;
     validate_nonce_length(&input[32..44])?;
 
-    let nonce = parse_nonce(&input[32..44]);
+    let nonce = (&input[32..44]).to_vec();
     let plaintext = &input[44..];
 
     let cost = calculate_cost(plaintext.len());
     validate_gas_limit(cost, gas_limit)?;
 
-    let ciphertext = perform_encryption(aes_key, nonce, plaintext)?;
+    let ciphertext = aes_encrypt(&aes_key, nonce, plaintext) 
+                     .map_err(|e| PrecompileError::Other(format!("Encryption failed: {e}")))?;
 
     Ok(PrecompileOutput::new(cost, ciphertext.into()))
-}
-
-fn perform_encryption(
-    aes_key: Key<Aes256Gcm>,
-    nonce: GenericArray<u8, U12>,
-    plaintext: &[u8],
-) -> Result<Vec<u8>, PrecompileError> {
-    let cipher = Aes256Gcm::new(&aes_key);
-    cipher
-        .encrypt(&nonce, plaintext)
-        .map_err(|e| PrecompileError::Other(format!("Encryption failed: {e}")))
 }
 
 #[cfg(test)]
