@@ -49,6 +49,7 @@ impl Clone for RootRng {
                 .make_merlin_rng(&[]);
 
             // fast foward the rng to the same point as the original
+            // By assumption, fork() is the only place root TranscriptRng is used
             for _ in 0..inner.num_forks {
                 let mut bytes = [0u8; 32];
                 rng.fill_bytes(&mut bytes);
