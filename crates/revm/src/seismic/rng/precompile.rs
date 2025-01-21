@@ -139,9 +139,8 @@ pub fn get_leaf_rng<DB: Database>(
     evmctx: &mut InnerEvmContext<DB>,
 ) -> Result<LeafRng, anyhow::Error> {
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
-    let eph_rng_keypair = evmctx.kernel.get_eph_rng_keypair();
     let root_rng = &mut evmctx.kernel.root_rng_mut_ref();
-    let leaf_rng = root_rng.fork(&eph_rng_keypair, pers);
+    let leaf_rng = root_rng.fork(pers);
     Ok(leaf_rng)
 }
 
