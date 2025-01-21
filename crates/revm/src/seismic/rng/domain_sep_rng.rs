@@ -174,10 +174,14 @@ impl CryptoRng for LeafRng {}
 mod test {
 
     use super::RootRng;
+    use super::SchnorrkelKeypair;
 
+    use crate::seismic::rng::domain_sep_rng::test;
     use crate::seismic::Kernel;
+    use crate::seismic::kernel::TestKernel;
     use alloy_primitives::B256;
     use rand_core::RngCore;
+    use schnorrkel::ExpansionMode;
 
     #[test]
     fn test_clone_rng_before_init() {
@@ -234,6 +238,30 @@ mod test {
         leaf_rng_3.fill_bytes(&mut bytes3);
 
         assert_eq!(bytes1, bytes3, "rng should be deterministic");
+    }
+
+    #[test]
+    fn test_clone_after_local_entropy() {
+        let kernel = Kernel::default();
+
+        let root_rng = RootRng::default();
+
+        // simulate some initial transactions with local entropy
+        let _ = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+        root_rng.append_local_entropy();
+        let _ = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+        root_rng.append_local_entropy();
+        
+        // clone and test rng is same
+        let root_rng_2 = root_rng.clone();
+
+        let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut bytes1 = [0u8; 32];
+        leaf_rng.fill_bytes(&mut bytes1);
+
+        let mut leaf_rng_2 = root_rng_2.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut bytes2 = [0u8; 32];
+        leaf_rng_2.fill_bytes(&mut bytes2);
     }
 
 }
