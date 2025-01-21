@@ -1,4 +1,3 @@
-//TODO: cleanup
 use super::*;
 use alloy_primitives::B256;
 use rand_core::RngCore;
@@ -169,4 +168,81 @@ fn test_rng_parent_fork_propagation() {
         bytes1_1, bytes2_1,
         "forks should propagate domain separator to parent"
     );
+}
+
+#[test]
+fn test_clone_rng_before_init() {
+    let root_rng = RootRng::test_default();
+
+    // clone and test leaves are the same
+    let root_rng_2 = root_rng.clone();
+
+    let mut leaf_rng = root_rng.fork(&[]);
+    let mut bytes1 = [0u8; 32];
+    leaf_rng.fill_bytes(&mut bytes1);
+
+    let mut leaf_rng_2 = root_rng_2.fork(&[]);
+    let mut bytes2 = [0u8; 32];
+    leaf_rng_2.fill_bytes(&mut bytes2);
+
+    assert_eq!(bytes1, bytes2, "rng should be deterministic");
+}
+
+#[test]
+fn test_clone_rng_after_init() {
+    let root_rng = RootRng::test_default();
+
+    // fork
+    root_rng.append_tx(&B256::from([1u8; 32]));
+    let _ = root_rng.fork(&[]);
+
+    // clone and test rng is same
+    let root_rng_2 = root_rng.clone();
+
+    let mut leaf_rng = root_rng.fork(&[]);
+    let mut bytes1 = [0u8; 32];
+    leaf_rng.fill_bytes(&mut bytes1);
+
+    let mut leaf_rng_2 = root_rng_2.fork(&[]);
+    let mut bytes2 = [0u8; 32];
+    leaf_rng_2.fill_bytes(&mut bytes2);
+
+    assert_eq!(bytes1, bytes2, "rng should be deterministic");
+
+    let root_rng_3 = root_rng.clone();
+
+    let mut leaf_rng = root_rng.fork(&[]);
+    let mut bytes1 = [0u8; 32];
+    leaf_rng.fill_bytes(&mut bytes1);
+
+    let mut leaf_rng_3 = root_rng_3.fork(&[]);
+    let mut bytes3 = [0u8; 32];
+    leaf_rng_3.fill_bytes(&mut bytes3);
+
+    assert_eq!(bytes1, bytes3, "rng should be deterministic");
+}
+
+#[test]
+fn test_clone_after_local_entropy() {
+    let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate()
+        .expand(ExpansionMode::Uniform)
+        .into();
+    let root_rng = RootRng::new(eph_rng_keypair.clone());
+
+    // simulate some initial transactions with local entropy
+    let _ = root_rng.fork(&[]);
+    root_rng.append_local_entropy();
+    let _ = root_rng.fork(&[]);
+    root_rng.append_local_entropy();
+
+    // clone and test rng is same
+    let root_rng_2 = root_rng.clone();
+
+    let mut leaf_rng = root_rng.fork(&[]);
+    let mut bytes1 = [0u8; 32];
+    leaf_rng.fill_bytes(&mut bytes1);
+
+    let mut leaf_rng_2 = root_rng_2.fork(&[]);
+    let mut bytes2 = [0u8; 32];
+    leaf_rng_2.fill_bytes(&mut bytes2);
 }
