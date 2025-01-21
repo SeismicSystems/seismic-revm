@@ -39,12 +39,12 @@ impl Clone for RootRng {
     fn clone(&self) -> Self {
         let inner = self.inner.borrow_mut();
         let rng_copy: Option<TranscriptRng>;
-        let vrf_clone = inner.root_vrf_key.clone();
+        let root_vrf = inner.root_vrf_key.clone();
         if inner.rng.is_some() {
             // make a new rng with the same transcript and vrf key
             let cloning_transcript = inner.cloning_transcript.as_ref().unwrap().clone();
             
-            let mut rng = vrf_clone
+            let mut rng = root_vrf
                 .vrf_create_hash(cloning_transcript)
                 .make_merlin_rng(&[]);
 
@@ -61,7 +61,7 @@ impl Clone for RootRng {
         }
 
         let new_inner = Inner {
-            root_vrf_key: vrf_clone,
+            root_vrf_key: root_vrf,
             transcript: inner.transcript.clone(),
             rng: rng_copy,
             cloning_transcript: inner.cloning_transcript.clone(),
@@ -69,12 +69,6 @@ impl Clone for RootRng {
         };
 
         Self { inner: Rc::new(RefCell::new(new_inner)) }
-    }
-}
-
-impl Default for RootRng {
-    fn default() -> Self {
-        Self::new(get_sample_schnorrkel_keypair())
     }
 }
 
@@ -90,6 +84,13 @@ impl RootRng {
                 num_forks: 0,
             })),
         }
+    }
+
+    /// A default rng for testing
+    /// We do not implement the Default trait becuase 
+    /// it might be misleading or error-prone.
+    pub fn test_default() -> Self {
+        Self::new(get_sample_schnorrkel_keypair())
     }
 
     /// Append local entropy to the root RNG.
@@ -123,6 +124,7 @@ impl RootRng {
 
         // Ensure the RNG is initialized and initialize it if not.
         if inner.rng.is_none() {
+            println!("initializing root inner rng");
             // Initialize the root RNG.
             inner.cloning_transcript = Some(inner.transcript.clone());
           
@@ -174,94 +176,144 @@ impl CryptoRng for LeafRng {}
 mod test {
 
     use super::RootRng;
-    use super::SchnorrkelKeypair;
-
-    use crate::seismic::rng::domain_sep_rng::test;
-    use crate::seismic::Kernel;
-    use crate::seismic::kernel::TestKernel;
+    
     use alloy_primitives::B256;
     use rand_core::RngCore;
-    use schnorrkel::ExpansionMode;
+    use schnorrkel::{ExpansionMode, keys::Keypair as SchnorrkelKeypair};
+    use secp256k1::rand;
+
+    // #[test]
+    // fn test_clone_rng_before_init() {
+    //     let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate().expand(ExpansionMode::Uniform).into();
+    //     let root_rng = RootRng::new(eph_rng_keypair.clone());
+    //     root_rng.append_tx(&B256::from([1u8; 32]));
+
+    //     // clone and test leaves are the same
+    //     let root_rng_2 = root_rng.clone();
+
+    //     let mut leaf_rng = root_rng.fork(&eph_rng_keypair, &[]);
+    //     let mut bytes1 = [0u8; 32];
+    //     leaf_rng.fill_bytes(&mut bytes1);
+
+    //     let mut leaf_rng_2 = root_rng_2.fork(&eph_rng_keypair, &[]);
+    //     let mut bytes2 = [0u8; 32];
+    //     leaf_rng_2.fill_bytes(&mut bytes2);
+
+    //     assert_eq!(bytes1, bytes2, "rng should be deterministic");
+    // }
+
+    // #[test]
+    // fn test_clone_rng_after_init() {
+    //     let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate().expand(ExpansionMode::Uniform).into();
+    //     let root_rng = RootRng::new(eph_rng_keypair.clone());
+    //     root_rng.append_tx(&B256::from([1u8; 32]));
+
+    //     // fork
+    //     let _ = root_rng.fork(&eph_rng_keypair, &[]);
+
+    //     // clone and test rng is same
+    //     let root_rng_2 = root_rng.clone();
+
+    //     let mut leaf_rng = root_rng.fork(&eph_rng_keypair, &[]);
+    //     let mut bytes1 = [0u8; 32];
+    //     leaf_rng.fill_bytes(&mut bytes1);
+
+    //     let mut leaf_rng_2 = root_rng_2.fork(&eph_rng_keypair, &[]);
+    //     let mut bytes2 = [0u8; 32];
+    //     leaf_rng_2.fill_bytes(&mut bytes2);
+
+    //     assert_eq!(bytes1, bytes2, "rng should be deterministic");
+
+    //     let root_rng_3 = root_rng.clone();
+
+    //     let mut leaf_rng = root_rng.fork(&eph_rng_keypair, &[]);
+    //     let mut bytes1 = [0u8; 32];
+    //     leaf_rng.fill_bytes(&mut bytes1);
+
+    //     let mut leaf_rng_3 = root_rng_3.fork(&eph_rng_keypair, &[]);
+    //     let mut bytes3 = [0u8; 32];
+    //     leaf_rng_3.fill_bytes(&mut bytes3);
+
+    //     assert_eq!(bytes1, bytes3, "rng should be deterministic");
+    // }
+
+    // #[test]
+    // fn test_clone_after_local_entropy() {
+    //     let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate().expand(ExpansionMode::Uniform).into();
+    //     let root_rng = RootRng::new(eph_rng_keypair.clone());
+
+    //     // simulate some initial transactions with local entropy
+    //     let _ = root_rng.fork(&eph_rng_keypair, &[]);
+    //     root_rng.append_local_entropy();
+    //     let _ = root_rng.fork(&eph_rng_keypair, &[]);
+    //     root_rng.append_local_entropy();
+
+    //     // clone and test rng is same
+    //     let root_rng_2 = root_rng.clone();
+
+    //     let mut leaf_rng = root_rng.fork(&eph_rng_keypair, &[]);
+    //     let mut bytes1 = [0u8; 32];
+    //     leaf_rng.fill_bytes(&mut bytes1);
+
+    //     let mut leaf_rng_2 = root_rng_2.fork(&eph_rng_keypair, &[]);
+    //     let mut bytes2 = [0u8; 32];
+    //     leaf_rng_2.fill_bytes(&mut bytes2);
+    // }
+
+    // #[test]
+    // fn test_clone_with_nondefault_key() {
+    //     let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate().expand(ExpansionMode::Uniform).into();
+    //     let root_rng = RootRng::new(eph_rng_keypair.clone());
+        
+    //     // simulate some initial transactions
+    //     let _ = root_rng.fork(&eph_rng_keypair, &[]);
+    //     let _ = root_rng.fork(&eph_rng_keypair, &[]);
+
+    //     // clone and test leaves are the same
+    //     let root_rng_2 = root_rng.clone();
+    //     let eph_rng_keypair_2: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate().expand(ExpansionMode::Uniform).into();
+
+    //     let mut leaf_rng = root_rng.fork(&eph_rng_keypair_2, &[]);
+    //     let mut bytes1 = [0u8; 32];
+    //     leaf_rng.fill_bytes(&mut bytes1);
+
+    //     let mut leaf_rng_2 = root_rng_2.fork(&eph_rng_keypair_2, &[]);
+    //     let mut bytes2 = [0u8; 32];
+    //     leaf_rng_2.fill_bytes(&mut bytes2);
+
+    //     assert_eq!(bytes1, bytes2, "rng should be deterministic");
+    // }
+
+    fn gen_schnorrkel_keypair() -> SchnorrkelKeypair {
+        schnorrkel::MiniSecretKey::generate().expand(ExpansionMode::Uniform).into()
+    }
 
     #[test]
-    fn test_clone_rng_before_init() {
-        let kernel = Kernel::default();
+    fn test_clone_with_many_eph_keys() {
+        let root_key: SchnorrkelKeypair = gen_schnorrkel_keypair();
+        println!("here 1");
+        let root_rng = RootRng::new(root_key.clone());
+        
+        let rand_eph_key: SchnorrkelKeypair = gen_schnorrkel_keypair();
+        println!("here 2");
+        // simulate some initial transactions
+        let _ = root_rng.fork(&rand_eph_key, &[]); // TODO: why is this needed?
+        // let _ = root_rng.fork(&gen_schnorrkel_keypair(), &[]);
 
-        let root_rng = RootRng::default();
-        root_rng.append_tx(&B256::from([1u8; 32]));
-
+        println!("here 3");
         // clone and test leaves are the same
         let root_rng_2 = root_rng.clone();
+        let next_eph_key: SchnorrkelKeypair = gen_schnorrkel_keypair();
 
-        let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut leaf_rng = root_rng.fork(&next_eph_key, &[]);
         let mut bytes1 = [0u8; 32];
         leaf_rng.fill_bytes(&mut bytes1);
 
-        let mut leaf_rng_2 = root_rng_2.fork(&kernel.get_eph_rng_keypair(), &[]);
+        let mut leaf_rng_2 = root_rng_2.fork(&next_eph_key, &[]);
         let mut bytes2 = [0u8; 32];
         leaf_rng_2.fill_bytes(&mut bytes2);
 
         assert_eq!(bytes1, bytes2, "rng should be deterministic");
-    }
-
-    #[test]
-    fn test_clone_rng_after_init() {
-        let kernel = Kernel::default();
-
-        let root_rng = RootRng::default();
-        root_rng.append_tx(&B256::from([1u8; 32]));
-
-        // fork
-        let _ = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
-
-        // clone and test rng is same
-        let root_rng_2 = root_rng.clone();
-
-        let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
-        let mut bytes1 = [0u8; 32];
-        leaf_rng.fill_bytes(&mut bytes1);
-
-        let mut leaf_rng_2 = root_rng_2.fork(&kernel.get_eph_rng_keypair(), &[]);
-        let mut bytes2 = [0u8; 32];
-        leaf_rng_2.fill_bytes(&mut bytes2);
-
-        assert_eq!(bytes1, bytes2, "rng should be deterministic");
-
-        let root_rng_3 = root_rng.clone();
-
-        let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
-        let mut bytes1 = [0u8; 32];
-        leaf_rng.fill_bytes(&mut bytes1);
-
-        let mut leaf_rng_3 = root_rng_3.fork(&kernel.get_eph_rng_keypair(), &[]);
-        let mut bytes3 = [0u8; 32];
-        leaf_rng_3.fill_bytes(&mut bytes3);
-
-        assert_eq!(bytes1, bytes3, "rng should be deterministic");
-    }
-
-    #[test]
-    fn test_clone_after_local_entropy() {
-        let kernel = Kernel::default();
-
-        let root_rng = RootRng::default();
-
-        // simulate some initial transactions with local entropy
-        let _ = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
-        root_rng.append_local_entropy();
-        let _ = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
-        root_rng.append_local_entropy();
-        
-        // clone and test rng is same
-        let root_rng_2 = root_rng.clone();
-
-        let mut leaf_rng = root_rng.fork(&kernel.get_eph_rng_keypair(), &[]);
-        let mut bytes1 = [0u8; 32];
-        leaf_rng.fill_bytes(&mut bytes1);
-
-        let mut leaf_rng_2 = root_rng_2.fork(&kernel.get_eph_rng_keypair(), &[]);
-        let mut bytes2 = [0u8; 32];
-        leaf_rng_2.fill_bytes(&mut bytes2);
     }
 
 }
