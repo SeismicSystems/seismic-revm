@@ -90,7 +90,6 @@ Precompile Logic
 /// gas_used = BASE_GAS + RNG_PER_BYTE * len(input)
 ///
 /// TODO: add a way to request a longer output than 32 bytes for efficiency
-/// TODO: TBD if root rng needs to be initialized for every transaction
 
 const RNG_INIT_BASE: u64 = 5400;
 const RNG_REPEAT_BASE: u64 = 192;
