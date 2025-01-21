@@ -6,13 +6,12 @@
 //! The leaf RNG is then used to generate random bytes.
 //!
 //! This module is heavily inspired Oasis Network's RNG implementation.
-use schnorrkel::keys::Keypair as SchnorrkelKeypair;
-
+use crate::seismic::kernel::get_sample_schnorrkel_keypair;
 use alloy_primitives::B256;
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
+use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use std::{cell::RefCell, rc::Rc};
-use crate::seismic::kernel::get_sample_schnorrkel_keypair;
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
@@ -43,7 +42,7 @@ impl Clone for RootRng {
         if inner.rng.is_some() {
             // make a new rng with the same transcript and vrf key
             let cloning_transcript = inner.cloning_transcript.as_ref().unwrap().clone();
-            
+
             let mut rng = root_vrf
                 .vrf_create_hash(cloning_transcript)
                 .make_merlin_rng(&[]);
@@ -54,7 +53,7 @@ impl Clone for RootRng {
                 let mut bytes = [0u8; 32];
                 rng.fill_bytes(&mut bytes);
             }
-            
+
             rng_copy = Some(rng);
         } else {
             rng_copy = None;
@@ -68,7 +67,9 @@ impl Clone for RootRng {
             num_forks: inner.num_forks,
         };
 
-        Self { inner: Rc::new(RefCell::new(new_inner)) }
+        Self {
+            inner: Rc::new(RefCell::new(new_inner)),
+        }
     }
 }
 
@@ -87,7 +88,7 @@ impl RootRng {
     }
 
     /// A default rng for testing
-    /// We do not implement the Default trait becuase 
+    /// We do not implement the Default trait becuase
     /// it might be misleading or error-prone.
     pub fn test_default() -> Self {
         Self::new(get_sample_schnorrkel_keypair())
@@ -127,7 +128,7 @@ impl RootRng {
             // Initialize the root RNG.
             inner.cloning_transcript = Some(inner.transcript.clone());
             let root_key = inner.root_vrf_key.clone();
-          
+
             let rng = root_key
                 .vrf_create_hash(&mut inner.transcript)
                 .make_merlin_rng(&[]);
@@ -176,10 +177,10 @@ impl CryptoRng for LeafRng {}
 mod test {
 
     use super::RootRng;
-    
+
     use alloy_primitives::B256;
     use rand_core::RngCore;
-    use schnorrkel::{ExpansionMode, keys::Keypair as SchnorrkelKeypair};
+    use schnorrkel::{keys::Keypair as SchnorrkelKeypair, ExpansionMode};
 
     #[test]
     fn test_clone_rng_before_init() {
@@ -188,11 +189,11 @@ mod test {
         // clone and test leaves are the same
         let root_rng_2 = root_rng.clone();
 
-        let mut leaf_rng = root_rng.fork( &[]);
+        let mut leaf_rng = root_rng.fork(&[]);
         let mut bytes1 = [0u8; 32];
         leaf_rng.fill_bytes(&mut bytes1);
 
-        let mut leaf_rng_2 = root_rng_2.fork( &[]);
+        let mut leaf_rng_2 = root_rng_2.fork(&[]);
         let mut bytes2 = [0u8; 32];
         leaf_rng_2.fill_bytes(&mut bytes2);
 
@@ -202,19 +203,19 @@ mod test {
     #[test]
     fn test_clone_rng_after_init() {
         let root_rng = RootRng::test_default();
-    
+
         // fork
         root_rng.append_tx(&B256::from([1u8; 32]));
-        let _ = root_rng.fork( &[]);
+        let _ = root_rng.fork(&[]);
 
         // clone and test rng is same
         let root_rng_2 = root_rng.clone();
 
-        let mut leaf_rng = root_rng.fork( &[]);
+        let mut leaf_rng = root_rng.fork(&[]);
         let mut bytes1 = [0u8; 32];
         leaf_rng.fill_bytes(&mut bytes1);
 
-        let mut leaf_rng_2 = root_rng_2.fork( &[]);
+        let mut leaf_rng_2 = root_rng_2.fork(&[]);
         let mut bytes2 = [0u8; 32];
         leaf_rng_2.fill_bytes(&mut bytes2);
 
@@ -222,11 +223,11 @@ mod test {
 
         let root_rng_3 = root_rng.clone();
 
-        let mut leaf_rng = root_rng.fork( &[]);
+        let mut leaf_rng = root_rng.fork(&[]);
         let mut bytes1 = [0u8; 32];
         leaf_rng.fill_bytes(&mut bytes1);
 
-        let mut leaf_rng_3 = root_rng_3.fork( &[]);
+        let mut leaf_rng_3 = root_rng_3.fork(&[]);
         let mut bytes3 = [0u8; 32];
         leaf_rng_3.fill_bytes(&mut bytes3);
 
@@ -235,25 +236,26 @@ mod test {
 
     #[test]
     fn test_clone_after_local_entropy() {
-        let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate().expand(ExpansionMode::Uniform).into();
+        let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate()
+            .expand(ExpansionMode::Uniform)
+            .into();
         let root_rng = RootRng::new(eph_rng_keypair.clone());
 
         // simulate some initial transactions with local entropy
-        let _ = root_rng.fork( &[]);
+        let _ = root_rng.fork(&[]);
         root_rng.append_local_entropy();
-        let _ = root_rng.fork( &[]);
+        let _ = root_rng.fork(&[]);
         root_rng.append_local_entropy();
 
         // clone and test rng is same
         let root_rng_2 = root_rng.clone();
 
-        let mut leaf_rng = root_rng.fork( &[]);
+        let mut leaf_rng = root_rng.fork(&[]);
         let mut bytes1 = [0u8; 32];
         leaf_rng.fill_bytes(&mut bytes1);
 
-        let mut leaf_rng_2 = root_rng_2.fork( &[]);
+        let mut leaf_rng_2 = root_rng_2.fork(&[]);
         let mut bytes2 = [0u8; 32];
         leaf_rng_2.fill_bytes(&mut bytes2);
     }
-
 }

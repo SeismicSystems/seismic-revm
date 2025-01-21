@@ -5,7 +5,7 @@ use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 
 use crate::{
     primitives::{Env, B256},
-    seismic::rng::{RootRng, LeafRng},
+    seismic::rng::{LeafRng, RootRng},
 };
 
 use super::context::Ctx;

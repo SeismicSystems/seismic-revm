@@ -5,7 +5,7 @@ use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use secp256k1::SecretKey;
 use tee_service_api::get_sample_secp256k1_sk;
 
-use crate::seismic::rng::{RootRng, LeafRng};
+use crate::seismic::rng::{LeafRng, RootRng};
 use crate::seismic::Kernel;
 
 use super::context::Ctx;
