@@ -11,8 +11,7 @@ fn hex_to_hash_bytes(input: &str) -> B256 {
 
 #[test]
 fn test_rng_basic() {
-    let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate().expand(ExpansionMode::Uniform).into();
-    let root_rng = RootRng::new(eph_rng_keypair.clone());
+    let root_rng = RootRng::test_default();
 
     let mut leaf_rng = root_rng.fork(&[]);
     let mut bytes1 = [0u8; 32];

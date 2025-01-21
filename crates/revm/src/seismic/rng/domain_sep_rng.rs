@@ -124,7 +124,6 @@ impl RootRng {
 
         // Ensure the RNG is initialized and initialize it if not.
         if inner.rng.is_none() {
-            println!("initializing root inner rng");
             // Initialize the root RNG.
             inner.cloning_transcript = Some(inner.transcript.clone());
             let root_key = inner.root_vrf_key.clone();
