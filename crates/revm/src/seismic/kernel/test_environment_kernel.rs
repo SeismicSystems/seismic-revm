@@ -6,16 +6,17 @@ use secp256k1::SecretKey;
 use tee_service_api::get_sample_secp256k1_sk;
 
 use crate::seismic::rng::{RootRng, LeafRng};
+use crate::seismic::Kernel;
 
 use super::context::Ctx;
 use super::kernel_interface::{KernelContext, KernelKeys, KernelRng};
 
 pub struct TestKernel {
-    rng: RootRng,
-    leaf_rng: Option<LeafRng>,
-    secret_key: SecretKey,
-    eph_rng_keypair: SchnorrkelKeypair,
-    ctx: Option<Ctx>,
+    pub rng: RootRng,
+    pub leaf_rng: Option<LeafRng>,
+    pub secret_key: SecretKey,
+    pub eph_rng_keypair: SchnorrkelKeypair,
+    pub ctx: Option<Ctx>,
 }
 
 impl fmt::Debug for TestKernel {
@@ -58,7 +59,13 @@ impl KernelContext for TestKernel {
     }
 }
 
-//Dummy clone
+impl Into<Kernel> for TestKernel {
+    fn into(self) -> Kernel {
+        Kernel::from_boxed(Box::new(self))
+    }
+}
+
+// TODO: Change this Dummy clone
 impl Clone for TestKernel {
     fn clone(&self) -> Self {
         Self {
