@@ -184,7 +184,6 @@ mod test {
     #[test]
     fn test_clone_rng_before_init() {
         let root_rng = RootRng::test_default();
-        root_rng.append_tx(&B256::from([1u8; 32]));
 
         // clone and test leaves are the same
         let root_rng_2 = root_rng.clone();
@@ -203,9 +202,9 @@ mod test {
     #[test]
     fn test_clone_rng_after_init() {
         let root_rng = RootRng::test_default();
-        root_rng.append_tx(&B256::from([1u8; 32]));
-
+    
         // fork
+        root_rng.append_tx(&B256::from([1u8; 32]));
         let _ = root_rng.fork( &[]);
 
         // clone and test rng is same
