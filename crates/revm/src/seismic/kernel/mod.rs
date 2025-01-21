@@ -16,17 +16,18 @@ impl Kernel {
     pub fn from_boxed(inner: Box<dyn KernelInterface>) -> Self {
         Self(inner)
     }
+
+    /// A default kernel for testing that loads sample keys.
+    /// We do not implement the Default trait becuase
+    /// it might be misleading or error-prone.
+    pub fn test_default() -> Self {
+        Self(Box::new(TestKernel::default()))
+    }
 }
 
 impl Clone for Kernel {
     fn clone(&self) -> Self {
         Kernel(clone_box(&*self.0))
-    }
-}
-
-impl Default for Kernel {
-    fn default() -> Self {
-        Self(Box::new(TestKernel::default()))
     }
 }
 
