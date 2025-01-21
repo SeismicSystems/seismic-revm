@@ -87,7 +87,7 @@ impl RootRng {
         }
     }
 
-    /// A default rng for testing
+    /// A default rng for testing that loads a sample keypair.
     /// We do not implement the Default trait becuase
     /// it might be misleading or error-prone.
     pub fn test_default() -> Self {

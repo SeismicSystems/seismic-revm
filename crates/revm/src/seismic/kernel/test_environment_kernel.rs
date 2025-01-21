@@ -65,7 +65,11 @@ impl Into<Kernel> for TestKernel {
     }
 }
 
-// TODO: Change this Dummy clone
+/// TestKernel::clone() does not clone the leaf_rng
+/// becayse cloning merlin::TranscriptRng is intentionally difficult
+/// by the underlying merlin crate
+/// leaf_rng is meant to be used once per call simulation, so
+/// it should not be cloned mid-simulation
 impl Clone for TestKernel {
     fn clone(&self) -> Self {
         Self {
