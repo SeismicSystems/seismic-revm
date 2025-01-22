@@ -58,19 +58,21 @@ Precompile Logic
 /// We set the final `gas_used` = `cost`.
 pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
-
+    println!("input: {:?}", input);
     let aes_key = parse_aes_key(&input[0..32])?;
+    println!("aes key: {:?}", aes_key);
     validate_nonce_length(&input[32..44])?;
-
+    println!("nonce: {:?}", (&input[32..44]).to_vec());
     let nonce = (&input[32..44]).to_vec();
     let plaintext = &input[44..];
-
+    println!("plaintext: {:?}", plaintext);
     let cost = calculate_cost(plaintext.len());
+    println!("cost: {:?}", cost);
     validate_gas_limit(cost, gas_limit)?;
-
+    println!("gas limit: {:?}", gas_limit);
     let ciphertext = aes_encrypt(&aes_key, &plaintext, nonce)
         .map_err(|e| PrecompileError::Other(format!("Encryption failed: {e}")))?;
-
+    println!("ciphertext: {:?}", ciphertext);
     Ok(PrecompileOutput::new(cost, ciphertext.into()))
 }
 
