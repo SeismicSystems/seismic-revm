@@ -49,7 +49,7 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     println!("aes_key: {:?}", hex::encode(aes_key));
     validate_nonce_length(&input[32..44])?;
     let nonce = (&input[32..44]).to_vec();
-    println!("nonce: {:?}", hex::encode(nonce));
+    println!("nonce: {:?}", hex::encode(nonce.nonce()));
 
     let ciphertext = &input[44..];
 

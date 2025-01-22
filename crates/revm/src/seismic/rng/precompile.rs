@@ -75,9 +75,10 @@ Precompile Logic
 /// Once the leaf RNG is initialized
 ///
 /// Filling bytes once the rng is initialized.
-/// * Bytes are filled by squeezing the keccak sponge, so we again charge 6 gas
-/// per byte. 32 * 6 = 192 gas for keccak sponge. This is waived on the first call
-/// to the leaf_rng, since it is included in the initialization cost.
+/// * Filling bytes makes use of the keccak sponge. The sponge must refill
+/// every 166 bits = 41.5 bytes, so we use 42 as the bus size and charge 6 gas
+/// per word. I.e. the caller is charged ceil(fill_len/41)*6 gas
+/// TODO: double check this. Feels too high
 ///
 /// To calculate the base cost of the RNG precompile, we get:
 /// 100 gas from setting up Strobe128
