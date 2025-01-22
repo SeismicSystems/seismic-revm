@@ -1,4 +1,4 @@
-use crate::primitives::{Address, Bytes};
+use crate::primitives::{Address, Bytes, hex};
 
 use revm_precompile::{
     u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult,
@@ -43,10 +43,13 @@ Precompile Logic
 /// Refer to the encryption file for further discussion.
 pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
+    println!("input: {:?}", hex::encode(input));
 
     let aes_key = parse_aes_key(&input[0..32])?;
+    println!("aes_key: {:?}", hex::encode(aes_key));
     validate_nonce_length(&input[32..44])?;
     let nonce = (&input[32..44]).to_vec();
+    println!("nonce: {:?}", hex::encode(nonce));
 
     let ciphertext = &input[44..];
 
@@ -55,6 +58,7 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 
     let plaintext = aes_decrypt(&aes_key, &ciphertext, nonce)
         .map_err(|e| PrecompileError::Other(format!("Decryption failed: {e}")))?;
+    println!("plaintext: {:?}", hex::encode(plaintext.clone()));
 
     Ok(PrecompileOutput::new(cost, plaintext.into()))
 }
