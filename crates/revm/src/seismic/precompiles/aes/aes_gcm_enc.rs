@@ -15,10 +15,9 @@ use super::common::{
 Constants & Setup
 -------------------------------------------------------------------------- */
 
-/// On-chain address for the AES-256-GCM precompile. Adjust as desired.
+/// Register the AES encryption precompile at `0x67`.
 pub const ADDRESS: Address = u64_to_address(103);
 
-/// Register the AES encryption precompile at `0x103`.
 pub const PRECOMPILE: PrecompileWithAddress =
     PrecompileWithAddress(ADDRESS, Precompile::Standard(precompile_encrypt));
 

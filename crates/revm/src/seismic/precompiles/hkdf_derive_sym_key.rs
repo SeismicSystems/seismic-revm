@@ -9,6 +9,7 @@ use sha2::Sha256;
 /* --------------------------------------------------------------------------
 Precompile Wiring
 -------------------------------------------------------------------------- */
+// Register the HKDF-based AES key derivation precompile at `0x69`.
 pub const ADDRESS: Address = u64_to_address(105);
 
 pub const PRECOMPILE: PrecompileWithAddress =

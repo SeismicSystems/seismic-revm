@@ -11,10 +11,9 @@ use tee_service_api::derive_aes_key;
 
 use super::hkdf_derive_sym_key::EXPAND_FIXED_COST;
 
-/// On-chain address for the ECDH-based AES derivation precompile.
+/// Register the ECDH-based key derivation precompile at `0x66`.
 pub const ADDRESS: Address = u64_to_address(102);
 
-/// Registration of this precompile with its address and logic entrypoint.
 pub const PRECOMPILE: PrecompileWithAddress =
     PrecompileWithAddress(ADDRESS, Precompile::Standard(derive_symmetric_key));
 

@@ -17,13 +17,11 @@ use crate::seismic::rng::LeafRng;
 /* --------------------------------------------------------------------------
 Constants & Setup
 -------------------------------------------------------------------------- */
-
-/// On-chain address for the RNG precompile. Adjust as desired.
-pub const ADDRESS: Address = u64_to_address(100);
-
 pub struct RngPrecompile;
 
-// Register the RNG precompile at `0x100`.
+// Register the RNG precompile at `0x64`.
+pub const ADDRESS: Address = u64_to_address(100);
+
 // The RNG precompile is a stateful precompile based on Merlin transcripts
 // At each transaction in a block executes, the tx hash is appended to
 // the transcript as domain seperation, causing identical transactions
