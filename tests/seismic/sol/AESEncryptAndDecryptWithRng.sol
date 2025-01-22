@@ -2,12 +2,11 @@
 pragma solidity ^0.8.0;
 
 contract AES {
-    bytes32 public constant AES_KEY = hex"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
     bytes public constant PLAINTEXT = hex"0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f";
 
-    suint96 public NONCE;
+    suint96 NONCE;
+    suint256 AES_KEY;
     bytes public encryptedData;
-    bytes public decryptedData;
 
     /// @notice Generates a random nonce using seismicRng.
     function updateNonce() public {
@@ -15,6 +14,14 @@ contract AES {
         NONCE = suint96(suint256(rngOutput)); 
     }
 
+    /// @param _aes_key The AES key to use for encryption, in suint format.
+    function set_aes_key(suint256 _aes_key) public {
+        AES_KEY = _aes_key;
+    }
+
+    function set_hardcoded_aes_key() public {
+        AES_KEY = suint256(bytes32(hex"7e34abdcd62eade2e803e0a8123a0015ce542b380537eff288d6da420bcc2d3b"));
+    }
 
     /// @notice Encrypts the hardcoded plaintext and stores the ciphertext in storage.
     function encryptAndStore() public {
@@ -24,6 +31,7 @@ contract AES {
 
         (bool success, bytes memory output) = AESEncryptAddr.staticcall(input);
         require(success, "Precompile encryption call failed");
+        require(output.length > 0, "Encryption call returned no output");
 
         encryptedData = output;
     }
@@ -39,9 +47,7 @@ contract AES {
         (bool success, bytes memory output) = AESDecryptAddr.staticcall(input);
         require(success, "Precompile decryption call failed");
 
-        decryptedData = output;
-
-        require(keccak256(decryptedData) == keccak256(PLAINTEXT), "Decrypted data does not match plaintext");
+        require(keccak256(output) == keccak256(PLAINTEXT), "Decrypted data does not match plaintext");
     }
 
     function seismicRng() public view returns (bytes32) {
@@ -61,8 +67,16 @@ contract AES {
          return output32;
      }
 
-    function testEndToEnd() public {
+    function testEndToEnd(suint256 aes_key) public {
         updateNonce();
+        set_aes_key(aes_key);
+        encryptAndStore();
+        decryptAndVerify();
+    }
+    
+    function testEndToEndHardcoded() public {
+        updateNonce();
+        set_hardcoded_aes_key();
         encryptAndStore();
         decryptAndVerify();
     }
@@ -71,6 +85,8 @@ contract AES {
 // EVMVersion: >=mercury
 // ====
 // ----
-// updateNonce() 
+// testEndToEnd(suint256): hex"7e34abdcd62eade2e803e0a8123a0015ce542b380537eff288d6da420bcc2d3b"
+// updateNonce()
+// set_aes_key(suint256): hex"7e34abdcd62eade2e803e0a8123a0015ce542b380537eff288d6da420bcc2d3b"
 // encryptAndStore()  
 // decryptAndVerify()
