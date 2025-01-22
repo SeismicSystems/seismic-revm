@@ -58,7 +58,7 @@ Precompile Logic
 /// so we price a base cost of 100 gas plus 6×ceil(input size/32).
 /// The transcripts also use points on the Ristretto group for Curve25519, and require
 /// scalar multiplications. Scalar multiplication is optimized through the use of the
-/// Montgomery ladder for Curve25519, so this should beas fast or faster than
+/// Montgomery ladder for Curve25519, so this should be as fast or faster than
 /// a Secp256k1 scalar multiplication. We bound the cost at that of ecrecover,
 /// which is 3000 gas
 ///
@@ -68,18 +68,18 @@ Precompile Logic
 /// is initialized by adding 13 bytes to the transcript and then keying the rng
 /// (essentially hashing) using strobe128.
 /// * (optional) if personalization bytes are provided, the RNG is seeded with
-/// those bytes
+/// those pers bytes
 /// * Each leaf rng requires forking the root_rng, which involves adding
-/// a 32 byte tx_hash and label 2 bytes are added per transaction. Then a seperate
+/// a 32 byte tx_hash and label 2 bytes per transaction. Then a seperate
 /// VRF Hash function is used that performs a single EC scalar multiplication
 /// * The leaf RNG is initialized, which involves keying the rng based on 32 random bytes
 /// from the parent RNG.
-/// Once the leaf RNG is initialized
 ///
 /// Filling bytes once the rng is initialized.
 /// * Filling bytes makes use of the keccak sponge. The sponge must refill
 /// every 166 bits = 41.5 bytes, so we use 41 as the bus size and charge 6 gas
 /// per word. I.e. the caller is charged ceil(fill_len/41)*6*41 gas
+/// 
 /// TODO: double check this. Feels too high
 ///
 /// To calculate the base init cost of the RNG precompile, we get:
@@ -88,7 +88,7 @@ Precompile Logic
 /// 3000 gas for the EC scalar multiplication
 /// We add a 50 percent buffer to our gas calculations, which may be lowered in the future
 ///
-/// BASE_GAS = Round((100 + 474 + 3000) * 1.5) = 5400
+/// RNG_INIT_BASE = Round((100 + 474 + 3000) * 1.5) = 5400
 
 const MIN_INPUT_LENGTH: usize = 2;
 const RNG_INIT_BASE: u64 = 5400;
