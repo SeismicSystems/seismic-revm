@@ -13,7 +13,6 @@ use crate::{
     seismic::rng::precompile::RngPrecompile,
     Context, ContextPrecompiles, Frame,
 };
-use alloy_primitives::B256;
 use revm_interpreter::{opcode::InstructionTables, Host, InterpreterAction, SharedMemory};
 use revm_precompile::{secp256r1, PrecompileSpecId};
 use std::sync::Arc;
@@ -70,36 +69,4 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
         precompiles.extend([RngPrecompile::address_and_precompile::<DB>()]);
     }
     precompiles
-}
-
-#[inline]
-pub fn set_up_seismic_kernel<SPEC: Spec, EXT, DB: Database>(
-    context: &mut Context<EXT, DB>,
-) -> Result<(), EVMError<DB::Error>> {
-    // TODO: if we use this, modify the Kernel to not have it in CTX
-    let hash = get_block_hash_from_context::<SPEC, EXT, DB>(context);
-
-    let kernel = &mut context.evm.kernel;
-    kernel.ctx_mut().unwrap().transaction_hash = hash;
-
-    Ok(())
-}
-
-pub fn get_block_hash_from_context<SPEC: Spec, EXT, DB: Database>(
-    context: &mut Context<EXT, DB>,
-) -> B256 {
-    // get the current block number from the BlockEnv
-    // TODO: check this u64 conversion actually works
-    let block_number = context.evm.env.block.number;
-    let block_number_bytes: [u8; 32] = block_number.to_le_bytes();
-    let block_number_u64: u64 = u64::from_le_bytes(block_number_bytes[0..8].try_into().unwrap());
-
-    // get the block hash from the DB
-    // defaults to zero if the block is not found in the DB
-    // TODO: is this default ok?
-    context
-        .evm
-        .block_hash(block_number_u64)
-        .map_err(|e| context.evm.error = Err(e)) // Log the error to context.evm.error
-        .unwrap_or(B256::ZERO)
 }
