@@ -78,7 +78,7 @@ Precompile Logic
 ///
 /// Filling bytes once the rng is initialized.
 /// * Filling bytes makes use of the keccak sponge. The sponge must refill
-/// every 166 bits = 41.5 bytes, so we use 42 as the bus size and charge 6 gas
+/// every 166 bits = 41.5 bytes, so we use 41 as the bus size and charge 6 gas
 /// per word. I.e. the caller is charged ceil(fill_len/41)*6*41 gas
 /// TODO: double check this. Feels too high
 ///
