@@ -43,7 +43,6 @@ Precompile Logic
 /// Refer to the encryption file for further discussion.
 pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
-    println!("input: {:?}", hex::encode(input));
 
     let aes_key = parse_aes_key(&input[0..32])?;
     println!("aes_key: {:?}", hex::encode(aes_key));
@@ -52,9 +51,10 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     println!("nonce: {:?}", hex::encode(nonce.clone()));
 
     let ciphertext = &input[44..];
-
+    println!("ciphertext: {:?}", hex::encode(ciphertext));
     let cost = calculate_cost(ciphertext.len());
     validate_gas_limit(cost, gas_limit)?;
+    println!("cost: {:?}", cost);
 
     let plaintext = aes_decrypt(&aes_key, &ciphertext, nonce)
         .map_err(|e| PrecompileError::Other(format!("Decryption failed: {e}")))?;
