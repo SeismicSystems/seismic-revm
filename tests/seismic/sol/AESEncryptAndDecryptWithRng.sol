@@ -19,10 +19,6 @@ contract AES {
         AES_KEY = _aes_key;
     }
 
-    function set_hardcoded_aes_key() public {
-        AES_KEY = suint256(bytes32(hex"7e34abdcd62eade2e803e0a8123a0015ce542b380537eff288d6da420bcc2d3b"));
-    }
-
     /// @notice Encrypts the hardcoded plaintext and stores the ciphertext in storage.
     function encryptAndStore() public {
         address AESEncryptAddr = address(0x67);
@@ -74,19 +70,9 @@ contract AES {
         decryptAndVerify();
     }
     
-    function testEndToEndHardcoded() public {
-        updateNonce();
-        set_hardcoded_aes_key();
-        encryptAndStore();
-        decryptAndVerify();
-    }
 }
 // ====
 // EVMVersion: >=mercury
 // ====
 // ----
 // testEndToEnd(suint256): hex"7e34abdcd62eade2e803e0a8123a0015ce542b380537eff288d6da420bcc2d3b"
-// updateNonce()
-// set_aes_key(suint256): hex"7e34abdcd62eade2e803e0a8123a0015ce542b380537eff288d6da420bcc2d3b"
-// encryptAndStore()  
-// decryptAndVerify()
