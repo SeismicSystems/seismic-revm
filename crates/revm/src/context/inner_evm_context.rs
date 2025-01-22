@@ -77,7 +77,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             #[cfg(feature = "optimism")]
             l1_block_info: None,
             #[cfg(feature = "seismic")]
-            kernel: crate::seismic::new_test_kernel_box(env.as_ref()),
+            kernel: crate::seismic::Kernel::test_default(),
         }
     }
 

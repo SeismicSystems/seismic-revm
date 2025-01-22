@@ -69,7 +69,7 @@ impl Clone for TestKernel {
 }
 
 impl TestKernel {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             rng: RootRng::new(get_sample_schnorrkel_keypair()),
             leaf_rng: None,
@@ -78,7 +78,7 @@ impl TestKernel {
         }
     }
 
-    pub(crate) fn default() -> Self {
+    pub fn default() -> Self {
         Self {
             rng: RootRng::new(get_sample_schnorrkel_keypair()),
             leaf_rng: None,

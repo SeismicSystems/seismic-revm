@@ -1,8 +1,8 @@
+use crate::precompile::PrecompileError;
 use crate::{
     primitives::{db::Database, Address, Bytes},
     ContextPrecompile, ContextStatefulPrecompile, InnerEvmContext,
 };
-use crate::precompile::PrecompileError;
 // use crate::precompile::PrecompileErrors;
 use std::sync::Arc;
 
@@ -90,7 +90,6 @@ Precompile Logic
 ///
 /// BASE_GAS = Round((100 + 474 + 3000) * 1.5) = 5400
 
-
 const MIN_INPUT_LENGTH: usize = 2;
 const RNG_INIT_BASE: u64 = 5400;
 const RNG_PER_BYTE: u64 = 6;
@@ -109,9 +108,8 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         let gas_used = match evmctx.kernel.leaf_rng_mut_ref() {
             Some(_) => calculate_fill_cost(requested_output_len.into()),
             None => {
-                calculate_init_cost(pers.len())
-                + calculate_fill_cost(requested_output_len.into())
-            },
+                calculate_init_cost(pers.len()) + calculate_fill_cost(requested_output_len.into())
+            }
         };
 
         if gas_used > gas_limit {
@@ -120,7 +118,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
 
         // append to root_tx for domain separation
         evmctx.kernel.maybe_append_entropy();
-        let tx_hash = evmctx.kernel.ctx_ref().unwrap().transaction_hash;
+        let tx_hash = evmctx.env().tx.tx_hash;
         let rng = evmctx.kernel.root_rng_mut_ref();
         rng.append_tx(&tx_hash);
 
@@ -196,7 +194,7 @@ mod tests {
         let gas_limit = 6000;
         let input = Bytes::from(32u16.to_be_bytes()); // request 32 bytes, no pers
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
-        evmctx.kernel.ctx_ref().unwrap().transaction_hash = B256::from([0u8; 32]);
+        evmctx.env().tx.tx_hash = B256::from([0u8; 32]);
         let precompile = RngPrecompile;
 
         let result = precompile.call(&input, gas_limit, &mut evmctx);
