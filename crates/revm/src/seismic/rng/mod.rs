@@ -3,12 +3,10 @@
 //!
 //! ## Submodules
 //! - `domain_sep_rng`: Implements a domain-separated random number generator.
-//! - `precompile`: Provides the precompile to be called by other contracts.
+//! - `test`: Contains test cases for the RNG logic, e.g. domain separation, cloning, etc
 
-pub mod domain_sep_rng;
-pub mod precompile;
+mod domain_sep_rng;
+pub use domain_sep_rng::{LeafRng, RootRng};
 
 #[cfg(test)]
 mod test;
-
-pub use domain_sep_rng::{LeafRng, RootRng};

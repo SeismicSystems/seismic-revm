@@ -12,7 +12,7 @@ use revm_precompile::{
     calc_linear_cost, u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult,
 };
 
-use super::domain_sep_rng::LeafRng;
+use crate::seismic::rng::LeafRng;
 
 /* --------------------------------------------------------------------------
 Constants & Setup

@@ -1,13 +1,12 @@
 //! Handler related to Seismic chain
 
-use super::eph_key::{
+use super::precompiles::{
     aes::{aes_gcm_dec, aes_gcm_enc},
-    ecdh_derive_sym_key, hkdf_derive_sym_key,
+    ecdh_derive_sym_key, hkdf_derive_sym_key, rng
 };
 use crate::{
     handler::register::EvmHandler,
     primitives::{db::Database, spec_to_generic, EVMError, Spec, SpecId},
-    seismic::rng::precompile::RngPrecompile,
     Context, ContextPrecompiles, Frame,
 };
 use revm_interpreter::{opcode::InstructionTables, InterpreterAction, SharedMemory};
@@ -60,7 +59,7 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
             aes_gcm_dec::PRECOMPILE,
         ]);
         // extend with ContextPrecompile<DB>
-        precompiles.extend([RngPrecompile::address_and_precompile::<DB>()]);
+        precompiles.extend([rng::RngPrecompile::address_and_precompile::<DB>()]);
     }
     precompiles
 }
