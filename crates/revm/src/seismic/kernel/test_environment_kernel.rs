@@ -1,5 +1,4 @@
 use super::get_sample_schnorrkel_keypair;
-use crate::primitives::Env;
 use core::fmt;
 use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use secp256k1::SecretKey;
@@ -8,15 +7,13 @@ use tee_service_api::get_sample_secp256k1_sk;
 use crate::seismic::rng::{LeafRng, RootRng};
 use crate::seismic::Kernel;
 
-use super::context::Ctx;
-use super::kernel_interface::{KernelContext, KernelKeys, KernelRng};
+use super::kernel_interface::{KernelKeys, KernelRng};
 
 pub struct TestKernel {
     pub rng: RootRng,
     pub leaf_rng: Option<LeafRng>,
     pub secret_key: SecretKey,
     pub eph_rng_keypair: SchnorrkelKeypair,
-    pub ctx: Option<Ctx>,
 }
 
 impl fmt::Debug for TestKernel {
@@ -49,16 +46,6 @@ impl KernelKeys for TestKernel {
     }
 }
 
-impl KernelContext for TestKernel {
-    fn ctx_mut(&mut self) -> &mut Option<Ctx> {
-        &mut self.ctx
-    }
-
-    fn ctx_ref(&self) -> &Option<Ctx> {
-        &self.ctx
-    }
-}
-
 impl Into<Kernel> for TestKernel {
     fn into(self) -> Kernel {
         Kernel::from_boxed(Box::new(self))
@@ -77,19 +64,17 @@ impl Clone for TestKernel {
             leaf_rng: None,
             secret_key: self.secret_key,
             eph_rng_keypair: self.eph_rng_keypair.clone(),
-            ctx: self.ctx.clone(),
         }
     }
 }
 
 impl TestKernel {
-    pub(crate) fn new(env: &Env) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             rng: RootRng::new(get_sample_schnorrkel_keypair()),
             leaf_rng: None,
             secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
-            ctx: Some(Ctx::new_from_env(env)),
         }
     }
 
@@ -99,7 +84,6 @@ impl TestKernel {
             leaf_rng: None,
             secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
-            ctx: Some(Ctx::default()),
         }
     }
 }

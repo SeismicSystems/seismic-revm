@@ -1,12 +1,10 @@
 pub mod kernel_interface;
-use dyn_clone::clone_box;
 pub use kernel_interface::KernelInterface;
-mod context;
 mod test_environment_kernel;
-use schnorrkel::{keys::Keypair as SchnorrkelKeypair, ExpansionMode, MiniSecretKey};
 pub use test_environment_kernel::TestKernel;
 
-use crate::primitives::Env;
+use dyn_clone::clone_box;
+use schnorrkel::{keys::Keypair as SchnorrkelKeypair, ExpansionMode, MiniSecretKey};
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug)]
@@ -43,11 +41,6 @@ impl DerefMut for Kernel {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.0
     }
-}
-
-pub fn new_test_kernel_box(env: &Env) -> Kernel {
-    let kernel = TestKernel::new(env);
-    Kernel::from_boxed(Box::new(kernel))
 }
 
 pub fn get_sample_schnorrkel_keypair() -> SchnorrkelKeypair {

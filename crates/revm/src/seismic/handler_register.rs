@@ -1,11 +1,8 @@
 //! Handler related to Seismic chain
 
-use super::{
-    eph_key::{
-        aes::{aes_gcm_dec, aes_gcm_enc},
-        ecdh_derive_sym_key, hkdf_derive_sym_key,
-    },
-    kernel::new_test_kernel_box,
+use super::eph_key::{
+    aes::{aes_gcm_dec, aes_gcm_enc},
+    ecdh_derive_sym_key, hkdf_derive_sym_key,
 };
 use crate::{
     handler::register::EvmHandler,
@@ -13,7 +10,7 @@ use crate::{
     seismic::rng::precompile::RngPrecompile,
     Context, ContextPrecompiles, Frame,
 };
-use revm_interpreter::{opcode::InstructionTables, Host, InterpreterAction, SharedMemory};
+use revm_interpreter::{opcode::InstructionTables, InterpreterAction, SharedMemory};
 use revm_precompile::{secp256r1, PrecompileSpecId};
 use std::sync::Arc;
 
@@ -29,9 +26,6 @@ pub fn seismic_handle_register<DB: Database, EXT>(handler: &mut EvmHandler<'_, E
 fn validate_tx_against_state<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
 ) -> Result<(), EVMError<DB::Error>> {
-    if context.evm.kernel.ctx_is_empty() {
-        context.evm.kernel = new_test_kernel_box(context.env())
-    }
     crate::handler::mainnet::validate_tx_against_state::<SPEC, EXT, DB>(context)
 }
 
