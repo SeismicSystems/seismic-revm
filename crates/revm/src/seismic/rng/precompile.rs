@@ -102,7 +102,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         gas_limit: u64,
         evmctx: &mut InnerEvmContext<DB>,
     ) -> PrecompileResult {
-        pritnln!("RNG input: {:?}", input);
+        println!("RNG input: {:?}", input);
         let gas_used = match evmctx.kernel.leaf_rng_mut_ref() {
             Some(_) => RNG_REPEAT_BASE,
             None => calculate_cost(input.len()),
