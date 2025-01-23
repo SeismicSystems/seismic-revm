@@ -63,8 +63,11 @@ Precompile Logic
 /// The transcripts also use points on the Ristretto group for Curve25519, and require
 /// scalar multiplications. Scalar multiplication is optimized through the use of the
 /// Montgomery ladder for Curve25519, so this should be as fast or faster than
-/// a Secp256k1 scalar multiplication. We bound the cost at that of ecrecover,
-/// which is 3000 gas
+/// a Secp256k1 scalar multiplication. Benchmarks by XRLP support this:  https://xrpl.org/blog/2014/curves-with-a-twist
+/// We bound the cost at that of ecrecover, which performs 3 scep256k1 
+/// scalar multiplications, a point addition, as well as some other computation. 
+/// Charging the same amount as ecrecover, i.e.3000 gas, very conservative,
+/// but allows us to lower the cost later on.
 ///
 /// ### Pricing RNG Operations
 /// The cost of the initializing the leaf_rng comes from the following:
@@ -90,11 +93,11 @@ Precompile Logic
 /// 3000 gas for the EC scalar multiplication
 /// We add a 50 percent buffer to our gas calculations, which may be lowered in the future
 ///
-/// RNG_INIT_BASE = Round((100 + 395 + 3000) * 1.5) = 5400
+/// RNG_INIT_BASE = Round(100 + 395 + 3000) = 3500
 /// fill_cost = ceil(fill_len/32)*5
 
 const MIN_INPUT_LENGTH: usize = 2;
-const RNG_INIT_BASE: u64 = 5400;
+const RNG_INIT_BASE: u64 = 3500;
 const STROBE128WORD: u64 = 5;
 
 impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
@@ -152,7 +155,7 @@ pub fn get_leaf_rng<DB: Database>(
 }
 
 pub(crate) fn calculate_init_cost(pers_len: usize) -> u64 {
-    calc_linear_cost(1, pers_len, RNG_INIT_BASE, STROBE128WORD)
+    calc_linear_cost_u32(pers_len, RNG_INIT_BASE, STROBE128WORD)
 }
 
 pub(crate) fn calculate_fill_cost(fill_len: usize) -> u64 {
@@ -204,7 +207,7 @@ mod tests {
         assert!(result.is_ok(), "Should succeed without personalization");
 
         let output = result.unwrap();
-        assert_eq!(output.gas_used, 5646, "Should consume exactly 5406 gas");
+        assert_eq!(output.gas_used, 3505, "Should consume exactly 3505 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
 
@@ -212,8 +215,8 @@ mod tests {
     fn test_rng_init_with_pers() {
         let gas_limit = 6000;
         let mut input = 32u16.to_be_bytes().to_vec();
-        input.extend(vec![1, 2, 3, 4]); // use 4 bytes of pers data
-        let input = Bytes::from(Bytes::from(input)); // with pers
+        input.extend(vec![1, 2, 3, 4]); // use 4 pers bytes, gets rounted up to one word
+        let input = Bytes::from(Bytes::from(input));
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
         let precompile = RngPrecompile;
 
@@ -221,7 +224,7 @@ mod tests {
         assert!(result.is_ok(), "Should succeed with personalization");
 
         let output = result.unwrap();
-        assert_eq!(output.gas_used, 5670, "Should consume exactly 5424 gas");
+        assert_eq!(output.gas_used, 3510, "Should consume exactly 3510 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
 
@@ -240,13 +243,13 @@ mod tests {
         assert!(result.is_ok(), "Should succeed with initialized RNG");
 
         let output = result.unwrap();
-        assert_eq!(output.gas_used, 246, "Should consume exactly 6 gas");
+        assert_eq!(output.gas_used, 5, "Should consume exactly 5 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
 
     #[test]
     fn test_rng_out_of_gas_on_init() {
-        let gas_limit = 5000;
+        let gas_limit = 2500; // less than the init cost
         let input = Bytes::from(32u16.to_be_bytes());
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
         let precompile = RngPrecompile;
