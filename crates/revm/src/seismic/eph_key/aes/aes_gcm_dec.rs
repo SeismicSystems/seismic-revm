@@ -42,6 +42,7 @@ Precompile Logic
 /// **Gas Model**:
 /// Refer to the encryption file for further discussion.
 pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+    println!("input: {:?}", hex::encode(input.clone()));
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
 
     let aes_key = parse_aes_key(&input[0..32])?;
