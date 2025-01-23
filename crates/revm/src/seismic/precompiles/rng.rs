@@ -3,13 +3,12 @@ use crate::{
     primitives::{db::Database, Address, Bytes},
     ContextPrecompile, ContextStatefulPrecompile, InnerEvmContext,
 };
-// use crate::precompile::PrecompileErrors;
 use std::sync::Arc;
 
 use crate::precompile::Error as PCError;
 use rand_core::RngCore;
 use revm_precompile::{
-    calc_linear_cost, u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult,
+    calc_linear_cost, calc_linear_cost_u32, u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult
 };
 
 use crate::seismic::rng::LeafRng;
@@ -52,8 +51,15 @@ Precompile Logic
 /// ### Pricing Fundamental Operations
 /// The RNG precompile uses Merlin transcripts that rely on the Strobe128 hash function.
 /// Strobe uses the keccak256 sponge, which has an evm opcode cost of
-/// g=30+6×ceil(input size/32). Strobe128 has a more complex initialization than SHA,
-/// so we price a base cost of 100 gas plus 6×ceil(input size/32).
+/// g=30+6×ceil(input size/32). We have a more complex initialization than SHA,
+/// so we price a base cost of 100 gas. However, Strobe128 is designed for 128 bit security
+/// insead of SHA3's 256 bit security, which allows it to work faster. The dominating cost
+/// for the keccak256 sponges is the keccak256 permutation. For SHA3, you permute
+/// once per 136 bytes of data absorbed. Ethereum simplifies this cost calculation as
+/// 6 bytes per word absorbed, where a word is 32 bytes. Strobe128, on the other hand,
+/// can absorb/sqeeze 166 bytes before it needs to run the keccak256 permutation.
+/// 136 / 166 * 6 = 4.9, which we round up to 5 gas, instead of 6 gas per word. 
+/// 
 /// The transcripts also use points on the Ristretto group for Curve25519, and require
 /// scalar multiplications. Scalar multiplication is optimized through the use of the
 /// Montgomery ladder for Curve25519, so this should be as fast or faster than
@@ -64,7 +70,7 @@ Precompile Logic
 /// The cost of the initializing the leaf_rng comes from the following:
 /// * The Root RNG initialization requires a running hash of the transcript. The Root RNG
 /// is initialized by adding 13 bytes to the transcript and then keying the rng
-/// (essentially hashing) using strobe128.
+/// (essentially hashing) using Strobe128.
 /// * (optional) if personalization bytes are provided, the RNG is seeded with
 /// those pers bytes
 /// * Each leaf rng requires forking the root_rng, which involves adding
@@ -74,24 +80,22 @@ Precompile Logic
 /// from the parent RNG.
 ///
 /// Filling bytes once the rng is initialized.
-/// * Filling bytes makes use of the keccak sponge. The sponge must refill
-/// every 166 bits = 41.5 bytes, so we use 41 as the bus size and charge 6 gas
-/// per word. I.e. the caller is charged ceil(fill_len/41)*6*41 gas
-/// 
-/// TODO: double check this. Feels too high
+/// * Filling bytes occurs by squeezing the keccak sponge. As described above,
+/// take inspiration from ethereum and charge 5 bytes per word to account for the 
+/// cheaper Strobe parameters. 
 ///
 /// To calculate the base init cost of the RNG precompile, we get:
 /// 100 gas from setting up Strobe128
-/// (13 + len(pers) + 32 + 2 + 32) * 6 = 474 + len(pers) * 6 gas for hashing bytes
+/// (13 + len(pers) + 32 + 2 + 32) * 5 = 79*5 + len(pers) * 5  = 395 gas for hashing init root_rng bytes
 /// 3000 gas for the EC scalar multiplication
 /// We add a 50 percent buffer to our gas calculations, which may be lowered in the future
 ///
-/// RNG_INIT_BASE = Round((100 + 474 + 3000) * 1.5) = 5400
+/// RNG_INIT_BASE = Round((100 + 395 + 3000) * 1.5) = 5400
+/// fill_cost = ceil(fill_len/32)*5
 
 const MIN_INPUT_LENGTH: usize = 2;
 const RNG_INIT_BASE: u64 = 5400;
-const RNG_PER_BYTE: u64 = 6;
-const STROBE_R_BYTES: u64 = 41;
+const STROBE128WORD: u64 = 5;
 
 impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
     fn call(
@@ -148,11 +152,11 @@ pub fn get_leaf_rng<DB: Database>(
 }
 
 pub(crate) fn calculate_init_cost(pers_len: usize) -> u64 {
-    calc_linear_cost(1, pers_len, RNG_INIT_BASE, RNG_PER_BYTE)
+    calc_linear_cost(1, pers_len, RNG_INIT_BASE, STROBE128WORD)
 }
 
 pub(crate) fn calculate_fill_cost(fill_len: usize) -> u64 {
-    calc_linear_cost(STROBE_R_BYTES, fill_len, 0, RNG_PER_BYTE * STROBE_R_BYTES)
+    calc_linear_cost_u32(fill_len, 0, STROBE128WORD)
 }
 
 pub(crate) fn parse_input(input: &Bytes) -> Result<(u16, Bytes), PrecompileError> {
