@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::precompile::Error as PCError;
 use rand_core::RngCore;
 use revm_precompile::{
-    calc_linear_cost, calc_linear_cost_u32, u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult
+    calc_linear_cost_u32, u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult,
 };
 
 use crate::seismic::rng::LeafRng;
@@ -58,14 +58,14 @@ Precompile Logic
 /// once per 136 bytes of data absorbed. Ethereum simplifies this cost calculation as
 /// 6 bytes per word absorbed, where a word is 32 bytes. Strobe128, on the other hand,
 /// can absorb/sqeeze 166 bytes before it needs to run the keccak256 permutation.
-/// 136 / 166 * 6 = 4.9, which we round up to 5 gas, instead of 6 gas per word. 
-/// 
+/// 136 / 166 * 6 = 4.9, which we round up to 5 gas, instead of 6 gas per word.
+///
 /// The transcripts also use points on the Ristretto group for Curve25519, and require
 /// scalar multiplications. Scalar multiplication is optimized through the use of the
 /// Montgomery ladder for Curve25519, so this should be as fast or faster than
 /// a Secp256k1 scalar multiplication. Benchmarks by XRLP support this:  https://xrpl.org/blog/2014/curves-with-a-twist
-/// We bound the cost at that of ecrecover, which performs 3 scep256k1 
-/// scalar multiplications, a point addition, as well as some other computation. 
+/// We bound the cost at that of ecrecover, which performs 3 scep256k1
+/// scalar multiplications, a point addition, as well as some other computation.
 /// Charging the same amount as ecrecover, i.e.3000 gas, very conservative,
 /// but allows us to lower the cost later on.
 ///
@@ -84,8 +84,8 @@ Precompile Logic
 ///
 /// Filling bytes once the rng is initialized.
 /// * Filling bytes occurs by squeezing the keccak sponge. As described above,
-/// take inspiration from ethereum and charge 5 bytes per word to account for the 
-/// cheaper Strobe parameters. 
+/// take inspiration from ethereum and charge 5 bytes per word to account for the
+/// cheaper Strobe parameters.
 ///
 /// To calculate the base init cost of the RNG precompile, we get:
 /// 100 gas from setting up Strobe128
