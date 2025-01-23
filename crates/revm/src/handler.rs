@@ -111,7 +111,7 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
         handler
     }
 
-    /// Optimism with spec. Similar to [`Self::mainnet_with_spec`].
+    /// Seismic with spec. Similar to [`Self::mainnet_with_spec`].
     #[cfg(feature = "seismic")]
     pub fn seismic_with_spec(spec_id: SpecId) -> Self {
         spec_to_generic!(spec_id, Self::seismic::<SPEC>())
