@@ -1,8 +1,8 @@
-use crate::primitives::{Address, Bytes};
+use crate::primitives::Bytes;
+use crate::seismic::precompiles::AES_GCM_ENC_ADDRESS;
 
 use revm_precompile::{
-    u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult,
-    PrecompileWithAddress,
+    Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
 };
 
 use tee_service_api::aes_encrypt;
@@ -15,11 +15,10 @@ use super::common::{
 Constants & Setup
 -------------------------------------------------------------------------- */
 
-/// Register the AES encryption precompile at `0x67`.
-pub const ADDRESS: Address = u64_to_address(103);
-
-pub const PRECOMPILE: PrecompileWithAddress =
-    PrecompileWithAddress(ADDRESS, Precompile::Standard(precompile_encrypt));
+pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
+    AES_GCM_ENC_ADDRESS,
+    Precompile::Standard(precompile_encrypt),
+);
 
 /// Minimal input size:
 /// - 32 bytes for the AES key,

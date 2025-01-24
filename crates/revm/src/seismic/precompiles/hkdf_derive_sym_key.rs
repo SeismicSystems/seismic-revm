@@ -1,19 +1,21 @@
-use crate::primitives::{Address, Bytes};
+use super::HDFK_ADDRESS;
+use crate::primitives::Bytes;
+
 use hkdf::Hkdf;
 use revm_precompile::{
-    calc_linear_cost_u32, u64_to_address, Precompile, PrecompileError, PrecompileOutput,
-    PrecompileResult, PrecompileWithAddress,
+    calc_linear_cost_u32, Precompile, PrecompileError, PrecompileOutput, PrecompileResult,
+    PrecompileWithAddress,
 };
 use sha2::Sha256;
 
 /* --------------------------------------------------------------------------
 Precompile Wiring
 -------------------------------------------------------------------------- */
-// Register the HKDF-based AES key derivation precompile at `0x69`.
-pub const ADDRESS: Address = u64_to_address(105);
 
-pub const PRECOMPILE: PrecompileWithAddress =
-    PrecompileWithAddress(ADDRESS, Precompile::Standard(hkdf_derive_symmetric_key));
+pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
+    HDFK_ADDRESS,
+    Precompile::Standard(hkdf_derive_symmetric_key),
+);
 
 /* --------------------------------------------------------------------------
  Cost Constants

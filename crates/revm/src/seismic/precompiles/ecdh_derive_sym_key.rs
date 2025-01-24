@@ -1,21 +1,16 @@
+use super::{hkdf_derive_sym_key::EXPAND_FIXED_COST, HDFK_ADDRESS};
+use crate::primitives::Bytes;
+
 use bincode;
 use revm_precompile::{
-    u64_to_address, Precompile, PrecompileError, PrecompileOutput, PrecompileResult,
-    PrecompileWithAddress,
+    Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
 };
 use secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 
-use crate::primitives::{Address, Bytes};
-
 use tee_service_api::derive_aes_key;
 
-use super::hkdf_derive_sym_key::EXPAND_FIXED_COST;
-
-/// Register the ECDH-based key derivation precompile at `0x66`.
-pub const ADDRESS: Address = u64_to_address(102);
-
 pub const PRECOMPILE: PrecompileWithAddress =
-    PrecompileWithAddress(ADDRESS, Precompile::Standard(derive_symmetric_key));
+    PrecompileWithAddress(HDFK_ADDRESS, Precompile::Standard(derive_symmetric_key));
 
 /// Expected input layout:
 /// - 32 bytes: secp256k1 secret key

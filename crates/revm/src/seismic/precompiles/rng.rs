@@ -1,15 +1,16 @@
+use super::RNG_ADDRESS;
+use crate::precompile::Error as PCError;
 use crate::precompile::PrecompileError;
 use crate::{
     primitives::{db::Database, Address, Bytes},
     ContextPrecompile, ContextStatefulPrecompile, InnerEvmContext,
 };
-use std::sync::Arc;
 
-use crate::precompile::Error as PCError;
 use rand_core::RngCore;
 use revm_precompile::{
-    calc_linear_cost_u32, u64_to_address, Error as REVM_ERROR, PrecompileOutput, PrecompileResult,
+    calc_linear_cost_u32, Error as REVM_ERROR, PrecompileOutput, PrecompileResult,
 };
+use std::sync::Arc;
 
 use crate::seismic::rng::LeafRng;
 
@@ -18,9 +19,6 @@ Constants & Setup
 -------------------------------------------------------------------------- */
 pub struct RngPrecompile;
 
-// Register the RNG precompile at `0x64`.
-pub const ADDRESS: Address = u64_to_address(100);
-
 // The RNG precompile is a stateful precompile based on Merlin transcripts
 // At each transaction in a block executes, the tx hash is appended to
 // the transcript as domain seperation, causing identical transactions
@@ -28,7 +26,7 @@ pub const ADDRESS: Address = u64_to_address(100);
 impl RngPrecompile {
     pub fn address_and_precompile<DB: Database>() -> (Address, ContextPrecompile<DB>) {
         (
-            ADDRESS,
+            RNG_ADDRESS,
             ContextPrecompile::ContextStateful(Arc::new(RngPrecompile)),
         )
     }
