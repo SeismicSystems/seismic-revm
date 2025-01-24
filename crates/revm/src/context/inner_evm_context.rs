@@ -70,7 +70,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn new_with_env(db: DB, env: Box<Env>) -> Self {
         Self {
-            env: env.clone(),
+            env,
             journaled_state: JournaledState::new(SpecId::LATEST, HashSet::default()),
             db,
             error: Ok(()),
