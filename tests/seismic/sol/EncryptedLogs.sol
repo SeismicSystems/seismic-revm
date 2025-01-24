@@ -65,51 +65,16 @@ contract AESLogger {
         bytes calldata ciphertext
     ) external view onlyOwner returns (bytes memory plaintext) {
         require(ciphertext.length > 0, "Ciphertext cannot be empty");
-        suint256 aesKey = AES_KEY;
-        // 1) Calculate total length of the input to the precompile:
-        //    32 bytes for key + 12 bytes for nonce + ciphertext.length
-        uint256 totalLen = 44 + ciphertext.length;
 
-        // 2) Allocate a new bytes array in Solidity for the raw call data
-        bytes memory input = new bytes(totalLen);
+        address AESDecryptAddr = address(0x68);
+        // Pack key, nonce, and ciphertext
+        bytes memory input = abi.encodePacked(AES_KEY, nonce, ciphertext);
 
-        assembly {
-            // 'input' points to a 32-byte header (array length), so skip that:
-            //   ptr = start of the actual byte contents.
-            let ptr := add(input, 32)
-
-            // 3.1) Store the 32-byte key at [ptr .. ptr+32)
-            mstore(ptr, aesKey)
-
-            // 3.2) Store the 12-byte nonce right after the key. We want the nonce
-            //      to occupy bytes [32..44). But mstore writes a full 32 bytes.
-            //      So we do a left-shift by 160 bits so that only the lower 96 bits
-            //      (12 bytes) land at [32..44].
-            let nonceOffset := add(ptr, 32)
-            mstore(nonceOffset, shl(160, nonce))
-            // The top 20 bytes of that 32-word are zero, the bottom 12 are the nonce.
-
-            // 3.3) Copy the raw ciphertext after offset 44
-            let cipherOffset := add(ptr, 44)
-            // calldata layout: 'ciphertext' has a 32-byte length slot at the front,
-            // so skip that with 'add(ciphertext.offset, 0x20)'.
-            calldatacopy(
-                cipherOffset,
-                add(ciphertext.offset, 0x20),
-                ciphertext.length
-            )
-        }
-
-        // 4) Now we have exactly the raw bytes we want:
-        //    [0..32):  AES_KEY
-        //    [32..44): nonce
-        //    [44..):   ciphertext
-        (bool success, bytes memory output) = address(0x68).staticcall(input);
+        (bool success, bytes memory output) = AESDecryptAddr.staticcall(input);
         require(success, "AES decrypt precompile call failed");
 
         return output;
     }
-
     // -----------------------------------------------------------------------------------------
     // Public Function
     // -----------------------------------------------------------------------------------------
