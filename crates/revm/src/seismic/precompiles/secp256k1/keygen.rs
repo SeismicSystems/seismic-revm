@@ -47,6 +47,29 @@ pub fn secp256k1_validate_sk(input: &Bytes, gas_limit: u64) -> PrecompileResult 
     
 }
 
+// impl<DB: Database> ContextStatefulPrecompile<DB> for GenSecp256k1KeysPrecompile {
+//     fn call(
+//         &self,
+//         input: &Bytes,
+//         gas_limit: u64,
+//         evmctx: &mut InnerEvmContext<DB>,
+//     ) -> PrecompileResult {
+//         let gas_used = 100; // TODO: refine this constant
+//         if gas_used > gas_limit {
+//             return Err(REVM_ERROR::OutOfGas.into());
+//         }
+
+//         let mut leaf_rng =
+//             get_leaf_rng(input, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
+
+//         let (secret_key, public_key) = generate_keypair(&mut leaf_rng);
+//         let sk_bytes = bincode::serialize(&secret_key).unwrap();
+//         let pk_bytes = bincode::serialize(&public_key).unwrap();
+//         let output: [u8; 65] = [sk_bytes, pk_bytes].concat().try_into().unwrap();
+//         Ok(PrecompileOutput::new(gas_used, output.into()))
+//     }
+// }
+
 #[cfg(test)]
 mod tests {
     use super::*;
