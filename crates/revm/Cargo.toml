@@ -66,7 +66,6 @@ anyhow = "1.0.86" # Moved from dev-deps to dependencies. to refine
 schnorrkel = "0.11.2"
 merlin = "3.0.0"
 rand_core = { version = "0.6.4", default-features = false }
-tiny-keccak = { version = "2.0", features = ["tuple_hash"] }
 secp256k1 = { version = ">=0.28, <=0.29", default-features = false, features = [
     "alloc",
     "recovery",
@@ -84,7 +83,6 @@ alloy-sol-types = { version = "0.8.2", default-features = false, features = [
     "std",
 ] }
 ethers-contract = { version = "2.0.14", default-features = false }
-anyhow = "1.0.87"
 criterion = "0.5"
 indicatif = "0.17"
 reqwest = { version = "0.12" }
