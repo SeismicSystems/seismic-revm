@@ -21,9 +21,6 @@ pub type DeductCallerHandle<'a, EXT, DB> = GenericContextHandle<'a, EXT, DB>;
 /// Load Auth list for EIP-7702, and returns number of created accounts.
 pub type ApplyEIP7702AuthListHandle<'a, EXT, DB> = GenericContextHandleRet<'a, EXT, DB, u64>;
 
-/// Set-up seismic kernel
-pub type SetUpSeismicKernel<'a, EXT, DB> = GenericContextHandle<'a, EXT, DB>;
-
 /// Handles related to pre execution before the stack loop is started.
 pub struct PreExecutionHandler<'a, EXT, DB: Database> {
     /// Load precompiles
