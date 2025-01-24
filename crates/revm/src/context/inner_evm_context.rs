@@ -30,6 +30,8 @@ pub struct InnerEvmContext<DB: Database> {
     /// Used as temporary value holder to store L1 block info.
     #[cfg(feature = "optimism")]
     pub l1_block_info: Option<crate::optimism::L1BlockInfo>,
+    #[cfg(feature = "seismic")]
+    pub kernel: crate::seismic::Kernel,
 }
 
 impl<DB: Database + Clone> Clone for InnerEvmContext<DB>
@@ -44,6 +46,8 @@ where
             error: self.error.clone(),
             #[cfg(feature = "optimism")]
             l1_block_info: self.l1_block_info.clone(),
+            #[cfg(feature = "seismic")]
+            kernel: self.kernel.clone(),
         }
     }
 }
@@ -57,6 +61,8 @@ impl<DB: Database> InnerEvmContext<DB> {
             error: Ok(()),
             #[cfg(feature = "optimism")]
             l1_block_info: None,
+            #[cfg(feature = "seismic")]
+            kernel: crate::seismic::Kernel::test_default(),
         }
     }
 
@@ -70,6 +76,8 @@ impl<DB: Database> InnerEvmContext<DB> {
             error: Ok(()),
             #[cfg(feature = "optimism")]
             l1_block_info: None,
+            #[cfg(feature = "seismic")]
+            kernel: crate::seismic::Kernel::test_default(),
         }
     }
 
@@ -85,7 +93,16 @@ impl<DB: Database> InnerEvmContext<DB> {
             error: Ok(()),
             #[cfg(feature = "optimism")]
             l1_block_info: self.l1_block_info,
+            #[cfg(feature = "seismic")]
+            kernel: self.kernel,
         }
+    }
+
+    //builder method for passing in different kernel instances
+    #[cfg(feature = "seismic")]
+    pub fn with_kernel(mut self, kernel: crate::seismic::Kernel) -> Self {
+        self.kernel = kernel;
+        self
     }
 
     /// Returns the configured EVM spec ID.
