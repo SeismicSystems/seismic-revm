@@ -2,12 +2,12 @@
 
 use super::precompiles::{
     aes::{aes_gcm_dec, aes_gcm_enc},
-    ecdh_derive_sym_key, hkdf_derive_sym_key, rng
+    ecdh_derive_sym_key, hkdf_derive_sym_key, rng,
 };
 use crate::{
     handler::register::EvmHandler,
     primitives::{db::Database, spec_to_generic, Spec, SpecId},
-    ContextPrecompiles
+    ContextPrecompiles,
 };
 use revm_precompile::{secp256r1, PrecompileSpecId};
 use std::sync::Arc;
