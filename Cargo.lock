@@ -3591,7 +3591,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "tee_service_api",
- "tiny-keccak",
  "tokio",
 ]
 
