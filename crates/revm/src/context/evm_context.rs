@@ -529,7 +529,7 @@ pub(crate) mod test_utils {
     ) -> EvmContext<CacheDB<EmptyDB>> {
         EvmContext {
             inner: InnerEvmContext {
-                env: env.clone(),
+                env,
                 journaled_state: JournaledState::new(SpecId::CANCUN, HashSet::default()),
                 db,
                 error: Ok(()),
@@ -546,7 +546,7 @@ pub(crate) mod test_utils {
     pub fn create_empty_evm_context(env: Box<Env>, db: EmptyDB) -> EvmContext<EmptyDB> {
         EvmContext {
             inner: InnerEvmContext {
-                env: env.clone(),
+                env,
                 journaled_state: JournaledState::new(SpecId::CANCUN, HashSet::default()),
                 db,
                 error: Ok(()),
