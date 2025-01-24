@@ -20,6 +20,7 @@
 pub mod aes;
 pub mod ecdh_derive_sym_key;
 pub mod hkdf_derive_sym_key;
+pub mod secp256k1;
 pub mod rng;
 
 use revm_precompile::{u64_to_address, Address};
@@ -30,3 +31,4 @@ pub const ECDH_ADDRESS: Address = u64_to_address(101); // Hex address `0x65`.
 pub const AES_GCM_ENC_ADDRESS: Address = u64_to_address(102); // Hex address `0x66`.
 pub const AES_GCM_DEC_ADDRESS: Address = u64_to_address(103); // Hex address `0x67`.
 pub const HDFK_ADDRESS: Address = u64_to_address(104); // Hex address `0x68`.
+pub const SECP256K1_VALIDATE_SK_ADDRESS: Address = u64_to_address(105); // Hex address `0x69`.
