@@ -66,7 +66,7 @@ contract AESLogger {
     ) external view onlyOwner returns (bytes memory plaintext) {
         require(ciphertext.length > 0, "Ciphertext cannot be empty");
 
-        address AESDecryptAddr = address(0x68);
+        address AESDecryptAddr = address(0x67);
         // Pack key, nonce, and ciphertext
         bytes memory input = abi.encodePacked(AES_KEY, nonce, ciphertext);
 
@@ -118,7 +118,7 @@ contract AESLogger {
         uint96 nonce,
         bytes memory plaintext
     ) internal view returns (bytes memory ciphertext) {
-        address AESEncryptAddr = address(0x67);
+        address AESEncryptAddr = address(0x66);
         bytes memory input = abi.encodePacked(AES_KEY, nonce, plaintext);
 
         (bool success, bytes memory output) = AESEncryptAddr.staticcall(input);
