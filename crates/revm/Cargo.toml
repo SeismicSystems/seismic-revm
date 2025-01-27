@@ -56,10 +56,6 @@ alloy-primitives = { version = "0.8.8", default-features = false, features = [
     "rlp",
     "map",
 ] }
-alloy-rlp = { version = "0.3", default-features = false, features = [
-    "arrayvec",
-    "derive",
-] }
 
 #seismic
 anyhow = "1.0.86" # Moved from dev-deps to dependencies. to refine
