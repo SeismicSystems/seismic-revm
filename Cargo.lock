@@ -3567,7 +3567,6 @@ dependencies = [
  "alloy-rlp",
  "alloy-sol-types",
  "alloy-transport",
- "anyhow",
  "auto_impl",
  "cfg-if",
  "criterion",
