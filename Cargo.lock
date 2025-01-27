@@ -3570,7 +3570,6 @@ dependencies = [
  "alloy-transport",
  "anyhow",
  "auto_impl",
- "bincode",
  "cfg-if",
  "criterion",
  "dyn-clone",
