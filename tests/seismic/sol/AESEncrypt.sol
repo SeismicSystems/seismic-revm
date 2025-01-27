@@ -10,7 +10,7 @@ contract AESENCRYPT {
     /// returns the encrypted bytes.
     function AESEncrypt(bytes32 aes_key, uint96 nonce, bytes memory plaintext) public view returns (bytes memory) {
         // Address of the precompiled contract
-        address AESEncryptAddr = address(0x67);
+        address AESEncryptAddr = address(0x66);
 
         // Concatenate secret key and public key
         bytes memory input = abi.encodePacked(aes_key, nonce, plaintext);

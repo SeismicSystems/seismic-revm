@@ -8,7 +8,7 @@ contract DERIVEAESKEY {
     /// @return result The derived AES key as bytes32.
     function deriveAESKey(bytes32 sk, bytes memory pk) public view returns (bytes32 result) {
         // Address of the precompiled contract
-        address deriveAESKeyPrecompile = address(0x66);
+        address deriveAESKeyPrecompile = address(0x65);
 
         // Concatenate secret key and public key
         bytes memory input = abi.encodePacked(sk, pk);
