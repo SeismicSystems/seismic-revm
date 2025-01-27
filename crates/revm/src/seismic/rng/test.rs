@@ -1,5 +1,5 @@
 use super::*;
-use alloy_primitives::B256;
+use crate::primitives::B256;
 use rand_core::RngCore;
 use schnorrkel::{keys::Keypair as SchnorrkelKeypair, ExpansionMode};
 use std::str::FromStr;

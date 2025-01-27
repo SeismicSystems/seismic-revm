@@ -95,7 +95,7 @@ pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::hex;
+    use crate::primitives::hex;
     use revm_precompile::{PrecompileError, PrecompileErrors};
 
     /// 1) Tests normal usage with valid 65-byte input,

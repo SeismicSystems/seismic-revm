@@ -7,7 +7,7 @@
 //!
 //! This module is heavily inspired Oasis Network's RNG implementation.
 use crate::seismic::kernel::get_sample_schnorrkel_keypair;
-use alloy_primitives::B256;
+use crate::primitives::B256;
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 use schnorrkel::keys::Keypair as SchnorrkelKeypair;

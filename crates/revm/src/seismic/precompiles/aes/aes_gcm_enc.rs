@@ -24,6 +24,7 @@ pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
 /// - 32 bytes for the AES key,
 /// + 12 bytes for the nonce,
 /// + 0+ bytes for plaintext (we allow empty plaintext).
+///
 /// = at least 40 if you want to allow zero-length plaintext.
 pub const MIN_INPUT_LENGTH: usize = 44;
 
@@ -59,12 +60,12 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let aes_key = parse_aes_key(&input[0..32])?;
     
     validate_nonce_length(&input[32..44])?;
-    let nonce = (&input[32..44]).to_vec();
+    let nonce = (input[32..44]).to_vec();
     
     let plaintext = &input[44..];
     let cost = calculate_cost(plaintext.len());
     validate_gas_limit(cost, gas_limit)?;
-    let ciphertext = aes_encrypt(&aes_key.into(), &plaintext, nonce)
+    let ciphertext = aes_encrypt(&aes_key.into(), plaintext, nonce)
         .map_err(|e| PrecompileError::Other(format!("Encryption failed: {e}")))?;
 
     Ok(PrecompileOutput::new(cost, ciphertext.into()))
