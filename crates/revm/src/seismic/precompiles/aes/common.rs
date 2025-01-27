@@ -1,4 +1,3 @@
-use aes_gcm::{Aes256Gcm, Key};
 use revm_precompile::{calc_linear_cost, PrecompileError};
 
 /// The below gas cost are very rough estimates.
@@ -22,8 +21,10 @@ pub(crate) fn validate_input_length(
     Ok(())
 }
 
-pub(crate) fn parse_aes_key(slice: &[u8]) -> Result<Key<Aes256Gcm>, PrecompileError> {
-    Ok(Key::<Aes256Gcm>::from_slice(slice).to_owned())
+pub(crate) fn parse_aes_key(slice: &[u8]) -> Result<[u8; 32], PrecompileError> {
+    slice
+        .try_into()
+        .map_err(|_| PrecompileError::Other("invalid key length (must be 32 bytes)".to_string()))
 }
 
 pub(crate) fn validate_nonce_length(slice: &[u8]) -> Result<(), PrecompileError> {

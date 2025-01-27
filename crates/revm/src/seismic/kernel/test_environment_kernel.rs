@@ -46,9 +46,9 @@ impl KernelKeys for TestKernel {
     }
 }
 
-impl Into<Kernel> for TestKernel {
-    fn into(self) -> Kernel {
-        Kernel::from_boxed(Box::new(self))
+impl From<TestKernel> for Kernel {
+    fn from(val: TestKernel) -> Self {
+        Kernel::from_boxed(Box::new(val))
     }
 }
 
@@ -68,17 +68,14 @@ impl Clone for TestKernel {
     }
 }
 
+impl Default for TestKernel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TestKernel {
     pub fn new() -> Self {
-        Self {
-            rng: RootRng::new(get_sample_schnorrkel_keypair()),
-            leaf_rng: None,
-            secret_key: get_sample_secp256k1_sk(),
-            eph_rng_keypair: get_sample_schnorrkel_keypair(),
-        }
-    }
-
-    pub fn default() -> Self {
         Self {
             rng: RootRng::new(get_sample_schnorrkel_keypair()),
             leaf_rng: None,

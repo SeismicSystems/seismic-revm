@@ -32,72 +32,81 @@ impl RngPrecompile {
     }
 }
 
+const MIN_INPUT_LENGTH: usize = 2;
+const RNG_INIT_BASE: u64 = 3500;
+const STROBE128WORD: u64 = 5;
+
 /* --------------------------------------------------------------------------
 Precompile Logic
 -------------------------------------------------------------------------- */
 /// # RNG Precompile
 ///
 /// ## Overview
-/// We interpret the input as a [u8] slice of bytes used as personalization
+/// We interpret the input as a `[u8]` slice of bytes used as personalization
 /// for the RNG entropy.
 ///
 /// Using the pers bytes, the block rng transcript, and the block VRF key,
-/// we produce a leaf RNG that impliments the RngCore interface and query
+/// we produce a leaf RNG that implements the `RngCore` interface and query
 /// it for bytes.
 ///
 /// ## Gas Cost
+///
 /// ### Pricing Fundamental Operations
 /// The RNG precompile uses Merlin transcripts that rely on the Strobe128 hash function.
-/// Strobe uses the keccak256 sponge, which has an evm opcode cost of
-/// g=30+6×ceil(input size/32). We have a more complex initialization than SHA,
-/// so we price a base cost of 100 gas. However, Strobe128 is designed for 128 bit security
-/// insead of SHA3's 256 bit security, which allows it to work faster. The dominating cost
+/// Strobe uses the keccak256 sponge, which has an EVM opcode cost of
+/// `g=30+6×ceil(input size/32)`. We have a more complex initialization than SHA,
+/// so we price a base cost of 100 gas. However, Strobe128 is designed for 128-bit security
+/// (instead of SHA3's 256-bit security), which allows it to work faster. The dominating cost
 /// for the keccak256 sponges is the keccak256 permutation. For SHA3, you permute
 /// once per 136 bytes of data absorbed. Ethereum simplifies this cost calculation as
-/// 6 bytes per word absorbed, where a word is 32 bytes. Strobe128, on the other hand,
-/// can absorb/sqeeze 166 bytes before it needs to run the keccak256 permutation.
-/// 136 / 166 * 6 = 4.9, which we round up to 5 gas, instead of 6 gas per word.
+/// 6 gas per 32-byte word absorbed. Strobe128, on the other hand,
+/// can absorb/squeeze 166 bytes before it needs to run the keccak256 permutation.
+/// `136 / 166 * 6 ≈ 4.9`, which we round up to 5 gas, instead of 6 gas per word.
 ///
-/// The transcripts also use points on the Ristretto group for Curve25519, and require
+/// The transcripts also use points on the Ristretto group for Curve25519 and require
 /// scalar multiplications. Scalar multiplication is optimized through the use of the
 /// Montgomery ladder for Curve25519, so this should be as fast or faster than
-/// a Secp256k1 scalar multiplication. Benchmarks by XRLP support this:  https://xrpl.org/blog/2014/curves-with-a-twist
-/// We bound the cost at that of ecrecover, which performs 3 scep256k1
-/// scalar multiplications, a point addition, as well as some other computation.
-/// Charging the same amount as ecrecover, i.e.3000 gas, very conservative,
+/// a Secp256k1 scalar multiplication. Benchmarks by XRLP support this:
+/// <https://xrpl.org/blog/2014/curves-with-a-twist>
+/// We bound the cost at that of ecrecover, which performs 3 secp256k1
+/// scalar multiplications, a point addition, plus some other computation.
+/// Charging the same amount as ecrecover (3000 gas) is very conservative
 /// but allows us to lower the cost later on.
 ///
 /// ### Pricing RNG Operations
-/// The cost of the initializing the leaf_rng comes from the following:
-/// * The Root RNG initialization requires a running hash of the transcript. The Root RNG
-/// is initialized by adding 13 bytes to the transcript and then keying the rng
-/// (essentially hashing) using Strobe128.
-/// * (optional) if personalization bytes are provided, the RNG is seeded with
-/// those pers bytes
-/// * Each leaf rng requires forking the root_rng, which involves adding
-/// a 32 byte tx_hash and label 2 bytes per transaction. Then a seperate
-/// VRF Hash function is used that performs a single EC scalar multiplication
-/// * The leaf RNG is initialized, which involves keying the rng based on 32 random bytes
-/// from the parent RNG.
+/// The cost of initializing the `leaf_rng` comes from:
 ///
-/// Filling bytes once the rng is initialized.
-/// * Filling bytes occurs by squeezing the keccak sponge. As described above,
-/// take inspiration from ethereum and charge 5 bytes per word to account for the
-/// cheaper Strobe parameters.
+/// * The Root RNG initialization requires a running hash of the transcript. The Root RNG  
+///   is initialized by adding 13 bytes to the transcript and then keying the rng  
+///   (essentially hashing) using Strobe128.
+///
+/// * (optional) If personalization bytes are provided, the RNG is seeded with  
+///   those pers bytes
+///
+/// * Each leaf RNG requires forking the `root_rng`, which involves adding  
+///   a 32-byte `tx_hash` and label (2 bytes) per transaction. Then a separate  
+///   VRF hash function is used that performs a single EC scalar multiplication
+///
+/// * The leaf RNG is initialized, which involves keying the RNG based on 32 random bytes  
+///   from the parent RNG.
+///
+/// **Filling bytes** once the RNG is initialized:
+///
+/// * Filling bytes occurs by squeezing the keccak sponge. As described above,  
+///   take inspiration from Ethereum and charge 5 gas per 32-byte word to account for the  
+///   cheaper Strobe parameters.
 ///
 /// To calculate the base init cost of the RNG precompile, we get:
-/// 100 gas from setting up Strobe128
-/// (13 + len(pers) + 32 + 2 + 32) * 5 = 79*5 + len(pers) * 5  = 395 gas for hashing init root_rng bytes
-/// 3000 gas for the EC scalar multiplication
-/// We add a 50 percent buffer to our gas calculations, which may be lowered in the future
+/// - 100 gas from setting up Strobe128  
+/// - `(13 + len(pers) + 32 + 2 + 32) * 5 = 395 + 5 * len(pers)` gas for hashing init bytes  
+/// - 3000 gas for the EC scalar multiplication  
 ///
-/// RNG_INIT_BASE = Round(100 + 395 + 3000) = 3500
-/// fill_cost = ceil(fill_len/32)*5
-
-const MIN_INPUT_LENGTH: usize = 2;
-const RNG_INIT_BASE: u64 = 3500;
-const STROBE128WORD: u64 = 5;
-
+/// We add a 50% buffer to our gas calculations (which may be lowered in the future).
+///
+/// ```text
+/// RNG_INIT_BASE = round(100 + 395 + 3000) = 3500
+/// fill_cost     = ceil(fill_len / 32) * 5
+/// ```
 impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
     fn call(
         &self,
@@ -105,7 +114,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         gas_limit: u64,
         evmctx: &mut InnerEvmContext<DB>,
     ) -> PrecompileResult {
-        validate_input_length(input.len(), MIN_INPUT_LENGTH.into())?;
+        validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
         let (requested_output_len, pers) = parse_input(input)?;
 
         let gas_used = match evmctx.kernel.leaf_rng_mut_ref() {
@@ -145,7 +154,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
 pub fn get_leaf_rng<DB: Database>(
     input: &Bytes,
     evmctx: &mut InnerEvmContext<DB>,
-) -> Result<LeafRng, anyhow::Error> {
+) -> Result<LeafRng, PrecompileError> {
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
     let root_rng = &mut evmctx.kernel.root_rng_mut_ref();
     let leaf_rng = root_rng.fork(pers);
@@ -190,7 +199,7 @@ mod tests {
     use crate::db::EmptyDB;
     use crate::precompile::PrecompileError;
     use crate::precompile::PrecompileErrors;
-    use alloy_primitives::B256;
+    use crate::primitives::B256;
 
     #[test]
     fn test_rng_init_no_pers() {

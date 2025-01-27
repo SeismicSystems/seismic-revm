@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 contract AESDECRYPT {
     function AESDecrypt(bytes32 aes_key, uint96 nonce, bytes memory ciphertext) public view returns (bytes memory) {
         // Address of the precompiled contract
-        address AESDecryptAddr = address(0x68);
+        address AESDecryptAddr = address(0x67);
 
         // Concatenate secret key, nonce, and ciphertext
         bytes memory input = abi.encodePacked(aes_key, nonce, ciphertext);
