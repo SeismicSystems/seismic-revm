@@ -2,7 +2,7 @@ use super::RNG_ADDRESS;
 use crate::precompile::Error as PCError;
 use crate::precompile::PrecompileError;
 use crate::{
-    primitives::{db::Database, Address, Bytes},
+    primitives::{db::Database, Address, Bytes, hex},
     ContextPrecompile, ContextStatefulPrecompile, InnerEvmContext,
 };
 
@@ -36,6 +36,13 @@ impl RngPrecompile {
 Precompile Logic
 -------------------------------------------------------------------------- */
 /// # RNG Precompile
+/// ## Input Encoding
+/// The input to this precompile is encoded as follows:
+///
+/// | Field                    | Bytes | Description                                                                |
+/// | ------------------------ | ----- | -------------------------------------------------------------------------- |
+/// | `requested_output_len`   | 4     | Big-endian `uint32` specifying how many random bytes to generate          |
+/// | `pers`                   | n     | Remaining bytes used as personalization data (must be non-empty)          |
 ///
 /// ## Overview
 /// We interpret the input as a [u8] slice of bytes used as personalization
@@ -109,9 +116,9 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         let (requested_output_len, pers) = parse_input(input)?;
 
         let gas_used = match evmctx.kernel.leaf_rng_mut_ref() {
-            Some(_) => calculate_fill_cost(requested_output_len.into()),
+            Some(_) => calculate_fill_cost(requested_output_len as usize),
             None => {
-                calculate_init_cost(pers.len()) + calculate_fill_cost(requested_output_len.into())
+                calculate_init_cost(pers.len()) + calculate_fill_cost(requested_output_len as usize)
             }
         };
 
@@ -134,7 +141,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
 
         // Get the random bytes
         let leaf_rng = evmctx.kernel.leaf_rng_mut_ref().as_mut().unwrap();
-        let mut rng_bytes = vec![0u8; requested_output_len.into()];
+        let mut rng_bytes = vec![0u8; requested_output_len as usize];
         leaf_rng.fill_bytes(&mut rng_bytes);
         let output = Bytes::from(rng_bytes);
 
@@ -160,10 +167,25 @@ pub(crate) fn calculate_fill_cost(fill_len: usize) -> u64 {
     calc_linear_cost_u32(fill_len, 0, STROBE128WORD)
 }
 
-pub(crate) fn parse_input(input: &Bytes) -> Result<(u16, Bytes), PrecompileError> {
-    let output_len_bytes: [u8; 2] = input[0..2].try_into().unwrap();
-    let requested_output_len: u16 = u16::from_be_bytes(output_len_bytes); // first 2 bytes are the output length
-    let pers = Bytes::from(input[2..].to_vec());
+pub(crate) fn parse_input(input: &Bytes) -> Result<(u32, Bytes), PrecompileError> {
+    if input.len() < 4 {
+        return Err(PrecompileError::Other(
+            "Insufficient input: need at least 4 bytes for length".to_string(),
+        ));
+    }
+
+    let output_len_bytes: [u8; 4] = input[0..4].try_into().map_err(|_| {
+        PrecompileError::Other("Failed to read requested output length (4 bytes)".to_string())
+    })?;
+    let requested_output_len = u32::from_be_bytes(output_len_bytes);
+
+    let pers = input.slice(4..);
+    if pers.is_empty() {
+        return Err(PrecompileError::Other(
+            "Personalization (pers) cannot be empty".to_string(),
+        ));
+    }
+
     Ok((requested_output_len, pers))
 }
 
@@ -191,28 +213,44 @@ mod tests {
     use crate::precompile::PrecompileError;
     use crate::precompile::PrecompileErrors;
     use alloy_primitives::B256;
+    use alloy_primitives::U32;
 
+    
     #[test]
     fn test_rng_init_no_pers() {
         let gas_limit = 6000;
-        let input = Bytes::from(32u16.to_be_bytes()); // request 32 bytes, no pers
+        let input = Bytes::from(32u32.to_be_bytes()); // request 32 bytes, no pers
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
         evmctx.env().tx.tx_hash = B256::from([0u8; 32]);
         let precompile = RngPrecompile;
 
         let result = precompile.call(&input, gas_limit, &mut evmctx);
-        println!("{:?}", result);
-        assert!(result.is_ok(), "Should succeed without personalization");
+        assert!(!result.is_ok(), "Shouldn't succeed without personalization");
+    }
+    
+    #[test]
+    fn test_rng_init_00_pers() {
+        let gas_limit = 6000;
+        let empty_pers = U32::ZERO;
+        let mut input_vector = Vec::new();
+        input_vector.extend(32u32.to_be_bytes());
+        input_vector.extend(empty_pers.to_be_bytes_vec());
+        let mut evmctx = InnerEvmContext::new(EmptyDB::default());
+        evmctx.env().tx.tx_hash = B256::from([0u8; 32]);
+        let precompile = RngPrecompile;
+
+        let result = precompile.call(&input_vector.into(), gas_limit, &mut evmctx);
+        assert!(result.is_ok(), "Should succeed with default personalization");
 
         let output = result.unwrap();
-        assert_eq!(output.gas_used, 3505, "Should consume exactly 3505 gas");
+        assert_eq!(output.gas_used, 3510, "Should consume exactly 3505 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
 
     #[test]
     fn test_rng_init_with_pers() {
         let gas_limit = 6000;
-        let mut input = 32u16.to_be_bytes().to_vec();
+        let mut input = 32u32.to_be_bytes().to_vec();
         input.extend(vec![1, 2, 3, 4]); // use 4 pers bytes, gets rounted up to one word
         let input = Bytes::from(Bytes::from(input));
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
@@ -229,15 +267,18 @@ mod tests {
     #[test]
     fn test_rng_already_initialized() {
         let gas_limit = 500;
-        let input = Bytes::from(32u16.to_be_bytes());
+        let empty_pers = U32::ZERO;
+        let mut input_vector = Vec::new();
+        input_vector.extend(32u32.to_be_bytes());
+        input_vector.extend(empty_pers.to_be_bytes_vec());
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
         let precompile = RngPrecompile;
 
         // call once to initialize the RNG
-        let _ = precompile.call(&input, 6000, &mut evmctx);
+        let _ = precompile.call(&input_vector.clone().into(), 6000, &mut evmctx);
 
         // make a second call with the leaf rng already initialized
-        let result = precompile.call(&input, gas_limit, &mut evmctx);
+        let result = precompile.call(&input_vector.into(), gas_limit, &mut evmctx);
         assert!(result.is_ok(), "Should succeed with initialized RNG");
 
         let output = result.unwrap();
@@ -248,11 +289,14 @@ mod tests {
     #[test]
     fn test_rng_out_of_gas_on_init() {
         let gas_limit = 2500; // less than the init cost
-        let input = Bytes::from(32u16.to_be_bytes());
+        let empty_pers = U32::ZERO;
+        let mut input_vector = Vec::new();
+        input_vector.extend(16u32.to_be_bytes());
+        input_vector.extend(empty_pers.to_be_bytes_vec());
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
         let precompile = RngPrecompile;
 
-        let result = precompile.call(&input, gas_limit, &mut evmctx);
+        let result = precompile.call(&input_vector.into(), gas_limit, &mut evmctx);
         assert!(result.is_err());
 
         match result.err() {
@@ -264,15 +308,18 @@ mod tests {
     #[test]
     fn test_rng_out_of_gas_on_fill() {
         let gas_limit = 100;
-        let input = Bytes::from(6000u16.to_be_bytes()); // request too many bytes
+        let empty_pers = U32::ZERO;
+        let mut input_vector = Vec::new();
+        input_vector.extend(6000u16.to_be_bytes());
+        input_vector.extend(empty_pers.to_be_bytes_vec());
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
         let precompile = RngPrecompile;
 
         // call once to initialize the RNG
-        let _ = precompile.call(&input, 6000, &mut evmctx);
+        let _ = precompile.call(&input_vector.clone().into(), 6000, &mut evmctx);
 
         // make a second call with the leaf rng already initialized
-        let result = precompile.call(&input, gas_limit, &mut evmctx);
+        let result = precompile.call(&input_vector.into(), gas_limit, &mut evmctx);
         assert!(result.is_err());
 
         match result.err() {
@@ -284,18 +331,18 @@ mod tests {
     #[test]
     fn test_invalid_input_length() {
         let gas_limit = 6000;
-        let input = Bytes::from(32u8.to_be_bytes());
+        let input_vector = vec![0x00, 0x01, 0x02]; // 3 bytes only
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
         let precompile = RngPrecompile;
 
-        let result = precompile.call(&input, gas_limit, &mut evmctx);
+        let result = precompile.call(&input_vector.into(), gas_limit, &mut evmctx);
         assert!(result.is_err());
 
         // We expect a PCError::Other complaining about input length
         match result.err() {
             Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
                 assert!(
-                    msg.contains("invalid input length"),
+                    msg.contains("Insufficient input: need at least 4 bytes for length"),
                     "Should mention invalid input length"
                 );
             }
