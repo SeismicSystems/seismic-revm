@@ -145,7 +145,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
 pub fn get_leaf_rng<DB: Database>(
     input: &Bytes,
     evmctx: &mut InnerEvmContext<DB>,
-) -> Result<LeafRng, anyhow::Error> {
+) -> Result<LeafRng, PrecompileError> {
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
     let root_rng = &mut evmctx.kernel.root_rng_mut_ref();
     let leaf_rng = root_rng.fork(pers);
