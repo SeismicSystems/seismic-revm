@@ -3565,7 +3565,6 @@ dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.15",
  "alloy-provider",
- "alloy-rlp",
  "alloy-sol-types",
  "alloy-transport",
  "anyhow",
@@ -4592,7 +4591,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=c3243bf#c3243bf1df8d52e832b58a31abd81e5bb01f54af"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=cb0fb08#cb0fb08fc447f838159ae22a36dd62efa8f52653"
 dependencies = [
  "aes-gcm",
  "anyhow",

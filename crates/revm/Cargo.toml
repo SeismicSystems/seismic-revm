@@ -56,10 +56,6 @@ alloy-primitives = { version = "0.8.8", default-features = false, features = [
     "rlp",
     "map",
 ] }
-alloy-rlp = { version = "0.3", default-features = false, features = [
-    "arrayvec",
-    "derive",
-] }
 
 #seismic
 anyhow = "1.0.86" # Moved from dev-deps to dependencies. to refine
@@ -74,7 +70,7 @@ secp256k1 = { version = ">=0.28, <=0.29", default-features = false, features = [
 ] }
 bincode = "1.3"
 aes-gcm = "0.10"
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "c3243bf"}
+tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "cb0fb08"}
 sha2 = "0.10"
 hkdf = "0.12"  
 
