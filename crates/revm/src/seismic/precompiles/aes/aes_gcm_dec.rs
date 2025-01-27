@@ -60,7 +60,7 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::{Bytes, hex};
+    use crate::primitives::{hex, Bytes};
     use revm_precompile::{PrecompileError, PrecompileErrors};
 
     /// 1) Test the smallest possible cyphertext:

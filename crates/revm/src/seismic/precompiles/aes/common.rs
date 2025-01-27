@@ -22,7 +22,8 @@ pub(crate) fn validate_input_length(
 }
 
 pub(crate) fn parse_aes_key(slice: &[u8]) -> Result<[u8; 32], PrecompileError> {
-    slice.try_into()
+    slice
+        .try_into()
         .map_err(|_| PrecompileError::Other("invalid key length (must be 32 bytes)".to_string()))
 }
 

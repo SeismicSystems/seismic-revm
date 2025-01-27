@@ -58,10 +58,10 @@ Precompile Logic
 pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
     let aes_key = parse_aes_key(&input[0..32])?;
-    
+
     validate_nonce_length(&input[32..44])?;
     let nonce = (input[32..44]).to_vec();
-    
+
     let plaintext = &input[44..];
     let cost = calculate_cost(plaintext.len());
     validate_gas_limit(cost, gas_limit)?;
