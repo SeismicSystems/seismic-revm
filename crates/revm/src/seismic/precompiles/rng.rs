@@ -217,7 +217,6 @@ mod tests {
     use crate::precompile::PrecompileErrors;
     use crate::primitives::alloy_primitives::{B256, U32};
 
-    
     #[test]
     fn test_rng_init_no_pers() {
         let gas_limit = 6000;
@@ -227,13 +226,16 @@ mod tests {
         let precompile = RngPrecompile;
 
         let result = precompile.call(&input.into(), gas_limit, &mut evmctx);
-        assert!(result.is_ok(), "Should succeed without default personalization");
+        assert!(
+            result.is_ok(),
+            "Should succeed without default personalization"
+        );
 
         let output = result.unwrap();
         assert_eq!(output.gas_used, 3505, "Should consume exactly 3505 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
-    
+
     #[test]
     fn test_rng_init_00_pers_different_than_no_pers() {
         let gas_limit = 6000;
@@ -246,12 +248,15 @@ mod tests {
         let precompile = RngPrecompile;
 
         let result = precompile.call(&input_vector.into(), gas_limit, &mut evmctx);
-        assert!(result.is_ok(), "Should succeed with default personalization");
+        assert!(
+            result.is_ok(),
+            "Should succeed with default personalization"
+        );
 
         let output = result.unwrap();
         assert_eq!(output.gas_used, 3510, "Should consume exactly 3505 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
-        
+
         let gas_limit = 6000;
         let input = Bytes::from(32u32.to_be_bytes()); // request 32 bytes, no pers
         let mut evmctx = InnerEvmContext::new(EmptyDB::default());
@@ -259,7 +264,10 @@ mod tests {
         let precompile = RngPrecompile;
 
         let result = precompile.call(&input.into(), gas_limit, &mut evmctx);
-        assert!(result.is_ok(), "Should succeed without default personalization");
+        assert!(
+            result.is_ok(),
+            "Should succeed without default personalization"
+        );
 
         let output = result.unwrap();
         assert_eq!(output.gas_used, 3505, "Should consume exactly 3505 gas");

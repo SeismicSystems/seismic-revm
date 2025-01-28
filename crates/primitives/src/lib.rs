@@ -24,14 +24,14 @@ pub use alloy_eip2930::{AccessList, AccessListItem};
 pub use alloy_primitives::{
     self, address, b256, bytes, fixed_bytes, hex, hex_literal,
     map::{self, hash_map, hash_set, HashMap, HashSet},
-    ruint, uint, Address, Bytes, FixedBytes, Log, LogData, TxKind, B256, I256, U256
+    ruint, uint, Address, Bytes, FixedBytes, Log, LogData, TxKind, B256, I256, U256,
 };
 pub use bitvec;
 pub use bytecode::*;
 pub use constants::*;
 pub use eip7702::{
     Authorization, AuthorizationList, Eip7702Bytecode, Eip7702DecodeError, RecoveredAuthority,
-    RecoveredAuthorization, SignedAuthorization, EIP7702_MAGIC, EIP7702_MAGIC_BYTES, Signature
+    RecoveredAuthorization, Signature, SignedAuthorization, EIP7702_MAGIC, EIP7702_MAGIC_BYTES,
 };
 pub use env::*;
 
