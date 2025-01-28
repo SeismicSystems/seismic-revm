@@ -2,7 +2,7 @@ use super::RNG_ADDRESS;
 use crate::precompile::Error as PCError;
 use crate::precompile::PrecompileError;
 use crate::{
-    primitives::{db::Database, Address, Bytes, hex},
+    primitives::{db::Database, Address, Bytes},
     ContextPrecompile, ContextStatefulPrecompile, InnerEvmContext,
 };
 
@@ -189,12 +189,6 @@ pub(crate) fn parse_input(input: &Bytes) -> Result<(u32, Bytes), PrecompileError
     let requested_output_len = u32::from_be_bytes(output_len_bytes);
 
     let pers = input.slice(4..);
-    if pers.is_empty() {
-        return Err(PrecompileError::Other(
-            "Personalization (pers) cannot be empty".to_string(),
-        ));
-    }
-
     Ok((requested_output_len, pers))
 }
 
@@ -221,7 +215,7 @@ mod tests {
     use crate::db::EmptyDB;
     use crate::precompile::PrecompileError;
     use crate::precompile::PrecompileErrors;
-    use crate::primitives::B256;
+    use crate::primitives::alloy_primitives::{B256, U32};
 
     
     #[test]
@@ -232,12 +226,16 @@ mod tests {
         evmctx.env().tx.tx_hash = B256::from([0u8; 32]);
         let precompile = RngPrecompile;
 
-        let result = precompile.call(&input, gas_limit, &mut evmctx);
-        assert!(!result.is_ok(), "Shouldn't succeed without personalization");
+        let result = precompile.call(&input.into(), gas_limit, &mut evmctx);
+        assert!(result.is_ok(), "Should succeed without default personalization");
+
+        let output = result.unwrap();
+        assert_eq!(output.gas_used, 3505, "Should consume exactly 3505 gas");
+        assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
     
     #[test]
-    fn test_rng_init_00_pers() {
+    fn test_rng_init_00_pers_different_than_no_pers() {
         let gas_limit = 6000;
         let empty_pers = U32::ZERO;
         let mut input_vector = Vec::new();
@@ -252,6 +250,19 @@ mod tests {
 
         let output = result.unwrap();
         assert_eq!(output.gas_used, 3510, "Should consume exactly 3505 gas");
+        assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
+        
+        let gas_limit = 6000;
+        let input = Bytes::from(32u32.to_be_bytes()); // request 32 bytes, no pers
+        let mut evmctx = InnerEvmContext::new(EmptyDB::default());
+        evmctx.env().tx.tx_hash = B256::from([0u8; 32]);
+        let precompile = RngPrecompile;
+
+        let result = precompile.call(&input.into(), gas_limit, &mut evmctx);
+        assert!(result.is_ok(), "Should succeed without default personalization");
+
+        let output = result.unwrap();
+        assert_eq!(output.gas_used, 3505, "Should consume exactly 3505 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
 

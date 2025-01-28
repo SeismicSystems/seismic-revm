@@ -24,7 +24,7 @@ pub use alloy_eip2930::{AccessList, AccessListItem};
 pub use alloy_primitives::{
     self, address, b256, bytes, fixed_bytes, hex, hex_literal,
     map::{self, hash_map, hash_set, HashMap, HashSet},
-    ruint, uint, Address, Bytes, FixedBytes, Log, LogData, TxKind, B256, I256, U256,
+    ruint, uint, Address, Bytes, FixedBytes, Log, LogData, TxKind, B256, I256, U256
 };
 pub use bitvec;
 pub use bytecode::*;

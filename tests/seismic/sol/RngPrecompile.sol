@@ -5,10 +5,8 @@ contract SEISMICRNG {
     function seismicRng() public view returns (bytes memory) {
         address rngPrecompile = address(0x64);
 
-        bytes memory input = bytes.concat(bytes1(0x00));
-
         // Call the precompile
-        (bool success, bytes memory output) = rngPrecompile.staticcall(abi.encodePacked(uint32(32),input));
+        (bool success, bytes memory output) = rngPrecompile.staticcall(abi.encodePacked(uint32(32)));
         // Ensure the call was successful
         require(success, "RNG Precompile call failed");
 
@@ -42,6 +40,6 @@ contract SEISMICRNG {
 // EVMVersion: >=mercury
 // ====
 // ----
-// seismicRng() -> 0x13aaf6e5be2b9c57c15b83533b83f44a48c9b482c2a647946cfd58080388111f
-// seismicRng() -> 0x13aaf6e5be2b9c57c15b83533b83f44a48c9b482c2a647946cfd58080388111f 
+// seismicRng() -> 0xfc45f09fec6bfa9b89d01864356ac1113a504a717fb155a1b82dd5ef685feb8a
+// seismicRng() -> 0xfc45f09fec6bfa9b89d01864356ac1113a504a717fb155a1b82dd5ef685feb8a 
 // seismicRngPers(bytes32): 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef -> 0xcde7fca4bbc86bcfb3acc70d4243e1aa67786379174b6056c8fc07f3572403da 
