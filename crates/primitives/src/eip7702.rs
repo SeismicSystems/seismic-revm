@@ -2,7 +2,7 @@ pub mod authorization_list;
 pub mod bytecode;
 
 pub use authorization_list::{
-    Authorization, AuthorizationList, RecoveredAuthority, RecoveredAuthorization, Signature,
+    Authorization, AuthorizationList, RecoveredAuthority, RecoveredAuthorization,
     SignedAuthorization,
 };
 pub use bytecode::{

@@ -3561,16 +3561,11 @@ dependencies = [
 name = "revm"
 version = "18.0.0"
 dependencies = [
- "aes-gcm",
  "alloy-eips",
- "alloy-primitives 0.8.15",
  "alloy-provider",
- "alloy-rlp",
  "alloy-sol-types",
  "alloy-transport",
- "anyhow",
  "auto_impl",
- "bincode",
  "cfg-if",
  "criterion",
  "dyn-clone",
