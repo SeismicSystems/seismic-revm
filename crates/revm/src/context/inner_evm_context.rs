@@ -98,7 +98,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         }
     }
 
-    //builder method for passing in different kernel instances
+    /// Method to pass the kernel after building the inner_evm_context. 
     #[cfg(feature = "seismic")]
     pub fn with_kernel(mut self, kernel: crate::seismic::Kernel) -> Self {
         self.kernel = kernel;
