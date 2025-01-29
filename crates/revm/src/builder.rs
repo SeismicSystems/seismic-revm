@@ -156,12 +156,15 @@ impl<'a, EXT, DB: Database> EvmBuilder<'a, SetGenericStage, EXT, DB> {
     }
     /// Sets the kernel.
     #[cfg(feature = "seismic")]
-    pub fn with_kernel(mut self, kernel: crate::seismic::Kernel) -> EvmBuilder<'a, SetGenericStage, EXT, DB> {
+    pub fn with_kernel(
+        mut self,
+        kernel: crate::seismic::Kernel,
+    ) -> EvmBuilder<'a, SetGenericStage, EXT, DB> {
         self.context.evm = self.context.evm.with_kernel(kernel);
 
         EvmBuilder {
             context: self.context,
-            handler: self.handler,    
+            handler: self.handler,
             phantom: PhantomData,
         }
     }
@@ -191,11 +194,14 @@ impl<'a, EXT, DB: Database> EvmBuilder<'a, SetGenericStage, EXT, DB> {
             phantom: PhantomData,
         }
     }
-    
+
     /// Sets the Seismic handler with the given  spec.
     ///
     #[cfg(feature = "seismic")]
-    pub fn seismic(mut self, kernel: crate::seismic::Kernel) -> EvmBuilder<'a, HandlerStage, EXT, DB> {
+    pub fn seismic(
+        mut self,
+        kernel: crate::seismic::Kernel,
+    ) -> EvmBuilder<'a, HandlerStage, EXT, DB> {
         self.handler = Handler::seismic_with_spec(self.handler.cfg.spec_id);
         self.context.evm = self.context.evm.with_kernel(kernel);
         EvmBuilder {

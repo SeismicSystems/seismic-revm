@@ -96,7 +96,7 @@ impl<DB: Database> EvmContext<DB> {
             precompiles: ContextPrecompiles::default(),
         }
     }
-    
+
     /// Sets the kernel.
     ///
     /// Note that this will ignore the previous `error` if set.
