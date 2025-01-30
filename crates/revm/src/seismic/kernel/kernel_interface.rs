@@ -9,8 +9,9 @@ pub trait KernelInterface: KernelRng + KernelKeys + DynClone + Debug {}
 impl<T: KernelRng + KernelKeys + DynClone + Debug> KernelInterface for T {}
 
 pub trait KernelRng {
-    // reset the root rng
+    /// Resets the RNG with a new root VRF key.
     fn reset_rng(&mut self, root_vrf_key: SchnorrkelKeypair);
+
     // returns the root rng for the entire block
     fn root_rng_mut_ref(&mut self) -> &mut RootRng;
 
