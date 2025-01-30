@@ -6,7 +6,7 @@
 //! - `test`: Contains test cases for the RNG logic, e.g. domain separation, cloning, etc
 
 mod domain_sep_rng;
-pub use domain_sep_rng::{LeafRng, RootRng};
+pub use domain_sep_rng::{LeafRng, RootRng, SchnorrkelKeypair};
 
 #[cfg(test)]
 mod test;

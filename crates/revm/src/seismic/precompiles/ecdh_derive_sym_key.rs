@@ -1,7 +1,6 @@
-use super::{hkdf_derive_sym_key::EXPAND_FIXED_COST, HDFK_ADDRESS};
+use super::{hkdf_derive_sym_key::EXPAND_FIXED_COST, ECDH_ADDRESS};
 use crate::primitives::Bytes;
 
-use bincode;
 use revm_precompile::{
     Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
 };
@@ -10,7 +9,7 @@ use secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 use tee_service_api::derive_aes_key;
 
 pub const PRECOMPILE: PrecompileWithAddress =
-    PrecompileWithAddress(HDFK_ADDRESS, Precompile::Standard(derive_symmetric_key));
+    PrecompileWithAddress(ECDH_ADDRESS, Precompile::Standard(derive_symmetric_key));
 
 /// Expected input layout:
 /// - 32 bytes: secp256k1 secret key
@@ -77,10 +76,10 @@ pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let sk_bytes = &input[..32];
     let pk_bytes = &input[32..];
 
-    let secret_key: SecretKey = bincode::deserialize(sk_bytes)
+    let secret_key: SecretKey = SecretKey::from_slice(sk_bytes)
         .map_err(|e| PrecompileError::Other(format!("secret key deser err: {e}")))?;
 
-    let public_key: PublicKey = bincode::deserialize(pk_bytes)
+    let public_key: PublicKey = PublicKey::from_slice(pk_bytes)
         .map_err(|e| PrecompileError::Other(format!("public key deser err: {e}")))?;
 
     let shared_secret = SharedSecret::new(&public_key, &secret_key);
@@ -96,7 +95,7 @@ pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::hex;
+    use crate::primitives::hex;
     use revm_precompile::{PrecompileError, PrecompileErrors};
 
     /// 1) Tests normal usage with valid 65-byte input,
@@ -163,7 +162,7 @@ mod tests {
     }
 
     /// 4) Tests failure in deserialization (unparsable secret/public key),
-    ///    e.g. passing random garbage that `bincode` can't decode as a valid key.
+    ///    e.g. passing random garbage that can't be decoded as a valid key.
     #[test]
     fn test_deserialize_failure() {
         let mut input_data = vec![0xFF; 65]; // garbage

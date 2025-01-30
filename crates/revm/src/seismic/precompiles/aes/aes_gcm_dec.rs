@@ -44,14 +44,14 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 
     let aes_key = parse_aes_key(&input[0..32])?;
     validate_nonce_length(&input[32..44])?;
-    let nonce = (&input[32..44]).to_vec();
+    let nonce = (input[32..44]).to_vec();
 
     let ciphertext = &input[44..];
 
     let cost = calculate_cost(ciphertext.len());
     validate_gas_limit(cost, gas_limit)?;
 
-    let plaintext = aes_decrypt(&aes_key, &ciphertext, nonce)
+    let plaintext = aes_decrypt(&aes_key.into(), ciphertext, nonce)
         .map_err(|e| PrecompileError::Other(format!("Decryption failed: {e}")))?;
 
     Ok(PrecompileOutput::new(cost, plaintext.into()))
@@ -60,8 +60,7 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::Bytes;
-    use alloy_primitives::hex;
+    use crate::primitives::{hex, Bytes};
     use revm_precompile::{PrecompileError, PrecompileErrors};
 
     /// 1) Test the smallest possible cyphertext:

@@ -6,11 +6,11 @@
 //! The leaf RNG is then used to generate random bytes.
 //!
 //! This module is heavily inspired Oasis Network's RNG implementation.
+use crate::primitives::B256;
 use crate::seismic::kernel::get_sample_schnorrkel_keypair;
-use alloy_primitives::B256;
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
-use schnorrkel::keys::Keypair as SchnorrkelKeypair;
+pub use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use std::{cell::RefCell, rc::Rc};
 
 /// RNG domain separation context.
