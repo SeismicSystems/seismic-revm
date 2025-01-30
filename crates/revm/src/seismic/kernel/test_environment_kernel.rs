@@ -1,8 +1,6 @@
 use super::get_sample_schnorrkel_keypair;
 use core::fmt;
 use schnorrkel::keys::Keypair as SchnorrkelKeypair;
-use secp256k1::SecretKey;
-use tee_service_api::get_sample_secp256k1_sk;
 
 use crate::seismic::rng::{LeafRng, RngContainer, RootRng};
 use crate::seismic::Kernel;
@@ -11,7 +9,6 @@ use super::kernel_interface::{KernelKeys, KernelRng};
 
 pub struct TestKernel {
     pub rng_container: RngContainer,
-    pub secret_key: SecretKey,
     pub eph_rng_keypair: SchnorrkelKeypair,
 }
 
@@ -41,9 +38,6 @@ impl KernelRng for TestKernel {
 }
 
 impl KernelKeys for TestKernel {
-    fn get_io_key(&self) -> SecretKey {
-        self.secret_key
-    }
     fn get_eph_rng_keypair(&self) -> schnorrkel::Keypair {
         self.eph_rng_keypair.clone()
     }
@@ -64,7 +58,6 @@ impl Clone for TestKernel {
     fn clone(&self) -> Self {
         Self {
             rng_container: self.rng_container.clone(),
-            secret_key: self.secret_key,
             eph_rng_keypair: self.eph_rng_keypair.clone(),
         }
     }
@@ -80,7 +73,6 @@ impl TestKernel {
     pub fn new() -> Self {
         Self {
             rng_container: RngContainer::default(),
-            secret_key: get_sample_secp256k1_sk(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
         }
     }

@@ -23,9 +23,6 @@ pub trait KernelRng {
 }
 
 pub trait KernelKeys {
-    // returns the key for decrypting transaction data
-    fn get_io_key(&self) -> secp256k1::SecretKey;
-
     // returns the vrf key for rng transcripts
     fn get_eph_rng_keypair(&self) -> SchnorrkelKeypair;
 }
