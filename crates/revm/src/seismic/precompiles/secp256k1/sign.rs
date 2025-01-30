@@ -20,11 +20,19 @@ pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
 /* --------------------------------------------------------------------------
 Precompile Logic and Gas Calculation
 -------------------------------------------------------------------------- */
-/// TODO: explain gas reasoning
+/// We give signing the same gas cost as Ethereum's ecrecover precompile, 
+/// which we expect is slightly conservative.
+/// 
+/// Recovering a public key from a signature requires one scalar inverse, an ecmult, a field square root,
+/// two scalar mul, and some other operations that take very little time relatively. Ecrecover must 
+/// recover the public key, plus do some keccak hashing to recover the address.
+/// In comparision, signing is one scalar inverse, an ecmult, two scalar mul, and some other operations
+/// Notably, it does not require any square roots or keccak hashing, so it should be slight less gas-expensive. 
 
-// takes in a secret key and a digest and returns a signature
+const BASE_GAS: u64 = 3000;
+
 pub fn secp256k1_sign_ecdsa_recoverable(input: &Bytes, gas_limit: u64) -> PrecompileResult {
-    let gas_used = 3000;
+    let gas_used = BASE_GAS;
     if gas_used > gas_limit {
         return Err(PCError::OutOfGas.into());
     }
