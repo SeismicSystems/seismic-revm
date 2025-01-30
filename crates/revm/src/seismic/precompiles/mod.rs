@@ -20,10 +20,8 @@
 pub mod aes;
 pub mod ecdh_derive_sym_key;
 pub mod hkdf_derive_sym_key;
-pub mod secp256k1;
 pub mod rng;
-
-// pub use secp256k1::{PublicKey, SecretKey};
+pub mod secp256k1;
 
 use revm_precompile::{u64_to_address, Address};
 

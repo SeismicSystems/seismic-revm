@@ -2,10 +2,7 @@ use crate::precompile::Error as PCError;
 use crate::primitives::Bytes;
 use crate::seismic::precompiles::SECP256K1_SIGN_ADDRESS;
 
-use revm_precompile::{
-    Precompile, PrecompileOutput, PrecompileResult,
-    PrecompileWithAddress,
-};
+use revm_precompile::{Precompile, PrecompileOutput, PrecompileResult, PrecompileWithAddress};
 use secp256k1::Secp256k1;
 
 /* --------------------------------------------------------------------------
@@ -20,14 +17,14 @@ pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
 /* --------------------------------------------------------------------------
 Precompile Logic and Gas Calculation
 -------------------------------------------------------------------------- */
-/// We give signing the same gas cost as Ethereum's ecrecover precompile, 
+/// We give signing the same gas cost as Ethereum's ecrecover precompile,
 /// which we expect is slightly conservative.
-/// 
+///
 /// Recovering a public key from a signature requires one scalar inverse, an ecmult, a field square root,
-/// two scalar mul, and some other operations that take very little time relatively. Ecrecover must 
+/// two scalar mul, and some other operations that take very little time relatively. Ecrecover must
 /// recover the public key, plus do some keccak hashing to recover the address.
 /// In comparision, signing is one scalar inverse, an ecmult, two scalar mul, and some other operations
-/// Notably, it does not require any square roots or keccak hashing, so it should be slight less gas-expensive. 
+/// Notably, it does not require any square roots or keccak hashing, so it should be slight less gas-expensive.
 
 const BASE_GAS: u64 = 3000;
 
@@ -67,10 +64,7 @@ mod tests {
     use crate::primitives::{alloy_primitives::B512, keccak256, Bytes, B256};
 
     use revm_precompile::{PrecompileError, PrecompileErrors};
-    use secp256k1::{
-        ecdsa::Signature,
-        Message,
-    };
+    use secp256k1::{ecdsa::Signature, Message};
 
     #[test]
     fn test_verify() {
