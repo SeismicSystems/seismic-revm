@@ -19,6 +19,7 @@
 
 pub mod aes;
 pub mod ecdh_derive_sym_key;
+pub use secp256k1::{SecretKey, PublicKey};
 pub mod hkdf_derive_sym_key;
 pub mod rng;
 
