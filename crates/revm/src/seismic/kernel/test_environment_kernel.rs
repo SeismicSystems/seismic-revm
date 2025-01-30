@@ -1,6 +1,7 @@
 use super::get_sample_schnorrkel_keypair;
 use core::fmt;
 use schnorrkel::keys::Keypair as SchnorrkelKeypair;
+use tee_service_api::get_sample_schnorrkel_keypair;
 
 use crate::seismic::rng::{LeafRng, RngContainer, RootRng};
 use crate::seismic::Kernel;

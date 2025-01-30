@@ -4587,7 +4587,7 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 [[package]]
 name = "tee_service_api"
 version = "0.1.0"
-source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=80f75d55d5897f49f719dbb0469d785e7bc1bb29#80f75d55d5897f49f719dbb0469d785e7bc1bb29"
+source = "git+ssh://git@github.com/SeismicSystems/TEEService.git?rev=4036092#4036092a11b51fe575a8ea685ee533c10cf9c1d9"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4599,6 +4599,7 @@ dependencies = [
  "kbs-types",
  "once_cell",
  "reqwest 0.12.9",
+ "schnorrkel",
  "secp256k1",
  "serde",
  "serde_json",

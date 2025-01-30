@@ -7,8 +7,9 @@
 
 mod domain_sep_rng;
 pub use domain_sep_rng::{LeafRng, RootRng, SchnorrkelKeypair};
+use tee_service_api::get_sample_schnorrkel_keypair;
 
-use super::kernel::{get_sample_schnorrkel_keypair, kernel_interface::KernelRng};
+use super::kernel::kernel_interface::KernelRng;
 
 #[cfg(test)]
 mod test;
