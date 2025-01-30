@@ -73,8 +73,8 @@ mod tests {
         println!("sk created successfully");
 
         let pk: secp256k1::PublicKey = secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::signing_only(), &sk);
-        let mut hash = keccak256(&pk.serialize_uncompressed()[1..]);
-        hash[..12].fill(0);
+        let mut pk_addr = keccak256(&pk.serialize_uncompressed()[1..]);
+        pk_addr[..12].fill(0);
 
         let mut input = sk_bytes.to_vec();
         input.extend_from_slice(&message);
@@ -84,7 +84,7 @@ mod tests {
         let sig: B512 = output[0..64].try_into().unwrap();
         let recid: u8 = output[64];
         let msg: B256 = message.try_into().unwrap();
-        let recovered_key = ecrecover(&sig, recid, &msg).unwrap();
-        assert_eq!(recovered_key, hash);
+        let recovered_addr = ecrecover(&sig, recid, &msg).unwrap();
+        assert_eq!(recovered_addr, pk_addr);
     }
 }
