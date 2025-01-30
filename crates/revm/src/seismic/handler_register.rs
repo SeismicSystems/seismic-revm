@@ -5,9 +5,7 @@ use super::precompiles::{
     ecdh_derive_sym_key, hkdf_derive_sym_key, rng,
 };
 use crate::{
-    handler::register::EvmHandler,
-    primitives::{db::Database, spec_to_generic, Spec, SpecId},
-    ContextPrecompiles,
+    handler::register::EvmHandler, primitives::{db::Database, spec_to_generic, Spec, SpecId, EVMError}, Context, ContextPrecompiles
 };
 use revm_precompile::{secp256r1, PrecompileSpecId};
 use std::sync::Arc;
@@ -35,4 +33,13 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
         precompiles.extend([rng::RngPrecompile::address_and_precompile::<DB>()]);
     }
     precompiles
+}
+
+#[inline]
+pub fn reset_seismic_rng<SPEC: Spec, EXT, DB: Database>(
+     context: &mut Context<EXT, DB>,
+    ) -> Result<(), EVMError<DB::Error>> {
+     let secret_key = context.evm.kernel.get_eph_rng_keypair();
+     &mut context.evm.kernel.reset_root_rng(secret_key);
+     Ok(())
 }

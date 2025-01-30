@@ -24,6 +24,10 @@ impl fmt::Debug for TestKernel {
 }
 
 impl KernelRng for TestKernel {
+    fn reset_root_rng(&mut self, root_vrf_key: SchnorrkelKeypair) {
+        self.rng = RootRng::new(root_vrf_key);
+    }
+
     fn root_rng_mut_ref(&mut self) -> &mut RootRng {
         &mut self.rng
     }
