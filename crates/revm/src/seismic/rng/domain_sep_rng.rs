@@ -10,7 +10,7 @@ use crate::primitives::B256;
 use crate::seismic::kernel::get_sample_schnorrkel_keypair;
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
-use schnorrkel::keys::Keypair as SchnorrkelKeypair;
+pub use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use std::{cell::RefCell, rc::Rc};
 
 /// RNG domain separation context.
