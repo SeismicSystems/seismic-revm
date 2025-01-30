@@ -5,5 +5,5 @@ pub mod kernel;
 pub mod precompiles;
 pub mod rng;
 
-pub use handler_register::{load_precompiles, seismic_handle_register, reset_seismic_rng};
+pub use handler_register::{load_precompiles, reset_seismic_rng, seismic_handle_register};
 pub use kernel::{Kernel, KernelInterface};

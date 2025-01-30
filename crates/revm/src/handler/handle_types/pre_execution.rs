@@ -35,7 +35,7 @@ pub struct PreExecutionHandler<'a, EXT, DB: Database> {
     pub deduct_caller: DeductCallerHandle<'a, EXT, DB>,
     /// Apply EIP-7702 auth list
     pub apply_eip7702_auth_list: ApplyEIP7702AuthListHandle<'a, EXT, DB>,
-    /// Reset Seismic RNG 
+    /// Reset Seismic RNG
     #[cfg(feature = "seismic")]
     pub reset_seismic_rng: ResetSeismicRng<'a, EXT, DB>,
 }
@@ -78,12 +78,12 @@ impl<EXT, DB: Database> PreExecutionHandler<'_, EXT, DB> {
         (self.load_precompiles)()
     }
 
-     /// Reset Seismic RNG
-     #[cfg(feature = "seismic")]
-     pub fn reset_seismic_rng(
-         &self,
-         context: &mut Context<EXT, DB>,
-     ) -> Result<(), EVMError<DB::Error>> {
-         (self.reset_seismic_rng)(context)
-     }
+    /// Reset Seismic RNG
+    #[cfg(feature = "seismic")]
+    pub fn reset_seismic_rng(
+        &self,
+        context: &mut Context<EXT, DB>,
+    ) -> Result<(), EVMError<DB::Error>> {
+        (self.reset_seismic_rng)(context)
+    }
 }
