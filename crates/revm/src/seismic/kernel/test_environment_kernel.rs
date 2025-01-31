@@ -1,6 +1,5 @@
 use core::fmt;
 use schnorrkel::keys::Keypair as SchnorrkelKeypair;
-use tee_service_api::get_sample_schnorrkel_keypair;
 
 use crate::seismic::rng::{LeafRng, RngContainer, RootRng};
 use crate::seismic::Kernel;
@@ -9,7 +8,6 @@ use super::kernel_interface::{KernelKeys, KernelRng};
 
 pub struct TestKernel {
     pub rng_container: RngContainer,
-    pub eph_rng_keypair: SchnorrkelKeypair,
 }
 
 impl fmt::Debug for TestKernel {
@@ -20,8 +18,12 @@ impl fmt::Debug for TestKernel {
 }
 
 impl KernelRng for TestKernel {
-    fn reset_rng(&mut self, root_vrf_key: SchnorrkelKeypair) {
-        self.rng_container.reset_rng(root_vrf_key);
+    fn reset_rng(&mut self) {
+        self.rng_container.reset_rng();
+    }
+
+    fn root_rng_ref(&self) -> &RootRng {
+        self.rng_container.root_rng_ref()
     }
 
     fn root_rng_mut_ref(&mut self) -> &mut RootRng {
@@ -38,8 +40,8 @@ impl KernelRng for TestKernel {
 }
 
 impl KernelKeys for TestKernel {
-    fn get_eph_rng_keypair(&self) -> schnorrkel::Keypair {
-        self.eph_rng_keypair.clone()
+    fn get_root_vrf_key(&self) -> schnorrkel::Keypair {
+        self.root_rng_ref().get_root_vrf_key()
     }
 }
 
@@ -58,7 +60,6 @@ impl Clone for TestKernel {
     fn clone(&self) -> Self {
         Self {
             rng_container: self.rng_container.clone(),
-            eph_rng_keypair: self.eph_rng_keypair.clone(),
         }
     }
 }
@@ -73,7 +74,6 @@ impl TestKernel {
     pub fn new() -> Self {
         Self {
             rng_container: RngContainer::default(),
-            eph_rng_keypair: get_sample_schnorrkel_keypair(),
         }
     }
 }
