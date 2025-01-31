@@ -41,8 +41,8 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
 pub fn reset_seismic_rng<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
 ) -> Result<(), EVMError<DB::Error>> {
-    let secret_key = context.evm.kernel.get_eph_rng_keypair();
-    context.evm.kernel.reset_rng(secret_key);
+    let eph_rng_keypair = context.evm.kernel.get_eph_rng_keypair();
+    context.evm.kernel.reset_rng(eph_rng_keypair);
     Ok(())
 }
 

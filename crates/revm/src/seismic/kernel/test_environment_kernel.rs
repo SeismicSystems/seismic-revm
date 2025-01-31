@@ -1,18 +1,14 @@
-use super::get_sample_schnorrkel_keypair;
 use core::fmt;
 use schnorrkel::keys::Keypair as SchnorrkelKeypair;
-use secp256k1::SecretKey;
-use tee_service_api::get_sample_secp256k1_sk;
+use tee_service_api::get_sample_schnorrkel_keypair;
 
-use crate::seismic::rng::{LeafRng, RootRng};
+use crate::seismic::rng::{LeafRng, RngContainer, RootRng};
 use crate::seismic::Kernel;
 
 use super::kernel_interface::{KernelKeys, KernelRng};
 
 pub struct TestKernel {
-    pub rng: RootRng,
-    pub leaf_rng: Option<LeafRng>,
-    pub secret_key: SecretKey,
+    pub rng_container: RngContainer,
     pub eph_rng_keypair: SchnorrkelKeypair,
 }
 
@@ -25,16 +21,15 @@ impl fmt::Debug for TestKernel {
 
 impl KernelRng for TestKernel {
     fn reset_rng(&mut self, root_vrf_key: SchnorrkelKeypair) {
-        self.rng = RootRng::new(root_vrf_key);
-        self.leaf_rng = None;
+        self.rng_container.reset_rng(root_vrf_key);
     }
 
     fn root_rng_mut_ref(&mut self) -> &mut RootRng {
-        &mut self.rng
+        self.rng_container.root_rng_mut_ref()
     }
 
     fn leaf_rng_mut_ref(&mut self) -> &mut Option<LeafRng> {
-        &mut self.leaf_rng
+        self.rng_container.leaf_rng_mut_ref()
     }
 
     fn maybe_append_entropy(&mut self) {
@@ -43,9 +38,6 @@ impl KernelRng for TestKernel {
 }
 
 impl KernelKeys for TestKernel {
-    fn get_io_key(&self) -> SecretKey {
-        self.secret_key
-    }
     fn get_eph_rng_keypair(&self) -> schnorrkel::Keypair {
         self.eph_rng_keypair.clone()
     }
@@ -65,9 +57,7 @@ impl From<TestKernel> for Kernel {
 impl Clone for TestKernel {
     fn clone(&self) -> Self {
         Self {
-            rng: self.rng.clone(),
-            leaf_rng: None,
-            secret_key: self.secret_key,
+            rng_container: self.rng_container.clone(),
             eph_rng_keypair: self.eph_rng_keypair.clone(),
         }
     }
@@ -82,9 +72,7 @@ impl Default for TestKernel {
 impl TestKernel {
     pub fn new() -> Self {
         Self {
-            rng: RootRng::new(get_sample_schnorrkel_keypair()),
-            leaf_rng: None,
-            secret_key: get_sample_secp256k1_sk(),
+            rng_container: RngContainer::default(),
             eph_rng_keypair: get_sample_schnorrkel_keypair(),
         }
     }
