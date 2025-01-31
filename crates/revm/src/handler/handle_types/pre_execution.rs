@@ -21,6 +21,10 @@ pub type DeductCallerHandle<'a, EXT, DB> = GenericContextHandle<'a, EXT, DB>;
 /// Load Auth list for EIP-7702, and returns number of created accounts.
 pub type ApplyEIP7702AuthListHandle<'a, EXT, DB> = GenericContextHandleRet<'a, EXT, DB, u64>;
 
+/// Reset Seismic RNG as it is stateful.
+#[cfg(feature = "seismic")]
+pub type ResetSeismicRng<'a, EXT, DB> = GenericContextHandle<'a, EXT, DB>;
+
 /// Handles related to pre execution before the stack loop is started.
 pub struct PreExecutionHandler<'a, EXT, DB: Database> {
     /// Load precompiles
@@ -31,6 +35,9 @@ pub struct PreExecutionHandler<'a, EXT, DB: Database> {
     pub deduct_caller: DeductCallerHandle<'a, EXT, DB>,
     /// Apply EIP-7702 auth list
     pub apply_eip7702_auth_list: ApplyEIP7702AuthListHandle<'a, EXT, DB>,
+    /// Reset Seismic RNG
+    #[cfg(feature = "seismic")]
+    pub reset_seismic_rng: ResetSeismicRng<'a, EXT, DB>,
 }
 
 impl<'a, EXT: 'a, DB: Database + 'a> PreExecutionHandler<'a, EXT, DB> {
@@ -41,6 +48,8 @@ impl<'a, EXT: 'a, DB: Database + 'a> PreExecutionHandler<'a, EXT, DB> {
             load_accounts: Arc::new(mainnet::load_accounts::<SPEC, EXT, DB>),
             deduct_caller: Arc::new(mainnet::deduct_caller::<SPEC, EXT, DB>),
             apply_eip7702_auth_list: Arc::new(mainnet::apply_eip7702_auth_list::<SPEC, EXT, DB>),
+            #[cfg(feature = "seismic")]
+            reset_seismic_rng: Arc::new(crate::seismic::reset_seismic_rng::<SPEC, EXT, DB>),
         }
     }
 }
@@ -67,5 +76,14 @@ impl<EXT, DB: Database> PreExecutionHandler<'_, EXT, DB> {
     /// Load precompiles
     pub fn load_precompiles(&self) -> ContextPrecompiles<DB> {
         (self.load_precompiles)()
+    }
+
+    /// Reset Seismic RNG
+    #[cfg(feature = "seismic")]
+    pub fn reset_seismic_rng(
+        &self,
+        context: &mut Context<EXT, DB>,
+    ) -> Result<(), EVMError<DB::Error>> {
+        (self.reset_seismic_rng)(context)
     }
 }

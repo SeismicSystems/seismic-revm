@@ -327,6 +327,9 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         // load access list and beneficiary if needed.
         pre_exec.load_accounts(ctx)?;
 
+        #[cfg(feature = "seismic")]
+        pre_exec.reset_seismic_rng(ctx)?;
+
         // load precompiles
         let precompiles = pre_exec.load_precompiles();
         ctx.evm.set_precompiles(precompiles);
