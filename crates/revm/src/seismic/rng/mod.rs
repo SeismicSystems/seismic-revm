@@ -50,6 +50,10 @@ impl KernelRng for RngContainer {
     fn root_rng_mut_ref(&mut self) -> &mut RootRng {
         &mut self.rng
     }
+    
+    fn root_rng_ref(&self) -> &RootRng {
+        &self.rng
+    }
 
     fn leaf_rng_mut_ref(&mut self) -> &mut Option<LeafRng> {
         &mut self.leaf_rng

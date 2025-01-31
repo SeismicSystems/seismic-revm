@@ -87,6 +87,10 @@ impl RootRng {
         }
     }
 
+    pub fn get_root_vrf_key(&self) -> SchnorrkelKeypair {
+        self.inner.borrow().root_vrf_key.clone()
+    }
+
     /// A default rng for testing that loads a sample keypair.
     /// We do not implement the Default trait becuase
     /// it might be misleading or error-prone.
