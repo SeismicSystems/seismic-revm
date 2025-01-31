@@ -66,6 +66,7 @@ mod tests {
     use revm_precompile::{PrecompileError, PrecompileErrors};
     use secp256k1::{ecdsa::Signature, Message};
 
+    // test using the secp256k1 crate's verify function
     #[test]
     fn test_verify() {
         let full_message = "1234567890abcdef1234567890abcdef";
@@ -93,6 +94,10 @@ mod tests {
             .is_ok());
     }
 
+    // test using Ethereum'secrecover precompile
+    // this is a common on-chain workflow for verifying signatures,
+    // first recovering an eth address from the signature, then
+    // comparing the resulting address with the expected one
     #[test]
     fn test_eth_ecrecover() {
         let full_message = "1234567890abcdef1234567890abcdef";
