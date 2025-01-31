@@ -59,7 +59,8 @@ impl KernelRng for RngContainer {
         &mut self.leaf_rng
     }
 
-    fn reset_rng(&mut self, root_vrf_key: SchnorrkelKeypair) {
+    fn reset_rng(&mut self) {
+        let root_vrf_key = self.root_rng_ref().get_root_vrf_key();
         self.rng = RootRng::new(root_vrf_key);
         self.leaf_rng = None;
     }
