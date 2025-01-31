@@ -21,7 +21,7 @@ impl KernelRng for TestKernel {
     fn reset_rng(&mut self, root_vrf_key: SchnorrkelKeypair) {
         self.rng_container.reset_rng(root_vrf_key);
     }
-    
+
     fn root_rng_ref(&self) -> &RootRng {
         self.rng_container.root_rng_ref()
     }
