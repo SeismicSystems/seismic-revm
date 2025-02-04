@@ -2,7 +2,7 @@
 
 use super::precompiles::{
     aes::{aes_gcm_dec, aes_gcm_enc},
-    ecdh_derive_sym_key, hkdf_derive_sym_key, rng,
+    ecdh_derive_sym_key, hkdf_derive_sym_key, rng, secp256k1_sign,
 };
 use crate::{
     handler::register::EvmHandler,
@@ -30,6 +30,7 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
             hkdf_derive_sym_key::PRECOMPILE,
             aes_gcm_enc::PRECOMPILE,
             aes_gcm_dec::PRECOMPILE,
+            secp256k1_sign::PRECOMPILE,
         ]);
         // extend with ContextPrecompile<DB>
         precompiles.extend([rng::RngPrecompile::address_and_precompile::<DB>()]);
