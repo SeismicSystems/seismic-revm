@@ -21,7 +21,7 @@ pub mod aes;
 pub mod ecdh_derive_sym_key;
 pub mod hkdf_derive_sym_key;
 pub mod rng;
-pub mod secp256k1;
+pub mod secp256k1_sign;
 
 use revm_precompile::{u64_to_address, Address};
 
