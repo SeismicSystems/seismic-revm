@@ -7,11 +7,11 @@
 //!
 //! This module is heavily inspired Oasis Network's RNG implementation.
 use crate::primitives::B256;
-use crate::seismic::kernel::get_sample_schnorrkel_keypair;
 use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 pub use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use std::{cell::RefCell, rc::Rc};
+use tee_service_api::get_sample_schnorrkel_keypair;
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
@@ -85,6 +85,10 @@ impl RootRng {
                 num_forks: 0,
             })),
         }
+    }
+
+    pub fn get_root_vrf_key(&self) -> SchnorrkelKeypair {
+        self.inner.borrow().root_vrf_key.clone()
     }
 
     /// A default rng for testing that loads a sample keypair.
