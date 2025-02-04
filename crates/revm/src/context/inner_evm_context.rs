@@ -62,7 +62,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             #[cfg(feature = "optimism")]
             l1_block_info: None,
             #[cfg(feature = "seismic")]
-            kernel: crate::seismic::Kernel::test_default(),
+            kernel: crate::seismic::Kernel::default(),
         }
     }
 
@@ -77,7 +77,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             #[cfg(feature = "optimism")]
             l1_block_info: None,
             #[cfg(feature = "seismic")]
-            kernel: crate::seismic::Kernel::test_default(),
+            kernel: crate::seismic::Kernel::default(),
         }
     }
 

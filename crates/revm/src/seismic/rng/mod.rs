@@ -9,8 +9,6 @@ mod domain_sep_rng;
 pub use domain_sep_rng::{LeafRng, RootRng, SchnorrkelKeypair};
 use tee_service_api::get_sample_schnorrkel_keypair;
 
-use super::kernel::kernel_interface::KernelRng;
-
 #[cfg(test)]
 mod test;
 
@@ -46,26 +44,26 @@ impl RngContainer {
     }
 }
 
-impl KernelRng for RngContainer {
-    fn root_rng_mut_ref(&mut self) -> &mut RootRng {
+impl  RngContainer {
+    pub fn root_rng_mut_ref(&mut self) -> &mut RootRng {
         &mut self.rng
     }
 
-    fn root_rng_ref(&self) -> &RootRng {
+    pub fn root_rng_ref(&self) -> &RootRng {
         &self.rng
     }
 
-    fn leaf_rng_mut_ref(&mut self) -> &mut Option<LeafRng> {
+    pub fn leaf_rng_mut_ref(&mut self) -> &mut Option<LeafRng> {
         &mut self.leaf_rng
     }
 
-    fn reset_rng(&mut self) {
+    pub fn reset_rng(&mut self) {
         let root_vrf_key = self.root_rng_ref().get_root_vrf_key();
         self.rng = RootRng::new(root_vrf_key);
         self.leaf_rng = None;
     }
 
-    fn maybe_append_entropy(&mut self) {
+    pub fn maybe_append_entropy(&mut self) {
         // noop
     }
 }
