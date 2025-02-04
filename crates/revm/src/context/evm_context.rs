@@ -97,15 +97,6 @@ impl<DB: Database> EvmContext<DB> {
         }
     }
 
-    /// Sets the kernel.
-    ///
-    /// Note that this will ignore the previous `error` if set.
-    #[cfg(feature = "seismic")]
-    #[inline]
-    pub fn with_kernel(mut self, kernel: crate::seismic::Kernel) -> Self {
-        self.inner = self.inner.with_kernel(kernel);
-        self
-    }
 
     /// Sets precompiles
     #[inline]
@@ -546,7 +537,7 @@ pub(crate) mod test_utils {
                 #[cfg(feature = "optimism")]
                 l1_block_info: None,
                 #[cfg(feature = "seismic")]
-                kernel: crate::seismic::Kernel::default(),
+                rng_container: crate::seismic::RngContainer::default(),
             },
             precompiles: ContextPrecompiles::default(),
         }
@@ -563,7 +554,7 @@ pub(crate) mod test_utils {
                 #[cfg(feature = "optimism")]
                 l1_block_info: None,
                 #[cfg(feature = "seismic")]
-                kernel: crate::seismic::Kernel::default(),
+                rng_container: crate::seismic::RngContainer::default(),
             },
             precompiles: ContextPrecompiles::default(),
         }

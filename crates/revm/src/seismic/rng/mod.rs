@@ -6,8 +6,11 @@
 //! - `test`: Contains test cases for the RNG logic, e.g. domain separation, cloning, etc
 
 mod domain_sep_rng;
+use core::fmt;
+
 pub use domain_sep_rng::{LeafRng, RootRng, SchnorrkelKeypair};
 use tee_service_api::get_sample_schnorrkel_keypair;
+use crate::primitives::KernelMode;
 
 #[cfg(test)]
 mod test;
@@ -23,6 +26,14 @@ impl Clone for RngContainer {
             rng: self.rng.clone(),
             leaf_rng: None,
         }
+    }
+}
+
+
+impl fmt::Debug for RngContainer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Hide internal details of the RNG container.
+        write!(f, "Kernel {{  }}")
     }
 }
 
@@ -44,7 +55,7 @@ impl RngContainer {
     }
 }
 
-impl  RngContainer {
+impl RngContainer {
     pub fn root_rng_mut_ref(&mut self) -> &mut RootRng {
         &mut self.rng
     }
@@ -56,14 +67,21 @@ impl  RngContainer {
     pub fn leaf_rng_mut_ref(&mut self) -> &mut Option<LeafRng> {
         &mut self.leaf_rng
     }
+    
+    pub fn get_root_vrf_key(&self) -> SchnorrkelKeypair {
+        self.root_rng_ref().get_root_vrf_key()
+    }
 
     pub fn reset_rng(&mut self) {
         let root_vrf_key = self.root_rng_ref().get_root_vrf_key();
         self.rng = RootRng::new(root_vrf_key);
         self.leaf_rng = None;
     }
-
-    pub fn maybe_append_entropy(&mut self) {
-        // noop
+    
+    /// Appends entropy to the root RNG if in Simulation mode.
+    pub fn maybe_append_entropy(&mut self, mode: KernelMode) {
+        if mode == KernelMode::Simulation {
+            self.root_rng_mut_ref().append_local_entropy();
+        }
     }
 }

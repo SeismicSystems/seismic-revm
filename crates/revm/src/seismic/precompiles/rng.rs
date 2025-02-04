@@ -124,7 +124,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
         let (requested_output_len, pers) = parse_input(input)?;
 
-        let gas_used = match evmctx.kernel.leaf_rng_mut_ref() {
+        let gas_used = match evmctx.rng_container.leaf_rng_mut_ref() {
             Some(_) => calculate_fill_cost(requested_output_len as usize),
             None => {
                 calculate_init_cost(pers.len()) + calculate_fill_cost(requested_output_len as usize)
@@ -136,20 +136,21 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         }
 
         // append to root_tx for domain separation
-        evmctx.kernel.maybe_append_entropy();
+        let kernel_mode = evmctx.env().tx.kernel_mode;
+        evmctx.rng_container.maybe_append_entropy(kernel_mode);
         let tx_hash = evmctx.env().tx.tx_hash;
-        let rng = evmctx.kernel.root_rng_mut_ref();
+        let rng = evmctx.rng_container.root_rng_mut_ref();
         rng.append_tx(&tx_hash);
 
         // if the leaf rng is not initialized, initialize it
-        if evmctx.kernel.leaf_rng_mut_ref().is_none() {
+        if evmctx.rng_container.leaf_rng_mut_ref().is_none() {
             let leaf_rng =
                 get_leaf_rng(&pers, evmctx).map_err(|e| PCError::Other(e.to_string()))?;
-            evmctx.kernel.leaf_rng_mut_ref().replace(leaf_rng);
+            evmctx.rng_container.leaf_rng_mut_ref().replace(leaf_rng);
         }
 
         // Get the random bytes
-        let leaf_rng = evmctx.kernel.leaf_rng_mut_ref().as_mut().unwrap();
+        let leaf_rng = evmctx.rng_container.leaf_rng_mut_ref().as_mut().unwrap();
         let mut rng_bytes = vec![0u8; requested_output_len as usize];
         leaf_rng.fill_bytes(&mut rng_bytes);
         let output = Bytes::from(rng_bytes);
@@ -163,7 +164,7 @@ pub fn get_leaf_rng<DB: Database>(
     evmctx: &mut InnerEvmContext<DB>,
 ) -> Result<LeafRng, PrecompileError> {
     let pers = input.as_ref(); // pers is the personalized entropy added by the caller
-    let root_rng = &mut evmctx.kernel.root_rng_mut_ref();
+    let root_rng = &mut evmctx.rng_container.root_rng_mut_ref();
     let leaf_rng = root_rng.fork(pers);
     Ok(leaf_rng)
 }
