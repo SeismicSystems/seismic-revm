@@ -97,10 +97,10 @@ impl<DB: Database> InnerEvmContext<DB> {
             rng_container: self.rng_container,
         }
     }
-
+    
     /// Method to pass the rng_container after building the inner_evm_context.
     #[cfg(feature = "seismic")]
-    pub fn with_kernel(mut self, rng_container: crate::seismic::RngContainer) -> Self {
+    pub fn with_rng_container(mut self, rng_container: crate::seismic::RngContainer) -> Self {
         self.rng_container = rng_container;
         self
     }
