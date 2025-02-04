@@ -10,7 +10,7 @@ use core::fmt;
 
 pub use domain_sep_rng::{LeafRng, RootRng, SchnorrkelKeypair};
 use tee_service_api::get_sample_schnorrkel_keypair;
-use crate::primitives::KernelMode;
+use crate::primitives::RngMode;
 
 #[cfg(test)]
 mod test;
@@ -79,8 +79,8 @@ impl RngContainer {
     }
     
     /// Appends entropy to the root RNG if in Simulation mode.
-    pub fn maybe_append_entropy(&mut self, mode: KernelMode) {
-        if mode == KernelMode::Simulation {
+    pub fn maybe_append_entropy(&mut self, mode: RngMode) {
+        if mode == RngMode::Simulation {
             self.root_rng_mut_ref().append_local_entropy();
         }
     }

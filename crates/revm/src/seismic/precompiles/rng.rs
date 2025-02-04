@@ -136,7 +136,7 @@ impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
         }
 
         // append to root_tx for domain separation
-        let kernel_mode = evmctx.env().tx.kernel_mode;
+        let kernel_mode = evmctx.env().tx.rng_mode;
         evmctx.rng_container.maybe_append_entropy(kernel_mode);
         let tx_hash = evmctx.env().tx.tx_hash;
         let rng = evmctx.rng_container.root_rng_mut_ref();

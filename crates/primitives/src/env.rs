@@ -532,7 +532,7 @@ impl Default for BlockEnv {
 /// Indicates the runtime context for the kernel.
 /// Use `Simulation` for endpoints (like eth_call) that need unique entropy,
 /// and `Execution` for normal transaction execution (used for both tests and production).
-pub enum KernelMode {
+pub enum RngMode {
     Simulation,
     Execution,
 }
@@ -615,7 +615,7 @@ pub struct TxEnv {
 
     #[cfg(feature = "seismic")]
     /// seismic fields.
-    pub kernel_mode: KernelMode,
+    pub rng_mode: RngMode,
 }
 
 pub enum TxType {
@@ -662,7 +662,7 @@ impl Default for TxEnv {
             #[cfg(feature = "seismic")]
             tx_hash: B256::ZERO,
             #[cfg(feature = "seismic")]
-            kernel_mode: KernelMode::Execution,
+            rng_mode: RngMode::Execution,
         }
     }
 }
