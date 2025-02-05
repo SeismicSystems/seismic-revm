@@ -180,21 +180,20 @@ impl<'a, EXT, DB: Database> EvmBuilder<'a, SetGenericStage, EXT, DB> {
             phantom: PhantomData,
         }
     }
-    
-     /// Sets the rng_container.
-     #[cfg(feature = "seismic")]
-     pub fn with_rng_container(
-         mut self,
-         rng_container: crate::seismic::RngContainer,
-     ) -> EvmBuilder<'a, SetGenericStage, EXT, DB> {
-         self.context.evm = self.context.evm.with_rng_container(rng_container);
-         EvmBuilder {
-             context: self.context,
-             handler: self.handler,
-             phantom: PhantomData,
-         }
-     }
 
+    /// Sets the rng_container.
+    #[cfg(feature = "seismic")]
+    pub fn with_rng_container(
+        mut self,
+        rng_container: crate::seismic::RngContainer,
+    ) -> EvmBuilder<'a, SetGenericStage, EXT, DB> {
+        self.context.evm = self.context.evm.with_rng_container(rng_container);
+        EvmBuilder {
+            context: self.context,
+            handler: self.handler,
+            phantom: PhantomData,
+        }
+    }
 
     /// Sets the Seismic handler with the given  spec.
     ///

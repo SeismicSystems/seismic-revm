@@ -612,7 +612,6 @@ pub struct TxEnv {
     /// seismic fields.
     pub tx_hash: B256,
 
-
     #[cfg(feature = "seismic")]
     /// seismic fields.
     pub rng_mode: RngMode,
