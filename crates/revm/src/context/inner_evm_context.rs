@@ -31,7 +31,7 @@ pub struct InnerEvmContext<DB: Database> {
     #[cfg(feature = "optimism")]
     pub l1_block_info: Option<crate::optimism::L1BlockInfo>,
     #[cfg(feature = "seismic")]
-    pub kernel: crate::seismic::Kernel,
+    pub rng_container: crate::seismic::RngContainer,
 }
 
 impl<DB: Database + Clone> Clone for InnerEvmContext<DB>
@@ -47,7 +47,7 @@ where
             #[cfg(feature = "optimism")]
             l1_block_info: self.l1_block_info.clone(),
             #[cfg(feature = "seismic")]
-            kernel: self.kernel.clone(),
+            rng_container: self.rng_container.clone(),
         }
     }
 }
@@ -62,7 +62,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             #[cfg(feature = "optimism")]
             l1_block_info: None,
             #[cfg(feature = "seismic")]
-            kernel: crate::seismic::Kernel::test_default(),
+            rng_container: crate::seismic::RngContainer::default(),
         }
     }
 
@@ -77,7 +77,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             #[cfg(feature = "optimism")]
             l1_block_info: None,
             #[cfg(feature = "seismic")]
-            kernel: crate::seismic::Kernel::test_default(),
+            rng_container: crate::seismic::RngContainer::default(),
         }
     }
 
@@ -94,14 +94,14 @@ impl<DB: Database> InnerEvmContext<DB> {
             #[cfg(feature = "optimism")]
             l1_block_info: self.l1_block_info,
             #[cfg(feature = "seismic")]
-            kernel: self.kernel,
+            rng_container: self.rng_container,
         }
     }
 
-    /// Method to pass the kernel after building the inner_evm_context.
+    /// Method to pass the rng_container after building the inner_evm_context.
     #[cfg(feature = "seismic")]
-    pub fn with_kernel(mut self, kernel: crate::seismic::Kernel) -> Self {
-        self.kernel = kernel;
+    pub fn with_rng_container(mut self, rng_container: crate::seismic::RngContainer) -> Self {
+        self.rng_container = rng_container;
         self
     }
 

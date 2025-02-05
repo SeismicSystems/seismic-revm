@@ -526,6 +526,17 @@ impl Default for BlockEnv {
     }
 }
 
+#[cfg(feature = "seismic")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Indicates the runtime context for the kernel.
+/// Use `Simulation` for endpoints (like eth_call) that need unique entropy,
+/// and `Execution` for normal transaction execution (used for both tests and production).
+pub enum RngMode {
+    Simulation,
+    Execution,
+}
+
 /// The transaction environment.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -598,8 +609,12 @@ pub struct TxEnv {
     pub optimism: OptimismFields,
 
     #[cfg(feature = "seismic")]
-    /// Optimism fields.
+    /// seismic fields.
     pub tx_hash: B256,
+
+    #[cfg(feature = "seismic")]
+    /// seismic fields.
+    pub rng_mode: RngMode,
 }
 
 pub enum TxType {
@@ -645,6 +660,8 @@ impl Default for TxEnv {
             optimism: OptimismFields::default(),
             #[cfg(feature = "seismic")]
             tx_hash: B256::ZERO,
+            #[cfg(feature = "seismic")]
+            rng_mode: RngMode::Execution,
         }
     }
 }

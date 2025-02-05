@@ -42,7 +42,7 @@ pub fn load_precompiles<SPEC: Spec, EXT, DB: Database>() -> ContextPrecompiles<D
 pub fn reset_seismic_rng<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
 ) -> Result<(), EVMError<DB::Error>> {
-    context.evm.kernel.reset_rng();
+    context.evm.rng_container.reset_rng();
     Ok(())
 }
 
