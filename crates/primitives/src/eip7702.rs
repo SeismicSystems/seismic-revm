@@ -6,6 +6,7 @@ pub use authorization_list::{
     SignedAuthorization,
 };
 
+#[allow(deprecated)]
 pub use alloy_primitives::Signature;
 
 pub use bytecode::{
