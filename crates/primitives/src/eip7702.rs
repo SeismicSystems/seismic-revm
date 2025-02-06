@@ -2,11 +2,7 @@ pub mod authorization_list;
 pub mod bytecode;
 
 pub use authorization_list::{
-<<<<<<< HEAD
     Authorization, AuthorizationList, RecoveredAuthority, RecoveredAuthorization,
-=======
-    Authorization, AuthorizationList, RecoveredAuthority, RecoveredAuthorization, Signature,
->>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
     SignedAuthorization,
 };
 

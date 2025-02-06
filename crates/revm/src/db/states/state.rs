@@ -369,15 +369,9 @@ mod tests {
             nonce: 1,
             ..Default::default()
         };
-<<<<<<< HEAD
         let existing_account_initial_storage = HashMap::<U256, FlaggedStorage>::from([
             (slot1, FlaggedStorage::from(U256::from(100))), // 0x01 => 100
             (slot2, FlaggedStorage::from(U256::from(200))), // 0x02 => 200
-=======
-        let existing_account_initial_storage = HashMap::<U256, U256>::from_iter([
-            (slot1, U256::from(100)), // 0x01 => 100
-            (slot2, U256::from(200)), // 0x02 => 200
->>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
         ]);
         let existing_account_changed_info = AccountInfo {
             nonce: 2,
@@ -496,11 +490,7 @@ mod tests {
                     AccountRevert {
                         account: AccountInfoRevert::DeleteIt,
                         previous_status: AccountStatus::LoadedNotExisting,
-<<<<<<< HEAD
                         storage: HashMap::from([(slot1, RevertToSlot::Some(FlaggedStorage::ZERO))]),
-=======
-                        storage: HashMap::from_iter([(slot1, RevertToSlot::Some(U256::ZERO))]),
->>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
                         wipe_storage: false,
                     }
                 ),

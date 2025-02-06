@@ -42,13 +42,10 @@ use std::{boxed::Box, vec::Vec};
 
 pub fn calc_linear_cost_u32(len: usize, base: u64, word: u64) -> u64 {
     (len as u64).div_ceil(32) * word + base
-<<<<<<< HEAD
 }
 
 pub fn calc_linear_cost(bus: u64, len: usize, base: u64, word: u64) -> u64 {
     (len as u64).div_ceil(bus) * word + base
-=======
->>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
 }
 
 #[derive(Clone, Default, Debug)]
@@ -305,11 +302,8 @@ impl PrecompileSpecId {
             BEDROCK | REGOLITH | CANYON => Self::BERLIN,
             #[cfg(feature = "optimism")]
             ECOTONE | FJORD | GRANITE | HOLOCENE => Self::CANCUN,
-<<<<<<< HEAD
             #[cfg(feature = "seismic")]
             MERCURY => Self::PRAGUE,
-=======
->>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
         }
     }
 }

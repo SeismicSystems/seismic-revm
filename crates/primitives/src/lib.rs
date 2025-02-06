@@ -33,11 +33,7 @@ pub use constants::*;
 pub use eip7702::Signature;
 pub use eip7702::{
     Authorization, AuthorizationList, Eip7702Bytecode, Eip7702DecodeError, RecoveredAuthority,
-<<<<<<< HEAD
     RecoveredAuthorization, SignedAuthorization, EIP7702_MAGIC, EIP7702_MAGIC_BYTES,
-=======
-    RecoveredAuthorization, Signature, SignedAuthorization, EIP7702_MAGIC, EIP7702_MAGIC_BYTES,
->>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
 };
 pub use env::*;
 
