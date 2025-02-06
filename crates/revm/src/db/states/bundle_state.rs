@@ -927,9 +927,15 @@ mod tests {
                         code_hash: KECCAK_EMPTY,
                         code: None,
                     }),
+<<<<<<< HEAD
                     HashMap::from([
                         (slot1(), (U256::from(0).into(), U256::from(10).into())),
                         (slot2(), (U256::from(0).into(), U256::from(15).into())),
+=======
+                    HashMap::from_iter([
+                        (slot1(), (U256::from(0), U256::from(10))),
+                        (slot2(), (U256::from(0), U256::from(15))),
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
                     ]),
                 ),
                 (
@@ -972,7 +978,11 @@ mod tests {
                     code_hash: KECCAK_EMPTY,
                     code: None,
                 }),
+<<<<<<< HEAD
                 HashMap::from([(slot1(), (U256::from(0).into(), U256::from(15).into()))]),
+=======
+                HashMap::from_iter([(slot1(), (U256::from(0), U256::from(15)))]),
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
             )],
             vec![vec![(
                 account1(),
@@ -1002,7 +1012,11 @@ mod tests {
             )
             .state_storage(
                 account1(),
+<<<<<<< HEAD
                 HashMap::from([(slot1(), (U256::from(0).into(), U256::from(10).into()))]),
+=======
+                HashMap::from_iter([(slot1(), (U256::from(0), U256::from(10)))]),
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
             )
             .state_address(account2())
             .state_present_account_info(
@@ -1035,7 +1049,11 @@ mod tests {
             )
             .state_storage(
                 account1(),
+<<<<<<< HEAD
                 HashMap::from([(slot1(), (U256::from(0).into(), U256::from(15).into()))]),
+=======
+                HashMap::from_iter([(slot1(), (U256::from(0), U256::from(15)))]),
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
             )
             .revert_address(0, account1())
             .revert_account_info(

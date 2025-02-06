@@ -69,6 +69,7 @@ pub enum SpecId {
     HOLOCENE = 24,
     PRAGUE = 25,
     OSAKA = 26,
+<<<<<<< HEAD
     #[default]
     LATEST = u8::MAX,
 }
@@ -138,6 +139,8 @@ pub enum SpecId {
     PRAGUE = 25,
     OSAKA = 26,
     MERCURY = 100,
+=======
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
     #[default]
     LATEST = u8::MAX,
 }
@@ -195,8 +198,11 @@ impl From<&str> for SpecId {
             "Granite" => SpecId::GRANITE,
             #[cfg(feature = "optimism")]
             "Holocene" => SpecId::HOLOCENE,
+<<<<<<< HEAD
             #[cfg(feature = "seismic")]
             "Mercury" => SpecId::MERCURY,
+=======
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
             _ => Self::LATEST,
         }
     }
@@ -239,8 +245,11 @@ impl From<SpecId> for &'static str {
             SpecId::GRANITE => "Granite",
             #[cfg(feature = "optimism")]
             SpecId::HOLOCENE => "Holocene",
+<<<<<<< HEAD
             #[cfg(feature = "seismic")]
             SpecId::MERCURY => "Mercury",
+=======
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
             SpecId::LATEST => "Latest",
         }
     }
@@ -477,6 +486,7 @@ macro_rules! spec_to_generic {
                 use $crate::HoloceneSpec as SPEC;
                 $e
             }
+<<<<<<< HEAD
         }
     }};
 }
@@ -655,6 +665,8 @@ macro_rules! spec_to_generic {
                 use $crate::MercurySpec as SPEC;
                 $e
             }
+=======
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
         }
     }};
 }
@@ -699,8 +711,11 @@ mod tests {
         spec_to_generic!(GRANITE, assert_eq!(SPEC::SPEC_ID, GRANITE));
         #[cfg(feature = "optimism")]
         spec_to_generic!(HOLOCENE, assert_eq!(SPEC::SPEC_ID, HOLOCENE));
+<<<<<<< HEAD
         #[cfg(feature = "seismic")]
         spec_to_generic!(MERCURY, assert_eq!(SPEC::SPEC_ID, MERCURY));
+=======
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
         spec_to_generic!(PRAGUE, assert_eq!(SPEC::SPEC_ID, PRAGUE));
         spec_to_generic!(OSAKA, assert_eq!(SPEC::SPEC_ID, OSAKA));
         spec_to_generic!(LATEST, assert_eq!(SPEC::SPEC_ID, LATEST));
@@ -873,6 +888,7 @@ mod optimism_tests {
         }
         assert!(!SpecId::enabled(SpecId::HOLOCENE, SpecId::LATEST));
     }
+<<<<<<< HEAD
 }
 
 #[cfg(feature = "seismic")]
@@ -890,4 +906,6 @@ mod seismic_tests {
         }
         assert!(!SpecId::enabled(SpecId::MERCURY, SpecId::LATEST));
     }
+=======
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
 }

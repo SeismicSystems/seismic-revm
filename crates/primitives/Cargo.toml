@@ -85,8 +85,11 @@ serde = [
 ]
 arbitrary = [
     "std",
+<<<<<<< HEAD
     "dep:proptest",
 	"dep:proptest-derive",
+=======
+>>>>>>> 900409f134c1cbd4489d370a6b037f354afa4a5c
     "alloy-primitives/arbitrary",
     "bitflags/arbitrary",
     "alloy-eip7702/arbitrary",
