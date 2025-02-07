@@ -10,7 +10,7 @@ This work stands on the shoulders of giants and would not have been possible wit
 
 We introduces several features:
 
-- **Instruction Set:** [CLOAD and CSTORE](#flagged-storage) for accessing private storage.
+- **Instruction Set:** CLOAD and CSTORE for accessing private storage.
 - **Flagged Storage:** [Flagged Storage](#flagged-storage) introduces a novel mechanism where each slot is represented as a tuple `(value, is_private)` with strict access rules.
 - **Precompiles:** [Precompiles](#precompiles) extend the functionality of the EVM.
 - **Semantic Tests:** [Semantic Tests](#semantic-tests) help us catch regressions and validate new features.
