@@ -71,6 +71,8 @@ The RNG precompile works jointly with two additional parameters in the transacti
 **State Management:**  
 Since RNG is stateful, a pre-execution hook resets its state at the start of every transaction, ensuring consistency and improved security.
 
+Note that the inner logic of this precompile is strongly inspired from [Oasis Sapphire work](https://oasisprotocol.org/sapphire).
+
 ---
 
 ## Upstream
@@ -89,6 +91,6 @@ Seismic's forks of the [reth](https://github.com/paradigmxyz/reth) stack all hav
 
 ## Conclusion
 
-We are working on many more features, so you can expect this diff documentation to grow over time.
+We are working on many more features, so you can expect this diff documentation to grow over time. At this stage, this is still **experimental** software, so tread with caution!
 
 Don't hesitate to get in touch—we'd also be delighted to onboard new contributors to this repository.
