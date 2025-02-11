@@ -3679,6 +3679,7 @@ dependencies = [
  "microbench",
  "plain_hasher",
  "rayon",
+ "regex",
  "revm",
  "serde",
  "serde_json",
