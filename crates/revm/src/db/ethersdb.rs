@@ -4,7 +4,7 @@ use ethers_core::types::{Block, BlockId, TxHash, H160 as eH160, H256, U64 as eU6
 use ethers_providers::Middleware;
 use tokio::runtime::{Handle, Runtime};
 
-use crate::primitives::{AccountInfo, Address, Bytecode, B256, U256};
+use crate::primitives::{AccountInfo, Address, Bytecode, B256, U256, FlaggedStorage};
 use crate::{Database, DatabaseRef};
 
 use super::utils::HandleOrRuntime;
@@ -135,12 +135,12 @@ impl<M: Middleware> DatabaseRef for EthersDB<M> {
         // not needed because we already load code with basic info
     }
 
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         let add = eH160::from(address.0 .0);
         let index = H256::from(index.to_be_bytes());
         let slot_value: H256 =
             self.block_on(self.client.get_storage_at(add, index, self.block_number))?;
-        Ok(U256::from_be_bytes(slot_value.to_fixed_bytes()))
+        Ok(U256::from_be_bytes(slot_value.to_fixed_bytes()).into())
     }
 
     fn block_hash_ref(&self, number: u64) -> Result<B256, Self::Error> {
@@ -166,7 +166,7 @@ impl<M: Middleware> Database for EthersDB<M> {
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         <Self as DatabaseRef>::storage_ref(self, address, index)
     }
 

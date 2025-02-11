@@ -1,6 +1,6 @@
 use crate::{
     db::{Database, DatabaseRef},
-    primitives::{AccountInfo, Address, Bytecode, B256, U256},
+    primitives::{AccountInfo, Address, Bytecode, B256, U256, FlaggedStorage},
 };
 use alloy_eips::BlockId;
 use alloy_provider::{
@@ -140,13 +140,13 @@ impl<T: Transport + Clone, N: Network, P: Provider<T, N>> DatabaseRef for AlloyD
         // This is not needed, as the code is already loaded with basic_ref
     }
 
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         let f = self
             .provider
             .get_storage_at(address, index)
             .block_id(self.block_number);
         let slot_val = self.block_on(f.into_future())?;
-        Ok(slot_val)
+        Ok(slot_val.into())
     }
 }
 
@@ -164,7 +164,7 @@ impl<T: Transport + Clone, N: Network, P: Provider<T, N>> Database for AlloyDB<T
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         <Self as DatabaseRef>::storage_ref(self, address, index)
     }
 
