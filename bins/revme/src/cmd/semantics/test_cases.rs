@@ -184,21 +184,16 @@ impl TestCase {
         Ok(test_cases)
     }
 
-    /// Concatenate all byte slices in `chunks` into a single `Vec<u8>`.
     fn parse_event(call_part: &str) -> Vec<u8> {
         // ~ emit <anonymous>: 0x0123456789abcd, 0xef00000000000000000000000000000000000000000000000000000000000000
          // A regex to find hex strings of the form 0x...
-        let re = Regex::new(r"0x([0-9a-fA-F]+)").unwrap();
+        let re = Regex::new(r"(0x[0-9a-fA-F]+)").unwrap();
         let mut result = Vec::new();
 
         // For each hex occurrence, decode and append the bytes.
         for cap in re.captures_iter(call_part) {
-            let hex_str = &cap[1];
-            println!("hex_str: {:?}", hex_str);
-            // Decode the hex string into bytes; panic on invalid hex.
-            let bytes = hex::decode(hex_str).expect("Invalid hex string");
-            println!("bytes: {:?}", bytes);
-            result.extend(bytes);
+            let parsed_as_bytes = Parser::parse_raw_hex(&cap[1]).unwrap();
+            result.extend(parsed_as_bytes);
         }
         result
     }
@@ -218,10 +213,6 @@ impl TestCase {
                 }
             }
         }
-
-        println!("sig_end_idx: {:?}", sig_end_idx);
-        println!("paren_count: {:?}", paren_count);
-        println!("call_part: {:?}", call_part);
 
         if paren_count != 0 || sig_end_idx.is_none() {
             return Err(Errors::InvalidFunctionSignature);
