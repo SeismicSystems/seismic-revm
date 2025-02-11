@@ -4,7 +4,7 @@ use crate::seismic::precompiles::AES_GCM_DEC_ADDRESS;
 use revm_precompile::{
     Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
 };
-use tee_service_api::aes_decrypt;
+use seismic_enclave::aes_decrypt;
 
 use super::common::{
     calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length, validate_nonce_length,

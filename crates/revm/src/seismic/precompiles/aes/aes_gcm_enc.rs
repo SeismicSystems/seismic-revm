@@ -5,7 +5,7 @@ use revm_precompile::{
     Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
 };
 
-use tee_service_api::aes_encrypt;
+use seismic_enclave::aes_encrypt;
 
 use super::common::{
     calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length, validate_nonce_length,

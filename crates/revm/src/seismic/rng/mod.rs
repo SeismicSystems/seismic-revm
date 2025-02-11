@@ -14,7 +14,7 @@ use crate::precompile::PrecompileError;
 use crate::primitives::Bytes;
 use crate::primitives::RngMode;
 pub use domain_sep_rng::{LeafRng, RootRng, SchnorrkelKeypair};
-use tee_service_api::get_sample_schnorrkel_keypair;
+use seismic_enclave::get_sample_schnorrkel_keypair;
 
 use super::precompiles::rng::{calculate_fill_cost, calculate_init_cost};
 
