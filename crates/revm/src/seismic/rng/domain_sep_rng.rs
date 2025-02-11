@@ -11,7 +11,7 @@ use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 pub use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use std::{cell::RefCell, rc::Rc};
-use tee_service_api::get_sample_schnorrkel_keypair;
+use seismic_enclave::get_sample_schnorrkel_keypair;
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";
