@@ -4,9 +4,10 @@ use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo};
 use alloy_primitives::U256;
 use hex::FromHex;
 use log::info;
+use regex::Regex;
 use revm::primitives::Bytes;
 
-const SKIP_KEYWORD: [&str; 5] = ["gas", "emit", "Library", "balance", "account"];
+const SKIP_KEYWORD: [&str; 4] = ["gas", "Library", "balance", "account"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ExecutionResult {
@@ -55,6 +56,7 @@ pub(crate) struct TestCase {
     pub expected_outputs: ExpectedOutputs,
     pub is_constructor: bool,
     pub deploy_binary: Bytes,
+    pub expected_events: Vec<Bytes>,
     pub value: U256,
 }
 
@@ -64,6 +66,7 @@ impl TestCase {
         contract_infos: &[ContractInfo],
     ) -> Result<Vec<Self>, Errors> {
         let mut test_cases = Vec::new();
+        let mut current_test_case: Option<TestCase> = None;
 
         for line in expectations.lines() {
             let line = line.trim();
@@ -102,6 +105,16 @@ impl TestCase {
                 call_part.contains(keyword) || expected_output_part.contains(keyword)
             });
             if should_skip {
+                continue;
+            }
+
+            if line.contains("~ emit") {
+                let event_bytes = Self::parse_event(line);
+                if let Some(ref mut tc) = current_test_case {
+                    tc.expected_events.push(event_bytes.into());
+                } else {
+                    return Err(Errors::InvalidInput); // event line with no preceding test case.
+                }
                 continue;
             }
 
@@ -146,11 +159,13 @@ impl TestCase {
                     input_data.clear(); // No input data for constructor call
                 }
 
-                test_cases.push(TestCase {
+                // Create a new test case with an empty vector for expected events.
+                current_test_case = Some(TestCase {
                     function_name: function_signature.clone(),
                     input_data: input_data.into(),
                     expected_outputs,
                     is_constructor,
+                    expected_events: Vec::new(),
                     deploy_binary: deploy_binary.into(),
                     value: value.unwrap_or(U256::ZERO),
                 });
@@ -162,7 +177,30 @@ impl TestCase {
             }
         }
 
+        if let Some(tc) = current_test_case.take() {
+            test_cases.push(tc);
+        }
+
         Ok(test_cases)
+    }
+
+    /// Concatenate all byte slices in `chunks` into a single `Vec<u8>`.
+    fn parse_event(call_part: &str) -> Vec<u8> {
+        // ~ emit <anonymous>: 0x0123456789abcd, 0xef00000000000000000000000000000000000000000000000000000000000000
+         // A regex to find hex strings of the form 0x...
+        let re = Regex::new(r"0x([0-9a-fA-F]+)").unwrap();
+        let mut result = Vec::new();
+
+        // For each hex occurrence, decode and append the bytes.
+        for cap in re.captures_iter(call_part) {
+            let hex_str = &cap[1];
+            println!("hex_str: {:?}", hex_str);
+            // Decode the hex string into bytes; panic on invalid hex.
+            let bytes = hex::decode(hex_str).expect("Invalid hex string");
+            println!("bytes: {:?}", bytes);
+            result.extend(bytes);
+        }
+        result
     }
 
     fn parse_call_part(call_part: &str) -> Result<(String, Option<U256>, Vec<String>), Errors> {
@@ -180,6 +218,10 @@ impl TestCase {
                 }
             }
         }
+
+        println!("sig_end_idx: {:?}", sig_end_idx);
+        println!("paren_count: {:?}", paren_count);
+        println!("call_part: {:?}", call_part);
 
         if paren_count != 0 || sig_end_idx.is_none() {
             return Err(Errors::InvalidFunctionSignature);
