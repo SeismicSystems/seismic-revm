@@ -1,5 +1,5 @@
 use hex::FromHex;
-use log::{debug, error, info};
+use log::{debug, error};
 use revm::{
     db::{CacheDB, EmptyDB},
     inspector_handle_register,
@@ -11,7 +11,7 @@ use revm::{
     DatabaseCommit, Evm,
 };
 
-use std::{path::PathBuf, str::FromStr, u64};
+use std::{str::FromStr, u64};
 
 use super::{semantic_tests::SemanticTests, test_cases::TestCase, Errors};
 
