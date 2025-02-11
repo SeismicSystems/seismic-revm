@@ -14,6 +14,8 @@ pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
     Precompile::Standard(secp256k1_sign_ecdsa_recoverable),
 );
 
+const BASE_GAS: u64 = 3000;
+
 /* --------------------------------------------------------------------------
 Precompile Logic and Gas Calculation
 -------------------------------------------------------------------------- */
@@ -25,9 +27,6 @@ Precompile Logic and Gas Calculation
 /// recover the public key, plus do some keccak hashing to recover the address.
 /// In comparision, signing is one scalar inverse, an ecmult, two scalar mul, and some other operations
 /// Notably, it does not require any square roots or keccak hashing, so it should be slight less gas-expensive.
-
-const BASE_GAS: u64 = 3000;
-
 pub fn secp256k1_sign_ecdsa_recoverable(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let gas_used = BASE_GAS;
     if gas_used > gas_limit {
