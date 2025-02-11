@@ -1,11 +1,11 @@
 [package]
-authors = ["Dragan Rakita <dragan0rakita@gmail.com>"]
-description = "revm - Rust Ethereum Virtual Machine"
+authors = ["Dragan Rakita <dragan0rakita@gmail.com>", "Seismic Systems"]
+description = "seismic revm - Rust Seismic Virtual Machine"
 edition = "2021"
 keywords = ["no_std", "ethereum", "evm", "revm"]
 license = "MIT"
 name = "revm"
-repository = "https://github.com/bluealloy/revm"
+repository = "https://github.com/SeismicSystems/seismic-revm"
 version = "18.0.0"
 readme = "../../README.md"
 
@@ -58,7 +58,7 @@ schnorrkel = { version = "0.11.2", optional = true }
 merlin = { version = "3.0.0", optional = true }
 rand_core = { version = "0.6.4", default-features = false, optional = true }
 secp256k1 = { version = "0.29", default-features = false, features = ["alloc", "recovery", "rand", "global-context"], optional = true }
-tee_service_api = { git = "ssh://git@github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "39b2865", optional = true }
+tee_service_api = { git = "https://github.com/SeismicSystems/TEEService.git", package = "tee_service_api", rev = "39b2865", optional = true }
 sha2 = { version = "0.10", optional = true }
 hkdf = { version = "0.12", optional = true }
 
@@ -72,6 +72,7 @@ indicatif = "0.17"
 reqwest = { version = "0.12" }
 rstest = "0.22.0"
 alloy-provider = "0.5.3"
+anyhow = "1.0.89"
 
 [features]
 default = ["std", "c-kzg", "secp256k1", "portable", "blst", "seismic"]

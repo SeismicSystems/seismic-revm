@@ -792,8 +792,8 @@ mod tests {
                 eof_opcode_num += 1;
             }
         }
-        assert_eq!(opcode_num, 168);
-        assert_eq!(eof_opcode_num, 152);
+        assert_eq!(opcode_num, 170);
+        assert_eq!(eof_opcode_num, 154);
     }
 
     #[test]
