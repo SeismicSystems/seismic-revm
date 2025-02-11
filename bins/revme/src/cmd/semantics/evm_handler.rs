@@ -255,11 +255,13 @@ impl<'a> EvmExecutor<'a> {
         };
 
         match out.clone().result {
-            ExecutionResult::Success { output, reason, .. } => {
+            ExecutionResult::Success { output, reason, logs, .. } => {
                 if test_case.expected_outputs.is_success() {
                     match output {
                         Output::Call(out) => {
                             assert_eq!(Bytes::from(out), test_case.expected_outputs.output);
+                            println!("logs: {:?}", logs);
+                            
                         }
                         _ => return Err(Errors::EVMError),
                     }
