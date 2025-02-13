@@ -7,6 +7,8 @@ pub enum Errors {
     InvalidBytecode,
     #[error("Invalid input")]
     InvalidInput,
+    #[error("Log Mismatch")]
+    LogMismatch,
     #[error("EVM Error")]
     EVMError,
     #[error(transparent)]
