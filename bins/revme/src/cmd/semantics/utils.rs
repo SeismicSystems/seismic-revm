@@ -1,3 +1,6 @@
+use log::error;
+use revm::primitives::{Log, Bytes};
+
 use crate::cmd::semantics::Errors;
 use std::collections::HashMap;
 use std::{
@@ -252,4 +255,27 @@ pub(crate) fn parse_string_with_escapes(s: &str) -> Result<Vec<u8>, Errors> {
         }
     }
     Ok(bytes)
+}
+
+/// Verifies that the emitted logs (ignoring address and topics) match the expected events.
+pub(crate) fn verify_emitted_events(expected_events: &[Bytes], emitted_logs: &[Log]) -> Result<(), Errors> {
+    if expected_events.len() != emitted_logs.len() {
+        error!(
+            "Expected {} events, but {} were emitted",
+            expected_events.len(),
+            emitted_logs.len()
+        );
+        return Err(Errors::LogMismatch);
+    }
+    for (expected, log) in expected_events.iter().zip(emitted_logs.iter()) {
+        // Compare the expected event bytes with the emitted log's data.
+        if expected != &log.data.data {
+            error!(
+                "Mismatch in event data. Expected: {:?}, Got: {:?}",
+                expected, log.data.data
+            );
+            return Err(Errors::LogMismatch);
+        }
+    }
+    Ok(())
 }

@@ -13,6 +13,8 @@ use revm::{
 
 use std::{str::FromStr, u64};
 
+use crate::cmd::semantics::utils::verify_emitted_events;
+
 use super::{semantic_tests::SemanticTests, test_cases::TestCase, Errors};
 
 #[derive(Debug, Clone)]
@@ -260,8 +262,7 @@ impl<'a> EvmExecutor<'a> {
                     match output {
                         Output::Call(out) => {
                             assert_eq!(Bytes::from(out), test_case.expected_outputs.output);
-                            println!("logs: {:?}", logs);
-                            
+                            verify_emitted_events(&test_case.expected_events, &logs)?;
                         }
                         _ => return Err(Errors::EVMError),
                     }
