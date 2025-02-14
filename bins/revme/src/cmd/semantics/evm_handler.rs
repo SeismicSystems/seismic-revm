@@ -160,7 +160,7 @@ impl<'a> EvmExecutor<'a> {
                 _ => return Err(Errors::EVMError),
             },
             ExecutionResult::Revert { output, .. } => {
-                error!("EVM transaction error: {:?}", output.to_string());
+                error!("EVM deploy transaction error: {:?}", output.to_string());
                 return Err(Errors::EVMError);
             }
             ExecutionResult::Halt { reason, .. } => {
