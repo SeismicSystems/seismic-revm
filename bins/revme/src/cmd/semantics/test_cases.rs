@@ -4,7 +4,7 @@ use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo, utils:
 use log::info;
 use revm::primitives::{keccak256, Bytes, FixedBytes, HashMap, LogData, Address, U256};
 
-const SKIP_KEYWORD: [&str; 3] = ["gas", "Library", "account"];
+const SKIP_KEYWORD: [&str; 2] = ["gas", "Library"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ExecutionResult {
