@@ -81,7 +81,7 @@ impl SemanticTests {
         let evm_version = EVMVersion::extract(&content);
         let via_ir = extract_compile_via_yul(&content);
 
-        let contract_infos = Self::get_contract_infos(path, evm_version.clone(), via_ir, false)?;
+        let contract_infos = Self::get_contract_infos(path, evm_version, via_ir, false)?;
 
         let test_cases = TestCase::from_expectations(expectations, &contract_infos)?;
         Ok(SemanticTests {
@@ -141,10 +141,7 @@ impl SemanticTests {
     ) -> Result<Vec<ContractInfo>, Errors> {
         let stdout_output = Self::compile_solidity(path, evm_version, via_ir, runtime)?;
 
-        let revm_version: SpecId = evm_version
-            .clone()
-            .map(|evm_ver| SpecId::from(EVMVersion::from(evm_ver)))
-            .unwrap_or(SpecId::LATEST);
+        let revm_version: SpecId = evm_version.map(SpecId::from).unwrap_or(SpecId::LATEST);
 
         let mut contract_infos = Vec::new();
 
@@ -164,7 +161,7 @@ impl SemanticTests {
             let rest_of_section = lines.collect::<Vec<&str>>().join("\n");
             if let Some(index) = rest_of_section.find("Binary:") {
                 let after_binary = &rest_of_section[index + "Binary:".len()..];
-                let bytecode_line = after_binary.lines().skip(1).next().unwrap_or("");
+                let bytecode_line = after_binary.lines().nth(1).unwrap_or("");
                 let compile_binary = match hex::decode(bytecode_line.trim()) {
                     Ok(decoded_bytes) => Bytes::from(decoded_bytes),
                     Err(decode_error) => {

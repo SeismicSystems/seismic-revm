@@ -152,7 +152,7 @@ pub(crate) fn extract_functions_from_source(
                 }
             }
         } else if line.contains("constructor") {
-            if let Some(function_name) = line.split_whitespace().nth(0) {
+            if let Some(function_name) = line.split_whitespace().next() {
                 let function_signature = function_name.split('(').next().unwrap_or("");
                 if let Some(functions) = contract_functions.get_mut(&current_contract) {
                     functions.push(function_signature.to_string());

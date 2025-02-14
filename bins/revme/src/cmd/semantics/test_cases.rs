@@ -25,13 +25,6 @@ pub(crate) struct ExpectedOutputs {
 }
 
 impl ExpectedOutputs {
-    pub(crate) fn from_failure() -> Self {
-        Self {
-            state: ExecutionResult::Failure,
-            output: Bytes::default(),
-        }
-    }
-
     pub(crate) fn is_success(&self) -> bool {
         self.state == ExecutionResult::Success
     }
@@ -70,7 +63,7 @@ impl TestCase {
 
             let line = if !line.contains("~ emit") {
                 if let Some(comment_idx) = line.find('#') {
-                    &line[..comment_idx].trim()
+                    line[..comment_idx].trim()
                 } else {
                     line.trim()
                 }
@@ -104,7 +97,7 @@ impl TestCase {
             if line.contains("~ emit") {
                 let event_bytes = Self::parse_event(line);
                 if let Some(ref mut tc) = current_test_case {
-                    tc.expected_events.push(event_bytes.into());
+                    tc.expected_events.push(event_bytes);
                 } else {
                     return Err(Errors::InvalidInput); // event line with no preceding test case.
                 }
@@ -113,7 +106,7 @@ impl TestCase {
 
             if line.starts_with("balance") {
                 // Only treat it as a balance line if it has the expected formatting.
-                if (line.contains("balance:") || line.starts_with("balance ->")) {
+                if line.contains("balance:") || line.starts_with("balance ->") {
                     let (address, balance) = Self::parse_balance(line)?;
                     if let Some(ref mut tc) = current_test_case {
                         tc.expected_balances.insert(address, balance);
@@ -164,7 +157,7 @@ impl TestCase {
 
                 if is_constructor {
                     for arg in &args_encoded {
-                        deploy_binary.extend_from_slice(&arg);
+                        deploy_binary.extend_from_slice(arg);
                     }
                     input_data.clear(); // No input data for constructor call
                 }
@@ -320,9 +313,9 @@ impl TestCase {
                     let value_str = remaining.trim();
                     value = Some(Self::parse_value(value_str)?);
                 }
-            } else if remaining.starts_with(':') {
+            } else if let Some(stripped) = remaining.strip_prefix(':') {
                 // Inputs follow
-                inputs_str = remaining[1..].trim();
+                inputs_str = stripped.trim();
             } else {
                 return Err(Errors::InvalidInput);
             }
@@ -350,7 +343,7 @@ impl TestCase {
         let multiplier = match parts[1] {
             "wei" => U256::from(1),
             "gwei" => U256::from(1000000000),
-            "ether" => U256::from(1000000000000000000 as i64),
+            "ether" => U256::from(1000000000000000000_i64),
             _ => return Err(Errors::InvalidInput),
         };
         Ok(amount * multiplier)

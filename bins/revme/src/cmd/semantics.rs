@@ -126,8 +126,7 @@ impl Cmd {
 
                 let deploy_data =
                     self.prepare_deploy_data(&semantic_tests, &constructor_test_case)?;
-                let mut evm_executor =
-                    EvmExecutor::new(db, evm_config.clone(), evm_version, &semantic_tests);
+                let mut evm_executor = EvmExecutor::new(db, evm_config.clone(), evm_version);
 
                 debug!("constructor test_case: {:?}", constructor_test_case);
 

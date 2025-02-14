@@ -11,13 +11,11 @@ use revm::{
     DatabaseCommit, Evm,
 };
 
-use std::{str::FromStr, u64};
+use std::str::FromStr;
 
 use crate::cmd::semantics::utils::verify_emitted_events;
 
-use super::{
-    semantic_tests::SemanticTests, test_cases::TestCase, utils::verify_expected_balances, Errors,
-};
+use super::{test_cases::TestCase, utils::verify_expected_balances, Errors};
 
 #[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {
@@ -94,25 +92,18 @@ impl EvmConfig {
     }
 }
 
-pub(crate) struct EvmExecutor<'a> {
+pub(crate) struct EvmExecutor {
     db: CacheDB<EmptyDB>,
     pub config: EvmConfig,
     evm_version: SpecId,
-    semantic_tests: &'a SemanticTests,
 }
 
-impl<'a> EvmExecutor<'a> {
-    pub(crate) fn new(
-        db: CacheDB<EmptyDB>,
-        config: EvmConfig,
-        evm_version: SpecId,
-        semantic_tests: &'a SemanticTests,
-    ) -> Self {
+impl EvmExecutor {
+    pub(crate) fn new(db: CacheDB<EmptyDB>, config: EvmConfig, evm_version: SpecId) -> Self {
         Self {
             db,
             config,
             evm_version,
-            semantic_tests,
         }
     }
 
@@ -190,7 +181,7 @@ impl<'a> EvmExecutor<'a> {
             let storage_entries: Vec<_> = account_info
                 .storage
                 .iter()
-                .map(|(slot, value)| (slot.clone(), value.clone()))
+                .map(|(slot, value)| (*slot, *value))
                 .collect();
             (account_info_clone, storage_entries)
         };
@@ -276,7 +267,7 @@ impl<'a> EvmExecutor<'a> {
                 if test_case.expected_outputs.is_success() {
                     match output {
                         Output::Call(out) => {
-                            assert_eq!(Bytes::from(out), test_case.expected_outputs.output);
+                            assert_eq!(out, test_case.expected_outputs.output);
                             verify_emitted_events(&test_case.expected_events, &logs)?;
                         }
                         _ => return Err(Errors::EVMError),

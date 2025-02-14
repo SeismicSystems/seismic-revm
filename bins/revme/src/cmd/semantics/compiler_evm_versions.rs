@@ -109,9 +109,9 @@ impl EVMVersion {
 
                 if let Some(ev_version) = EVMVersion::from_str(version) {
                     return match comparison {
-                        "<" => ev_version.previous().and_then(|v| EVMVersion::from_str(v)),
+                        "<" => ev_version.previous().and_then(EVMVersion::from_str),
                         "<=" | "=" => Some(ev_version),
-                        ">" => ev_version.next().and_then(|v| EVMVersion::from_str(v)),
+                        ">" => ev_version.next().and_then(EVMVersion::from_str),
                         ">=" => Some(ev_version),
                         _ => None,
                     };
