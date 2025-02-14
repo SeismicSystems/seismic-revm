@@ -11,6 +11,8 @@ pub enum Errors {
     LogMismatch,
     #[error("Balance Mismatch")]
     BalanceMismatch,
+    #[error("Storage Mismatch")]
+    StorageMismatch,
     #[error("EVM Error")]
     EVMError,
     #[error(transparent)]
