@@ -1,12 +1,10 @@
 use std::str::FromStr;
 
 use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo, utils::bytes_to_fixed};
-use alloy_primitives::U256;
-use hex::FromHex;
 use log::info;
-use revm::primitives::{keccak256, Bytes, FixedBytes, LogData};
+use revm::primitives::{keccak256, Bytes, FixedBytes, HashMap, LogData, Address, U256};
 
-const SKIP_KEYWORD: [&str; 4] = ["gas", "Library", "balance", "account"];
+const SKIP_KEYWORD: [&str; 3] = ["gas", "Library", "account"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ExecutionResult {
@@ -20,19 +18,10 @@ impl Default for ExecutionResult {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct ExpectedOutputs {
     state: ExecutionResult,
     pub output: Bytes,
-}
-
-impl Default for ExpectedOutputs {
-    fn default() -> Self {
-        Self {
-            state: ExecutionResult::default(),
-            output: Bytes::from_hex("0x").unwrap(),
-        }
-    }
 }
 
 impl ExpectedOutputs {
@@ -48,7 +37,7 @@ impl ExpectedOutputs {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub(crate) struct TestCase {
     pub function_name: String,
     pub input_data: Bytes,
@@ -56,6 +45,7 @@ pub(crate) struct TestCase {
     pub is_constructor: bool,
     pub deploy_binary: Bytes,
     pub expected_events: Vec<LogData>,
+    pub expected_balances: HashMap<Address, U256>,
     pub value: U256,
 }
 
@@ -77,6 +67,8 @@ impl TestCase {
             } else {
                 line
             };
+
+
 
             let line = if !line.contains("~ emit") {
                 if let Some(comment_idx) = line.find('#') {
@@ -119,6 +111,19 @@ impl TestCase {
                     return Err(Errors::InvalidInput); // event line with no preceding test case.
                 }
                 continue;
+            }
+
+            if line.starts_with("balance") {
+                // Only treat it as a balance line if it has the expected formatting.
+                if (line.contains("balance:") || line.starts_with("balance ->")) {
+                    let (address, balance) = Self::parse_balance(line)?;
+                    if let Some(ref mut tc) = current_test_case {
+                        tc.expected_balances.insert(address, balance);
+                    } else {
+                        return Err(Errors::InvalidInput); // balance line with no preceding test case.
+                    }
+                    continue;
+                }
             }
 
             if let Some(tc) = current_test_case.take() {
@@ -173,6 +178,7 @@ impl TestCase {
                     expected_outputs,
                     is_constructor,
                     expected_events: Vec::new(),
+                    expected_balances: HashMap::new(),
                     deploy_binary: deploy_binary.into(),
                     value: value.unwrap_or(U256::ZERO),
                 });
@@ -225,11 +231,11 @@ impl TestCase {
                     if arg.starts_with('#') {
                         // Indexed parameter: remove '#' and parse hex.
                         let hex_str = arg.trim_start_matches('#').trim();
-                        let parsed = Parser::parse_raw_hex(hex_str).unwrap();
+                        let parsed = Parser::parse_arg(hex_str).unwrap();
                         topics.push(bytes_to_fixed(parsed));
                     } else {
                         // Non-indexed parameter: parse hex and append to data.
-                        let parsed = Parser::parse_raw_hex(arg).unwrap();
+                        let parsed = Parser::parse_arg(arg).unwrap();
                         data.extend(parsed);
                     }
                 }
@@ -237,6 +243,43 @@ impl TestCase {
         }
 
         LogData::new(topics, data.into()).unwrap()
+    }
+
+    fn parse_balance(line: &str) -> Result<(Address, U256), Errors> {
+        let trimmed = line.trim();
+
+
+        // Remove the "balance:" prefix and trim whitespace.
+        let balance_line = if trimmed.starts_with("balance:") {
+            trimmed.trim_start_matches("balance:").trim()
+        } else if trimmed.starts_with("balance") {
+            trimmed.trim_start_matches("balance").trim()
+        } else {
+            return Err(Errors::InvalidInput);
+        };
+
+        // Expected formats:
+        // 1. "0xADDRESS -> VALUE"
+        // 2. "-> VALUE"  (no address provided; use default)
+        let parts: Vec<&str> = balance_line.split("->").collect();
+        if parts.len() != 2 {
+            return Err(Errors::InvalidInput);
+        }
+        let address_str = parts[0].trim();
+        let balance_str = parts[1].trim();
+
+        // Use the provided address if available; otherwise, use the default address. We'll use
+        // this to understand we should use the deployed contract address downstream.
+        let address = if address_str.is_empty() {
+            Address::ZERO 
+        } else {
+            Address::from_str(address_str).map_err(|_| Errors::InvalidInput)?
+        };
+
+        // Parse the balance (in decimal or hex, as needed).
+        let balance = U256::from_str(balance_str).map_err(|_| Errors::InvalidInput)?;
+
+        Ok((address, balance))
     }
 
     fn parse_call_part(call_part: &str) -> Result<(String, Option<U256>, Vec<String>), Errors> {
