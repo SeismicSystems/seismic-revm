@@ -4,7 +4,7 @@ use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo, utils:
 use log::info;
 use revm::primitives::{keccak256, Address, Bytes, FixedBytes, HashMap, LogData, U256};
 
-const SKIP_KEYWORD: [&str; 2] = ["gas", "Library"];
+const SKIP_KEYWORD: [&str; 1] = ["gas"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ExecutionResult {
@@ -39,6 +39,7 @@ pub(crate) struct TestCase {
     pub deploy_binary: Bytes,
     pub expected_events: Vec<LogData>,
     pub expected_balances: HashMap<Address, U256>,
+    pub expected_storage_empty: Option<bool>, // New field
     pub value: U256,
 }
 
@@ -117,6 +118,18 @@ impl TestCase {
                 }
             }
 
+            if line.starts_with("storageEmpty") {
+                if line.contains("->") {
+                    let storage_empty = Self::parse_storage_empty(line)?;
+                    if let Some(ref mut tc) = current_test_case {
+                        tc.expected_storage_empty = Some(storage_empty);
+                    } else {
+                        return Err(Errors::InvalidInput); // storageEmpty line with no preceding test case.
+                    }
+                    continue;
+                }
+            }
+
             if let Some(tc) = current_test_case.take() {
                 test_cases.push(tc);
             }
@@ -170,6 +183,7 @@ impl TestCase {
                     is_constructor,
                     expected_events: Vec::new(),
                     expected_balances: HashMap::new(),
+                    expected_storage_empty: None,
                     deploy_binary: deploy_binary.into(),
                     value: value.unwrap_or(U256::ZERO),
                 });
@@ -270,6 +284,21 @@ impl TestCase {
         let balance = U256::from_str(balance_str).map_err(|_| Errors::InvalidInput)?;
 
         Ok((address, balance))
+    }
+
+    fn parse_storage_empty(line: &str) -> Result<bool, Errors> {
+        // Remove "storageEmpty" keyword.
+        let trimmed = line.trim().trim_start_matches("storageEmpty").trim();
+        // Expect the format "-> VALUE"
+        if !trimmed.starts_with("->") {
+            return Err(Errors::InvalidInput);
+        }
+        let value_str = trimmed.trim_start_matches("->").trim();
+        match value_str {
+            "0" => Ok(false),
+            "1" => Ok(true),
+            _ => Err(Errors::InvalidInput)
+        }
     }
 
     fn parse_call_part(call_part: &str) -> Result<(String, Option<U256>, Vec<String>), Errors> {
