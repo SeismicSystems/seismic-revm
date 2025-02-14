@@ -9,6 +9,8 @@ pub enum Errors {
     InvalidInput,
     #[error("Log Mismatch")]
     LogMismatch,
+    #[error("Balance Mismatch")]
+    BalanceMismatch,
     #[error("EVM Error")]
     EVMError,
     #[error(transparent)]
