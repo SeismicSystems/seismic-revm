@@ -15,7 +15,7 @@ use std::{str::FromStr, u64};
 
 use crate::cmd::semantics::utils::verify_emitted_events;
 
-use super::{semantic_tests::SemanticTests, test_cases::TestCase, Errors};
+use super::{semantic_tests::SemanticTests, test_cases::TestCase, utils::verify_expected_balances, Errors};
 
 #[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {
@@ -117,7 +117,7 @@ impl<'a> EvmExecutor<'a> {
     pub(crate) fn deploy_contract(
         &mut self,
         deploy_data: Bytes,
-        value: U256,
+        test_case: TestCase,
         trace: bool,
     ) -> Result<Address, Errors> {
         let mut evm = Evm::builder()
@@ -126,7 +126,7 @@ impl<'a> EvmExecutor<'a> {
                 tx.caller = self.config.caller;
                 tx.transact_to = TxKind::Create;
                 tx.data = deploy_data.clone();
-                tx.value = value;
+                tx.value = test_case.value;
             })
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
             .append_handler_register(seismic_handle_register)
@@ -153,9 +153,13 @@ impl<'a> EvmExecutor<'a> {
             })?
         };
 
+
         let contract_address = match deploy_out.clone().result {
-            ExecutionResult::Success { output, .. } => match output {
-                Output::Create(_, Some(addr)) => addr,
+            ExecutionResult::Success { output, logs, .. } => match output {
+                Output::Create(_, Some(addr)) => {
+                    verify_emitted_events(&test_case.expected_events, &logs)?;
+                    addr
+                }
                 Output::Create(_, None) => return Err(Errors::EVMError),
                 _ => return Err(Errors::EVMError),
             },
@@ -170,6 +174,7 @@ impl<'a> EvmExecutor<'a> {
         };
 
         self.db.commit(deploy_out.state);
+        verify_expected_balances(self.db.clone(), &test_case.expected_balances, contract_address)?;
         Ok(contract_address)
     }
 
@@ -303,6 +308,7 @@ impl<'a> EvmExecutor<'a> {
         };
 
         self.db.commit(out.state);
+        verify_expected_balances(self.db.clone(), &test_case.expected_balances, self.config.env_contract_address)?;
         Ok(())
     }
 }
