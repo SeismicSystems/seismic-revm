@@ -12,13 +12,11 @@ use super::{
     utils::{extract_compile_via_yul, extract_functions_from_source},
 };
 
-const SKIP_KEYWORD: [&str; 6] = [
+const SKIP_KEYWORD: [&str; 4] = [
     "==== Source:",
     "allowNonExistingFunctions: true",
     "// library:",
     "revertStrings: debug",
-    "storageEmpty ->",
-    "tx.origin",
 ];
 
 #[derive(Debug, Clone)]
