@@ -133,9 +133,7 @@ impl Cmd {
 
                 let contract_address = evm_executor.deploy_contract(
                     deploy_data,
-                    constructor_test_case
-                        .as_ref()
-                        .map_or(U256::ZERO, |tc| tc.value),
+                    constructor_test_case.unwrap_or_default(),
                     self.trace,
                 )?;
                 evm_executor.config.block_number =
