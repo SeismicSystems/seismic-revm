@@ -1,5 +1,6 @@
 use log::error;
-use revm::primitives::{Bytes, FixedBytes, Log, LogData};
+use revm::db::{CacheDB, EmptyDB};
+use revm::primitives::{Bytes, FixedBytes, Log, LogData, Address, U256};
 
 use crate::cmd::semantics::Errors;
 use std::collections::HashMap;
@@ -285,6 +286,29 @@ pub(crate) fn verify_emitted_events(
                 expected.data, log.data.data
             );
             return Err(Errors::LogMismatch);
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn verify_expected_balances(
+    mut db: CacheDB<EmptyDB>,
+    expected: &HashMap<Address, U256>,
+    deployed_contract_address: Address,
+) -> Result<(), Errors> {
+    for (addr, exp_balance) in expected {
+        let account = db.load_account(if addr == &Address::ZERO {
+            deployed_contract_address
+        } else {
+            *addr
+        }).unwrap();
+
+        if account.info.balance != *exp_balance {
+            error!(
+                "Balance mismatch for {}: expected {}, got {}",
+                addr, exp_balance, account.info.balance
+            );
+            return Err(Errors::BalanceMismatch);
         }
     }
     Ok(())
