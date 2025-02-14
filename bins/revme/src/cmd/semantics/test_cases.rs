@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo, utils::bytes_to_fixed};
 use log::info;
-use revm::primitives::{keccak256, Bytes, FixedBytes, HashMap, LogData, Address, U256};
+use revm::primitives::{keccak256, Address, Bytes, FixedBytes, HashMap, LogData, U256};
 
 const SKIP_KEYWORD: [&str; 2] = ["gas", "Library"];
 
@@ -67,8 +67,6 @@ impl TestCase {
             } else {
                 line
             };
-
-
 
             let line = if !line.contains("~ emit") {
                 if let Some(comment_idx) = line.find('#') {
@@ -248,7 +246,6 @@ impl TestCase {
     fn parse_balance(line: &str) -> Result<(Address, U256), Errors> {
         let trimmed = line.trim();
 
-
         // Remove the "balance:" prefix and trim whitespace.
         let balance_line = if trimmed.starts_with("balance:") {
             trimmed.trim_start_matches("balance:").trim()
@@ -271,7 +268,7 @@ impl TestCase {
         // Use the provided address if available; otherwise, use the default address. We'll use
         // this to understand we should use the deployed contract address downstream.
         let address = if address_str.is_empty() {
-            Address::ZERO 
+            Address::ZERO
         } else {
             Address::from_str(address_str).map_err(|_| Errors::InvalidInput)?
         };

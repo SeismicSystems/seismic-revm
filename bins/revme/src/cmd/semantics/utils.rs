@@ -1,6 +1,6 @@
 use log::error;
 use revm::db::{CacheDB, EmptyDB};
-use revm::primitives::{Bytes, FixedBytes, Log, LogData, Address, U256};
+use revm::primitives::{Address, Bytes, FixedBytes, Log, LogData, U256};
 
 use crate::cmd::semantics::Errors;
 use std::collections::HashMap;
@@ -297,11 +297,13 @@ pub(crate) fn verify_expected_balances(
     deployed_contract_address: Address,
 ) -> Result<(), Errors> {
     for (addr, exp_balance) in expected {
-        let account = db.load_account(if addr == &Address::ZERO {
-            deployed_contract_address
-        } else {
-            *addr
-        }).unwrap();
+        let account = db
+            .load_account(if addr == &Address::ZERO {
+                deployed_contract_address
+            } else {
+                *addr
+            })
+            .unwrap();
 
         if account.info.balance != *exp_balance {
             error!(

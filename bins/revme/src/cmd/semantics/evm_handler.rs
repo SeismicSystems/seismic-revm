@@ -15,7 +15,9 @@ use std::{str::FromStr, u64};
 
 use crate::cmd::semantics::utils::verify_emitted_events;
 
-use super::{semantic_tests::SemanticTests, test_cases::TestCase, utils::verify_expected_balances, Errors};
+use super::{
+    semantic_tests::SemanticTests, test_cases::TestCase, utils::verify_expected_balances, Errors,
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {
@@ -153,7 +155,6 @@ impl<'a> EvmExecutor<'a> {
             })?
         };
 
-
         let contract_address = match deploy_out.clone().result {
             ExecutionResult::Success { output, logs, .. } => match output {
                 Output::Create(_, Some(addr)) => {
@@ -174,7 +175,11 @@ impl<'a> EvmExecutor<'a> {
         };
 
         self.db.commit(deploy_out.state);
-        verify_expected_balances(self.db.clone(), &test_case.expected_balances, contract_address)?;
+        verify_expected_balances(
+            self.db.clone(),
+            &test_case.expected_balances,
+            contract_address,
+        )?;
         Ok(contract_address)
     }
 
@@ -308,7 +313,11 @@ impl<'a> EvmExecutor<'a> {
         };
 
         self.db.commit(out.state);
-        verify_expected_balances(self.db.clone(), &test_case.expected_balances, self.config.env_contract_address)?;
+        verify_expected_balances(
+            self.db.clone(),
+            &test_case.expected_balances,
+            self.config.env_contract_address,
+        )?;
         Ok(())
     }
 }
