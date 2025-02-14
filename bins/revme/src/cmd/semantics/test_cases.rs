@@ -4,7 +4,7 @@ use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo, utils:
 use alloy_primitives::U256;
 use hex::FromHex;
 use log::info;
-use revm::primitives::{Bytes, FixedBytes, LogData, keccak256};
+use revm::primitives::{keccak256, Bytes, FixedBytes, LogData};
 
 const SKIP_KEYWORD: [&str; 4] = ["gas", "Library", "balance", "account"];
 
@@ -88,7 +88,6 @@ impl TestCase {
                 // For event lines (which contain "~ emit"), keep the '#' as it's part of the syntax.
                 line
             };
-
 
             // format:
             //function_signature "," inputs ":" inputs "->" outputs
@@ -183,10 +182,9 @@ impl TestCase {
                     function_signature
                 );
             }
-
         }
 
-        if let Some(tc) = current_test_case{
+        if let Some(tc) = current_test_case {
             test_cases.push(tc);
         }
 
@@ -199,7 +197,6 @@ impl TestCase {
         // Split at the first colon to separate signature and arguments.
         let parts: Vec<&str> = event_str.splitn(2, ':').collect();
 
-        
         // Process the event signature.
         // Remove any trailing " from <address>" part if present.
         let mut signature = parts[0].trim();
@@ -239,10 +236,7 @@ impl TestCase {
             }
         }
 
-        LogData::new(
-            topics,
-            data.into()
-        ).unwrap() 
+        LogData::new(topics, data.into()).unwrap()
     }
 
     fn parse_call_part(call_part: &str) -> Result<(String, Option<U256>, Vec<String>), Errors> {

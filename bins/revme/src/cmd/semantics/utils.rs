@@ -258,7 +258,10 @@ pub(crate) fn parse_string_with_escapes(s: &str) -> Result<Vec<u8>, Errors> {
 }
 
 /// Verifies that the emitted logs (ignoring address and topics) match the expected events.
-pub(crate) fn verify_emitted_events(expected_events: &[LogData], emitted_logs: &[Log]) -> Result<(), Errors> {
+pub(crate) fn verify_emitted_events(
+    expected_events: &[LogData],
+    emitted_logs: &[Log],
+) -> Result<(), Errors> {
     if expected_events.len() != emitted_logs.len() {
         error!(
             "Expected {} events, but {} were emitted",
@@ -271,7 +274,8 @@ pub(crate) fn verify_emitted_events(expected_events: &[LogData], emitted_logs: &
         if expected.topics() != log.topics() {
             error!(
                 "Mismatch in event topics. Expected: {:?}, Got: {:?}",
-                expected.topics(), log.topics()
+                expected.topics(),
+                log.topics()
             );
             return Err(Errors::LogMismatch);
         }

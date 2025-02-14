@@ -257,7 +257,12 @@ impl<'a> EvmExecutor<'a> {
         };
 
         match out.clone().result {
-            ExecutionResult::Success { output, reason, logs, .. } => {
+            ExecutionResult::Success {
+                output,
+                reason,
+                logs,
+                ..
+            } => {
                 if test_case.expected_outputs.is_success() {
                     match output {
                         Output::Call(out) => {
