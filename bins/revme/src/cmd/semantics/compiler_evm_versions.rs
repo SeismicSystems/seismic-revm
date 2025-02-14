@@ -13,6 +13,7 @@ pub(crate) enum EVMVersion {
     Paris,
     Shangain,
     Cancun,
+    Mercury,
 }
 
 // Not fully exhaustive list of versions, trying to cover all SOLIDITY VERSIONING is the goal here
@@ -28,12 +29,14 @@ impl EVMVersion {
             "paris" => Some(Self::Paris),
             "shanghai" => Some(Self::Shangain),
             "cancun" => Some(Self::Cancun),
+            "mercury" => Some(Self::Mercury),
             _ => None,
         }
     }
 
     pub(crate) fn previous(&self) -> Option<&'static str> {
         match self {
+            EVMVersion::Mercury => Some("cancun"),
             EVMVersion::Cancun => Some("shanghai"),
             EVMVersion::Shangain => Some("paris"),
             EVMVersion::Paris => Some("London"),
@@ -55,7 +58,8 @@ impl EVMVersion {
             EVMVersion::London => Some("arrowglacier"),
             EVMVersion::Paris => Some("shanghai"),
             EVMVersion::Shangain => Some("cancun"),
-            EVMVersion::Cancun => None,
+            EVMVersion::Cancun => Some("mercury"),
+            EVMVersion::Mercury => None,
         }
     }
 }
@@ -72,6 +76,7 @@ impl fmt::Display for EVMVersion {
             EVMVersion::Paris => "paris",
             EVMVersion::Shangain => "shanghai",
             EVMVersion::Cancun => "cancun",
+            EVMVersion::Mercury => "mercury",
         };
         write!(f, "{}", version_str)
     }
@@ -129,6 +134,7 @@ impl From<SpecId> for EVMVersion {
             SpecId::MERGE => EVMVersion::Paris,
             SpecId::SHANGHAI => EVMVersion::Shangain,
             SpecId::CANCUN => EVMVersion::Cancun,
+            SpecId::MERCURY => EVMVersion::Mercury,
             _ => panic!("Unsupported SpecId for EVMVersion mapping"),
         }
     }
@@ -146,6 +152,7 @@ impl From<EVMVersion> for SpecId {
             EVMVersion::Paris => SpecId::MERGE,
             EVMVersion::Shangain => SpecId::SHANGHAI,
             EVMVersion::Cancun => SpecId::CANCUN,
+            EVMVersion::Mercury => SpecId::MERCURY,
         }
     }
 }

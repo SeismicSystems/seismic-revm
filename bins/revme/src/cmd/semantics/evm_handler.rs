@@ -1,5 +1,5 @@
 use hex::FromHex;
-use log::{debug, error, info};
+use log::{debug, error};
 use revm::{
     db::{CacheDB, EmptyDB},
     inspector_handle_register,
@@ -11,7 +11,9 @@ use revm::{
     DatabaseCommit, Evm,
 };
 
-use std::{path::PathBuf, str::FromStr, u64};
+use std::{str::FromStr, u64};
+
+use crate::cmd::semantics::utils::verify_emitted_events;
 
 use super::{semantic_tests::SemanticTests, test_cases::TestCase, Errors};
 
@@ -158,7 +160,7 @@ impl<'a> EvmExecutor<'a> {
                 _ => return Err(Errors::EVMError),
             },
             ExecutionResult::Revert { output, .. } => {
-                error!("EVM transaction error: {:?}", output.to_string());
+                error!("EVM deploy transaction error: {:?}", output.to_string());
                 return Err(Errors::EVMError);
             }
             ExecutionResult::Halt { reason, .. } => {
@@ -255,11 +257,17 @@ impl<'a> EvmExecutor<'a> {
         };
 
         match out.clone().result {
-            ExecutionResult::Success { output, reason, .. } => {
+            ExecutionResult::Success {
+                output,
+                reason,
+                logs,
+                ..
+            } => {
                 if test_case.expected_outputs.is_success() {
                     match output {
                         Output::Call(out) => {
                             assert_eq!(Bytes::from(out), test_case.expected_outputs.output);
+                            verify_emitted_events(&test_case.expected_events, &logs)?;
                         }
                         _ => return Err(Errors::EVMError),
                     }

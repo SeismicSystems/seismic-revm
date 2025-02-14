@@ -1,8 +1,5 @@
 use std::fs;
-use std::{
-    io::Write,
-    process::{Command, Stdio},
-};
+use std::process::Command;
 
 use log::{error, info};
 use revm::primitives::{Bytes, SpecId};

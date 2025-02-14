@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
-use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo};
+use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo, utils::bytes_to_fixed};
 use alloy_primitives::U256;
 use hex::FromHex;
 use log::info;
-use revm::primitives::Bytes;
+use revm::primitives::{keccak256, Bytes, FixedBytes, LogData};
 
-const SKIP_KEYWORD: [&str; 5] = ["gas", "emit", "Library", "balance", "account"];
+const SKIP_KEYWORD: [&str; 4] = ["gas", "Library", "balance", "account"];
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ExecutionResult {
@@ -55,6 +55,7 @@ pub(crate) struct TestCase {
     pub expected_outputs: ExpectedOutputs,
     pub is_constructor: bool,
     pub deploy_binary: Bytes,
+    pub expected_events: Vec<LogData>,
     pub value: U256,
 }
 
@@ -64,6 +65,7 @@ impl TestCase {
         contract_infos: &[ContractInfo],
     ) -> Result<Vec<Self>, Errors> {
         let mut test_cases = Vec::new();
+        let mut current_test_case: Option<TestCase> = None;
 
         for line in expectations.lines() {
             let line = line.trim();
@@ -76,11 +78,15 @@ impl TestCase {
                 line
             };
 
-            // Remove comments starting with '#'
-            let line = if let Some(comment_idx) = line.find('#') {
-                &line[..comment_idx].trim()
+            let line = if !line.contains("~ emit") {
+                if let Some(comment_idx) = line.find('#') {
+                    &line[..comment_idx].trim()
+                } else {
+                    line.trim()
+                }
             } else {
-                line.trim()
+                // For event lines (which contain "~ emit"), keep the '#' as it's part of the syntax.
+                line
             };
 
             // format:
@@ -103,6 +109,20 @@ impl TestCase {
             });
             if should_skip {
                 continue;
+            }
+
+            if line.contains("~ emit") {
+                let event_bytes = Self::parse_event(line);
+                if let Some(ref mut tc) = current_test_case {
+                    tc.expected_events.push(event_bytes.into());
+                } else {
+                    return Err(Errors::InvalidInput); // event line with no preceding test case.
+                }
+                continue;
+            }
+
+            if let Some(tc) = current_test_case.take() {
+                test_cases.push(tc);
             }
 
             let (function_signature, value, inputs) = Self::parse_call_part(call_part)?;
@@ -146,11 +166,13 @@ impl TestCase {
                     input_data.clear(); // No input data for constructor call
                 }
 
-                test_cases.push(TestCase {
+                // Create a new test case with an empty vector for expected events.
+                current_test_case = Some(TestCase {
                     function_name: function_signature.clone(),
                     input_data: input_data.into(),
                     expected_outputs,
                     is_constructor,
+                    expected_events: Vec::new(),
                     deploy_binary: deploy_binary.into(),
                     value: value.unwrap_or(U256::ZERO),
                 });
@@ -162,7 +184,59 @@ impl TestCase {
             }
         }
 
+        if let Some(tc) = current_test_case {
+            test_cases.push(tc);
+        }
+
         Ok(test_cases)
+    }
+
+    fn parse_event(call_part: &str) -> LogData {
+        // Remove the "~ emit" prefix and trim whitespace.
+        let event_str = call_part.trim().trim_start_matches("~ emit").trim();
+        // Split at the first colon to separate signature and arguments.
+        let parts: Vec<&str> = event_str.splitn(2, ':').collect();
+
+        // Process the event signature.
+        // Remove any trailing " from <address>" part if present.
+        let mut signature = parts[0].trim();
+        if let Some(pos) = signature.find(" from ") {
+            signature = signature[..pos].trim();
+        }
+
+        let mut topics: Vec<FixedBytes<32>> = Vec::new();
+        let mut data = Vec::new();
+
+        // For non-anonymous events, compute and push the keccak256 hash of the signature as the first topic.
+        if signature != "<anonymous>" {
+            let function_signature = keccak256(signature.as_bytes());
+            topics.push(function_signature);
+        }
+
+        // Process event arguments if present after the colon.
+        if parts.len() == 2 {
+            let args_str = parts[1].trim();
+            if !args_str.is_empty() {
+                for arg in args_str.split(',') {
+                    let arg = arg.trim();
+                    if arg.is_empty() {
+                        continue;
+                    }
+                    if arg.starts_with('#') {
+                        // Indexed parameter: remove '#' and parse hex.
+                        let hex_str = arg.trim_start_matches('#').trim();
+                        let parsed = Parser::parse_raw_hex(hex_str).unwrap();
+                        topics.push(bytes_to_fixed(parsed));
+                    } else {
+                        // Non-indexed parameter: parse hex and append to data.
+                        let parsed = Parser::parse_raw_hex(arg).unwrap();
+                        data.extend(parsed);
+                    }
+                }
+            }
+        }
+
+        LogData::new(topics, data.into()).unwrap()
     }
 
     fn parse_call_part(call_part: &str) -> Result<(String, Option<U256>, Vec<String>), Errors> {
