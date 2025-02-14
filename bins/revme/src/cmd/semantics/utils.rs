@@ -316,6 +316,22 @@ pub(crate) fn verify_expected_balances(
     Ok(())
 }
 
+pub(crate) fn verify_storage_empty(mut db: CacheDB<EmptyDB>, contract_address: Address, expected_empty: bool) -> Result<(), Errors> {
+    let storage_entries = db.load_account(contract_address).unwrap();
+    let is_empty = storage_entries.storage.is_empty();
+    println!("storage_entries.storage: {:?}", storage_entries.storage);
+    if is_empty != expected_empty {
+        error!(
+            "Storage mismatch for {}: expected empty = {}, but storage has {} entries",
+            contract_address,
+            expected_empty,
+            storage_entries.storage.len()
+        );
+        return Err(Errors::StorageMismatch);
+    }
+    Ok(())
+}
+
 // Helper function to convert Bytes into FixedBytes<32>
 pub(crate) fn bytes_to_fixed(bytes: Bytes) -> FixedBytes<32> {
     let slice = bytes.as_ref();

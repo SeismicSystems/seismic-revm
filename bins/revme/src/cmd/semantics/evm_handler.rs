@@ -15,7 +15,7 @@ use std::str::FromStr;
 
 use crate::cmd::semantics::utils::verify_emitted_events;
 
-use super::{test_cases::TestCase, utils::verify_expected_balances, Errors};
+use super::{test_cases::TestCase, utils::{verify_expected_balances, verify_storage_empty}, Errors};
 
 #[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {
@@ -171,6 +171,9 @@ impl EvmExecutor {
             &test_case.expected_balances,
             contract_address,
         )?;
+        if let Some(expected_empty) = test_case.expected_storage_empty {
+            verify_storage_empty(self.db.clone(), contract_address, expected_empty)?;
+        } 
         Ok(contract_address)
     }
 
@@ -309,6 +312,9 @@ impl EvmExecutor {
             &test_case.expected_balances,
             self.config.env_contract_address,
         )?;
+        if let Some(expected_empty) = test_case.expected_storage_empty {
+            verify_storage_empty(self.db.clone(), self.config.env_contract_address, expected_empty)?;
+        }         
         Ok(())
     }
 }
