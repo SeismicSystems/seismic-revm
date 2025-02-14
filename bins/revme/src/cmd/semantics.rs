@@ -5,7 +5,7 @@ use revm::{
 };
 use test_cases::TestCase;
 
-use log::{info, LevelFilter};
+use log::{debug, info, LevelFilter};
 use rayon::prelude::*;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -128,7 +128,9 @@ impl Cmd {
                     self.prepare_deploy_data(&semantic_tests, &constructor_test_case)?;
                 let mut evm_executor =
                     EvmExecutor::new(db, evm_config.clone(), evm_version, &semantic_tests);
-
+                
+                debug!("constructor test_case: {:?}", constructor_test_case);
+                
                 let contract_address = evm_executor.deploy_contract(
                     deploy_data,
                     constructor_test_case
