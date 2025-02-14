@@ -1,5 +1,5 @@
 use log::error;
-use revm::primitives::{Log, Bytes};
+use revm::primitives::{Bytes, FixedBytes, Log, LogData};
 
 use crate::cmd::semantics::Errors;
 use std::collections::HashMap;
@@ -258,7 +258,7 @@ pub(crate) fn parse_string_with_escapes(s: &str) -> Result<Vec<u8>, Errors> {
 }
 
 /// Verifies that the emitted logs (ignoring address and topics) match the expected events.
-pub(crate) fn verify_emitted_events(expected_events: &[Bytes], emitted_logs: &[Log]) -> Result<(), Errors> {
+pub(crate) fn verify_emitted_events(expected_events: &[LogData], emitted_logs: &[Log]) -> Result<(), Errors> {
     if expected_events.len() != emitted_logs.len() {
         error!(
             "Expected {} events, but {} were emitted",
@@ -268,14 +268,28 @@ pub(crate) fn verify_emitted_events(expected_events: &[Bytes], emitted_logs: &[L
         return Err(Errors::LogMismatch);
     }
     for (expected, log) in expected_events.iter().zip(emitted_logs.iter()) {
-        // Compare the expected event bytes with the emitted log's data.
-        if expected != &log.data.data {
+        if expected.topics() != log.topics() {
+            error!(
+                "Mismatch in event topics. Expected: {:?}, Got: {:?}",
+                expected.topics(), log.topics()
+            );
+            return Err(Errors::LogMismatch);
+        }
+        if expected.data != log.data.data {
             error!(
                 "Mismatch in event data. Expected: {:?}, Got: {:?}",
-                expected, log.data.data
+                expected.data, log.data.data
             );
             return Err(Errors::LogMismatch);
         }
     }
     Ok(())
+}
+
+// Helper function to convert Bytes into FixedBytes<32>
+pub(crate) fn bytes_to_fixed(bytes: Bytes) -> FixedBytes<32> {
+    let slice = bytes.as_ref();
+    let mut fixed = [0u8; 32];
+    fixed.copy_from_slice(slice);
+    fixed.into()
 }
