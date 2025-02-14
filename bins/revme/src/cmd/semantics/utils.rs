@@ -1,5 +1,6 @@
 use log::error;
-use revm::primitives::{Bytes, FixedBytes, Log, LogData};
+use revm::db::{CacheDB, EmptyDB};
+use revm::primitives::{Address, Bytes, FixedBytes, Log, LogData, U256};
 
 use crate::cmd::semantics::Errors;
 use std::collections::HashMap;
@@ -151,7 +152,7 @@ pub(crate) fn extract_functions_from_source(
                 }
             }
         } else if line.contains("constructor") {
-            if let Some(function_name) = line.split_whitespace().nth(0) {
+            if let Some(function_name) = line.split_whitespace().next() {
                 let function_signature = function_name.split('(').next().unwrap_or("");
                 if let Some(functions) = contract_functions.get_mut(&current_contract) {
                     functions.push(function_signature.to_string());
@@ -285,6 +286,31 @@ pub(crate) fn verify_emitted_events(
                 expected.data, log.data.data
             );
             return Err(Errors::LogMismatch);
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn verify_expected_balances(
+    mut db: CacheDB<EmptyDB>,
+    expected: &HashMap<Address, U256>,
+    deployed_contract_address: Address,
+) -> Result<(), Errors> {
+    for (addr, exp_balance) in expected {
+        let account = db
+            .load_account(if addr == &Address::ZERO {
+                deployed_contract_address
+            } else {
+                *addr
+            })
+            .unwrap();
+
+        if account.info.balance != *exp_balance {
+            error!(
+                "Balance mismatch for {}: expected {}, got {}",
+                addr, exp_balance, account.info.balance
+            );
+            return Err(Errors::BalanceMismatch);
         }
     }
     Ok(())

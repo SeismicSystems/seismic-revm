@@ -11,11 +11,11 @@ use revm::{
     DatabaseCommit, Evm,
 };
 
-use std::{str::FromStr, u64};
+use std::str::FromStr;
 
 use crate::cmd::semantics::utils::verify_emitted_events;
 
-use super::{semantic_tests::SemanticTests, test_cases::TestCase, Errors};
+use super::{test_cases::TestCase, utils::verify_expected_balances, Errors};
 
 #[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {
@@ -92,32 +92,25 @@ impl EvmConfig {
     }
 }
 
-pub(crate) struct EvmExecutor<'a> {
+pub(crate) struct EvmExecutor {
     db: CacheDB<EmptyDB>,
     pub config: EvmConfig,
     evm_version: SpecId,
-    semantic_tests: &'a SemanticTests,
 }
 
-impl<'a> EvmExecutor<'a> {
-    pub(crate) fn new(
-        db: CacheDB<EmptyDB>,
-        config: EvmConfig,
-        evm_version: SpecId,
-        semantic_tests: &'a SemanticTests,
-    ) -> Self {
+impl EvmExecutor {
+    pub(crate) fn new(db: CacheDB<EmptyDB>, config: EvmConfig, evm_version: SpecId) -> Self {
         Self {
             db,
             config,
             evm_version,
-            semantic_tests,
         }
     }
 
     pub(crate) fn deploy_contract(
         &mut self,
         deploy_data: Bytes,
-        value: U256,
+        test_case: TestCase,
         trace: bool,
     ) -> Result<Address, Errors> {
         let mut evm = Evm::builder()
@@ -126,7 +119,7 @@ impl<'a> EvmExecutor<'a> {
                 tx.caller = self.config.caller;
                 tx.transact_to = TxKind::Create;
                 tx.data = deploy_data.clone();
-                tx.value = value;
+                tx.value = test_case.value;
             })
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
             .append_handler_register(seismic_handle_register)
@@ -154,8 +147,11 @@ impl<'a> EvmExecutor<'a> {
         };
 
         let contract_address = match deploy_out.clone().result {
-            ExecutionResult::Success { output, .. } => match output {
-                Output::Create(_, Some(addr)) => addr,
+            ExecutionResult::Success { output, logs, .. } => match output {
+                Output::Create(_, Some(addr)) => {
+                    verify_emitted_events(&test_case.expected_events, &logs)?;
+                    addr
+                }
                 Output::Create(_, None) => return Err(Errors::EVMError),
                 _ => return Err(Errors::EVMError),
             },
@@ -170,6 +166,11 @@ impl<'a> EvmExecutor<'a> {
         };
 
         self.db.commit(deploy_out.state);
+        verify_expected_balances(
+            self.db.clone(),
+            &test_case.expected_balances,
+            contract_address,
+        )?;
         Ok(contract_address)
     }
 
@@ -180,7 +181,7 @@ impl<'a> EvmExecutor<'a> {
             let storage_entries: Vec<_> = account_info
                 .storage
                 .iter()
-                .map(|(slot, value)| (slot.clone(), value.clone()))
+                .map(|(slot, value)| (*slot, *value))
                 .collect();
             (account_info_clone, storage_entries)
         };
@@ -266,7 +267,7 @@ impl<'a> EvmExecutor<'a> {
                 if test_case.expected_outputs.is_success() {
                     match output {
                         Output::Call(out) => {
-                            assert_eq!(Bytes::from(out), test_case.expected_outputs.output);
+                            assert_eq!(out, test_case.expected_outputs.output);
                             verify_emitted_events(&test_case.expected_events, &logs)?;
                         }
                         _ => return Err(Errors::EVMError),
@@ -303,6 +304,11 @@ impl<'a> EvmExecutor<'a> {
         };
 
         self.db.commit(out.state);
+        verify_expected_balances(
+            self.db.clone(),
+            &test_case.expected_balances,
+            self.config.env_contract_address,
+        )?;
         Ok(())
     }
 }
