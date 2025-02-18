@@ -5,7 +5,7 @@ use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
     primitives::{
-        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256,
+        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256, Log,
     },
     seismic::seismic_handle_register,
     DatabaseCommit, Evm,
@@ -13,9 +13,9 @@ use revm::{
 
 use std::str::FromStr;
 
-use crate::cmd::semantics::utils::verify_emitted_events;
+use crate::cmd::semantics::{test_cases::TestStep, utils::verify_emitted_events};
 
-use super::{test_cases::TestCase, utils::{verify_expected_balances, verify_storage_empty}, Errors};
+use super::{test_cases::{ExpectedOutputs, TestCase}, utils::{verify_expected_balances, verify_storage_empty}, Errors};
 
 #[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {
@@ -110,8 +110,8 @@ impl EvmExecutor {
     pub(crate) fn deploy_contract(
         &mut self,
         deploy_data: Bytes,
-        test_case: TestCase,
         trace: bool,
+        value: U256,
     ) -> Result<Address, Errors> {
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
@@ -119,7 +119,7 @@ impl EvmExecutor {
                 tx.caller = self.config.caller;
                 tx.transact_to = TxKind::Create;
                 tx.data = deploy_data.clone();
-                tx.value = test_case.value;
+                tx.value = value
             })
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
             .append_handler_register(seismic_handle_register)
@@ -149,7 +149,7 @@ impl EvmExecutor {
         let contract_address = match deploy_out.clone().result {
             ExecutionResult::Success { output, logs, .. } => match output {
                 Output::Create(_, Some(addr)) => {
-                    verify_emitted_events(&test_case.expected_events, &logs)?;
+                    verify_emitted_events(&[], &logs)?; // No expected events for deployment
                     addr
                 }
                 Output::Create(_, None) => return Err(Errors::EVMError),
@@ -166,52 +166,25 @@ impl EvmExecutor {
         };
 
         self.db.commit(deploy_out.state);
-        verify_expected_balances(
-            self.db.clone(),
-            &test_case.expected_balances,
-            contract_address,
-        )?;
-        if let Some(expected_empty) = test_case.expected_storage_empty {
-            verify_storage_empty(self.db.clone(), contract_address, expected_empty)?;
-        } 
         Ok(contract_address)
     }
 
-    pub(crate) fn copy_contract_to_env(&mut self, contract_address: Address) {
-        let (account_info_clone, storage_entries) = {
-            let account_info = self.db.load_account(contract_address).unwrap();
-            let account_info_clone = account_info.info.clone();
-            let storage_entries: Vec<_> = account_info
-                .storage
-                .iter()
-                .map(|(slot, value)| (*slot, *value))
-                .collect();
-            (account_info_clone, storage_entries)
-        };
-        self.db
-            .insert_account_info(self.config.env_contract_address, account_info_clone);
-
-        for (slot, value) in storage_entries {
-            let _ = self
-                .db
-                .insert_account_storage(self.config.env_contract_address, slot, value);
-        }
-    }
-
-    pub(crate) fn run_test_case(
+    pub(crate) fn execute_function_call(
         &mut self,
-        test_case: &TestCase,
+        function_name: &str,
+        input_data: &Bytes,
+        expected_outputs: &ExpectedOutputs,
         trace: bool,
         test_file: &str,
-    ) -> Result<(), Errors> {
-        debug!("running test_case: {:?}", test_case);
+        value: U256,
+    ) -> Result<Vec<Log>, Errors> {
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
             .modify_tx_env(|tx| {
                 tx.caller = self.config.caller;
                 tx.transact_to = TxKind::Call(self.config.env_contract_address);
-                tx.data = test_case.input_data.clone();
-                tx.value = test_case.value;
+                tx.data = input_data.clone();
+                tx.value = value;
                 if self.evm_version >= SpecId::CANCUN {
                     tx.blob_hashes = self.config.blob_hashes.clone();
                     tx.max_fee_per_blob_gas = Some(self.config.max_blob_fee);
@@ -260,61 +233,93 @@ impl EvmExecutor {
             })?
         };
 
-        match out.clone().result {
+        let logs = match out.clone().result {
             ExecutionResult::Success {
                 output,
-                reason,
                 logs,
                 ..
             } => {
-                if test_case.expected_outputs.is_success() {
-                    match output {
-                        Output::Call(out) => {
-                            assert_eq!(out, test_case.expected_outputs.output);
-                            verify_emitted_events(&test_case.expected_events, &logs)?;
-                        }
-                        _ => return Err(Errors::EVMError),
+                match output {
+                    Output::Call(out) => {
+                        assert_eq!(out, expected_outputs.output);
+                        verify_emitted_events(&[], &logs)?;
                     }
-                } else {
-                    error!("an Error was expected from the testCase, and yet, the test passed with output: {:?}, with reason: {:?}, for file: {:?}", output, reason, test_file);
-                    return Err(Errors::EVMError);
+                    _ => return Err(Errors::EVMError),
                 }
+                logs
             }
 
             ExecutionResult::Revert { output, .. } => {
-                if !test_case.expected_outputs.is_success() {
-                    return Ok(());
-                } else {
-                    // for backward compatibility, we need to handle the case where we revert with
-                    // but expected output was 0x!
-                    error!(
-                        "Reverted with output: {:?} for file {:?}",
-                        output.to_string(),
-                        test_file
-                    );
-                    assert_eq!(output, test_case.expected_outputs.output);
-                }
+                error!(
+                    "Reverted with output: {:?} for file {:?}",
+                    output.to_string(),
+                    test_file
+                );
+                assert_eq!(output, expected_outputs.output);
+                vec![]
             }
 
             ExecutionResult::Halt { reason, .. } => {
-                if !test_case.expected_outputs.is_success() {
-                    return Ok(());
-                } else {
-                    error!("Execution halted: {:?} for file {:?}", reason, test_file);
-                    return Err(Errors::EVMError);
-                }
+                error!("Execution halted: {:?} for file {:?}", reason, test_file);
+                return Err(Errors::EVMError);
             }
         };
 
         self.db.commit(out.state);
-        verify_expected_balances(
-            self.db.clone(),
-            &test_case.expected_balances,
-            self.config.env_contract_address,
-        )?;
-        if let Some(expected_empty) = test_case.expected_storage_empty {
-            verify_storage_empty(self.db.clone(), self.config.env_contract_address, expected_empty)?;
-        }         
+        Ok(logs)
+    }
+
+    pub(crate) fn copy_contract_to_env(&mut self, contract_address: Address) {
+        let (account_info_clone, storage_entries) = {
+            let account_info = self.db.load_account(contract_address).unwrap();
+            let account_info_clone = account_info.info.clone();
+            let storage_entries: Vec<_> = account_info
+                .storage
+                .iter()
+                .map(|(slot, value)| (*slot, *value))
+                .collect();
+            (account_info_clone, storage_entries)
+        };
+        self.db
+            .insert_account_info(self.config.env_contract_address, account_info_clone);
+
+        for (slot, value) in storage_entries {
+            let _ = self
+                .db
+                .insert_account_storage(self.config.env_contract_address, slot, value);
+        }
+    }
+
+    pub(crate) fn run_test_case(
+        &mut self,
+        test_case: &TestCase,
+        trace: bool,
+        test_file: &str,
+    ) -> Result<(), Errors> {
+        debug!("running test_case: {:?}", test_case);
+        let mut logs: Vec<Log> = Vec::new();
+        for step in &test_case.steps {
+            match step {
+                TestStep::Deploy { contract, value } => {
+                    let contract_address = self.deploy_contract(contract.clone(), trace, value.clone())?;
+                    self.config.block_number =
+                        self.config.block_number.wrapping_add(U256::from(1));
+                    self.copy_contract_to_env(contract_address);
+                }
+                TestStep::CallFunction { function_name, input_data, expected_outputs, value } => {
+                    logs = self.execute_function_call(function_name, input_data, expected_outputs, trace, test_file, value.clone())?;
+                }
+                TestStep::CheckStorageEmpty { expected_empty } => {
+                    verify_storage_empty(self.db.clone(), self.config.env_contract_address, *expected_empty)?;
+                }
+                TestStep::CheckBalance { expected_balances } => {
+                    verify_expected_balances(self.db.clone(), expected_balances, self.config.env_contract_address)?;
+                }
+                TestStep::CheckEvents { expected_events } => {
+                    verify_emitted_events(expected_events, &logs)?;
+                }
+            }
+        }
         Ok(())
     }
 }
