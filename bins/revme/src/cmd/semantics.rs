@@ -155,18 +155,4 @@ impl Cmd {
         db.insert_account_info(config.caller, account_info);
         Ok(db)
     }
-
-   // fn prepare_deploy_data(
-   //     &self,
-   //     semantic_tests: &SemanticTests,
-   //     constructor_test_case: &Option<TestCase>,
-   // ) -> Result<Bytes, Errors> {
-   //     if let Some(ref test_case) = constructor_test_case {
-   //         Ok(test_case.deploy_binary.clone())
-   //     } else if let Some(first_test_case) = semantic_tests.test_cases.first() {
-   //         Ok(first_test_case.deploy_binary.clone())
-   //     } else {
-   //         Ok(Bytes::new())
-   //     }
-   // }
 }
