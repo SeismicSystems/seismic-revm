@@ -1,8 +1,8 @@
 use hex::FromHex;
 use log::{debug, error};
 use revm::{
-    db::{CacheDB, EmptyDB, State}, inspector_handle_register, inspectors::TracerEip3155, primitives::{
-        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256,
+    inspector_handle_register, inspectors::TracerEip3155, primitives::{
+        Address, Bytes, EvmState, ExecutionResult, FixedBytes, HandlerCfg, Output, ResultAndState, SpecId, TxKind, U256
     }, seismic::seismic_handle_register, CacheState, DatabaseCommit, Evm
 };
 
@@ -114,68 +114,76 @@ impl EvmExecutor {
             .with_cached_prestate(self.cache.clone())
             .with_bundle_update()
             .build();
-        let mut evm = Evm::builder()
-            .with_db(state)
-            .modify_tx_env(|tx| {
-                tx.caller = self.config.caller;
-                tx.transact_to = TxKind::Create;
-                tx.data = deploy_data.clone();
-                tx.value = test_case.value;
-            })
-            .with_handler_cfg(HandlerCfg::new(self.evm_version))
-            .append_handler_register(seismic_handle_register)
-            .build();
 
-        let deploy_out = if trace {
-            let mut evm = evm
-                .modify()
-                .reset_handler_with_external_context(TracerEip3155::new(
-                    Box::new(std::io::stdout()),
-                ))
-                .append_handler_register(inspector_handle_register)
+        let (contract_address, deploy_state) = {
+            let mut evm = Evm::builder()
+                .with_db(&mut state) 
+                .modify_tx_env(|tx| {
+                    tx.caller = self.config.caller;
+                    tx.transact_to = TxKind::Create;
+                    tx.data = deploy_data.clone();
+                    tx.value = test_case.value;
+                })
+                .with_handler_cfg(HandlerCfg::new(self.evm_version))
                 .append_handler_register(seismic_handle_register)
                 .build();
 
-            evm.transact().map_err(|err| {
-                error!("DEPLOY transaction error: {:?}", err.to_string());
-                Errors::EVMError
-            })?
-        } else {
-            evm.transact().map_err(|err| {
-                error!("DEPLOY transaction error: {:?}", err.to_string());
-                Errors::EVMError
-            })?
-        };
+            let deploy_out = if trace {
+                let mut evm = evm
+                    .modify()
+                    .reset_handler_with_external_context(TracerEip3155::new(
+                        Box::new(std::io::stdout()),
+                    ))
+                    .append_handler_register(inspector_handle_register)
+                    .append_handler_register(seismic_handle_register)
+                    .build();
 
-        let contract_address = match deploy_out.clone().result {
-            ExecutionResult::Success { output, logs, .. } => match output {
-                Output::Create(_, Some(addr)) => {
-                    verify_emitted_events(&test_case.expected_events, &logs)?;
-                    addr
+                evm.transact().map_err(|err| {
+                    error!("DEPLOY transaction error: {:?}", err.to_string());
+                    Errors::EVMError
+                })?
+            } else {
+                evm.transact().map_err(|err| {
+                    error!("DEPLOY transaction error: {:?}", err.to_string());
+                    Errors::EVMError
+                })?
+            };
+
+            let contract_address: Address = match deploy_out.clone().result {
+                ExecutionResult::Success { output, logs, .. } => match output {
+                    Output::Create(_, Some(addr)) => {
+                        verify_emitted_events(&test_case.expected_events, &logs)?;
+                        addr
+                    }
+                    Output::Create(_, None) => return Err(Errors::EVMError),
+                    _ => return Err(Errors::EVMError),
+                },
+                ExecutionResult::Revert { output, .. } => {
+                    error!("EVM deploy transaction error: {:?}", output.to_string());
+                    return Err(Errors::EVMError);
                 }
-                Output::Create(_, None) => return Err(Errors::EVMError),
-                _ => return Err(Errors::EVMError),
-            },
-            ExecutionResult::Revert { output, .. } => {
-                error!("EVM deploy transaction error: {:?}", output.to_string());
-                return Err(Errors::EVMError);
-            }
-            ExecutionResult::Halt { reason, .. } => {
-                error!("Execution halted during deployment: {:?}", reason);
-                return Err(Errors::EVMError);
-            }
-        };
+                ExecutionResult::Halt { reason, .. } => {
+                    error!("Execution halted during deployment: {:?}", reason);
+                    return Err(Errors::EVMError);
+                }
+            };
 
-        //should have db.commit(deploy_out.state);
-        let current_state = self.cache.clone();
+            let deploy_state: EvmState = deploy_out.state;
+            
+            Ok::<(Address, EvmState), Errors>((contract_address, deploy_state))
+        }?; 
+
+        state.commit(deploy_state); // commit deploy_state
+        self.cache = state.cache.clone();
         verify_expected_balances(
-            &current_state,
+            &state.cache, 
             &test_case.expected_balances,
             contract_address,
         )?;
         if let Some(expected_empty) = test_case.expected_storage_empty {
-            verify_storage_empty(&current_state, contract_address, expected_empty)?;
+            verify_storage_empty(&state.cache, contract_address, expected_empty)?;
         } 
+
         Ok(contract_address)
     }
 
@@ -203,6 +211,7 @@ impl EvmExecutor {
                 .get(&self.config.env_contract_address)
                 .unwrap()
                 .account
+                .clone()
                 .unwrap()
                 .storage
                 .insert(slot, value);
@@ -216,62 +225,72 @@ impl EvmExecutor {
         test_file: &str,
     ) -> Result<(), Errors> {
         debug!("running test_case: {:?}", test_case);
-        let mut evm = Evm::builder()
-            .with_db(self.db.clone())
-            .modify_tx_env(|tx| {
-                tx.caller = self.config.caller;
-                tx.transact_to = TxKind::Call(self.config.env_contract_address);
-                tx.data = test_case.input_data.clone();
-                tx.value = test_case.value;
-                if self.evm_version >= SpecId::CANCUN {
-                    tx.blob_hashes = self.config.blob_hashes.clone();
-                    tx.max_fee_per_blob_gas = Some(self.config.max_blob_fee);
-                }
-                tx.gas_limit = self.config.gas_limit;
-                tx.gas_price = self.config.gas_price;
-            })
-            .modify_env(|env| {
-                env.block.prevrandao = Some(self.config.block_prevrandao);
-                env.block.difficulty = self.config.block_difficulty.into();
-                env.block.gas_limit = self.config.block_gas_limit;
-                env.block.coinbase = self.config.block_coinbase;
-                env.block.basefee = self.config.block_basefee;
-                env.block.number = self.config.block_number;
-            })
-            .with_handler_cfg(HandlerCfg::new(self.evm_version))
-            .append_handler_register(seismic_handle_register)
+
+        let mut state = revm::db::State::builder()
+            .with_cached_prestate(self.cache.clone())
+            .with_bundle_update()
             .build();
 
-        let out = if trace {
-            let mut evm = evm
-                .modify()
-                .reset_handler_with_external_context(TracerEip3155::new(
-                    Box::new(std::io::stdout()),
-                ))
-                .append_handler_register(inspector_handle_register)
+        let evm_out = {
+            let mut evm = Evm::builder()
+                .with_db(&mut state) 
+                .modify_tx_env(|tx| {
+                    tx.caller = self.config.caller;
+                    tx.transact_to = TxKind::Call(self.config.env_contract_address);
+                    tx.data = test_case.input_data.clone();
+                    tx.value = test_case.value;
+                    if self.evm_version >= SpecId::CANCUN {
+                        tx.blob_hashes = self.config.blob_hashes.clone();
+                        tx.max_fee_per_blob_gas = Some(self.config.max_blob_fee);
+                    }
+                    tx.gas_limit = self.config.gas_limit;
+                    tx.gas_price = self.config.gas_price;
+                })
+                .modify_env(|env| {
+                    env.block.prevrandao = Some(self.config.block_prevrandao);
+                    env.block.difficulty = self.config.block_difficulty.into();
+                    env.block.gas_limit = self.config.block_gas_limit;
+                    env.block.coinbase = self.config.block_coinbase;
+                    env.block.basefee = self.config.block_basefee;
+                    env.block.number = self.config.block_number;
+                })
+                .with_handler_cfg(HandlerCfg::new(self.evm_version))
                 .append_handler_register(seismic_handle_register)
                 .build();
 
-            evm.transact().map_err(|err| {
-                error!(
-                    "EVM transaction error: {:?}, for the file: {:?}",
-                    err.to_string(),
-                    test_file
-                );
-                Errors::EVMError
-            })?
-        } else {
-            evm.transact().map_err(|err| {
-                error!(
-                    "EVM transaction error: {:?}, for the file: {:?}",
-                    err.to_string(),
-                    test_file
-                );
-                Errors::EVMError
-            })?
-        };
+            let out = if trace {
+                let mut evm = evm
+                    .modify()
+                    .reset_handler_with_external_context(TracerEip3155::new(
+                        Box::new(std::io::stdout()),
+                    ))
+                    .append_handler_register(inspector_handle_register)
+                    .append_handler_register(seismic_handle_register)
+                    .build();
 
-        match out.clone().result {
+                evm.transact().map_err(|err| {
+                    error!(
+                        "EVM transaction error: {:?}, for the file: {:?}",
+                        err.to_string(),
+                        test_file
+                    );
+                    Errors::EVMError
+                })?
+            } else {
+                evm.transact().map_err(|err| {
+                    error!(
+                        "EVM transaction error: {:?}, for the file: {:?}",
+                        err.to_string(),
+                        test_file
+                    );
+                    Errors::EVMError
+                })?
+            };
+
+            Ok::<ResultAndState, Errors>(out)
+        }?; 
+
+        match evm_out.clone().result {
             ExecutionResult::Success {
                 output,
                 reason,
@@ -287,7 +306,10 @@ impl EvmExecutor {
                         _ => return Err(Errors::EVMError),
                     }
                 } else {
-                    error!("an Error was expected from the testCase, and yet, the test passed with output: {:?}, with reason: {:?}, for file: {:?}", output, reason, test_file);
+                    error!(
+                        "An error was expected from the testCase, and yet, the test passed with output: {:?}, reason: {:?}, for file: {:?}",
+                        output, reason, test_file
+                    );
                     return Err(Errors::EVMError);
                 }
             }
@@ -296,8 +318,6 @@ impl EvmExecutor {
                 if !test_case.expected_outputs.is_success() {
                     return Ok(());
                 } else {
-                    // for backward compatibility, we need to handle the case where we revert with
-                    // but expected output was 0x!
                     error!(
                         "Reverted with output: {:?} for file {:?}",
                         output.to_string(),
@@ -316,16 +336,20 @@ impl EvmExecutor {
                 }
             }
         };
+        
 
-        self.db.commit(out.state);
+        state.commit(evm_out.state); 
+        self.cache = state.cache.clone();
+        let finalized_state = self.cache.clone();
         verify_expected_balances(
-            self.db.clone(),
+            &finalized_state,
             &test_case.expected_balances,
             self.config.env_contract_address,
         )?;
         if let Some(expected_empty) = test_case.expected_storage_empty {
-            verify_storage_empty(self.db.clone(), self.config.env_contract_address, expected_empty)?;
-        }         
+            verify_storage_empty(&finalized_state, self.config.env_contract_address, expected_empty)?;
+        } 
+
         Ok(())
     }
 }

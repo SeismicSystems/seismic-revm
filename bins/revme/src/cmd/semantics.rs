@@ -1,7 +1,6 @@
 use evm_handler::{EvmConfig, EvmExecutor};
 use revm::{
-    db::{CacheDB, EmptyDB},
-    primitives::{AccountInfo, Bytes, SpecId, U256}, State,
+    db::{CacheDB, EmptyDB}, primitives::{AccountInfo, Bytes, SpecId, U256}, CacheState, State
 };
 use test_cases::TestCase;
 
@@ -116,7 +115,7 @@ impl Cmd {
             Ok(semantic_tests) => {
                 let evm_version = semantic_tests.contract_infos[0].evm_version;
                 let evm_config = EvmConfig::new(evm_version);
-                let db = self.prepare_database(&evm_config)?;
+                let cache = self.prepare_database(&evm_config)?;
 
                 let constructor_test_case = semantic_tests
                     .test_cases
@@ -126,7 +125,7 @@ impl Cmd {
 
                 let deploy_data =
                     self.prepare_deploy_data(&semantic_tests, &constructor_test_case)?;
-                let mut evm_executor = EvmExecutor::new(db, evm_config.clone(), evm_version);
+                let mut evm_executor = EvmExecutor::new(cache, evm_config.clone(), evm_version);
 
                 debug!("constructor test_case: {:?}", constructor_test_case);
 
@@ -168,7 +167,7 @@ impl Cmd {
         Ok(())
     }
 
-    fn prepare_database(&self, config: &EvmConfig) -> Result<State<EmptyDB>, Errors> {
+    fn prepare_database(&self, config: &EvmConfig) -> Result<CacheState, Errors> {
         let mut cache = revm::CacheState::new(false);
         let account_info = AccountInfo {
             balance: U256::MAX,
@@ -181,11 +180,7 @@ impl Cmd {
             config.evm_version,
             revm::primitives::SpecId::SPURIOUS_DRAGON,
         ));
-        let state = revm::db::State::builder()
-            .with_cached_prestate(cache)
-            .with_bundle_update()
-            .build();
-        Ok(state)
+        Ok(cache)
     }
 
     fn prepare_deploy_data(

@@ -317,16 +317,20 @@ pub(crate) fn verify_expected_balances(
     Ok(())
 }
 
-pub(crate) fn verify_storage_empty(db: &CacheState, contract_address: Address, expected_empty: bool) -> Result<(), Errors> {
+pub(crate) fn verify_storage_empty(
+    db: &CacheState,
+    contract_address: Address,
+    expected_empty: bool,
+) -> Result<(), Errors> {
     let storage_entries = db.accounts.get(&contract_address).unwrap();
-    let is_empty = storage_entries.account.as_ref().unwrap().storage.is_empty();
-    println!("storage_entries.storage: {:?}", storage_entries.account.as_ref().unwrap().storage);
-    if is_empty != expected_empty {
+    let storage = &storage_entries.account.as_ref().unwrap().storage;
+
+    let all_slots_zero = storage.iter().all(|(_, value)| value.value == U256::ZERO);
+
+    if all_slots_zero != expected_empty {
         error!(
-            "Storage mismatch for {}: expected empty = {}, but storage has {} entries",
-            contract_address,
-            expected_empty,
-            storage_entries.account.as_ref().unwrap().storage.len()
+            "Storage mismatch for {}: expected empty = {}, but storage contains non-zero values",
+            contract_address, expected_empty
         );
         return Err(Errors::StorageMismatch);
     }
