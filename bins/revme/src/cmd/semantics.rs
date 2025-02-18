@@ -118,33 +118,9 @@ impl Cmd {
                 let evm_config = EvmConfig::new(evm_version);
                 let db = self.prepare_database(&evm_config)?;
 
-                let constructor_test_case = semantic_tests
-                    .test_cases
-                    .iter()
-                    .find(|test_case| test_case.is_constructor)
-                    .cloned();
-
-                let deploy_data =
-                    self.prepare_deploy_data(&semantic_tests, &constructor_test_case)?;
                 let mut evm_executor = EvmExecutor::new(db, evm_config.clone(), evm_version);
 
-                debug!("constructor test_case: {:?}", constructor_test_case);
-
-                let contract_address = evm_executor.deploy_contract(
-                    deploy_data,
-                    constructor_test_case.unwrap_or_default(),
-                    self.trace,
-                )?;
-                evm_executor.config.block_number =
-                    evm_executor.config.block_number.wrapping_add(U256::from(1));
-                evm_executor.copy_contract_to_env(contract_address);
-
-                let test_cases_to_process = semantic_tests
-                    .test_cases
-                    .iter()
-                    .filter(|test_case| !test_case.is_constructor);
-
-                for test_case in test_cases_to_process {
+                for test_case in  &semantic_tests.test_cases {
                     let result = evm_executor.run_test_case(test_case, self.trace, test_file_path);
                     match result {
                         Ok(_) => {}
@@ -178,19 +154,5 @@ impl Cmd {
         };
         db.insert_account_info(config.caller, account_info);
         Ok(db)
-    }
-
-    fn prepare_deploy_data(
-        &self,
-        semantic_tests: &SemanticTests,
-        constructor_test_case: &Option<TestCase>,
-    ) -> Result<Bytes, Errors> {
-        if let Some(ref test_case) = constructor_test_case {
-            Ok(test_case.deploy_binary.clone())
-        } else if let Some(first_test_case) = semantic_tests.test_cases.first() {
-            Ok(first_test_case.deploy_binary.clone())
-        } else {
-            Ok(Bytes::new())
-        }
     }
 }

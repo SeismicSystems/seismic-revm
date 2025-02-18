@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo, utils::bytes_to_fixed};
-use log::info;
+use log::{debug, info};
 use revm::primitives::{keccak256, Address, Bytes, FixedBytes, HashMap, LogData, U256};
 
 const SKIP_KEYWORD: [&str; 1] = ["gas"];
@@ -32,15 +32,15 @@ impl ExpectedOutputs {
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct TestCase {
-    pub function_name: String,
-    pub input_data: Bytes,
-    pub expected_outputs: ExpectedOutputs,
-    pub is_constructor: bool,
-    pub deploy_binary: Bytes,
-    pub expected_events: Vec<LogData>,
-    pub expected_balances: HashMap<Address, U256>,
-    pub expected_storage_empty: Option<bool>, // New field
-    pub value: U256,
+    pub steps: Vec<TestStep>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum TestStep {
+    Deploy { contract: Bytes, value: U256, expected_events: Vec<LogData> },
+    CallFunction { function_name: String, input_data: Bytes, expected_outputs: ExpectedOutputs, value: U256, expected_events: Vec<LogData> },
+    CheckStorageEmpty { expected_empty: bool },
+    CheckBalance { expected_balances: HashMap<Address, U256> },
 }
 
 impl TestCase {
@@ -49,34 +49,55 @@ impl TestCase {
         contract_infos: &[ContractInfo],
     ) -> Result<Vec<Self>, Errors> {
         let mut test_cases = Vec::new();
-        let mut current_test_case: Option<TestCase> = None;
+        let mut steps = Vec::new();
 
-        for line in expectations.lines() {
-            let line = line.trim();
-            if line.is_empty() {
+        let mut first_contract_deployed = false;
+
+        for line in expectations.lines().map(str::trim).filter(|l| !l.is_empty()) {
+            debug!("Parsing line: {}", line);
+            let line = Self::strip_comments(line);
+
+            if line.contains("~ emit") {
+                let event_bytes = Self::parse_event(&line);
+                if let Some(TestStep::CallFunction { expected_events, .. }) = steps.last_mut() {
+                    expected_events.push(event_bytes);
+                } else if let Some(TestStep::Deploy { expected_events, .. }) = steps.last_mut() {
+                    expected_events.push(event_bytes);
+                }
+                else {
+                    return Err(Errors::InvalidInput); 
+                }
                 continue;
             }
-            let line = if line.starts_with("//") {
-                line.trim_start_matches("//").trim()
-            } else {
-                line
-            };
 
-            let line = if !line.contains("~ emit") {
-                if let Some(comment_idx) = line.find('#') {
-                    line[..comment_idx].trim()
-                } else {
-                    line.trim()
+            if line.starts_with("balance") {
+                 if line.contains("balance:") || line.starts_with("balance ->") {
+                    let (address, balance) = Self::parse_balance(&line)?; 
+                    steps.push(TestStep::CheckBalance {
+                        expected_balances: vec![(address, balance)].into_iter().collect(),
+                    });
+                    continue;
                 }
-            } else {
-                // For event lines (which contain "~ emit"), keep the '#' as it's part of the syntax.
-                line
-            };
+            }
+
+            if line.starts_with("storageEmpty") {
+                if line.contains("->") {
+                    let storage_empty = Self::parse_storage_empty(&line)?;
+                    steps.push(TestStep::CheckStorageEmpty { expected_empty: storage_empty });
+                }
+                continue;
+            }
+
+            if !steps.is_empty() {
+                test_cases.push(TestCase { steps: steps.clone() });
+                steps.clear();
+            }
 
             // format:
             //function_signature "," inputs ":" inputs "->" outputs
             // Split the line into call part and expected output part
             let parts: Vec<&str> = line.split("->").collect();
+            
             if parts.len() > 2 {
                 return Err(Errors::InvalidInput);
             }
@@ -95,56 +116,14 @@ impl TestCase {
                 continue;
             }
 
-            if line.contains("~ emit") {
-                let event_bytes = Self::parse_event(line);
-                if let Some(ref mut tc) = current_test_case {
-                    tc.expected_events.push(event_bytes);
-                } else {
-                    return Err(Errors::InvalidInput); // event line with no preceding test case.
-                }
-                continue;
-            }
-
-            if line.starts_with("balance") {
-                // Only treat it as a balance line if it has the expected formatting.
-                if line.contains("balance:") || line.starts_with("balance ->") {
-                    let (address, balance) = Self::parse_balance(line)?;
-                    if let Some(ref mut tc) = current_test_case {
-                        tc.expected_balances.insert(address, balance);
-                    } else {
-                        return Err(Errors::InvalidInput); // balance line with no preceding test case.
-                    }
-                    continue;
-                }
-            }
-
-            if line.starts_with("storageEmpty") {
-                if line.contains("->") {
-                    let storage_empty = Self::parse_storage_empty(line)?;
-                    if let Some(ref mut tc) = current_test_case {
-                        tc.expected_storage_empty = Some(storage_empty);
-                    } else {
-                        return Err(Errors::InvalidInput); // storageEmpty line with no preceding test case.
-                    }
-                    continue;
-                }
-            }
-
-            if let Some(tc) = current_test_case.take() {
-                test_cases.push(tc);
-            }
-
-            let (function_signature, value, inputs) = Self::parse_call_part(call_part)?;
+            let (function_signature, value, inputs) = Self::parse_call_part(&call_part)?;
             let expected_outputs = Self::parse_outputs(expected_output_part)?;
-
             let (function_selector, _) = Parser::parse_function_signature(&function_signature)?;
-
             let is_constructor = function_signature.starts_with("constructor(");
 
             let mut args_encoded = Vec::new();
-            for arg_str in inputs.iter() {
-                let arg_encoded = Parser::parse_arg(arg_str)?;
-                args_encoded.push(arg_encoded);
+            for arg_str in &inputs {
+                args_encoded.push(Parser::parse_arg(arg_str)?);
             }
 
             let mut input_data = Vec::new();
@@ -155,48 +134,50 @@ impl TestCase {
                 input_data.extend_from_slice(arg);
             }
 
-            let matching_contract = contract_infos.iter().find(|contract| {
+            let mut matching_contract = contract_infos.iter().find(|contract| {
                 if function_signature == "()" {
                     contract.has_fallback_function()
                 } else {
-                    let function_name = function_signature.split('(').next().unwrap_or("").trim();
-                    contract.has_function(function_name)
+                    contract.has_function(function_signature.split('(').next().unwrap_or("").trim())
                 }
             });
 
-            if let Some(contract) = matching_contract {
-                let mut deploy_binary = Vec::new();
-                deploy_binary.extend_from_slice(&contract.compile_binary);
+            // **Edge Case Fix**: If `constructor()` is specified but no contract matches, select the first contract.
+            if is_constructor && matching_contract.is_none() && !contract_infos.is_empty() {
+                matching_contract = Some(&contract_infos[0]);
+            }
 
+            if let Some(contract) = matching_contract {
+                let mut deploy_binary = contract.compile_binary.clone().to_vec();
                 if is_constructor {
                     for arg in &args_encoded {
                         deploy_binary.extend_from_slice(arg);
                     }
-                    input_data.clear(); // No input data for constructor call
+                    input_data.clear();
                 }
 
-                // Create a new test case with an empty vector for expected events.
-                current_test_case = Some(TestCase {
-                    function_name: function_signature.clone(),
-                    input_data: input_data.into(),
-                    expected_outputs,
-                    is_constructor,
-                    expected_events: Vec::new(),
-                    expected_balances: HashMap::new(),
-                    expected_storage_empty: None,
-                    deploy_binary: deploy_binary.into(),
-                    value: value.unwrap_or(U256::ZERO),
+                if is_constructor {
+                    steps.push(TestStep::Deploy { contract: deploy_binary.into(), value: value.unwrap_or_default(), expected_events: vec![] });
+                    first_contract_deployed = true;
+                    continue;
+                } else if !first_contract_deployed {
+                    steps.insert(0, TestStep::Deploy { contract: deploy_binary.into(), value: U256::ZERO, expected_events: vec![] });
+                    first_contract_deployed = true;
+                }
+                steps.push(TestStep::CallFunction {
+                function_name: function_signature.clone(),
+                input_data: input_data.into(),
+                expected_outputs,
+                value: value.unwrap_or_default(),
+                expected_events: vec![] 
                 });
             } else {
-                info!(
-                    "No matching contract found for function: {}",
-                    function_signature
-                );
+                info!("No matching contract found for function: {}", function_signature);
             }
         }
 
-        if let Some(tc) = current_test_case {
-            test_cases.push(tc);
+        if !steps.is_empty() {
+            test_cases.push(TestCase { steps });
         }
 
         Ok(test_cases)
@@ -414,5 +395,19 @@ impl TestCase {
                 output: output.into(),
             })
         }
+    }
+
+    fn strip_comments(line: &str) -> String {
+        let line = if line.starts_with("//") {
+            line.trim_start_matches("//").trim()
+        } else {
+            line
+        };
+        if !line.contains("~ emit") {
+            if let Some(comment_idx) = line.find('#') {
+                return line[..comment_idx].trim().to_string();
+            }
+        }
+        line.to_string()
     }
 }
