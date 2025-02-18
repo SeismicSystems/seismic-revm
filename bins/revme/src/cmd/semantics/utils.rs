@@ -166,7 +166,6 @@ pub(crate) fn extract_functions_from_source(
             let tokens: Vec<&str> = line.split_whitespace().collect();
 
             if let Some(pos) = tokens.iter().position(|&t| t == "public") {
-
                 // Skip "immutable" if it's there
                 let mut next_pos = pos + 1;
                 if next_pos < tokens.len() && tokens[next_pos] == "immutable" {
@@ -328,10 +327,16 @@ pub(crate) fn verify_expected_balances(
     Ok(())
 }
 
-pub(crate) fn verify_storage_empty(mut db: CacheDB<EmptyDB>, contract_address: Address, expected_empty: bool) -> Result<(), Errors> {
+pub(crate) fn verify_storage_empty(
+    mut db: CacheDB<EmptyDB>,
+    contract_address: Address,
+    expected_empty: bool,
+) -> Result<(), Errors> {
     let storage_entries = &db.load_account(contract_address).unwrap().storage;
 
-    let all_slots_zero = storage_entries.iter().all(|(_, value)| value.value == U256::ZERO);
+    let all_slots_zero = storage_entries
+        .iter()
+        .all(|(_, value)| value.value == U256::ZERO);
 
     if all_slots_zero != expected_empty {
         error!(

@@ -37,10 +37,24 @@ pub(crate) struct TestCase {
 
 #[derive(Debug, Clone)]
 pub(crate) enum TestStep {
-    Deploy { contract: Bytes, value: U256, expected_events: Vec<LogData> },
-    CallFunction { function_name: String, input_data: Bytes, expected_outputs: ExpectedOutputs, value: U256, expected_events: Vec<LogData> },
-    CheckStorageEmpty { expected_empty: bool },
-    CheckBalance { expected_balances: HashMap<Address, U256> },
+    Deploy {
+        contract: Bytes,
+        value: U256,
+        expected_events: Vec<LogData>,
+    },
+    CallFunction {
+        function_name: String,
+        input_data: Bytes,
+        expected_outputs: ExpectedOutputs,
+        value: U256,
+        expected_events: Vec<LogData>,
+    },
+    CheckStorageEmpty {
+        expected_empty: bool,
+    },
+    CheckBalance {
+        expected_balances: HashMap<Address, U256>,
+    },
 }
 
 impl TestCase {
@@ -53,26 +67,35 @@ impl TestCase {
 
         let mut first_contract_deployed = false;
 
-        for line in expectations.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        for line in expectations
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+        {
             debug!("Parsing line: {}", line);
             let line = Self::strip_comments(line);
 
             if line.contains("~ emit") {
                 let event_bytes = Self::parse_event(&line);
-                if let Some(TestStep::CallFunction { expected_events, .. }) = steps.last_mut() {
+                if let Some(TestStep::CallFunction {
+                    expected_events, ..
+                }) = steps.last_mut()
+                {
                     expected_events.push(event_bytes);
-                } else if let Some(TestStep::Deploy { expected_events, .. }) = steps.last_mut() {
+                } else if let Some(TestStep::Deploy {
+                    expected_events, ..
+                }) = steps.last_mut()
+                {
                     expected_events.push(event_bytes);
-                }
-                else {
-                    return Err(Errors::InvalidInput); 
+                } else {
+                    return Err(Errors::InvalidInput);
                 }
                 continue;
             }
 
             if line.starts_with("balance") {
-                 if line.contains("balance:") || line.starts_with("balance ->") {
-                    let (address, balance) = Self::parse_balance(&line)?; 
+                if line.contains("balance:") || line.starts_with("balance ->") {
+                    let (address, balance) = Self::parse_balance(&line)?;
                     steps.push(TestStep::CheckBalance {
                         expected_balances: vec![(address, balance)].into_iter().collect(),
                     });
@@ -83,13 +106,17 @@ impl TestCase {
             if line.starts_with("storageEmpty") {
                 if line.contains("->") {
                     let storage_empty = Self::parse_storage_empty(&line)?;
-                    steps.push(TestStep::CheckStorageEmpty { expected_empty: storage_empty });
+                    steps.push(TestStep::CheckStorageEmpty {
+                        expected_empty: storage_empty,
+                    });
                 }
                 continue;
             }
 
             if !steps.is_empty() {
-                test_cases.push(TestCase { steps: steps.clone() });
+                test_cases.push(TestCase {
+                    steps: steps.clone(),
+                });
                 steps.clear();
             }
 
@@ -97,7 +124,7 @@ impl TestCase {
             //function_signature "," inputs ":" inputs "->" outputs
             // Split the line into call part and expected output part
             let parts: Vec<&str> = line.split("->").collect();
-            
+
             if parts.len() > 2 {
                 return Err(Errors::InvalidInput);
             }
@@ -157,22 +184,36 @@ impl TestCase {
                 }
 
                 if is_constructor {
-                    steps.push(TestStep::Deploy { contract: deploy_binary.into(), value: value.unwrap_or_default(), expected_events: vec![] });
+                    steps.push(TestStep::Deploy {
+                        contract: deploy_binary.into(),
+                        value: value.unwrap_or_default(),
+                        expected_events: vec![],
+                    });
                     first_contract_deployed = true;
                     continue;
                 } else if !first_contract_deployed {
-                    steps.insert(0, TestStep::Deploy { contract: deploy_binary.into(), value: U256::ZERO, expected_events: vec![] });
+                    steps.insert(
+                        0,
+                        TestStep::Deploy {
+                            contract: deploy_binary.into(),
+                            value: U256::ZERO,
+                            expected_events: vec![],
+                        },
+                    );
                     first_contract_deployed = true;
                 }
                 steps.push(TestStep::CallFunction {
-                function_name: function_signature.clone(),
-                input_data: input_data.into(),
-                expected_outputs,
-                value: value.unwrap_or_default(),
-                expected_events: vec![] 
+                    function_name: function_signature.clone(),
+                    input_data: input_data.into(),
+                    expected_outputs,
+                    value: value.unwrap_or_default(),
+                    expected_events: vec![],
                 });
             } else {
-                info!("No matching contract found for function: {}", function_signature);
+                info!(
+                    "No matching contract found for function: {}",
+                    function_signature
+                );
             }
         }
 
@@ -278,7 +319,7 @@ impl TestCase {
         match value_str {
             "0" => Ok(false),
             "1" => Ok(true),
-            _ => Err(Errors::InvalidInput)
+            _ => Err(Errors::InvalidInput),
         }
     }
 

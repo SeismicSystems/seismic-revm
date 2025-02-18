@@ -120,7 +120,7 @@ impl Cmd {
 
                 let mut evm_executor = EvmExecutor::new(db, evm_config.clone(), evm_version);
 
-                for test_case in  &semantic_tests.test_cases {
+                for test_case in &semantic_tests.test_cases {
                     let result = evm_executor.run_test_case(test_case, self.trace, test_file_path);
                     match result {
                         Ok(_) => {}

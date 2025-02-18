@@ -5,7 +5,7 @@ use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
     primitives::{
-        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256, Log,
+        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Log, Output, SpecId, TxKind, U256,
     },
     seismic::seismic_handle_register,
     DatabaseCommit, Evm,
@@ -15,7 +15,11 @@ use std::str::FromStr;
 
 use crate::cmd::semantics::{test_cases::TestStep, utils::verify_emitted_events};
 
-use super::{test_cases::{ExpectedOutputs, TestCase}, utils::{verify_expected_balances, verify_storage_empty}, Errors};
+use super::{
+    test_cases::{ExpectedOutputs, TestCase},
+    utils::{verify_expected_balances, verify_storage_empty},
+    Errors,
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {
@@ -148,9 +152,7 @@ impl EvmExecutor {
 
         let (contract_address, logs) = match deploy_out.clone().result {
             ExecutionResult::Success { output, logs, .. } => match output {
-                Output::Create(_, Some(addr)) => {
-                    (addr, logs)
-                }
+                Output::Create(_, Some(addr)) => (addr, logs),
                 Output::Create(_, None) => return Err(Errors::EVMError),
                 _ => return Err(Errors::EVMError),
             },
@@ -233,19 +235,15 @@ impl EvmExecutor {
         };
 
         let logs = match out.clone().result {
-            ExecutionResult::Success {
-                output,
-                logs,
-                ..
-            } => {
+            ExecutionResult::Success { output, logs, .. } => {
                 if expected_outputs.is_success() {
-                match output {
-                    Output::Call(out) => {
-                        assert_eq!(out, expected_outputs.output);
+                    match output {
+                        Output::Call(out) => {
+                            assert_eq!(out, expected_outputs.output);
+                        }
+                        _ => return Err(Errors::EVMError),
                     }
-                    _ => return Err(Errors::EVMError),
-                }
-                logs
+                    logs
                 } else {
                     error!("an Error was expected from the testCase, and yet, the test passed with output: {:?}, for file: {:?}", output, test_file);
                     return Err(Errors::EVMError);
@@ -310,21 +308,46 @@ impl EvmExecutor {
         debug!("running test_case: {:?}", test_case);
         for step in &test_case.steps {
             match step {
-                TestStep::Deploy { contract, value, expected_events } => {
-                    let (contract_address, logs) = self.deploy_contract(contract.clone(), trace, value.clone())?;
+                TestStep::Deploy {
+                    contract,
+                    value,
+                    expected_events,
+                } => {
+                    let (contract_address, logs) =
+                        self.deploy_contract(contract.clone(), trace, value.clone())?;
                     verify_emitted_events(expected_events, &logs)?;
                     self.copy_contract_to_env(contract_address);
-
                 }
-                TestStep::CallFunction { function_name, input_data, expected_outputs, value, expected_events } => {
-                    let logs = self.execute_function_call(function_name, input_data, expected_outputs, trace, test_file, value.clone())?;
+                TestStep::CallFunction {
+                    function_name,
+                    input_data,
+                    expected_outputs,
+                    value,
+                    expected_events,
+                } => {
+                    let logs = self.execute_function_call(
+                        function_name,
+                        input_data,
+                        expected_outputs,
+                        trace,
+                        test_file,
+                        value.clone(),
+                    )?;
                     verify_emitted_events(expected_events, &logs)?;
                 }
                 TestStep::CheckStorageEmpty { expected_empty } => {
-                    verify_storage_empty(self.db.clone(), self.config.env_contract_address, *expected_empty)?;
+                    verify_storage_empty(
+                        self.db.clone(),
+                        self.config.env_contract_address,
+                        *expected_empty,
+                    )?;
                 }
                 TestStep::CheckBalance { expected_balances } => {
-                    verify_expected_balances(self.db.clone(), expected_balances, self.config.env_contract_address)?;
+                    verify_expected_balances(
+                        self.db.clone(),
+                        expected_balances,
+                        self.config.env_contract_address,
+                    )?;
                 }
             }
         }
