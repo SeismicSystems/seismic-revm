@@ -1,6 +1,7 @@
 use log::error;
-use revm::db::{CacheDB, EmptyDB};
+use revm::db::{CacheDB, EmptyDB, State, StateRef};
 use revm::primitives::{Address, Bytes, FixedBytes, Log, LogData, U256};
+use revm::CacheState;
 
 use crate::cmd::semantics::Errors;
 use std::collections::HashMap;
@@ -292,23 +293,23 @@ pub(crate) fn verify_emitted_events(
 }
 
 pub(crate) fn verify_expected_balances(
-    mut db: CacheDB<EmptyDB>,
+    cache: &CacheState,
     expected: &HashMap<Address, U256>,
     deployed_contract_address: Address,
 ) -> Result<(), Errors> {
     for (addr, exp_balance) in expected {
-        let account = db
-            .load_account(if addr == &Address::ZERO {
-                deployed_contract_address
+        let account = cache 
+            .accounts.get(if addr == &Address::ZERO {
+                &deployed_contract_address
             } else {
-                *addr
+                &addr
             })
             .unwrap();
 
-        if account.info.balance != *exp_balance {
+        if account.account_info().unwrap().balance != *exp_balance {
             error!(
                 "Balance mismatch for {}: expected {}, got {}",
-                addr, exp_balance, account.info.balance
+                addr, exp_balance, account.account_info().unwrap().balance
             );
             return Err(Errors::BalanceMismatch);
         }
@@ -316,16 +317,16 @@ pub(crate) fn verify_expected_balances(
     Ok(())
 }
 
-pub(crate) fn verify_storage_empty(mut db: CacheDB<EmptyDB>, contract_address: Address, expected_empty: bool) -> Result<(), Errors> {
-    let storage_entries = db.load_account(contract_address).unwrap();
-    let is_empty = storage_entries.storage.is_empty();
-    println!("storage_entries.storage: {:?}", storage_entries.storage);
+pub(crate) fn verify_storage_empty(db: &CacheState, contract_address: Address, expected_empty: bool) -> Result<(), Errors> {
+    let storage_entries = db.accounts.get(&contract_address).unwrap();
+    let is_empty = storage_entries.account.as_ref().unwrap().storage.is_empty();
+    println!("storage_entries.storage: {:?}", storage_entries.account.as_ref().unwrap().storage);
     if is_empty != expected_empty {
         error!(
             "Storage mismatch for {}: expected empty = {}, but storage has {} entries",
             contract_address,
             expected_empty,
-            storage_entries.storage.len()
+            storage_entries.account.as_ref().unwrap().storage.len()
         );
         return Err(Errors::StorageMismatch);
     }

@@ -1,7 +1,7 @@
 use evm_handler::{EvmConfig, EvmExecutor};
 use revm::{
     db::{CacheDB, EmptyDB},
-    primitives::{AccountInfo, Bytes, U256},
+    primitives::{AccountInfo, Bytes, SpecId, U256}, State,
 };
 use test_cases::TestCase;
 
@@ -168,16 +168,24 @@ impl Cmd {
         Ok(())
     }
 
-    fn prepare_database(&self, config: &EvmConfig) -> Result<CacheDB<EmptyDB>, Errors> {
-        let mut db = CacheDB::new(EmptyDB::default());
+    fn prepare_database(&self, config: &EvmConfig) -> Result<State<EmptyDB>, Errors> {
+        let mut cache = revm::CacheState::new(false);
         let account_info = AccountInfo {
             balance: U256::MAX,
             nonce: Default::default(),
             code: None,
             code_hash: Default::default(),
         };
-        db.insert_account_info(config.caller, account_info);
-        Ok(db)
+        cache.insert_account(config.caller, account_info);
+        cache.set_state_clear_flag(SpecId::enabled(
+            config.evm_version,
+            revm::primitives::SpecId::SPURIOUS_DRAGON,
+        ));
+        let state = revm::db::State::builder()
+            .with_cached_prestate(cache)
+            .with_bundle_update()
+            .build();
+        Ok(state)
     }
 
     fn prepare_deploy_data(

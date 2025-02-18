@@ -1,14 +1,9 @@
 use hex::FromHex;
 use log::{debug, error};
 use revm::{
-    db::{CacheDB, EmptyDB},
-    inspector_handle_register,
-    inspectors::TracerEip3155,
-    primitives::{
+    db::{CacheDB, EmptyDB, State}, inspector_handle_register, inspectors::TracerEip3155, primitives::{
         Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Output, SpecId, TxKind, U256,
-    },
-    seismic::seismic_handle_register,
-    DatabaseCommit, Evm,
+    }, seismic::seismic_handle_register, CacheState, DatabaseCommit, Evm
 };
 
 use std::str::FromStr;
@@ -19,6 +14,7 @@ use super::{test_cases::TestCase, utils::{verify_expected_balances, verify_stora
 
 #[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {
+    pub evm_version: SpecId,
     pub blob_hashes: Vec<FixedBytes<32>>,
     pub max_blob_fee: U256,
     pub gas_limit: u64,
@@ -76,6 +72,7 @@ impl EvmConfig {
         let caller = Address::from_str("0x1212121212121212121212121212120000000012").unwrap();
 
         Self {
+            evm_version,
             blob_hashes,
             max_blob_fee,
             gas_limit,
@@ -93,15 +90,15 @@ impl EvmConfig {
 }
 
 pub(crate) struct EvmExecutor {
-    db: CacheDB<EmptyDB>,
+    cache: CacheState,
     pub config: EvmConfig,
     evm_version: SpecId,
 }
 
 impl EvmExecutor {
-    pub(crate) fn new(db: CacheDB<EmptyDB>, config: EvmConfig, evm_version: SpecId) -> Self {
+    pub(crate) fn new(cache: CacheState, config: EvmConfig, evm_version: SpecId) -> Self {
         Self {
-            db,
+            cache,
             config,
             evm_version,
         }
@@ -113,8 +110,12 @@ impl EvmExecutor {
         test_case: TestCase,
         trace: bool,
     ) -> Result<Address, Errors> {
+        let mut state = revm::db::State::builder()
+            .with_cached_prestate(self.cache.clone())
+            .with_bundle_update()
+            .build();
         let mut evm = Evm::builder()
-            .with_db(self.db.clone())
+            .with_db(state)
             .modify_tx_env(|tx| {
                 tx.caller = self.config.caller;
                 tx.transact_to = TxKind::Create;
@@ -165,36 +166,46 @@ impl EvmExecutor {
             }
         };
 
-        self.db.commit(deploy_out.state);
+        //should have db.commit(deploy_out.state);
+        let current_state = self.cache.clone();
         verify_expected_balances(
-            self.db.clone(),
+            &current_state,
             &test_case.expected_balances,
             contract_address,
         )?;
         if let Some(expected_empty) = test_case.expected_storage_empty {
-            verify_storage_empty(self.db.clone(), contract_address, expected_empty)?;
+            verify_storage_empty(&current_state, contract_address, expected_empty)?;
         } 
         Ok(contract_address)
     }
 
     pub(crate) fn copy_contract_to_env(&mut self, contract_address: Address) {
         let (account_info_clone, storage_entries) = {
-            let account_info = self.db.load_account(contract_address).unwrap();
-            let account_info_clone = account_info.info.clone();
+            let account_info = self.cache.accounts.get(&contract_address).unwrap();
+            let account_info_clone = account_info.account_info().clone().unwrap();
             let storage_entries: Vec<_> = account_info
+                .account
+                .clone()
+                .unwrap()
                 .storage
                 .iter()
                 .map(|(slot, value)| (*slot, *value))
                 .collect();
             (account_info_clone, storage_entries)
         };
-        self.db
-            .insert_account_info(self.config.env_contract_address, account_info_clone);
+        self.cache
+            .insert_account(self.config.env_contract_address, account_info_clone);
 
         for (slot, value) in storage_entries {
             let _ = self
-                .db
-                .insert_account_storage(self.config.env_contract_address, slot, value);
+                .cache
+                .accounts
+                .get(&self.config.env_contract_address)
+                .unwrap()
+                .account
+                .unwrap()
+                .storage
+                .insert(slot, value);
         }
     }
 
