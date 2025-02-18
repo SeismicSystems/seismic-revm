@@ -112,7 +112,7 @@ impl EvmExecutor {
         deploy_data: Bytes,
         trace: bool,
         value: U256,
-    ) -> Result<Address, Errors> {
+    ) -> Result<(Address, Vec<Log>), Errors> {
         let mut evm = Evm::builder()
             .with_db(self.db.clone())
             .modify_tx_env(|tx| {
@@ -146,11 +146,10 @@ impl EvmExecutor {
             })?
         };
 
-        let contract_address = match deploy_out.clone().result {
+        let (contract_address, logs) = match deploy_out.clone().result {
             ExecutionResult::Success { output, logs, .. } => match output {
                 Output::Create(_, Some(addr)) => {
-                    verify_emitted_events(&[], &logs)?; // No expected events for deployment
-                    addr
+                    (addr, logs)
                 }
                 Output::Create(_, None) => return Err(Errors::EVMError),
                 _ => return Err(Errors::EVMError),
@@ -166,7 +165,7 @@ impl EvmExecutor {
         };
 
         self.db.commit(deploy_out.state);
-        Ok(contract_address)
+        Ok((contract_address, logs))
     }
 
     pub(crate) fn execute_function_call(
@@ -239,29 +238,41 @@ impl EvmExecutor {
                 logs,
                 ..
             } => {
+                if expected_outputs.is_success() {
                 match output {
                     Output::Call(out) => {
                         assert_eq!(out, expected_outputs.output);
-                        verify_emitted_events(&[], &logs)?;
                     }
                     _ => return Err(Errors::EVMError),
                 }
                 logs
+                } else {
+                    error!("an Error was expected from the testCase, and yet, the test passed with output: {:?}, for file: {:?}", output, test_file);
+                    return Err(Errors::EVMError);
+                }
             }
 
             ExecutionResult::Revert { output, .. } => {
-                error!(
-                    "Reverted with output: {:?} for file {:?}",
-                    output.to_string(),
-                    test_file
-                );
-                assert_eq!(output, expected_outputs.output);
-                vec![]
+                if !expected_outputs.is_success() {
+                    return Ok(vec![]);
+                } else {
+                    error!(
+                        "Reverted with output: {:?} for file {:?}",
+                        output.to_string(),
+                        test_file
+                    );
+                    assert_eq!(output, expected_outputs.output);
+                    vec![]
+                }
             }
 
             ExecutionResult::Halt { reason, .. } => {
-                error!("Execution halted: {:?} for file {:?}", reason, test_file);
-                return Err(Errors::EVMError);
+                if !expected_outputs.is_success() {
+                    return Ok(vec![]);
+                } else {
+                    error!("Execution halted: {:?} for file {:?}", reason, test_file);
+                    return Err(Errors::EVMError);
+                }
             }
         };
 
@@ -297,26 +308,23 @@ impl EvmExecutor {
         test_file: &str,
     ) -> Result<(), Errors> {
         debug!("running test_case: {:?}", test_case);
-        let mut logs: Vec<Log> = Vec::new();
         for step in &test_case.steps {
             match step {
-                TestStep::Deploy { contract, value } => {
-                    let contract_address = self.deploy_contract(contract.clone(), trace, value.clone())?;
-                    self.config.block_number =
-                        self.config.block_number.wrapping_add(U256::from(1));
+                TestStep::Deploy { contract, value, expected_events } => {
+                    let (contract_address, logs) = self.deploy_contract(contract.clone(), trace, value.clone())?;
+                    verify_emitted_events(expected_events, &logs)?;
                     self.copy_contract_to_env(contract_address);
+
                 }
-                TestStep::CallFunction { function_name, input_data, expected_outputs, value } => {
-                    logs = self.execute_function_call(function_name, input_data, expected_outputs, trace, test_file, value.clone())?;
+                TestStep::CallFunction { function_name, input_data, expected_outputs, value, expected_events } => {
+                    let logs = self.execute_function_call(function_name, input_data, expected_outputs, trace, test_file, value.clone())?;
+                    verify_emitted_events(expected_events, &logs)?;
                 }
                 TestStep::CheckStorageEmpty { expected_empty } => {
                     verify_storage_empty(self.db.clone(), self.config.env_contract_address, *expected_empty)?;
                 }
                 TestStep::CheckBalance { expected_balances } => {
                     verify_expected_balances(self.db.clone(), expected_balances, self.config.env_contract_address)?;
-                }
-                TestStep::CheckEvents { expected_events } => {
-                    verify_emitted_events(expected_events, &logs)?;
                 }
             }
         }

@@ -37,11 +37,10 @@ pub(crate) struct TestCase {
 
 #[derive(Debug, Clone)]
 pub(crate) enum TestStep {
-    Deploy { contract: Bytes, value: U256 },
-    CallFunction { function_name: String, input_data: Bytes, expected_outputs: ExpectedOutputs, value: U256 },
+    Deploy { contract: Bytes, value: U256, expected_events: Vec<LogData> },
+    CallFunction { function_name: String, input_data: Bytes, expected_outputs: ExpectedOutputs, value: U256, expected_events: Vec<LogData> },
     CheckStorageEmpty { expected_empty: bool },
     CheckBalance { expected_balances: HashMap<Address, U256> },
-    CheckEvents { expected_events: Vec<LogData> },
 }
 
 impl TestCase {
@@ -60,7 +59,14 @@ impl TestCase {
 
             if line.contains("~ emit") {
                 let event_bytes = Self::parse_event(&line);
-                steps.push(TestStep::CheckEvents { expected_events: vec![event_bytes] });
+                if let Some(TestStep::CallFunction { expected_events, .. }) = steps.last_mut() {
+                    expected_events.push(event_bytes);
+                } else if let Some(TestStep::Deploy { expected_events, .. }) = steps.last_mut() {
+                    expected_events.push(event_bytes);
+                }
+                else {
+                    return Err(Errors::InvalidInput); 
+                }
                 continue;
             }
 
@@ -128,7 +134,7 @@ impl TestCase {
                 input_data.extend_from_slice(arg);
             }
 
-            let matching_contract = contract_infos.iter().find(|contract| {
+            let mut matching_contract = contract_infos.iter().find(|contract| {
                 if function_signature == "()" {
                     contract.has_fallback_function()
                 } else {
@@ -136,28 +142,34 @@ impl TestCase {
                 }
             });
 
+            // **Edge Case Fix**: If `constructor()` is specified but no contract matches, select the first contract.
+            if is_constructor && matching_contract.is_none() && !contract_infos.is_empty() {
+                matching_contract = Some(&contract_infos[0]);
+            }
+
             if let Some(contract) = matching_contract {
-                let deploy_binary = contract.compile_binary.clone();
+                let mut deploy_binary = contract.compile_binary.clone().to_vec();
                 if is_constructor {
                     for arg in &args_encoded {
-                        deploy_binary.to_vec().extend_from_slice(arg);
+                        deploy_binary.extend_from_slice(arg);
                     }
                     input_data.clear();
                 }
 
                 if is_constructor {
-                    steps.push(TestStep::Deploy { contract: deploy_binary.into(), value: value.unwrap_or_default() });
+                    steps.push(TestStep::Deploy { contract: deploy_binary.into(), value: value.unwrap_or_default(), expected_events: vec![] });
                     first_contract_deployed = true;
                     continue;
                 } else if !first_contract_deployed {
-                    steps.insert(0, TestStep::Deploy { contract: deploy_binary.into(), value: value.unwrap_or_default() });
+                    steps.insert(0, TestStep::Deploy { contract: deploy_binary.into(), value: U256::ZERO, expected_events: vec![] });
                     first_contract_deployed = true;
                 }
                 steps.push(TestStep::CallFunction {
                 function_name: function_signature.clone(),
                 input_data: input_data.into(),
                 expected_outputs,
-                value: value.unwrap_or_default()
+                value: value.unwrap_or_default(),
+                expected_events: vec![] 
                 });
             } else {
                 info!("No matching contract found for function: {}", function_signature);

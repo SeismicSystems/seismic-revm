@@ -124,7 +124,7 @@ pub(crate) fn extract_functions_from_source(
         if let Some(contract_declaration) = line.trim().strip_prefix("contract ") {
             // Extract contract name and parent (if any)
             let mut parts = contract_declaration.split_whitespace();
-            let name = parts.next().unwrap_or("");
+            let name = parts.next().unwrap_or("").trim_matches('{');
 
             current_contract = name.to_string();
             contract_functions.insert(current_contract.clone(), Vec::new());
@@ -164,9 +164,21 @@ pub(crate) fn extract_functions_from_source(
             }
         } else if line.contains(" public ") {
             let tokens: Vec<&str> = line.split_whitespace().collect();
+
             if let Some(pos) = tokens.iter().position(|&t| t == "public") {
-                if pos + 1 < tokens.len() {
-                    let variable_name = tokens[pos + 1].trim_end_matches(';').trim_end_matches('=');
+
+                // Skip "immutable" if it's there
+                let mut next_pos = pos + 1;
+                if next_pos < tokens.len() && tokens[next_pos] == "immutable" {
+                    next_pos += 1;
+                }
+
+                // Extract the variable name (ignore `;` and assignments)
+                if next_pos < tokens.len() {
+                    let variable_name = tokens[next_pos]
+                        .trim_end_matches(';') // Remove semicolon
+                        .trim_end_matches('='); // Remove assignment
+
                     if let Some(functions) = contract_functions.get_mut(&current_contract) {
                         functions.push(variable_name.to_string());
                     }
