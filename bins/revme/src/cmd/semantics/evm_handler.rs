@@ -323,23 +323,23 @@ impl EvmExecutor {
                         let (address, _) = self.deploy_contract(
                             contract.clone().get_deployable_code(None),
                             trace,
-                            value.clone(),
+                            *value,
                         )?;
                         self.libraries.push(address);
                     } else {
                         let (contract_address, logs) = if !self.libraries.is_empty() {
                             self.deploy_contract(
-                                contract.clone().get_deployable_code(Some(
-                                    self.libraries.get(0).unwrap().clone(),
-                                )),
+                                contract
+                                    .clone()
+                                    .get_deployable_code(Some(*self.libraries.first().unwrap())),
                                 trace,
-                                value.clone(),
+                                *value,
                             )?
                         } else {
                             self.deploy_contract(
                                 contract.clone().get_deployable_code(None),
                                 trace,
-                                value.clone(),
+                                *value,
                             )?
                         };
                         verify_emitted_events(expected_events, &logs)?;
@@ -359,7 +359,7 @@ impl EvmExecutor {
                         expected_outputs,
                         trace,
                         test_file,
-                        value.clone(),
+                        *value,
                     )?;
                     verify_emitted_events(expected_events, &logs)?;
                 }

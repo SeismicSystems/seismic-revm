@@ -3,9 +3,8 @@ use revm::{
     db::{CacheDB, EmptyDB},
     primitives::{AccountInfo, Bytes, U256},
 };
-use test_cases::TestCase;
 
-use log::{debug, info, LevelFilter};
+use log::{info, LevelFilter};
 use rayon::prelude::*;
 use std::path::PathBuf;
 use std::time::Instant;

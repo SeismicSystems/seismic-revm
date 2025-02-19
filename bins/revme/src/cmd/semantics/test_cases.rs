@@ -109,14 +109,14 @@ impl TestCase {
                 continue;
             }
 
-            if line.starts_with("balance") {
-                if line.contains("balance:") || line.starts_with("balance ->") {
-                    let (address, balance) = Self::parse_balance(&line)?;
-                    steps.push(TestStep::CheckBalance {
-                        expected_balances: vec![(address, balance)].into_iter().collect(),
-                    });
-                    continue;
-                }
+            if line.starts_with("balance")
+                && (line.contains("balance:") || line.starts_with("balance ->"))
+            {
+                let (address, balance) = Self::parse_balance(&line)?;
+                steps.push(TestStep::CheckBalance {
+                    expected_balances: vec![(address, balance)].into_iter().collect(),
+                });
+                continue;
             }
 
             if line.starts_with("storageEmpty") {
@@ -159,7 +159,7 @@ impl TestCase {
                 continue;
             }
 
-            let (function_signature, value, inputs) = Self::parse_call_part(&call_part)?;
+            let (function_signature, value, inputs) = Self::parse_call_part(call_part)?;
             let expected_outputs = Self::parse_outputs(expected_output_part)?;
             let (function_selector, _) = Parser::parse_function_signature(&function_signature)?;
             let is_constructor = function_signature.starts_with("constructor(");
