@@ -5,7 +5,7 @@ use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
     primitives::{
-        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Log, Output, SpecId, TxKind, U256,
+        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Log, Output, SpecId, TxKind, U256
     },
     seismic::seismic_handle_register,
     DatabaseCommit, Evm,
@@ -100,6 +100,7 @@ pub(crate) struct EvmExecutor {
     db: CacheDB<EmptyDB>,
     pub config: EvmConfig,
     evm_version: SpecId,
+    libraries: Vec<Address>,
 }
 
 impl EvmExecutor {
@@ -108,6 +109,7 @@ impl EvmExecutor {
             db,
             config,
             evm_version,
+            libraries: Vec::new(),
         }
     }
 
@@ -313,10 +315,27 @@ impl EvmExecutor {
                     value,
                     expected_events,
                 } => {
-                    let (contract_address, logs) =
-                        self.deploy_contract(contract.clone(), trace, value.clone())?;
-                    verify_emitted_events(expected_events, &logs)?;
-                    self.copy_contract_to_env(contract_address);
+                    if contract.is_library {
+                        let (address, _) = self.deploy_contract(contract.clone().get_deployable_code(None), trace, value.clone())?;
+                        self.libraries.push(address);
+                    }
+                    else {
+                        let (contract_address, logs) = if !self.libraries.is_empty() {
+                            self.deploy_contract(
+                                contract.clone().get_deployable_code(Some(self.libraries.get(0).unwrap().clone())),
+                                trace,
+                                value.clone(),
+                            )?
+                        } else {
+                            self.deploy_contract(
+                                contract.clone().get_deployable_code(None),
+                                trace,
+                                value.clone(),
+                            )?
+                        };
+                        verify_emitted_events(expected_events, &logs)?;
+                        self.copy_contract_to_env(contract_address);
+                    }
                 }
                 TestStep::CallFunction {
                     function_name,

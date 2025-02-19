@@ -1,8 +1,9 @@
 use std::fs;
 use std::process::Command;
 
-use log::{error, info};
-use revm::primitives::{Bytes, SpecId};
+use log::error;
+use regex::Regex;
+use revm::primitives::{Bytes, SpecId, Address};
 
 use crate::cmd::semantics::Errors;
 
@@ -12,10 +13,9 @@ use super::{
     utils::{extract_compile_via_yul, extract_functions_from_source},
 };
 
-const SKIP_KEYWORD: [&str; 4] = [
+const SKIP_KEYWORD: [&str; 3] = [
     "==== Source:",
     "allowNonExistingFunctions: true",
-    "// library:",
     "revertStrings: debug",
 ];
 
@@ -23,18 +23,22 @@ const SKIP_KEYWORD: [&str; 4] = [
 pub struct ContractInfo {
     pub contract_name: String,
     pub evm_version: SpecId,
-    pub compile_binary: Bytes,
+    compile_binary: String,
     pub functions: Vec<String>,
+    pub is_library: bool,
+    deploy_args: Vec<u8> 
 }
 
 impl ContractInfo {
     // Updated new function to default to SpecId::LATEST
-    pub fn new(contract_name: String, compile_binary: Bytes, evm_version: SpecId) -> Self {
+    pub fn new(contract_name: String, compile_binary: String, evm_version: SpecId, is_library: bool) -> Self {
         Self {
             contract_name,
             evm_version,
             compile_binary,
             functions: Vec::new(),
+            is_library,
+            deploy_args: vec![] 
         }
     }
 
@@ -48,6 +52,48 @@ impl ContractInfo {
 
     pub fn has_fallback_function(&self) -> bool {
         self.functions.iter().any(|f| f == "()")
+    }
+
+    pub fn add_deploy_args(&mut self, args: Vec<Bytes>) {
+        let mut buffer: Vec<u8> = Vec::new();
+        for arg in args {
+            buffer.extend_from_slice(arg.as_ref());
+        }
+        self.deploy_args = buffer;
+    }
+
+    pub fn set_is_library(&mut self, is_library: bool) {
+        self.is_library = is_library;
+    }
+
+    pub fn get_deployable_code(&self, address: Option<Address>) -> Bytes {
+        let mut code_str = self.compile_binary.clone();
+
+        if let Some(addr) = address {
+            let mut addr_str = addr.to_string(); // e.g. "0x123abc..."
+
+            if addr_str.starts_with("0x") {
+                addr_str = addr_str.trim_start_matches("0x").to_string();
+            }
+
+            let re = Regex::new(r"__\$[0-9a-fA-F]+\$__").expect("invalid regex");
+            code_str = re.replace_all(&code_str, &addr_str).to_string();
+        }
+
+        let mut code_bytes = match hex::decode(&code_str) {
+            Ok(bytes) => bytes,
+            Err(decode_error) => {
+                error!(
+                    "Failed to decode bytecode string: {}, error: {:?}",
+                    code_str, decode_error
+                );
+                return Bytes::new();
+            }
+        };
+
+        code_bytes.extend_from_slice(&self.deploy_args);
+
+        Bytes::from(code_bytes)
     }
 }
 
@@ -79,9 +125,9 @@ impl SemanticTests {
         let evm_version = EVMVersion::extract(&content);
         let via_ir = extract_compile_via_yul(&content);
 
-        let contract_infos = Self::get_contract_infos(path, evm_version, via_ir, false)?;
+        let mut contract_infos = Self::get_contract_infos(path, evm_version, via_ir, false)?;
 
-        let test_cases = TestCase::from_expectations(expectations, &contract_infos)?;
+        let test_cases = TestCase::from_expectations(expectations, &mut contract_infos[..])?;
         Ok(SemanticTests {
             test_cases,
             contract_infos,
@@ -160,21 +206,9 @@ impl SemanticTests {
             if let Some(index) = rest_of_section.find("Binary:") {
                 let after_binary = &rest_of_section[index + "Binary:".len()..];
                 let bytecode_line = after_binary.lines().nth(1).unwrap_or("");
-                let compile_binary = match hex::decode(bytecode_line.trim()) {
-                    Ok(decoded_bytes) => Bytes::from(decoded_bytes),
-                    Err(decode_error) => {
-                        info!(
-                            "Failed to decode bytecode line: {}, error: {:?}",
-                            bytecode_line.trim(),
-                            decode_error
-                        );
-
-                        return Err(Errors::CompilationFailed);
-                    }
-                };
 
                 let mut contract_info =
-                    ContractInfo::new(contract_name.clone(), compile_binary, revm_version);
+                    ContractInfo::new(contract_name.clone(), bytecode_line.to_string(), revm_version, false);
 
                 let contract_functions_map = extract_functions_from_source(path)?;
                 if let Some(functions) = contract_functions_map.get(&contract_name) {

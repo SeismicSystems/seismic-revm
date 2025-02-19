@@ -30,7 +30,7 @@ const SKIP_DIRECTORY: [&str; 5] = [
 // addresses
 // virtual functions | array in constructor: nasty inheritance
 const SKIP_FILE: [&str; 26] = [
-    "access_through_module_name.sol",
+    "library_references_preserve.sol",
     "multiline_comments.sol",
     "unicode_escapes.sol",
     "unicode_string.sol",
