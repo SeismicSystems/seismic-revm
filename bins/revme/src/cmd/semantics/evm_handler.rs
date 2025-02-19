@@ -26,6 +26,7 @@ pub(crate) struct EvmConfig {
     pub blob_hashes: Vec<FixedBytes<32>>,
     pub max_blob_fee: U256,
     pub gas_limit: u64,
+    pub timestamp: U256,
     pub gas_price: U256,
     pub block_gas_limit: U256,
     pub block_prevrandao: FixedBytes<32>,
@@ -62,7 +63,7 @@ impl EvmConfig {
 
         let block_gas_limit = U256::from(20000000);
         let gas_limit = 20000000 - 10;
-        let gas_price = U256::from(8);
+        let gas_price = U256::from(3000000000_u32);
         let block_prevrandao = FixedBytes::<32>::from_hex(
             "0xa86c2e601b6c44eb4848f7d23d9df3113fbcac42041c49cbed5000cb4f118777",
         )
@@ -75,6 +76,7 @@ impl EvmConfig {
             Address::from_hex("0x7878787878787878787878787878787878787878").unwrap();
         let block_basefee = U256::from(7);
         let block_number = U256::from(1);
+        let timestamp = U256::from(15);
         let env_contract_address =
             Address::from_hex("0xc06afe3a8444fc0004668591e8306bfb9968e79e").unwrap();
         let caller = Address::from_str("0x1212121212121212121212121212120000000012").unwrap();
@@ -84,6 +86,7 @@ impl EvmConfig {
             max_blob_fee,
             gas_limit,
             gas_price,
+            timestamp,
             block_gas_limit,
             block_prevrandao,
             block_difficulty,
@@ -202,6 +205,7 @@ impl EvmExecutor {
                 env.block.coinbase = self.config.block_coinbase;
                 env.block.basefee = self.config.block_basefee;
                 env.block.number = self.config.block_number;
+                env.block.timestamp = self.config.timestamp;
             })
             .with_handler_cfg(HandlerCfg::new(self.evm_version))
             .append_handler_register(seismic_handle_register)
