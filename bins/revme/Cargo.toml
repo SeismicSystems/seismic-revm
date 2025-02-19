@@ -37,3 +37,4 @@ k256 = { version = "0.13.3", features = ["ecdsa"] }
 log = "0.4"
 env_logger = "0.9"
 rayon = "1.5"
+regex = "1.11.1"

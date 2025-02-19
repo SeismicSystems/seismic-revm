@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo, utils::bytes_to_fixed};
-use log::{debug, info};
+use log::info;
 use revm::primitives::{keccak256, Address, Bytes, FixedBytes, HashMap, LogData, U256};
 
 const SKIP_KEYWORD: [&str; 1] = ["gas"];
@@ -38,7 +38,7 @@ pub(crate) struct TestCase {
 #[derive(Debug, Clone)]
 pub(crate) enum TestStep {
     Deploy {
-        contract: Bytes,
+        contract: ContractInfo,
         value: U256,
         expected_events: Vec<LogData>,
     },
@@ -60,7 +60,7 @@ pub(crate) enum TestStep {
 impl TestCase {
     pub(crate) fn from_expectations(
         expectations: String,
-        contract_infos: &[ContractInfo],
+        contract_infos: &mut [ContractInfo],
     ) -> Result<Vec<Self>, Errors> {
         let mut test_cases = Vec::new();
         let mut steps = Vec::new();
@@ -72,8 +72,24 @@ impl TestCase {
             .map(str::trim)
             .filter(|l| !l.is_empty())
         {
-            debug!("Parsing line: {}", line);
             let line = Self::strip_comments(line);
+
+            if line.starts_with("library:") {
+                let lib_name = line.trim_start_matches("library:").trim();
+
+                if let Some(lib_info) = contract_infos
+                    .iter_mut()
+                    .find(|c| c.contract_name == lib_name)
+                {
+                    lib_info.set_is_library(true);
+                    steps.push(TestStep::Deploy {
+                        contract: lib_info.clone(),
+                        value: U256::ZERO,
+                        expected_events: vec![],
+                    });
+                }
+                continue;
+            }
 
             if line.contains("~ emit") {
                 let event_bytes = Self::parse_event(&line);
@@ -93,14 +109,14 @@ impl TestCase {
                 continue;
             }
 
-            if line.starts_with("balance") {
-                if line.contains("balance:") || line.starts_with("balance ->") {
-                    let (address, balance) = Self::parse_balance(&line)?;
-                    steps.push(TestStep::CheckBalance {
-                        expected_balances: vec![(address, balance)].into_iter().collect(),
-                    });
-                    continue;
-                }
+            if line.starts_with("balance")
+                && (line.contains("balance:") || line.starts_with("balance ->"))
+            {
+                let (address, balance) = Self::parse_balance(&line)?;
+                steps.push(TestStep::CheckBalance {
+                    expected_balances: vec![(address, balance)].into_iter().collect(),
+                });
+                continue;
             }
 
             if line.starts_with("storageEmpty") {
@@ -143,7 +159,7 @@ impl TestCase {
                 continue;
             }
 
-            let (function_signature, value, inputs) = Self::parse_call_part(&call_part)?;
+            let (function_signature, value, inputs) = Self::parse_call_part(call_part)?;
             let expected_outputs = Self::parse_outputs(expected_output_part)?;
             let (function_selector, _) = Parser::parse_function_signature(&function_signature)?;
             let is_constructor = function_signature.starts_with("constructor(");
@@ -175,17 +191,15 @@ impl TestCase {
             }
 
             if let Some(contract) = matching_contract {
-                let mut deploy_binary = contract.compile_binary.clone().to_vec();
+                let mut contract_copy = contract.clone();
                 if is_constructor {
-                    for arg in &args_encoded {
-                        deploy_binary.extend_from_slice(arg);
-                    }
+                    contract_copy.add_deploy_args(args_encoded.clone());
                     input_data.clear();
                 }
 
                 if is_constructor {
                     steps.push(TestStep::Deploy {
-                        contract: deploy_binary.into(),
+                        contract: contract_copy,
                         value: value.unwrap_or_default(),
                         expected_events: vec![],
                     });
@@ -195,7 +209,7 @@ impl TestCase {
                     steps.insert(
                         0,
                         TestStep::Deploy {
-                            contract: deploy_binary.into(),
+                            contract: contract_copy,
                             value: U256::ZERO,
                             expected_events: vec![],
                         },

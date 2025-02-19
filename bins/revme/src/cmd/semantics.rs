@@ -3,9 +3,8 @@ use revm::{
     db::{CacheDB, EmptyDB},
     primitives::{AccountInfo, Bytes, U256},
 };
-use test_cases::TestCase;
 
-use log::{debug, info, LevelFilter};
+use log::{info, LevelFilter};
 use rayon::prelude::*;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -132,6 +131,9 @@ impl Cmd {
                     };
                     evm_executor.config.block_number =
                         evm_executor.config.block_number.wrapping_add(U256::from(1));
+
+                    evm_executor.config.timestamp =
+                        evm_executor.config.timestamp.wrapping_add(U256::from(15));
                 }
             }
             Err(Errors::UnhandledTestFormat) => {
