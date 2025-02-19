@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use super::{errors::Errors, parser::Parser, semantic_tests::ContractInfo, utils::bytes_to_fixed};
-use log::{debug, info};
+use log::info;
 use revm::primitives::{keccak256, Address, Bytes, FixedBytes, HashMap, LogData, U256};
 
 const SKIP_KEYWORD: [&str; 1] = ["gas"];
