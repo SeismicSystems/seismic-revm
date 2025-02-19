@@ -5,7 +5,7 @@ use revm::{
     inspector_handle_register,
     inspectors::TracerEip3155,
     primitives::{
-        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Log, Output, SpecId, TxKind, U256
+        Address, Bytes, ExecutionResult, FixedBytes, HandlerCfg, Log, Output, SpecId, TxKind, U256,
     },
     seismic::seismic_handle_register,
     DatabaseCommit, Evm,
@@ -320,13 +320,18 @@ impl EvmExecutor {
                     expected_events,
                 } => {
                     if contract.is_library {
-                        let (address, _) = self.deploy_contract(contract.clone().get_deployable_code(None), trace, value.clone())?;
+                        let (address, _) = self.deploy_contract(
+                            contract.clone().get_deployable_code(None),
+                            trace,
+                            value.clone(),
+                        )?;
                         self.libraries.push(address);
-                    }
-                    else {
+                    } else {
                         let (contract_address, logs) = if !self.libraries.is_empty() {
                             self.deploy_contract(
-                                contract.clone().get_deployable_code(Some(self.libraries.get(0).unwrap().clone())),
+                                contract.clone().get_deployable_code(Some(
+                                    self.libraries.get(0).unwrap().clone(),
+                                )),
                                 trace,
                                 value.clone(),
                             )?

@@ -77,7 +77,10 @@ impl TestCase {
             if line.starts_with("library:") {
                 let lib_name = line.trim_start_matches("library:").trim();
 
-                if let Some(lib_info) = contract_infos.iter_mut().find(|c| c.contract_name == lib_name) {
+                if let Some(lib_info) = contract_infos
+                    .iter_mut()
+                    .find(|c| c.contract_name == lib_name)
+                {
                     lib_info.set_is_library(true);
                     steps.push(TestStep::Deploy {
                         contract: lib_info.clone(),
@@ -85,7 +88,7 @@ impl TestCase {
                         expected_events: vec![],
                     });
                 }
-                continue; 
+                continue;
             }
 
             if line.contains("~ emit") {

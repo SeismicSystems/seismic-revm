@@ -135,7 +135,6 @@ impl Cmd {
 
                     evm_executor.config.timestamp =
                         evm_executor.config.timestamp.wrapping_add(U256::from(15));
-
                 }
             }
             Err(Errors::UnhandledTestFormat) => {

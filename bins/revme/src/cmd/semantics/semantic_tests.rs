@@ -3,7 +3,7 @@ use std::process::Command;
 
 use log::error;
 use regex::Regex;
-use revm::primitives::{Bytes, SpecId, Address};
+use revm::primitives::{Address, Bytes, SpecId};
 
 use crate::cmd::semantics::Errors;
 
@@ -26,19 +26,24 @@ pub struct ContractInfo {
     compile_binary: String,
     pub functions: Vec<String>,
     pub is_library: bool,
-    deploy_args: Vec<u8> 
+    deploy_args: Vec<u8>,
 }
 
 impl ContractInfo {
     // Updated new function to default to SpecId::LATEST
-    pub fn new(contract_name: String, compile_binary: String, evm_version: SpecId, is_library: bool) -> Self {
+    pub fn new(
+        contract_name: String,
+        compile_binary: String,
+        evm_version: SpecId,
+        is_library: bool,
+    ) -> Self {
         Self {
             contract_name,
             evm_version,
             compile_binary,
             functions: Vec::new(),
             is_library,
-            deploy_args: vec![] 
+            deploy_args: vec![],
         }
     }
 
@@ -207,8 +212,12 @@ impl SemanticTests {
                 let after_binary = &rest_of_section[index + "Binary:".len()..];
                 let bytecode_line = after_binary.lines().nth(1).unwrap_or("");
 
-                let mut contract_info =
-                    ContractInfo::new(contract_name.clone(), bytecode_line.to_string(), revm_version, false);
+                let mut contract_info = ContractInfo::new(
+                    contract_name.clone(),
+                    bytecode_line.to_string(),
+                    revm_version,
+                    false,
+                );
 
                 let contract_functions_map = extract_functions_from_source(path)?;
                 if let Some(functions) = contract_functions_map.get(&contract_name) {
