@@ -53,7 +53,7 @@ c-kzg = { version = "1.0.3", default-features = false, optional = true, features
 kzg-rs = { version = "0.2.3", default-features = false, optional = true }
 
 # BLS12-381 precompiles
-blst = { version = "0.3.13", optional = true }
+blst = { version = "0.3.14", optional = true }
 
 # p256verify precompile
 p256 = { version = "0.13.2", optional = true, default-features = false, features = [
