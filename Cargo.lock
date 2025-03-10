@@ -415,9 +415,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-macro"
-version = "0.8.21"
+version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2708e27f58d747423ae21d31b7a6625159bd8d867470ddd0256f396a68efa11"
+checksum = "c7f9c3c7bc1f4e334e5c5fc59ec8dac894973a71b11da09065affc6094025049"
 dependencies = [
  "alloy-sol-macro-expander",
  "alloy-sol-macro-input",
@@ -429,9 +429,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-macro-expander"
-version = "0.8.21"
+version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6b7984d7e085dec382d2c5ef022b533fcdb1fe6129200af30ebf5afddb6a361"
+checksum = "46ff7aa715eb2404cb87fa94390d2c5d5addd70d9617e20b2398ee6f48cb21f0"
 dependencies = [
  "alloy-sol-macro-input",
  "const-hex",
@@ -447,9 +447,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-macro-input"
-version = "0.8.21"
+version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33d6a9fc4ed1a3c70bdb2357bec3924551c1a59f24e5a04a74472c755b37f87d"
+checksum = "6f105fa700140c0cc6e2c3377adef650c389ac57b8ead8318a2e6bd52f1ae841"
 dependencies = [
  "const-hex",
  "dunce",
@@ -4693,9 +4693,9 @@ dependencies = [
 
 [[package]]
 name = "syn-solidity"
-version = "0.8.21"
+version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c2de690018098e367beeb793991c7d4dc7270f42c9d2ac4ccc876c1368ca430"
+checksum = "ac9f9798a84bca5cd4d1760db691075fda8f2c3a5d9647e8bfd29eb9b3fabb87"
 dependencies = [
  "paste",
  "proc-macro2",
