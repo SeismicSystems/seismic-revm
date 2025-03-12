@@ -226,6 +226,7 @@ mod tests {
         let precompile_res = hkdf_derive_symmetric_key(&Bytes::from(input.as_ref()), gas_limit)
             .expect("Should succeed");
         let precompile_okm = precompile_res.bytes.clone();
+        println!("precompile_okm: {:0x}", precompile_okm);
 
         // Direct library usage (mirror the same HKDF calls).
         use hkdf::Hkdf;

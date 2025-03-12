@@ -1,7 +1,6 @@
 use crate::precompile::Error as PCError;
 use crate::primitives::Bytes;
 use crate::seismic::precompiles::SECP256K1_SIGN_ADDRESS;
-
 use revm_precompile::{Precompile, PrecompileOutput, PrecompileResult, PrecompileWithAddress};
 use secp256k1::Secp256k1;
 
@@ -64,6 +63,7 @@ mod tests {
 
     use revm_precompile::{PrecompileError, PrecompileErrors};
     use secp256k1::{ecdsa::Signature, Message};
+    use crate::primitives::hex::FromHex;
 
     // test using the secp256k1 crate's verify function
     #[test]
@@ -168,5 +168,24 @@ mod tests {
             Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {}
             other => panic!("Expected OutOfGas, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_string_message() {
+        let message = "i signed this";
+        let message_hash: [u8; 32] = keccak256(message.as_bytes()).into();
+
+        let sk_bytes = Bytes::from_hex("aac6ccf1fdec03b4838a3c97628f381b34a949967f46d3f8a9a9c741ce982a87").unwrap();
+        let mut input = sk_bytes.to_vec();
+        input.extend_from_slice(&message_hash);
+
+        let output = match secp256k1_sign_ecdsa_recoverable(&Bytes::from(input), 4000) {
+            Ok(output) => output.bytes,
+            Err(e) => {
+                panic!("Error: {:?}", e);
+            }
+        };
+        let expected_output = Bytes::from_hex("0x4e9f2e1c46b8059d12326908c95ad5ad00966bf81560a6b35ef5dd5703d7d1473486011f071356f9b8ce276aa7cdc4901ede3fdddf49d854a36a4b9b0de20f3500").unwrap();
+        assert_eq!(output, expected_output);
     }
 }

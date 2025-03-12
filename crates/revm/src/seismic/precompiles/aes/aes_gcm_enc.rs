@@ -68,13 +68,14 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let ciphertext = aes_encrypt(&aes_key.into(), plaintext, nonce)
         .map_err(|e| PrecompileError::Other(format!("Encryption failed: {e}")))?;
 
+    println!("ciphertext: {:0x}", Bytes::from(ciphertext.clone()));
     Ok(PrecompileOutput::new(cost, ciphertext.into()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::Bytes;
+    use crate::{primitives::Bytes, seismic::precompiles::aes::precompile_decrypt};
     use revm_precompile::PrecompileErrors;
 
     /// 1) Test a normal case: a small non-empty plaintext,
@@ -165,5 +166,35 @@ mod tests {
             }
             other => panic!("Expected PrecompileError with length msg, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_encrypt_decrypt() {
+        let encrypt_input = {
+            let mut input = vec![0u8; 44];
+            input.extend_from_slice(Bytes::from("HelloAESGCM").as_ref());
+            Bytes::from(input)
+        };
+        println!("input: {:0x}", encrypt_input);
+        let gas_limit = 2_000;
+        let ciphertext = match precompile_encrypt(&encrypt_input, gas_limit) {
+            Ok(output) => output.bytes,
+            Err(e) => {
+                panic!("Encryption failed: {:?}", e);
+            }
+        };
+
+        let decrypt_input = {
+            let mut decrypt_input = vec![0u8; 44];
+            decrypt_input.extend_from_slice(&ciphertext);
+            Bytes::from(decrypt_input)
+        };
+        let plaintext = match precompile_decrypt(&decrypt_input, gas_limit) {
+            Ok(output) => output.bytes,
+            Err(e) => {
+                panic!("Decryption failed: {:?}", e);
+            }
+        };
+        println!("plaintext as string: {:?}", String::from_utf8(plaintext.to_vec()).unwrap());
     }
 }
