@@ -56,7 +56,7 @@ Mercury adds several new precompiles to enhance the functionality of the REVM. T
 | ECDH                       | `0x65`            | 101               |
 | AES-GCM Encryption         | `0x66`            | 102               |
 | AES-GCM Decryption         | `0x67`            | 103               |
-| HDFK                       | `0x68`            | 104               |
+| HDKF                       | `0x68`            | 104               |
 | SECP256K1 Signature        | `0x69`            | 105               |
 
 ---

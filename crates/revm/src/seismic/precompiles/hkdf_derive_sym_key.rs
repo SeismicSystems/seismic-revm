@@ -1,4 +1,4 @@
-use super::HDFK_ADDRESS;
+use super::HDKF_ADDRESS;
 use crate::primitives::Bytes;
 
 use hkdf::Hkdf;
@@ -13,7 +13,7 @@ Precompile Wiring
 -------------------------------------------------------------------------- */
 
 pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
-    HDFK_ADDRESS,
+    HDKF_ADDRESS,
     Precompile::Standard(hkdf_derive_symmetric_key),
 );
 
