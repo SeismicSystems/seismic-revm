@@ -30,5 +30,5 @@ pub const RNG_ADDRESS: Address = u64_to_address(100); // Hex address `0x64`.
 pub const ECDH_ADDRESS: Address = u64_to_address(101); // Hex address `0x65`.
 pub const AES_GCM_ENC_ADDRESS: Address = u64_to_address(102); // Hex address `0x66`.
 pub const AES_GCM_DEC_ADDRESS: Address = u64_to_address(103); // Hex address `0x67`.
-pub const HDFK_ADDRESS: Address = u64_to_address(104); // Hex address `0x68`.
+pub const HDKF_ADDRESS: Address = u64_to_address(104); // Hex address `0x68`.
 pub const SECP256K1_SIGN_ADDRESS: Address = u64_to_address(105); // Hex address `0x69`.
