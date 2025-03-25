@@ -40,6 +40,8 @@ pub struct CallInputs {
     pub is_static: bool,
     /// Whether the call is initiated from EOF bytecode.
     pub is_eof: bool,
+    /// Transasction type, if any
+    pub tx_type: Option<isize>,
 }
 
 impl CallInputs {
@@ -61,6 +63,7 @@ impl CallInputs {
             is_static: false,
             is_eof: false,
             return_memory_offset: 0..0,
+            tx_type: tx_env.tx_type,
         })
     }
 
