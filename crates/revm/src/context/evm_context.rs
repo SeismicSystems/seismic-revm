@@ -509,6 +509,7 @@ pub(crate) mod test_utils {
             is_eof: false,
             is_static: false,
             return_memory_offset: 0..0,
+            tx_type: None,
         }
     }
 

@@ -615,6 +615,10 @@ pub struct TxEnv {
     #[cfg(feature = "seismic")]
     /// seismic fields.
     pub rng_mode: RngMode,
+
+    #[cfg(feature = "seismic")]
+    /// seismic fields.
+    pub tx_type: Option<isize>,
 }
 
 pub enum TxType {
@@ -662,6 +666,8 @@ impl Default for TxEnv {
             tx_hash: B256::ZERO,
             #[cfg(feature = "seismic")]
             rng_mode: RngMode::Execution,
+            #[cfg(feature = "seismic")]
+            tx_type: None,
         }
     }
 }

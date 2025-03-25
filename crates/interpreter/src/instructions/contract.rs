@@ -250,6 +250,7 @@ pub fn extcall<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host
             is_static: interpreter.is_static,
             is_eof: true,
             return_memory_offset: 0..0,
+            tx_type: None,
         }),
     };
     interpreter.instruction_result = InstructionResult::CallOrCreate;
@@ -285,6 +286,7 @@ pub fn extdelegatecall<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpret
             is_static: interpreter.is_static,
             is_eof: true,
             return_memory_offset: 0..0,
+            tx_type: None,
         }),
     };
     interpreter.instruction_result = InstructionResult::CallOrCreate;
@@ -320,6 +322,7 @@ pub fn extstaticcall<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut
             is_static: true,
             is_eof: true,
             return_memory_offset: 0..0,
+            tx_type: None,
         }),
     };
     interpreter.instruction_result = InstructionResult::CallOrCreate;
@@ -442,6 +445,7 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
             is_static: interpreter.is_static,
             is_eof: false,
             return_memory_offset,
+            tx_type: None,
         }),
     };
     interpreter.instruction_result = InstructionResult::CallOrCreate;
@@ -490,6 +494,7 @@ pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
             is_static: interpreter.is_static,
             is_eof: false,
             return_memory_offset,
+            tx_type: None,
         }),
     };
     interpreter.instruction_result = InstructionResult::CallOrCreate;
@@ -531,6 +536,7 @@ pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter
             is_static: interpreter.is_static,
             is_eof: false,
             return_memory_offset,
+            tx_type: None,
         }),
     };
     interpreter.instruction_result = InstructionResult::CallOrCreate;
@@ -571,6 +577,7 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
             is_static: true,
             is_eof: false,
             return_memory_offset,
+            tx_type: None,
         }),
     };
     interpreter.instruction_result = InstructionResult::CallOrCreate;
