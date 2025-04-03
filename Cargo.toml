@@ -80,6 +80,13 @@ secp256k1 = { version = "0.30", default-features = false }
 sha2 = { version = "0.10", default-features = false }
 ripemd = { version = "0.1", default-features = false }
 p256 = { version = "0.13.2", default-features = false }
+#Seismic Precompiles
+schnorrkel = { version = "0.11.2", default-features = false }
+merlin = { version = "3.0.0", default-features = false }
+rand_core = { version = "0.6.4", default-features = false }
+hkdf = { version = "0.12", default-features = false }
+seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "f2c0757", default-features = false }
+
 
 # bytecode
 bitvec = { version = "1", default-features = false }
@@ -120,10 +127,10 @@ walkdir = "2.5"
 
 [workspace.package]
 license = "MIT"
-authors = ["Dragan Rakita <dragan0rakita@gmail.com>"]
+authors = ["Dragan Rakita <dragan0rakita@gmail.com>",  "Seismic Systems"]
 categories = ["no-std", "compilers", "cryptography::cryptocurrencies"]
-keywords = ["revm", "evm", "ethereum", "blockchain", "no_std"]
-repository = "https://github.com/bluealloy/revm"
+keywords = ["revm", "evm", "ethereum", "blockchain", "no_std", "seismic"]
+repository = "https://github.com/SeismicSystems/seismic-revm/"
 documentation = "https://bluealloy.github.io/revm/"
 homepage = ""
 edition = "2021"

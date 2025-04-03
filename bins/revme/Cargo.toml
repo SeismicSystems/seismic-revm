@@ -15,9 +15,8 @@ revm = { workspace = true, features = [
     "hashbrown",
     "c-kzg",
     "blst",
-    "seismic"
-    "serde-json",
-] }
+    "seismic",
+    "serde-json",] }
 primitives.workspace = true
 database.workspace = true
 database-interface.workspace = true
