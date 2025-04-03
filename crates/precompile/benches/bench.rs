@@ -1,15 +1,15 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
+use primitives::{eip4844::VERSIONED_HASH_VERSION_KZG, hex, keccak256, Bytes, U256};
 use revm_precompile::{
     bn128::{
         add::ISTANBUL_ADD_GAS_COST,
+        mul::ISTANBUL_MUL_GAS_COST,
         pair::{ISTANBUL_PAIR_BASE, ISTANBUL_PAIR_PER_POINT},
-        run_add, run_pair,
+        run_add, run_mul, run_pair,
     },
     kzg_point_evaluation::run,
     secp256k1::ec_recover_run,
-    Bytes,
 };
-use revm_primitives::{hex, keccak256, Env, U256, VERSIONED_HASH_VERSION_KZG};
 use secp256k1::{Message, SecretKey, SECP256K1};
 use sha2::{Digest, Sha256};
 
@@ -20,7 +20,7 @@ pub fn benchmark_crypto_precompiles(c: &mut Criterion) {
 
     // === ECPAIRING ===
 
-    // set up ecpairing input
+    // Set up ecpairing input
     let input = hex::decode(
         "\
         1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59\
@@ -65,9 +65,24 @@ pub fn benchmark_crypto_precompiles(c: &mut Criterion) {
         .gas_used;
     println!("gas used by bn128 add precompile: {:?}", res);
 
+    // === BN128 MUL ===
+
+    let ecmul_input = hex::decode(
+        "\
+         18b18acfb4c2c30276db5411368e7185b311dd124691610c5d3b74034e093dc9\
+         063c909c4720840cb5134cb9f59fa749755796819658d32efc0d288198f37266\
+         06614e20c147e940f2d70da3f74c9a17df361706a4485c742bd6788478fa17d7",
+    )
+    .unwrap();
+
+    let res = run_mul(&ecmul_input, ISTANBUL_MUL_GAS_COST, 6000)
+        .unwrap()
+        .gas_used;
+    println!("gas used by bn128 mul precompile: {:?}", res);
+
     // === ECRECOVER ===
 
-    // generate secp256k1 signature
+    // Generate secp256k1 signature
     let data = hex::decode("1337133713371337").unwrap();
     let hash = keccak256(data);
     let secret_key = SecretKey::new(&mut rand::thread_rng());
@@ -75,14 +90,12 @@ pub fn benchmark_crypto_precompiles(c: &mut Criterion) {
     let message = Message::from_digest_slice(&hash[..]).unwrap();
     let s = SECP256K1.sign_ecdsa_recoverable(&message, &secret_key);
     let (rec_id, data) = s.serialize_compact();
-    let mut rec_id = rec_id.to_i32() as u8;
-    assert_eq!(rec_id, 0);
-    rec_id += 27;
+    let rec_id = i32::from(rec_id) as u8 + 27;
 
     let mut message_and_signature = [0u8; 128];
     message_and_signature[0..32].copy_from_slice(&hash[..]);
 
-    // fit signature into format the precompile expects
+    // Fit signature into format the precompile expects
     let rec_id = U256::from(rec_id as u64);
     message_and_signature[32..64].copy_from_slice(&rec_id.to_be_bytes::<32>());
     message_and_signature[64..128].copy_from_slice(&data);
@@ -95,7 +108,7 @@ pub fn benchmark_crypto_precompiles(c: &mut Criterion) {
 
     // === POINT_EVALUATION ===
 
-    // now check kzg precompile gas
+    // Now check kzg precompile gas
     let commitment = hex!("8f59a8d2a1a625a17f3fea0fe5eb8c896db3764f3185481bc22f91b4aaffcca25f26936857bc3a7c2539ea8ec3a952b7").to_vec();
     let mut versioned_hash = Sha256::digest(&commitment).to_vec();
     versioned_hash[0] = VERSIONED_HASH_VERSION_KZG;
@@ -106,22 +119,19 @@ pub fn benchmark_crypto_precompiles(c: &mut Criterion) {
     let kzg_input = [versioned_hash, z, y, commitment, proof].concat().into();
 
     let gas = 50000;
-    let env = Env::default();
-    let output = run(&kzg_input, gas, &env).unwrap();
+    let output = run(&kzg_input, gas).unwrap();
     println!("gas used by kzg precompile: {:?}", output.gas_used);
 
     group.bench_function(group_name("ecrecover precompile"), |b| {
-        b.iter(|| {
-            ec_recover_run(&message_and_signature, u64::MAX).unwrap();
-            black_box(())
-        })
+        b.iter(|| ec_recover_run(&message_and_signature, u64::MAX).unwrap())
     });
 
     group.bench_function(group_name("bn128 add precompile"), |b| {
-        b.iter(|| {
-            run_add(&ecadd_input, ISTANBUL_ADD_GAS_COST, 150).unwrap();
-            black_box(())
-        })
+        b.iter(|| run_add(&ecadd_input, ISTANBUL_ADD_GAS_COST, 150).unwrap())
+    });
+
+    group.bench_function(group_name("bn128 mul precompile"), |b| {
+        b.iter(|| run_mul(&ecmul_input, ISTANBUL_MUL_GAS_COST, 6000).unwrap())
     });
 
     group.bench_function(group_name("ecpairing precompile"), |b| {
@@ -132,16 +142,12 @@ pub fn benchmark_crypto_precompiles(c: &mut Criterion) {
                 ISTANBUL_PAIR_BASE,
                 u64::MAX,
             )
-            .unwrap();
-            black_box(())
+            .unwrap()
         })
     });
 
     group.bench_function(group_name("kzg precompile"), |b| {
-        b.iter(|| {
-            run(&kzg_input, gas, &env).unwrap();
-            black_box(())
-        })
+        b.iter(|| run(&kzg_input, gas).unwrap())
     });
 }
 

@@ -2,55 +2,23 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[macro_use]
-#[cfg(not(feature = "std"))]
-extern crate alloc as std;
-
-// Define modules.
-
-mod builder;
-mod context;
-
-#[cfg(any(test, feature = "test-utils"))]
-pub mod test_utils;
-
-pub mod db;
-mod evm;
-mod frame;
-pub mod handler;
-mod inspector;
-mod journaled_state;
-#[cfg(feature = "optimism")]
-pub mod optimism;
-#[cfg(feature = "seismic")]
-pub mod seismic;
+// reexport dependencies
+pub use bytecode;
+pub use context;
+pub use context_interface;
+pub use database;
+pub use database_interface;
+pub use handler;
+pub use inspector;
+pub use interpreter;
+pub use precompile;
+pub use primitives;
+pub use state;
 
 // Export items.
 
-pub use builder::EvmBuilder;
-pub use context::{
-    Context, ContextPrecompile, ContextPrecompiles, ContextStatefulPrecompile,
-    ContextStatefulPrecompileArc, ContextStatefulPrecompileBox, ContextStatefulPrecompileMut,
-    ContextWithHandlerCfg, EvmContext, InnerEvmContext,
-};
-pub use db::{
-    CacheState, DBBox, State, StateBuilder, StateDBBox, TransitionAccount, TransitionState,
-};
-pub use db::{Database, DatabaseCommit, DatabaseRef, InMemoryDB};
-pub use evm::{Evm, CALL_STACK_LIMIT};
-pub use frame::{CallFrame, CreateFrame, Frame, FrameData, FrameOrResult, FrameResult};
-pub use handler::Handler;
-pub use inspector::{inspector_handle_register, inspectors, GetInspector, Inspector};
-pub use journaled_state::{JournalCheckpoint, JournalEntry, JournaledState};
-// export Optimism types, helpers, and constants
-#[cfg(feature = "optimism")]
-pub use optimism::{L1BlockInfo, BASE_FEE_RECIPIENT, L1_BLOCK_CONTRACT, L1_FEE_RECIPIENT};
-
-// Reexport libraries
-
-#[doc(inline)]
-pub use revm_interpreter as interpreter;
-#[doc(inline)]
-pub use revm_interpreter::primitives;
-#[doc(inline)]
-pub use revm_precompile as precompile;
+pub use context::journaled_state::{Journal, JournalEntry};
+pub use context::Context;
+pub use database_interface::{Database, DatabaseCommit, DatabaseRef};
+pub use handler::{ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext, MainnetEvm};
+pub use inspector::{InspectCommitEvm, InspectEvm, Inspector};

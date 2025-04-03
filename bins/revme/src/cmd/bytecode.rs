@@ -1,26 +1,25 @@
+use clap::Parser;
 use revm::{
-    interpreter::{
-        analysis::{validate_eof_inner, CodeType, EofError},
-        opcode::eof_printer::print_eof_code,
-    },
-    primitives::{Bytes, Eof, MAX_INITCODE_SIZE},
+    bytecode::eof::{self, validate_eof_inner, CodeType, Eof, EofError},
+    primitives::{constants::MAX_INITCODE_SIZE, hex, Bytes},
 };
 use std::io;
-use structopt::StructOpt;
 
-/// Statetest command
-#[derive(StructOpt, Debug)]
+/// `bytecode` subcommand.
+#[derive(Parser, Debug)]
 pub struct Cmd {
     /// Is EOF code in INITCODE mode.
-    #[structopt(long)]
+    #[arg(long)]
     eof_initcode: bool,
     /// Is EOF code in RUNTIME mode.
-    #[structopt(long)]
+    #[arg(long)]
     eof_runtime: bool,
-    /// Bytecode in hex format. If bytes start with 0xFE it will be interpreted as a EOF.
-    /// Otherwise, it will be interpreted as a EOF bytecode.
-    /// If not provided, it will operate in interactive EOF validation mode.
-    #[structopt()]
+    /// Bytecode in hex format string.
+    ///
+    /// - If bytes start with 0xFE it will be interpreted as a EOF.
+    /// - Otherwise, it will be interpreted as a EOF bytecode.
+    /// - If not provided, it will operate in interactive EOF validation mode.
+    #[arg()]
     bytes: Option<String>,
 }
 
@@ -36,12 +35,12 @@ fn trim_decode(input: &str) -> Option<Bytes> {
 }
 
 impl Cmd {
-    /// Run statetest command.
+    /// Runs statetest command.
     pub fn run(&self) {
         let container_kind = if self.eof_initcode {
-            Some(CodeType::ReturnContract)
+            Some(CodeType::Initcode)
         } else if self.eof_runtime {
-            Some(CodeType::ReturnOrStop)
+            Some(CodeType::Runtime)
         } else {
             None
         };
@@ -61,17 +60,17 @@ impl Cmd {
                     Err(e) => eprintln!("Decoding Error: {:#?}", e),
                 }
             } else {
-                print_eof_code(&bytes)
+                eof::printer::print(&bytes)
             }
             return;
         }
 
-        // else run command in loop.
+        // Else run command in loop.
         loop {
             let mut input = String::new();
             io::stdin().read_line(&mut input).expect("Input Error");
             if input.len() == 1 {
-                // just a newline, so exit
+                // Just a newline, so exit
                 return;
             }
             let Some(bytes) = trim_decode(&input) else {

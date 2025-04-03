@@ -7,44 +7,18 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc as std;
 
-mod bytecode;
-mod constants;
-pub mod db;
+pub mod constants;
+pub mod eip170;
+pub mod eip4844;
 pub mod eip7702;
-pub mod env;
+pub mod hardfork;
 
-#[cfg(any(feature = "c-kzg", feature = "kzg-rs"))]
-pub mod kzg;
-pub mod precompile;
-pub mod result;
-pub mod specification;
-pub mod state;
-pub mod utilities;
-pub use alloy_eip2930::{AccessList, AccessListItem};
-pub use alloy_primitives::{
-    self, address, b256, bytes, fixed_bytes, hex, hex_literal,
-    map::{self, hash_map, hash_set, HashMap, HashSet},
-    ruint, uint, Address, Bytes, FixedBytes, Log, LogData, TxKind, B256, I256, U256,
-};
-pub use bitvec;
-pub use bytecode::*;
 pub use constants::*;
-#[allow(deprecated)]
-pub use eip7702::Signature;
-pub use eip7702::{
-    Authorization, AuthorizationList, Eip7702Bytecode, Eip7702DecodeError, RecoveredAuthority,
-    RecoveredAuthorization, SignedAuthorization, EIP7702_MAGIC, EIP7702_MAGIC_BYTES,
+
+// Reexport alloy primitives.
+
+pub use alloy_primitives::map::{self, hash_map, hash_set, HashMap, HashSet};
+pub use alloy_primitives::{
+    self, address, b256, bytes, fixed_bytes, hex, hex_literal, keccak256, ruint, uint, Address,
+    Bytes, FixedBytes, Log, LogData, TxKind, B256, I128, I256, U128, U256, FlaggedStorage
 };
-pub use env::*;
-
-#[cfg(any(feature = "c-kzg", feature = "kzg-rs"))]
-pub use kzg::{EnvKzgSettings, KzgSettings};
-pub use precompile::*;
-pub use result::*;
-pub use specification::*;
-pub use state::*;
-pub use utilities::*;
-
-#[cfg(all(feature = "c-kzg", feature = "kzg-rs"))]
-// silence kzg-rs lint as c-kzg will be used as default if both are enabled.
-use kzg_rs as _;
