@@ -30,9 +30,26 @@ pub trait JournalTr {
         address: Address,
         key: U256,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
+    
+    /// Returns the private storage value from Journal state.
+    ///
+    /// Loads the storage from database if not found in Journal state.
+    fn cload(
+        &mut self,
+        address: Address,
+        key: U256,
+    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
 
     /// Stores the storage value in Journal state.
     fn sstore(
+        &mut self,
+        address: Address,
+        key: U256,
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
+    
+    /// Stores the storage value in Journal state.
+    fn cstore(
         &mut self,
         address: Address,
         key: U256,
@@ -128,7 +145,7 @@ pub trait JournalTr {
             code.original_bytes()
         };
 
-        Ok(StateLoad::new(code, a.is_cold))
+        Ok(StateLoad::new(code, a.is_cold, false))
     }
 
     /// Gets code hash of account.
@@ -141,7 +158,7 @@ pub trait JournalTr {
     ) -> Result<StateLoad<B256>, <Self::Database as Database>::Error> {
         let acc = self.load_account_code(address)?;
         if acc.is_empty() {
-            return Ok(StateLoad::new(B256::ZERO, acc.is_cold));
+            return Ok(StateLoad::new(B256::ZERO, acc.is_cold, false));
         }
         // SAFETY: Safe to unwrap as load_code will insert code if it is empty.
         let code = acc.info.code.as_ref().unwrap();
@@ -152,7 +169,7 @@ pub trait JournalTr {
             acc.info.code_hash
         };
 
-        Ok(StateLoad::new(hash, acc.is_cold))
+        Ok(StateLoad::new(hash, acc.is_cold, false))
     }
 
     /// Called at the end of the transaction to clean all residue data from journal.
@@ -207,6 +224,8 @@ pub struct StateLoad<T> {
     pub data: T,
     /// Is account is cold loaded
     pub is_cold: bool,
+    /// True if slot was tagged as private.
+    pub is_private: bool
 }
 
 impl<T> Deref for StateLoad<T> {
@@ -225,8 +244,8 @@ impl<T> DerefMut for StateLoad<T> {
 
 impl<T> StateLoad<T> {
     /// Returns a new [`StateLoad`] with the given data and cold load status.
-    pub fn new(data: T, is_cold: bool) -> Self {
-        Self { data, is_cold }
+    pub fn new(data: T, is_cold: bool, is_private: bool) -> Self {
+        Self { data, is_cold , is_private }
     }
 
     /// Maps the data of the [`StateLoad`] to a new value.
@@ -236,7 +255,7 @@ impl<T> StateLoad<T> {
     where
         F: FnOnce(T) -> B,
     {
-        StateLoad::new(f(self.data), self.is_cold)
+        StateLoad::new(f(self.data), self.is_cold, self.is_private)
     }
 }
 

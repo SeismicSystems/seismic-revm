@@ -23,6 +23,7 @@ pub fn create_init_frame(tx: &impl Transaction, spec: SpecId, gas_limit: u64) ->
             is_static: false,
             is_eof: false,
             return_memory_offset: 0..0,
+            tx_type: Some(tx.tx_type().into()),
         })),
         TxKind::Create => {
             // If first byte of data is magic 0xEF00, then it is EOFCreate.

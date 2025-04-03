@@ -177,8 +177,10 @@ pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
 
     if let Some(value) = host.cload(interpreter.input.target_address(), *index) {
         if !value.is_private {
-            interpreter.instruction_result = InstructionResult::InvalidPublicStorageAccess;
-            return;
+            interpreter
+            .control
+            .set_instruction_result(InstructionResult::InvalidPrivateStorageAccess);
+            return
         }
         gas!(
             interpreter,
@@ -186,8 +188,10 @@ pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
         );
         *index = value.data;
         } else {
-        interpreter.instruction_result = InstructionResult::FatalExternalError;
-        return;
+            interpreter
+            .control
+            .set_instruction_result(InstructionResult::FatalExternalError);
+            return
     }
 }
 
@@ -199,8 +203,10 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(
 
     if let Some(value) = host.sload(interpreter.input.target_address(), *index) {
         if value.is_private {
-            interpreter.instruction_result = InstructionResult::InvalidPrivateStorageAccess;
-            return;
+            interpreter
+            .control
+            .set_instruction_result(InstructionResult::InvalidPublicStorageAccess);
+            return
         }
         gas!(
             interpreter,
@@ -208,7 +214,9 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(
         );
         *index = value.data;
         } else {
-        interpreter.instruction_result = InstructionResult::FatalExternalError;
+            interpreter
+            .control
+            .set_instruction_result(InstructionResult::FatalExternalError);
         return;
     }
 }
@@ -256,6 +264,9 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
 }
 
 pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
+    interpreter: &mut Interpreter<WIRE>,
+    host: &mut H,
+) {
     require_non_staticcall!(interpreter);
 
     popn!([index, value], interpreter);

@@ -220,7 +220,7 @@ macro_rules! return_error {
             | $crate::InstructionResult::EofAuxDataOverflow
             | $crate::InstructionResult::InvalidEXTCALLTarget
             | $crate::InstructionResult::InvalidPrivateStorageAccess
-            | $crate::InstructionResult:InvalidPublicStorageAccess
+            | $crate::InstructionResult::InvalidPublicStorageAccess
     };
 }
 
@@ -399,10 +399,10 @@ impl<HaltReasonTr: From<HaltReason>> From<InstructionResult> for SuccessOrHalt<H
                 Self::Internal(InternalResult::InvalidExtDelegateCallTarget)
             }
             InstructionResult::InvalidPrivateStorageAccess => {
-                Self::Halt(HaltReason::InvalidPrivateStorageAccess)
+                Self::Halt(HaltReason::InvalidPrivateStorageAccess.into())
             }
             InstructionResult::InvalidPublicStorageAccess => {
-                Self::Halt(HaltReason::InvalidPublicStorageAccess)
+                Self::Halt(HaltReason::InvalidPublicStorageAccess.into())
             }
         }
     }

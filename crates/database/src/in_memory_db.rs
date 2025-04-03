@@ -414,33 +414,12 @@ impl AccountState {
 ///
 /// Any other address will return an empty account.
 #[derive(Debug, Default, Clone)]
-pub struct BenchmarkDB {
-    pub bytecode: Bytecode,
-    pub hash: B256,
-    pub target: Address,
-    pub caller: Address,
-}
+pub struct BenchmarkDB(pub Bytecode, B256);
 
 impl BenchmarkDB {
-    /// Create a new benchmark database with the given bytecode.
     pub fn new_bytecode(bytecode: Bytecode) -> Self {
         let hash = bytecode.hash_slow();
-        Self {
-            bytecode,
-            hash,
-            target: Address::ZERO,
-            caller: Address::with_last_byte(1),
-        }
-    }
-
-    /// Change the caller address for the benchmark.
-    pub fn with_caller(self, caller: Address) -> Self {
-        Self { caller, ..self }
-    }
-
-    /// Change the target address for the benchmark.
-    pub fn with_target(self, target: Address) -> Self {
-        Self { target, ..self }
+        Self(bytecode, hash)
     }
 }
 

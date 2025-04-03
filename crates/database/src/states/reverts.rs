@@ -84,6 +84,36 @@ impl Reverts {
         state_reverts
     }
 
+        /// Compare two Reverts instances, ignoring the order of elements
+    pub fn content_eq(&self, other: &Self) -> bool {
+        if self.0.len() != other.0.len() {
+            return false;
+        }
+
+        for (self_transition, other_transition) in self.0.iter().zip(other.0.iter()) {
+            if self_transition.len() != other_transition.len() {
+                return false;
+            }
+
+            let mut self_transition = self_transition.clone();
+            let mut other_transition = other_transition.clone();
+            // Sort both transitions
+            self_transition.sort_by(|(addr1, revert1), (addr2, revert2)| {
+                addr1.cmp(addr2).then_with(|| revert1.cmp(revert2))
+            });
+            other_transition.sort_by(|(addr1, revert1), (addr2, revert2)| {
+                addr1.cmp(addr2).then_with(|| revert1.cmp(revert2))
+            });
+
+            // Compare sorted transitions
+            if self_transition != other_transition {
+                return false;
+            }
+        }
+
+        true
+    }
+
     /// Consume reverts and create [`PlainStateReverts`].
     ///
     /// Note that account are sorted by address.

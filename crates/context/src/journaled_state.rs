@@ -88,22 +88,39 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
     fn db(&mut self) -> &mut Self::Database {
         &mut self.database
     }
+    
+    fn cload(
+        &mut self,
+        address: Address,
+        key: U256,
+    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+        self.load(address, key)
+    }
 
     fn sload(
         &mut self,
         address: Address,
         key: U256,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        self.sload(address, key)
+        self.load(address, key)
     }
 
+    fn cstore(
+        &mut self,
+        address: Address,
+        key: U256,
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
+        self.store(address, key, value, true)
+    }
+    
     fn sstore(
         &mut self,
         address: Address,
         key: U256,
         value: U256,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
-        self.sstore(address, key, value)
+        self.store(address, key, value, false)
     }
 
     fn tload(&mut self, address: Address, key: U256) -> U256 {
@@ -656,6 +673,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 is_empty,
             },
             account.is_cold,
+            false
         );
 
         // load delegate code if account is EIP-7702
@@ -728,30 +746,12 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         Ok(load)
     }
 
-    /// Load storage slot
-    ///
-    /// # Panics
-    ///
-    /// Panics if the account is not present in the state.
-    ///
-    /// If slot is vacant, return 0 with visibility flagged as private.
     #[inline]
-    pub fn cload<DB: Database>(
+    pub fn load(
         &mut self,
         address: Address,
         key: U256,
-        db: &mut DB,
-    ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
-        self.load(address, key, db)
-    }
-
-    #[inline]
-    pub fn load<DB: Database>(
-        &mut self,
-        address: Address,
-        key: U256,
-        db: &mut DB,
-    ) -> Result<StateLoad<FlaggedStorage>, EVMError<DB::Error>> {
+    ) -> Result<StateLoad<U256>, DB::Error> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx can we assume that storage is empty.
@@ -785,26 +785,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 .push(ENTRY::storage_warmed(address, key));
         }
 
-        Ok(StateLoad::new(value, is_cold, is_private))
-    }
-    
-    /// Stores storage slot.
-    /// And returns (original,present,new) slot value.
-    ///
-    /// Note:
-    ///
-    /// account should already be present in our state.
-    ///
-    /// marks storage as private.
-    #[inline]
-    pub fn cstore<DB: Database>(
-        &mut self,
-        address: Address,
-        key: U256,
-        new: U256,
-        db: &mut DB,
-    ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
-        self.store(address, key, new, db, true)
+        Ok(StateLoad::new(value.into(), is_cold, is_private))
     }
 
     /// Stores storage slot.
@@ -813,11 +794,12 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
     ///
     /// **Note**: Account should already be present in our state.
     #[inline]
-    pub fn sstore(
+    pub fn store(
         &mut self,
         address: Address,
         key: U256,
         new: U256,
+        is_private: bool,
     ) -> Result<StateLoad<SStoreResult>, DB::Error> {
         // assume that acc exists and load the slot.
         let present = self.sload(address, key)?;
@@ -827,12 +809,12 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         let slot = acc.storage.get_mut(&key).unwrap();
 
         // new value is same as present, we don't need to do anything
-        if present.data.value == new {
+        if present.data == new {
             return Ok(StateLoad::new(
                 SStoreResult {
-                    original_value: slot.original_value().value,
-                    present_value: present.data.value,
-                    new_value: new,
+                    original_value: slot.original_value(),
+                    present_value: FlaggedStorage::new_from_value(present.data).set_visibility(present.is_private),
+                    new_value: FlaggedStorage::new_from_value(new).set_visibility(is_private),
                 },
                 present.is_cold,
                 is_private,
@@ -842,14 +824,15 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         self.journal
             .last_mut()
             .unwrap()
-            .push(ENTRY::storage_changed(address, key, present.data));
+            .push(ENTRY::storage_changed(address, key, FlaggedStorage::new_from_value(present.data).set_visibility(present.is_private)));
+
         // insert value into present state.
         slot.present_value = FlaggedStorage::new_from_value(new).set_visibility(is_private);
         Ok(StateLoad::new(
             SStoreResult {
-                original_value: slot.original_value().value,
-                present_value: present.data.value,
-                new_value: new,
+                original_value: slot.original_value(),
+                present_value:FlaggedStorage::new_from_value(present.data).set_visibility(present.is_private), 
+                new_value: FlaggedStorage::new_from_value(new).set_visibility(is_private),
             },
             present.is_cold,
             is_private,

@@ -2,6 +2,7 @@ pub use crate::journaled_state::StateLoad;
 use crate::{Block, Cfg, Database, JournalTr, Transaction};
 use auto_impl::auto_impl;
 use primitives::U256;
+use state::FlaggedStorage;
 use std::string::String;
 
 /// Trait that defines the context of the EVM execution.
@@ -68,11 +69,11 @@ impl<DbError> From<DbError> for ContextError<DbError> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SStoreResult {
     /// Value of the storage when it is first read
-    pub original_value: U256,
+    pub original_value: FlaggedStorage,
     /// Current value of the storage
-    pub present_value: U256,
+    pub present_value: FlaggedStorage,
     /// New value that is set
-    pub new_value: U256,
+    pub new_value: FlaggedStorage,
 }
 
 impl SStoreResult {

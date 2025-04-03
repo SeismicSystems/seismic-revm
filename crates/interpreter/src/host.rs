@@ -71,9 +71,18 @@ pub trait Host {
         key: U256,
         value: U256,
     ) -> Option<StateLoad<SStoreResult>>;
+    /// Cstore, calls `ContextTr::journal().Cstore(address, key, value)`
+    fn cstore(
+        &mut self,
+        address: Address,
+        key: U256,
+        value: U256,
+    ) -> Option<StateLoad<SStoreResult>>;
 
     /// Sload, calls `ContextTr::journal().sload(address, key)`
     fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
+    /// Cload, calls `ContextTr::journal().cload(address, key)`
+    fn cload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
     /// Tstore, calls `ContextTr::journal().tstore(address, key, value)`
     fn tstore(&mut self, address: Address, key: U256, value: U256);
     /// Tload, calls `ContextTr::journal().tload(address, key)`
@@ -209,7 +218,14 @@ impl<CTX: ContextTr> Host for CTX {
     }
     
     /// Get (private) storage value of `address` at `index` and if the account is cold
-    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>>;
+    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
+        self.journal()
+            .cload(address, index)
+            .map_err(|e| {
+                *self.error() = Err(e.into());
+            })
+            .ok()
+    }
 
     /// Gets storage value of `address` at `index` and if the account is cold.
     fn sload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
@@ -246,7 +262,14 @@ impl<CTX: ContextTr> Host for CTX {
         address: Address,
         index: U256,
         value: U256,
-    ) -> Option<StateLoad<SStoreResult>>;
+    ) -> Option<StateLoad<SStoreResult>> {
+        self.journal()
+            .cstore(address, index, value)
+            .map_err(|e| {
+                *self.error() = Err(e.into());
+            })
+            .ok()
+    }
 
     /// Gets the transient storage value of `address` at `index`.
     fn tload(&mut self, address: Address, index: U256) -> U256 {
@@ -348,6 +371,15 @@ impl Host for DummyHost {
 
     fn log(&mut self, _log: Log) {}
 
+    fn cstore(
+        &mut self,
+        _address: Address,
+        _key: U256,
+        _value: U256,
+    ) -> Option<StateLoad<SStoreResult>> {
+        None
+    }
+    
     fn sstore(
         &mut self,
         _address: Address,
@@ -358,6 +390,10 @@ impl Host for DummyHost {
     }
 
     fn sload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
+        None
+    }
+    
+    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
         None
     }
 
