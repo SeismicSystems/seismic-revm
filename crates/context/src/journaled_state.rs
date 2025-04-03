@@ -14,9 +14,9 @@ use database_interface::Database;
 use primitives::{
     hardfork::{SpecId, SpecId::*},
     hash_map::Entry,
-    Address, HashMap, HashSet, Log, B256, KECCAK_EMPTY, U256, FlaggedStorage
+    Address, HashMap, HashSet, Log, B256, KECCAK_EMPTY, U256
 };
-use state::{Account, EvmState, EvmStorageSlot, TransientStorage};
+use state::{Account, EvmState, EvmStorageSlot, TransientStorage, FlaggedStorage};
 use std::{vec, vec::Vec};
 
 /// A journal of state changes internal to the EVM

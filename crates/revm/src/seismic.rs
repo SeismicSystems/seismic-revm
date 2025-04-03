@@ -1,8 +1,0 @@
-//! Seismic specific precompiles and handler_register.
-
-mod handler_register;
-pub mod precompiles;
-pub mod rng;
-
-pub use handler_register::{load_precompiles, reset_seismic_rng, seismic_handle_register};
-pub use rng::RngContainer;

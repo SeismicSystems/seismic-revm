@@ -4,8 +4,8 @@ use super::{
 };
 use bytecode::Bytecode;
 use database_interface::{Database, DatabaseCommit, EmptyDB};
-use primitives::{hash_map, Address, HashMap, B256, BLOCK_HASH_HISTORY, U256, FlaggedStorage};
-use state::{Account, AccountInfo};
+use primitives::{hash_map, Address, HashMap, B256, BLOCK_HASH_HISTORY, U256};
+use state::{Account, AccountInfo, FlaggedStorage};
 use std::{
     boxed::Box,
     collections::{btree_map, BTreeMap},
