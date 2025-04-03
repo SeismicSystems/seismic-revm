@@ -2,8 +2,8 @@ use super::{
     plain_account::PlainStorage, AccountStatus, BundleAccount, PlainAccount,
     StorageWithOriginalValues, TransitionAccount,
 };
-use primitives::{HashMap, U256, FlaggedStorage};
-use state::AccountInfo;
+use primitives::{HashMap, U256};
+use state::{AccountInfo, FlaggedStorage};
 
 /// Cache account contains plain state that gets updated
 /// at every transaction when evm output is applied to CacheState.

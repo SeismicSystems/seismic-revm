@@ -1,7 +1,7 @@
 use super::RevertToSlot;
 use bytecode::Bytecode;
-use primitives::{Address, B256, U256, FlaggedStorage};
-use state::AccountInfo;
+use primitives::{Address, B256, U256};
+use state::{AccountInfo, FlaggedStorage};
 use std::vec::Vec;
 
 /// `accounts`/`storages`/`contracts` for inclusion into database.

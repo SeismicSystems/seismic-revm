@@ -6,8 +6,8 @@ use core::{
     cmp::Ordering,
     ops::{Deref, DerefMut},
 };
-use primitives::{Address, HashMap, U256, FlaggedStorage};
-use state::AccountInfo;
+use primitives::{Address, HashMap, U256};
+use state::{AccountInfo, FlaggedStorage};
 use std::vec::Vec;
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).
