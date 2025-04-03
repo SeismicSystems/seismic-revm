@@ -3,7 +3,7 @@ use super::{
     StorageWithOriginalValues, TransitionAccount,
 };
 use primitives::{HashMap, U256};
-use state::{AccountInfo, FlaggedStorage);
+use state::{AccountInfo, FlaggedStorage};
 
 /// Account information focused on creating of database changesets
 /// and Reverts.
