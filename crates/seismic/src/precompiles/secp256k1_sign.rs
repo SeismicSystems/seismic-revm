@@ -35,19 +35,19 @@ Precompile Logic and Gas Calculation
 pub fn secp256k1_sign_ecdsa_recoverable(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let gas_used = BASE_GAS;
     if gas_used > gas_limit {
-        return Err(PCError::OutOfGas.into());
+        return Err(PrecompileError::OutOfGas.into());
     }
 
     // input validation
     if input.len() != 64 {
-        return Err(PCError::Other("Invalid input length".to_string()).into());
+        return Err(PrecompileError::Other("Invalid input length".to_string()).into());
     }
     let key_bytes: [u8; 32] = input[0..32].try_into().unwrap();
     let digest_bytes: [u8; 32] = input[32..64].try_into().unwrap();
     let secret_key = secp256k1::SecretKey::from_slice(&key_bytes)
-        .map_err(|e| PCError::Other(format!("Invalid secret key: {e}")))?;
+        .map_err(|e| PrecompileError::Other(format!("Invalid secret key: {e}")))?;
     let message = secp256k1::Message::from_digest_slice(&digest_bytes)
-        .map_err(|e| PCError::Other(format!("Invalid message: {e}")))?;
+        .map_err(|e| PrecompileError::Other(format!("Invalid message: {e}")))?;
 
     // sign
     let secp = Secp256k1::new();
@@ -56,7 +56,7 @@ pub fn secp256k1_sign_ecdsa_recoverable(input: &Bytes, gas_limit: u64) -> Precom
     // serialize the output
     let (recid, sig) = sig.serialize_compact();
     let mut output = sig.to_vec();
-    output.push(recid.to_i32() as u8);
+    output.push(recid as u8);
 
     Ok(PrecompileOutput::new(gas_used, output.into()))
 }
@@ -135,10 +135,10 @@ mod tests {
         let result = secp256k1_sign_ecdsa_recoverable(&input, gas_limit);
         assert!(result.is_err());
         match result.err() {
-            Some(PrecompileErrors::Error(PCError::Other(msg))) => {
+            Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
                 assert_eq!(msg, "Invalid input length");
             }
-            other => panic!("Expected PCError::Other(Invalid input length), got: {other:?}"),
+            other => panic!("Expected PrecompileError::Other(Invalid input length), got: {other:?}"),
         }
     }
 
@@ -149,10 +149,10 @@ mod tests {
         let result = secp256k1_sign_ecdsa_recoverable(&input, gas_limit);
         assert!(result.is_err());
         match result.err() {
-            Some(PrecompileErrors::Error(PCError::Other(msg))) => {
+            Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
                 assert_eq!(msg, "Invalid secret key: malformed or out-of-range secret key");
             }
-            other => panic!("Expected PCError::Other(Invalid secret key: malformed or out-of-range secret key), got: {other:?}"),
+            other => panic!("Expected PrecompileError::Other(Invalid secret key: malformed or out-of-range secret key), got: {other:?}"),
         }
     }
 

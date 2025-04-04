@@ -11,7 +11,7 @@ pub type StatefulPrecompileFn<CTX> = fn(&mut CTX, &Bytes, u64) -> PrecompileResu
 #[derive(Clone, Debug)]
 pub struct StatefulPrecompileWithAddress<CTX>(pub Address, pub StatefulPrecompileFn<CTX>); 
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StatefulPrecompiles<CTX> {
     inner: HashMap<Address, StatefulPrecompileFn<CTX>>,
     addresses: HashSet<Address>,

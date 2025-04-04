@@ -4,9 +4,7 @@ use revm::{
     precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, calc_linear_cost_u32, u64_to_address},
 };
 
-use secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
-
-use seismic_enclave::derive_aes_key;
+use seismic_enclave::{ecdh::SharedSecret, SecretKey, PublicKey,  derive_aes_key};
 
 /// Address of ECDH precompile.
 pub const ECDH_ADDRESS: u64 = 101; 

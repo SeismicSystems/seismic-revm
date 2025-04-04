@@ -20,7 +20,7 @@
 pub mod aes;
 pub mod ecdh_derive_sym_key;
 pub mod hkdf_derive_sym_key;
-pub mod rng;
+//pub mod rng;
 pub mod secp256k1_sign;
 pub mod stateful_precompile;
 pub use stateful_precompile::StatefulPrecompiles;
@@ -31,10 +31,9 @@ use revm::{
     context::Cfg,
     context_interface::ContextTr,
     handler::{EthPrecompiles, PrecompileProvider},
-    interpreter::InterpreterResult,
+    interpreter::{Gas, InstructionResult, InterpreterResult},
     precompile::{
-        self, bn128, secp256r1, PrecompileError, Precompiles,
-        {PrecompileResult, PrecompileWithAddress},
+        self, bn128, secp256r1, PrecompileError, PrecompileResult, PrecompileWithAddress, Precompiles
     },
     primitives::{Address, Bytes},
 };
@@ -60,15 +59,17 @@ impl <CTX: ContextTr> SeismicPrecompiles<CTX> {
     #[inline]
     pub fn new_with_spec(spec: SeismicSpecId) -> Self {
         match spec {
-            spec @  SeismicSpecId::MERCURY => Self::new(mercury::<CTX>()),
+            _spec @  SeismicSpecId::MERCURY => Self::new(mercury::<CTX>()),
         }
     }
 }
 
-/// Returns precompiles for Fjord spec.
+/// Returns precompiles for MERCURY spec.
 pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<CTX>) {
+    // Store only the stateless precompiles in the static OnceBox
     static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
-    INSTANCE.get_or_init(|| {
+    
+    let regular_precompiles = INSTANCE.get_or_init(|| {
         let mut precompiles = Precompiles::prague().clone();
         precompiles.extend([
             secp256r1::P256VERIFY,
@@ -78,10 +79,13 @@ pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<C
             aes::aes_gcm_dec::AES_GCM_DEC,
             secp256k1_sign::SECP256K1_SIGN,
         ]);
-        let mut stateful_precompiles = StatefulPrecompiles::new();
-        stateful_precompiles.extend(rng::precompiles::<CTX>().map(|p| (p.0, p.1)));
-        (precompiles, stateful_precompiles)
-    })
+        Box::new(precompiles)
+    });
+    
+    //TODO: check how expensive is the below instead of a single init! issue with generics
+    let mut stateful_precompiles = StatefulPrecompiles::new();
+    //stateful_precompiles.extend(rng::precompiles::<CTX>().map(|p| (p.0, p.1)));
+    (regular_precompiles, stateful_precompiles)
 }
 
 impl<CTX> PrecompileProvider<CTX> for SeismicPrecompiles<CTX>
@@ -104,21 +108,31 @@ where
         bytes: &Bytes,
         gas_limit: u64,
     ) -> Result<Option<Self::Output>, String> {
-        // Check if this is a stateful precompile first
-        if self.stateful_precompiles.contains(address) {
-            if let Some(precompile) = self.stateful_precompiles.get(address) {
-                // Run the stateful precompile
-                match precompile(context, bytes, gas_limit) {
-                    Ok(output) => Ok(Some(InterpreterResult {
-                        gas: Gas::new(output.gas_used),
-                        output: output.output,
-                        result: InstructionResult::Return,
-                    })),
-                    Err(err) => Err(err.to_string()),
+        if let Some(precompile) = self.stateful_precompiles.get(address) {
+            let mut result = InterpreterResult {
+                result: InstructionResult::Return,
+                gas: Gas::new(gas_limit),
+                output: Bytes::new(),
+            };
+            
+            match (*precompile)(context, bytes, gas_limit) {
+                Ok(output) => {
+                    let underflow = result.gas.record_cost(output.gas_used);
+                    assert!(underflow, "Gas underflow is not possible");
+                    result.result = InstructionResult::Return;
+                    result.output = output.bytes;
                 }
-            } else {
-                Err("Precompile not found".to_string())
+                Err(PrecompileError::Fatal(e)) => return Err(e),
+                Err(e) => {
+                    result.result = if e.is_oog() {
+                        InstructionResult::PrecompileOOG
+                    } else {
+                        InstructionResult::PrecompileError
+                    };
+                }
             }
+            
+            Ok(Some(result))
         } else {
             // Fall back to standard precompiles
             self.inner.run(context, address, bytes, gas_limit)
