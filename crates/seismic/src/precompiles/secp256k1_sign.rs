@@ -1,18 +1,23 @@
-use crate::precompile::Error as PCError;
-use crate::primitives::Bytes;
-use crate::seismic::precompiles::SECP256K1_SIGN_ADDRESS;
+use revm::{
+    primitives::{Address, Bytes},
+    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, calc_linear_cost_u32, u64_to_address},
+};
 
-use revm_precompile::{Precompile, PrecompileOutput, PrecompileResult, PrecompileWithAddress};
 use secp256k1::Secp256k1;
 
 /* --------------------------------------------------------------------------
 Precompile Wiring
 -------------------------------------------------------------------------- */
+/// Address of SECP256K1 sign precompile.
+pub const SECP256K1_SIGN_ADDRESS: u64 = 105; 
 
-pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
-    SECP256K1_SIGN_ADDRESS,
-    Precompile::Standard(secp256k1_sign_ecdsa_recoverable),
-);
+/// Returns the ecdh precompile with its address.
+pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
+    [SECP256K1_SIGN].into_iter()
+}
+
+pub const SECP256K1_SIGN: PrecompileWithAddress =
+    PrecompileWithAddress(u64_to_address(SECP256K1_SIGN_ADDRESS), secp256k1_sign_ecdsa_recoverable);
 
 const BASE_GAS: u64 = 3000;
 
@@ -59,10 +64,10 @@ pub fn secp256k1_sign_ecdsa_recoverable(input: &Bytes, gas_limit: u64) -> Precom
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::precompile::secp256k1::ecrecover;
-    use crate::primitives::{alloy_primitives::B512, keccak256, Bytes, B256};
+    use revm::precompile::secp256k1::ecrecover;
+    use revm::primitives::{alloy_primitives::B512, keccak256, Bytes, B256};
 
-    use revm_precompile::{PrecompileError, PrecompileErrors};
+    use revm::precompile::PrecompileError;
     use secp256k1::{ecdsa::Signature, Message};
 
     // test using the secp256k1 crate's verify function

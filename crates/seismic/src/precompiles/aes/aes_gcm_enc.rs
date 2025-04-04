@@ -1,24 +1,29 @@
-use crate::primitives::Bytes;
-use crate::seismic::precompiles::AES_GCM_ENC_ADDRESS;
-
-use revm_precompile::{
-    Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+use revm::{
+    primitives::{Address, Bytes},
+    precompile::{PrecompileWithAddress, PrecompileResult, calc_linear_cost_u32, PrecompileOutput, PrecompileError, u64_to_address},
 };
-
-use seismic_enclave::aes_encrypt;
 
 use super::common::{
     calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length, validate_nonce_length,
 };
 
+use seismic_enclave::aes_encrypt;
+
 /* --------------------------------------------------------------------------
 Constants & Setup
 -------------------------------------------------------------------------- */
 
-pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
-    AES_GCM_ENC_ADDRESS,
-    Precompile::Standard(precompile_encrypt),
-);
+/// Address of AES-GCM encryption precompile.
+pub const AES_GCM_ENC_ADDRESS: u64 = 102; 
+
+/// Returns the aes-gcm-encryption precompile with its address.
+pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
+    [AES_GCM_ENC].into_iter()
+}
+
+pub const AES_GCM_ENC: PrecompileWithAddress =
+    PrecompileWithAddress(u64_to_address(AES_GCM_ENC_ADDRESS), precompile_encrypt);
+
 
 /// Minimal input size:
 /// - 32 bytes for the AES key,
@@ -74,8 +79,8 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::Bytes;
-    use revm_precompile::PrecompileErrors;
+    use revm::primitives::Bytes;
+    use revm::precompile::PrecompileError;
 
     /// 1) Test a normal case: a small non-empty plaintext,
     ///    verifying correct gas usage and successful encryption.

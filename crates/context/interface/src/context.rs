@@ -1,7 +1,6 @@
 pub use crate::journaled_state::StateLoad;
 use crate::{Block, Cfg, Database, JournalTr, Transaction};
 use auto_impl::auto_impl;
-use primitives::U256;
 use state::FlaggedStorage;
 use std::string::String;
 

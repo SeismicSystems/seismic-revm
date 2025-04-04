@@ -6,3 +6,6 @@
 extern crate alloc as std;
 
 pub mod precompiles;
+pub mod spec;
+
+pub use spec::*;

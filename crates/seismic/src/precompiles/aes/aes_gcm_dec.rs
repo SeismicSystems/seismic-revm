@@ -1,23 +1,27 @@
-use crate::primitives::Bytes;
-use crate::seismic::precompiles::AES_GCM_DEC_ADDRESS;
-
-use revm_precompile::{
-    Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+use revm::{
+    primitives::{Address, Bytes},
+    precompile::{PrecompileWithAddress, PrecompileResult, calc_linear_cost_u32, PrecompileOutput, PrecompileError, u64_to_address},
 };
-use seismic_enclave::aes_decrypt;
 
 use super::common::{
     calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length, validate_nonce_length,
 };
 
+use seismic_enclave::aes_decrypt;
+
 /* --------------------------------------------------------------------------
 Constants & Setup
 -------------------------------------------------------------------------- */
+/// Address of AES-GCM decryption precompile.
+pub const AES_GCM_DEC_ADDRESS: u64 = 103; 
 
-pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
-    AES_GCM_DEC_ADDRESS,
-    Precompile::Standard(precompile_decrypt),
-);
+/// Returns the aes-gcm-decryption precompile with its address.
+pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
+    [AES_GCM_DEC].into_iter()
+}
+
+pub const AES_GCM_DEC: PrecompileWithAddress =
+    PrecompileWithAddress(u64_to_address(AES_GCM_DEC_ADDRESS), precompile_decrypt);
 
 /// Minimal input size for AES-GCM (32-byte key + 12-byte nonce + 16-byte tag).
 pub const MIN_INPUT_LENGTH: usize = 60;
@@ -60,8 +64,8 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::{hex, Bytes};
-    use revm_precompile::{PrecompileError, PrecompileErrors};
+    use revm::primitives::{hex, Bytes};
+    use revm::precompile::PrecompileError;
 
     /// 1) Test the smallest possible cyphertext:
     ///    - 32-byte key + 12-byte nonce + 16-byte ciphertext (one block)

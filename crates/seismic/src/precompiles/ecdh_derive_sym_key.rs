@@ -1,15 +1,23 @@
-use super::{hkdf_derive_sym_key::EXPAND_FIXED_COST, ECDH_ADDRESS};
-use crate::primitives::Bytes;
-
-use revm_precompile::{
-    Precompile, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+use super::hkdf_derive_sym_key::EXPAND_FIXED_COST;
+use revm::{
+    primitives::{Address, Bytes},
+    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, calc_linear_cost_u32, u64_to_address},
 };
+
 use secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 
 use seismic_enclave::derive_aes_key;
 
-pub const PRECOMPILE: PrecompileWithAddress =
-    PrecompileWithAddress(ECDH_ADDRESS, Precompile::Standard(derive_symmetric_key));
+/// Address of ECDH precompile.
+pub const ECDH_ADDRESS: u64 = 101; 
+
+/// Returns the ecdh precompile with its address.
+pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
+    [ECDH].into_iter()
+}
+
+pub const ECDH: PrecompileWithAddress =
+    PrecompileWithAddress(u64_to_address(ECDH_ADDRESS), derive_symmetric_key);
 
 /// Expected input layout:
 /// - 32 bytes: secp256k1 secret key
@@ -95,8 +103,8 @@ pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::hex;
-    use revm_precompile::{PrecompileError, PrecompileErrors};
+    use revm::primitives::hex;
+    use revm::precompile::PrecompileError;
 
     /// 1) Tests normal usage with valid 65-byte input,
     ///    ensuring we get a 32-byte output and don't exceed gas.

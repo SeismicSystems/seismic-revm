@@ -1,4 +1,4 @@
-use revm_precompile::{calc_linear_cost, PrecompileError};
+use revm::precompile::{calc_linear_cost, PrecompileError};
 
 /// The below gas cost are very rough estimates.
 /// Overhead cost for AES-GCM setup & finalization. We intentionally overprice to stay safe.

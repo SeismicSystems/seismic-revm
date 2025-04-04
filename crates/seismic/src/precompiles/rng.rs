@@ -1,32 +1,25 @@
-use super::RNG_ADDRESS;
-use crate::precompile::Error as PCError;
-use crate::precompile::PrecompileError;
-use crate::{
-    primitives::{db::Database, Address, Bytes},
-    ContextPrecompile, ContextStatefulPrecompile, InnerEvmContext,
+use revm::{
+    context::ContextTr, precompile::{calc_linear_cost_u32, u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress}, primitives::{Address, Bytes}
 };
 
-use revm_precompile::{
-    calc_linear_cost_u32, Error as REVM_ERROR, PrecompileOutput, PrecompileResult,
-};
-use std::sync::Arc;
+use super::stateful_precompile::StatefulPrecompileWithAddress;
 
 /* --------------------------------------------------------------------------
 Constants & Setup
 -------------------------------------------------------------------------- */
-pub struct RngPrecompile;
 
 // The RNG precompile is a stateful precompile based on Merlin transcripts
 // At each transaction in a block executes, the tx hash is appended to
 // the transcript as domain seperation, causing identical transactions
 // to produce different randomness
-impl RngPrecompile {
-    pub fn address_and_precompile<DB: Database>() -> (Address, ContextPrecompile<DB>) {
-        (
-            RNG_ADDRESS,
-            ContextPrecompile::ContextStateful(Arc::new(RngPrecompile)),
-        )
-    }
+pub const RNG_ADDRESS: u64 = 100; // Hex address `0x64`.
+
+pub fn precompiles<CTX: ContextTr>() -> impl Iterator<Item = StatefulPrecompileWithAddress<CTX>> {
+    [rng_precompile::<CTX>()].into_iter()
+}
+
+pub fn rng_precompile<CTX: ContextTr>() -> StatefulPrecompileWithAddress<CTX> {
+    StatefulPrecompileWithAddress(u64_to_address(RNG_ADDRESS), rng::<CTX>)
 }
 
 const MIN_INPUT_LENGTH: usize = 2;
@@ -111,38 +104,35 @@ Precompile Logic
 /// RNG_INIT_BASE = round(100 + 395 + 3000) = 3500
 /// fill_cost     = ceil(fill_len / 32) * 5
 /// ```
-impl<DB: Database> ContextStatefulPrecompile<DB> for RngPrecompile {
-    fn call(
-        &self,
-        input: &Bytes,
-        gas_limit: u64,
-        evmctx: &mut InnerEvmContext<DB>,
-    ) -> PrecompileResult {
-        // Validate input and extract parameters.
-        validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
-        let (requested_output_len, pers) = parse_input(input)?;
-        let requested_output_len = requested_output_len as usize;
-
-        // Compute the gas cost.
-        let gas_used = evmctx
-            .rng_container
-            .calculate_gas_cost(&pers, requested_output_len);
-        if gas_used > gas_limit {
-            return Err(REVM_ERROR::OutOfGas.into());
-        }
-
-        // Obtain kernel mode and transaction hash.
-        let kernel_mode = evmctx.env().tx.rng_mode;
-        let tx_hash = evmctx.env().tx.tx_hash;
-
-        // Let the container update its state and produce the random bytes.
-        let output = evmctx
-            .rng_container
-            .process_rng(&pers, requested_output_len, kernel_mode, &tx_hash)
-            .map_err(|e| PCError::Other(e.to_string()))?;
-
-        Ok(PrecompileOutput::new(gas_used, output))
+fn rng<CTX: ContextTr>(
+    evmctx: &mut CTX,
+    input: &Bytes,
+    gas_limit: u64,
+) -> PrecompileResult {
+    // Validate input and extract parameters.
+    validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
+    let (requested_output_len, pers) = parse_input(input)?;
+    let requested_output_len = requested_output_len as usize;
+    
+    // Compute the gas cost.
+    let gas_used = evmctx
+        .rng_container
+        .calculate_gas_cost(&pers, requested_output_len);
+    if gas_used > gas_limit {
+        return Err(PrecompileError::OutOfGas); // Changed REVM_ERROR to PrecompileError
     }
+    
+    // Obtain kernel mode and transaction hash.
+    let kernel_mode = evmctx.env().tx.rng_mode;
+    let tx_hash = evmctx.env().tx.tx_hash;
+    
+    // Let the container update its state and produce the random bytes.
+    let output = evmctx
+        .rng_container
+        .process_rng(&pers, requested_output_len, kernel_mode, &tx_hash)
+        .map_err(|e| PrecompileError::Other(e.to_string()))?; // Changed PCError to PrecompileError
+    
+    Ok(PrecompileOutput::new(gas_used, output))
 }
 
 pub(crate) fn calculate_init_cost(pers_len: usize) -> u64 {
@@ -189,10 +179,8 @@ mod tests {
     use std::vec;
 
     use super::*;
-    use crate::db::EmptyDB;
-    use crate::precompile::PrecompileError;
-    use crate::precompile::PrecompileErrors;
-    use crate::primitives::alloy_primitives::{B256, U32};
+    use revm::primitives::{alloy_primitives::U32, B256, Bytes};
+    use revm::precompile::PrecompileError;
 
     #[test]
     fn test_rng_init_no_pers() {

@@ -22,13 +22,155 @@ pub mod ecdh_derive_sym_key;
 pub mod hkdf_derive_sym_key;
 pub mod rng;
 pub mod secp256k1_sign;
+pub mod stateful_precompile;
+pub use stateful_precompile::StatefulPrecompiles;
 
-// Address constants
-pub const RNG_ADDRESS: Address = u64_to_address(100); // Hex address `0x64`.
-pub const ECDH_ADDRESS: Address = u64_to_address(101); // Hex address `0x65`.
-pub const AES_GCM_ENC_ADDRESS: Address = u64_to_address(102); // Hex address `0x66`.
-pub const AES_GCM_DEC_ADDRESS: Address = u64_to_address(103); // Hex address `0x67`.
-pub const HDKF_ADDRESS: Address = u64_to_address(104); // Hex address `0x68`.
-pub const SECP256K1_SIGN_ADDRESS: Address = u64_to_address(105); // Hex address `0x69`.
+use crate::SeismicSpecId;
+use once_cell::race::OnceBox;
+use revm::{
+    context::Cfg,
+    context_interface::ContextTr,
+    handler::{EthPrecompiles, PrecompileProvider},
+    interpreter::InterpreterResult,
+    precompile::{
+        self, bn128, secp256r1, PrecompileError, Precompiles,
+        {PrecompileResult, PrecompileWithAddress},
+    },
+    primitives::{Address, Bytes},
+};
+use std::boxed::Box;
+use std::string::String;
 
+#[derive(Debug, Clone)]
+pub struct SeismicPrecompiles<CTX: ContextTr> {
+    inner: EthPrecompiles,
+    stateful_precompiles: StatefulPrecompiles<CTX>,
+}
+
+impl <CTX: ContextTr> SeismicPrecompiles<CTX> {
+    /// Create a new [`SeismicPrecompiles`] with the given precompiles.
+    pub fn new(precompiles: (&'static Precompiles, StatefulPrecompiles<CTX>)) -> Self {
+        Self {
+            inner: EthPrecompiles { precompiles: precompiles.0 },
+            stateful_precompiles: precompiles.1,
+        }
+    }
+
+    /// Create a new precompile provider with the given optimismispec.
+    #[inline]
+    pub fn new_with_spec(spec: SeismicSpecId) -> Self {
+        match spec {
+            spec @  SeismicSpecId::MERCURY => Self::new(mercury::<CTX>()),
+        }
+    }
+}
+
+/// Returns precompiles for Fjord spec.
+pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<CTX>) {
+    static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
+    INSTANCE.get_or_init(|| {
+        let mut precompiles = Precompiles::prague().clone();
+        precompiles.extend([
+            secp256r1::P256VERIFY,
+            ecdh_derive_sym_key::ECDH,
+            hkdf_derive_sym_key::HKDF,
+            aes::aes_gcm_enc::AES_GCM_ENC,
+            aes::aes_gcm_dec::AES_GCM_DEC,
+            secp256k1_sign::SECP256K1_SIGN,
+        ]);
+        let mut stateful_precompiles = StatefulPrecompiles::new();
+        stateful_precompiles.extend(rng::precompiles::<CTX>().map(|p| (p.0, p.1)));
+        (precompiles, stateful_precompiles)
+    })
+}
+
+impl<CTX> PrecompileProvider<CTX> for SeismicPrecompiles<CTX>
+where
+    CTX: ContextTr,
+    CTX::Cfg: Cfg<Spec = SeismicSpecId>, // Fixed the where clause syntax
+{
+    type Output = InterpreterResult;
     
+    #[inline]
+    fn set_spec(&mut self, spec: <CTX::Cfg as Cfg>::Spec) {
+        *self = Self::new_with_spec(spec);
+    }
+    
+    #[inline]
+    fn run(
+        &mut self,
+        context: &mut CTX,
+        address: &Address,
+        bytes: &Bytes,
+        gas_limit: u64,
+    ) -> Result<Option<Self::Output>, String> {
+        // Check if this is a stateful precompile first
+        if self.stateful_precompiles.contains(address) {
+            if let Some(precompile) = self.stateful_precompiles.get(address) {
+                // Run the stateful precompile
+                match precompile(context, bytes, gas_limit) {
+                    Ok(output) => Ok(Some(InterpreterResult {
+                        gas: Gas::new(output.gas_used),
+                        output: output.output,
+                        result: InstructionResult::Return,
+                    })),
+                    Err(err) => Err(err.to_string()),
+                }
+            } else {
+                Err("Precompile not found".to_string())
+            }
+        } else {
+            // Fall back to standard precompiles
+            self.inner.run(context, address, bytes, gas_limit)
+        }
+    }
+    
+    #[inline]
+    fn warm_addresses(&self) -> Box<impl Iterator<Item = Address>> {
+        // Combine both standard and stateful precompile addresses
+        let standard_addresses = self.inner.warm_addresses().into_iter();
+        let stateful_addresses = self.stateful_precompiles.addresses().cloned();
+        
+        Box::new(standard_addresses.chain(stateful_addresses))
+    }
+    
+    #[inline]
+    fn contains(&self, address: &Address) -> bool {
+        self.inner.contains(address) || self.stateful_precompiles.contains(address)
+    }
+}
+
+impl<CTX: ContextTr> Default for SeismicPrecompiles<CTX>
+where
+    CTX::Cfg: Cfg<Spec = SeismicSpecId>, 
+{
+    fn default() -> Self {
+        Self::new_with_spec(SeismicSpecId::MERCURY)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use revm::{precompile::PrecompileError, primitives::hex};
+    use std::vec;
+
+    #[test]
+    fn test_cancun_precompiles_in_mercury() {
+        // additional to cancun, fjord has p256verify
+        assert_eq!(mercury().difference(Precompiles::cancun()).len(), 1)
+    }
+
+    #[test]
+    fn test_default_precompiles_is_latest() {
+        let latest = SeismicPrecompiles::new_with_spec(SeismicSpecId::default())
+            .inner
+            .precompiles;
+        let default = SeismicPrecompiles::default().inner.precompiles;
+        assert_eq!(latest.len(), default.len());
+
+        let intersection = default.intersection(latest);
+        assert_eq!(intersection.len(), latest.len())
+    }
+}
+

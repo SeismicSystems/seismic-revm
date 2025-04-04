@@ -32,12 +32,20 @@ once_cell = { workspace = true, features = ["alloc"] }
 # Optional
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 
+# seismic 
+schnorrkel = { workspace = true }
+merlin = { workspace = true }
+rand_core = { workspace = true }
+seismic-enclave = { workspace = true }
+hkdf = { workspace = true }
+sha2 = { workspace = true } 
+secp256k1 = { workspace = true }
+
 [dev-dependencies]
 anyhow.workspace = true
 indicatif.workspace = true
 rstest.workspace = true
 alloy-sol-types.workspace = true
-sha2.workspace = true
 serde_json = { workspace = true, features = ["alloc"] }
 
 [features]
@@ -76,4 +84,3 @@ c-kzg = ["revm/c-kzg"]
 # `kzg-rs` is not audited but useful for `no_std` environment, use it with causing and default to `c-kzg` if possible.
 kzg-rs = ["revm/kzg-rs"]
 blst = ["revm/blst"]
-

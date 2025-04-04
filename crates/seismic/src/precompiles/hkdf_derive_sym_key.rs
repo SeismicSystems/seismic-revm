@@ -1,21 +1,24 @@
-use super::HDKF_ADDRESS;
-use crate::primitives::Bytes;
+use revm::{
+    primitives::{Address, Bytes},
+    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, calc_linear_cost_u32, u64_to_address},
+};
 
 use hkdf::Hkdf;
-use revm_precompile::{
-    calc_linear_cost_u32, Precompile, PrecompileError, PrecompileOutput, PrecompileResult,
-    PrecompileWithAddress,
-};
 use sha2::Sha256;
 
 /* --------------------------------------------------------------------------
 Precompile Wiring
 -------------------------------------------------------------------------- */
+/// Address of ECDH precompile.
+pub const HKDF_ADDRESS: u64 = 104; 
 
-pub const PRECOMPILE: PrecompileWithAddress = PrecompileWithAddress(
-    HDKF_ADDRESS,
-    Precompile::Standard(hkdf_derive_symmetric_key),
-);
+/// Returns the ecdh precompile with its address.
+pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
+    [HKDF].into_iter()
+}
+
+pub const HKDF: PrecompileWithAddress =
+    PrecompileWithAddress(u64_to_address(HKDF_ADDRESS), hkdf_derive_symmetric_key);
 
 /* --------------------------------------------------------------------------
  Cost Constants
@@ -109,8 +112,8 @@ pub fn hkdf_derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileRes
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::Bytes;
-    use revm_precompile::Error as PrecompileError;
+    use revm::primitives::Bytes;
+    use revm::precompile::PrecompileError;
     use sha2::Sha256;
 
     /// 1) **Test Basic Derivation**  
