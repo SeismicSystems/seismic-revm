@@ -1,6 +1,6 @@
 use crate::{evm::OpEvm, transaction::OpTxTr, L1BlockInfo, OpSpecId};
 use revm::{
-    context::{Cfg, ContextTr, JournalOutput},
+    context::{Cfg, JournalOutput},
     context_interface::{Block, JournalTr},
     handler::instructions::EthInstructions,
     interpreter::interpreter::EthInterpreter,
@@ -10,7 +10,7 @@ use revm::{
 /// Trait that allows for optimism OpEvm to be built.
 pub trait OpBuilder: Sized {
     /// Type of the context.
-    type Context: ContextTr;
+    type Context;
 
     /// Build the op.
     fn build_op(self) -> OpEvm<Self::Context, (), EthInstructions<EthInterpreter, Self::Context>>;
