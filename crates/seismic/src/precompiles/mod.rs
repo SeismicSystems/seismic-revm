@@ -91,7 +91,7 @@ pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<C
 impl<CTX> PrecompileProvider<CTX> for SeismicPrecompiles<CTX>
 where
     CTX: ContextTr,
-    CTX::Cfg: Cfg<Spec = SeismicSpecId>, // Fixed the where clause syntax
+    CTX::Cfg: Cfg<Spec = SeismicSpecId>,
 {
     type Output = InterpreterResult;
     
@@ -156,7 +156,7 @@ where
 
 impl<CTX: ContextTr> Default for SeismicPrecompiles<CTX>
 where
-    CTX::Cfg: Cfg<Spec = SeismicSpecId>, 
+    CTX::Cfg: Cfg, 
 {
     fn default() -> Self {
         Self::new_with_spec(SeismicSpecId::MERCURY)
@@ -168,28 +168,24 @@ mod tests {
     use super::*;
     use revm::database::EmptyDB;
     use revm::MainnetEvm;
-    use revm::{Context, MainBuilder, MainContext, precompile::PrecompileError, primitives::hex};
-    use revm::handler::MainnetContext; 
+    use revm::{Context, MainBuilder, precompile::PrecompileError, primitives::hex};
+    use revm::handler::MainnetContext;
+    use crate::{DefaultSeismic,SeismicContext};
     use std::vec;
-
-    pub fn create_test_context() -> MainnetEvm<MainnetContext<EmptyDB>> {
-        Context::mainnet() 
-            .build_mainnet()
-    }
 
     #[test]
     fn test_cancun_precompiles_in_mercury() {
-        let context = create_test_context();
-        assert_eq!(mercury::<MainnetContext<EmptyDB>>().0.difference(Precompiles::cancun()).len(), 1)
+        let context = SeismicContext::<EmptyDB>::seismic();
+        assert_eq!(mercury::<SeismicContext<EmptyDB>>().0.difference(Precompiles::cancun()).len(), 1)
     }
 
     #[test]
     fn test_default_precompiles_is_latest() {
-        let context = create_test_context();
-        let latest = SeismicPrecompiles::<MainnetContext<EmptyDB>>::new_with_spec(SeismicSpecId::default())
+        let context = SeismicContext::<EmptyDB>::seismic();
+        let latest = SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::default())
             .inner
             .precompiles;
-        let default = SeismicPrecompiles::<MainnetContext<EmptyDB>>::default().inner.precompiles;
+        let default = SeismicPrecompiles::<SeismicContext<EmptyDB>>::default().inner.precompiles;
         assert_eq!(latest.len(), default.len());
 
         let intersection = default.intersection(latest);
