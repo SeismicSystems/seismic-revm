@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn test_cancun_precompiles_in_mercury() {
         let context = SeismicContext::<EmptyDB>::seismic();
-        assert_eq!(mercury::<SeismicContext<EmptyDB>>().0.difference(Precompiles::cancun()).len(), 1)
+        assert_eq!(mercury::<SeismicContext<EmptyDB>>().0.difference(Precompiles::prague()).len(), 6)
     }
 
     #[test]
