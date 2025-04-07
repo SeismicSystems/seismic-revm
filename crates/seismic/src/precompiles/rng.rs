@@ -175,9 +175,7 @@ pub(crate) fn validate_input_length(
 
 #[cfg(test)]
 mod tests {
-
     use std::vec;
-
     use super::*;
     use revm::primitives::{alloy_primitives::U32, B256, Bytes};
     use revm::precompile::PrecompileError;
