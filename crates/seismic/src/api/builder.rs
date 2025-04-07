@@ -7,7 +7,7 @@ use revm::{
     Context, Database,
 };
 
-/// Trait that allows for optimism SeismicEvm to be built.
+/// Trait that allows for SeismicEvm to be built.
 pub trait SeismicBuilder: Sized {
     /// Type of the context.
     type Context: ContextTr;

@@ -34,7 +34,7 @@ mod test {
     #[test]
     fn default_run_seismic() {
         let ctx = Context::seismic();
-        // convert to optimism context
+        // convert to seismic context
         let mut evm = ctx.build_seismic_with_inspector(NoOpInspector {});
         // execute
         let _ = evm.replay();
