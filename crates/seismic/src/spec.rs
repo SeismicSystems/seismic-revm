@@ -70,6 +70,7 @@ mod tests {
                     (SpecId::CANCUN, true),
                     (SpecId::LATEST, true),
                 ],
+                vec![(SeismicSpecId::MERCURY, true)],
             ),
         ];
 

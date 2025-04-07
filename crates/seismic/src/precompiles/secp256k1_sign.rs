@@ -135,7 +135,7 @@ mod tests {
         let result = secp256k1_sign_ecdsa_recoverable(&input, gas_limit);
         assert!(result.is_err());
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
+            Some(PrecompileError::Other(msg)) => {
                 assert_eq!(msg, "Invalid input length");
             }
             other => panic!("Expected PrecompileError::Other(Invalid input length), got: {other:?}"),
@@ -149,7 +149,7 @@ mod tests {
         let result = secp256k1_sign_ecdsa_recoverable(&input, gas_limit);
         assert!(result.is_err());
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
+            Some(PrecompileError::Other(msg)) => {
                 assert_eq!(msg, "Invalid secret key: malformed or out-of-range secret key");
             }
             other => panic!("Expected PrecompileError::Other(Invalid secret key: malformed or out-of-range secret key), got: {other:?}"),
@@ -170,7 +170,7 @@ mod tests {
         assert!(result.is_err());
 
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {}
+            Some(PrecompileError::OutOfGas) => {}
             other => panic!("Expected OutOfGas, got {:?}", other),
         }
     }

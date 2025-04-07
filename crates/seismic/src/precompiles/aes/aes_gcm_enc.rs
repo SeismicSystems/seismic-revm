@@ -145,7 +145,7 @@ mod tests {
         assert!(result.is_err());
 
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {}
+            Some((PrecompileError::OutOfGas)) => {}
             other => panic!("Expected OutOfGas, got {:?}", other),
         }
     }
@@ -162,7 +162,7 @@ mod tests {
 
         // We expect a PCError::Other complaining about input length
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
+            Some(PrecompileError::Other(msg)) => {
                 assert!(
                     msg.contains("invalid input length"),
                     "Should mention invalid input length"

@@ -139,7 +139,7 @@ mod tests {
         assert!(result.is_err(), "Should fail due to out of gas");
 
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::OutOfGas)) => {}
+            Some(PrecompileError::OutOfGas) => {}
             other => panic!("Expected OutOfGas, got {:?}", other),
         }
     }
@@ -157,7 +157,7 @@ mod tests {
 
         // We check it's not `OutOfGas`, but a parse error
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
+            Some(PrecompileError::Other(msg)) => {
                 assert!(
                     msg.contains("invalid input length"),
                     "Expected length error"
@@ -179,7 +179,7 @@ mod tests {
         assert!(result.is_err());
 
         match result.err() {
-            Some(PrecompileErrors::Error(PrecompileError::Other(msg))) => {
+            Some(PrecompileError::Other(msg)) => {
                 assert!(
                     msg.contains("deser err"),
                     "Should mention deserialization error"

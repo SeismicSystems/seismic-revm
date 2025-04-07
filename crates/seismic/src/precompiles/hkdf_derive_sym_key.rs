@@ -187,9 +187,9 @@ mod tests {
         assert!(result.is_err(), "Should fail due to out of gas");
         assert_eq!(
             result.err(),
-            Some(revm_precompile::PrecompileErrors::Error(
+            Some(
                 PrecompileError::OutOfGas
-            )),
+            ),
             "Expected OutOfGas error"
         );
     }

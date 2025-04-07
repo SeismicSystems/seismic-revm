@@ -166,21 +166,30 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use revm::{precompile::PrecompileError, primitives::hex};
+    use revm::database::EmptyDB;
+    use revm::MainnetEvm;
+    use revm::{Context, MainBuilder, MainContext, precompile::PrecompileError, primitives::hex};
+    use revm::handler::MainnetContext; 
     use std::vec;
+
+    pub fn create_test_context() -> MainnetEvm<MainnetContext<EmptyDB>> {
+        Context::mainnet() 
+            .build_mainnet()
+    }
 
     #[test]
     fn test_cancun_precompiles_in_mercury() {
-        // additional to cancun, fjord has p256verify
-        assert_eq!(mercury().difference(Precompiles::cancun()).len(), 1)
+        let context = create_test_context();
+        assert_eq!(mercury::<MainnetContext<EmptyDB>>().0.difference(Precompiles::cancun()).len(), 1)
     }
 
     #[test]
     fn test_default_precompiles_is_latest() {
-        let latest = SeismicPrecompiles::new_with_spec(SeismicSpecId::default())
+        let context = create_test_context();
+        let latest = SeismicPrecompiles::<MainnetContext<EmptyDB>>::new_with_spec(SeismicSpecId::default())
             .inner
             .precompiles;
-        let default = SeismicPrecompiles::default().inner.precompiles;
+        let default = SeismicPrecompiles::<MainnetContext<EmptyDB>>::default().inner.precompiles;
         assert_eq!(latest.len(), default.len());
 
         let intersection = default.intersection(latest);
