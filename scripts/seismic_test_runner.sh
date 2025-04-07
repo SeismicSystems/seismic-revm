@@ -11,11 +11,11 @@ cargo build --quiet || { echo "Build failed"; exit 1; }
 run_test() {
     local filename=$(basename "$1")
     output=$("$REVME_DIR/../../target/debug/revme" evm --path "$1" --input f8a8fd6d 2>&1)
-    if echo "$output" | grep -q "Result: Success"; then
+    if [[ "$output" =~ "Result: Success" ]]; then
         echo "PASS: $filename"
     else
         echo "FAIL: $filename"
-        echo "  Error: $(echo "$output" | grep "Error:" | sed 's/^Error: //')"
+        echo "  Error: $(echo "$output" | grep -m 1 "Error:" | sed 's/^Error: //')"
         echo "  Details:"
         echo "$output" | sed 's/^/    /'
     fi
