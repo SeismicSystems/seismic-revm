@@ -1,5 +1,5 @@
 use revm::{
-    primitives::{Address, Bytes},
+    primitives::Bytes,
     precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, calc_linear_cost_u32, u64_to_address},
 };
 

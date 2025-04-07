@@ -33,7 +33,7 @@ use revm::{
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{Gas, InstructionResult, InterpreterResult},
     precompile::{
-        self, bn128, secp256r1, PrecompileError, PrecompileResult, PrecompileWithAddress, Precompiles
+        secp256r1, PrecompileError, Precompiles
     },
     primitives::{Address, Bytes},
 };
@@ -83,7 +83,7 @@ pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<C
     });
     
     //TODO: check how expensive is the below instead of a single init! issue with generics
-    let mut stateful_precompiles = StatefulPrecompiles::new();
+    let stateful_precompiles = StatefulPrecompiles::new();
     //stateful_precompiles.extend(rng::precompiles::<CTX>().map(|p| (p.0, p.1)));
     (regular_precompiles, stateful_precompiles)
 }
@@ -91,7 +91,7 @@ pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<C
 impl<CTX> PrecompileProvider<CTX> for SeismicPrecompiles<CTX>
 where
     CTX: ContextTr,
-    CTX::Cfg: Cfg<Spec = SeismicSpecId>, // Fixed the where clause syntax
+    CTX::Cfg: Cfg<Spec = SeismicSpecId>,
 {
     type Output = InterpreterResult;
     
@@ -156,7 +156,7 @@ where
 
 impl<CTX: ContextTr> Default for SeismicPrecompiles<CTX>
 where
-    CTX::Cfg: Cfg<Spec = SeismicSpecId>, 
+    CTX::Cfg: Cfg, 
 {
     fn default() -> Self {
         Self::new_with_spec(SeismicSpecId::MERCURY)
@@ -167,29 +167,25 @@ where
 mod tests {
     use super::*;
     use revm::database::EmptyDB;
-    use revm::MainnetEvm;
-    use revm::{Context, MainBuilder, MainContext, precompile::PrecompileError, primitives::hex};
-    use revm::handler::MainnetContext; 
-    use std::vec;
-
-    pub fn create_test_context() -> MainnetEvm<MainnetContext<EmptyDB>> {
-        Context::mainnet() 
-            .build_mainnet()
-    }
+    
+    
+    
+    use crate::{DefaultSeismic,SeismicContext};
+    
 
     #[test]
     fn test_cancun_precompiles_in_mercury() {
-        let context = create_test_context();
-        assert_eq!(mercury::<MainnetContext<EmptyDB>>().0.difference(Precompiles::cancun()).len(), 1)
+        let context = SeismicContext::<EmptyDB>::seismic();
+        assert_eq!(mercury::<SeismicContext<EmptyDB>>().0.difference(Precompiles::prague()).len(), 6)
     }
 
     #[test]
     fn test_default_precompiles_is_latest() {
-        let context = create_test_context();
-        let latest = SeismicPrecompiles::<MainnetContext<EmptyDB>>::new_with_spec(SeismicSpecId::default())
+        let context = SeismicContext::<EmptyDB>::seismic();
+        let latest = SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::default())
             .inner
             .precompiles;
-        let default = SeismicPrecompiles::<MainnetContext<EmptyDB>>::default().inner.precompiles;
+        let default = SeismicPrecompiles::<SeismicContext<EmptyDB>>::default().inner.precompiles;
         assert_eq!(latest.len(), default.len());
 
         let intersection = default.intersection(latest);

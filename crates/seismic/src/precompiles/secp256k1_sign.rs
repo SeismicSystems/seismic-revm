@@ -1,6 +1,6 @@
 use revm::{
-    primitives::{Address, Bytes},
-    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, calc_linear_cost_u32, u64_to_address},
+    primitives::Bytes,
+    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, u64_to_address},
 };
 
 use secp256k1::Secp256k1;

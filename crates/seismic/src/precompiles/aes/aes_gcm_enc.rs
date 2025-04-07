@@ -1,6 +1,6 @@
 use revm::{
-    primitives::{Address, Bytes},
-    precompile::{PrecompileWithAddress, PrecompileResult, calc_linear_cost_u32, PrecompileOutput, PrecompileError, u64_to_address},
+    primitives::Bytes,
+    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileOutput, PrecompileError, u64_to_address},
 };
 
 use super::common::{
@@ -145,7 +145,7 @@ mod tests {
         assert!(result.is_err());
 
         match result.err() {
-            Some((PrecompileError::OutOfGas)) => {}
+            Some(PrecompileError::OutOfGas) => {}
             other => panic!("Expected OutOfGas, got {:?}", other),
         }
     }

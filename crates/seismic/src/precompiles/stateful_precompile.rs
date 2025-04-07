@@ -1,9 +1,5 @@
-use auto_impl::auto_impl;
-use revm::context_interface::ContextTr;
-use revm::interpreter::{Gas, InstructionResult, InterpreterResult};
-use revm::precompile::{PrecompileError, PrecompileResult};
-use revm::precompile::{PrecompileSpecId, Precompiles};
-use revm::primitives::{hardfork::SpecId, Address, Bytes};
+use revm::precompile::PrecompileResult;
+use revm::primitives::{Address, Bytes};
 use std::collections::{HashMap, HashSet};
 
 pub type StatefulPrecompileFn<CTX> = fn(&mut CTX, &Bytes, u64) -> PrecompileResult;

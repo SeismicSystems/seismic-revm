@@ -5,7 +5,16 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc as std;
 
+pub mod api;
+pub mod handler;
 pub mod precompiles;
 pub mod spec;
+pub mod evm;
 
 pub use spec::*;
+pub use api::{
+    builder::SeismicBuilder,
+    default_ctx::{DefaultSeismic, SeismicContext},
+};
+
+pub use evm::SeismicEvm;

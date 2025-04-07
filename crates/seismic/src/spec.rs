@@ -1,5 +1,5 @@
 use core::str::FromStr;
-use revm::primitives::hardfork::{name as eth_name, SpecId, UnknownHardfork};
+use revm::primitives::hardfork::{SpecId, UnknownHardfork};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -14,7 +14,7 @@ impl SeismicSpecId {
     /// Converts the [`SeismicSpecId`] into a [`SpecId`].
     pub const fn into_eth_spec(self) -> SpecId {
         match self {
-            Self::MERCURY  => SpecId::OSAKA,
+            Self::MERCURY  => SpecId::PRAGUE,
         }
     }
 
@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_seismic_spec_id_eth_spec_compatibility() {
-        // Define test cases: (SeismicSpecId, enabled in ETH specs, enabled in OP specs)
+        // Define test cases: (SeismicSpecId, enabled in ETH specs, enabled in Seismic specs)
         let test_cases = [
             (
                 SeismicSpecId::MERCURY,
@@ -68,7 +68,7 @@ mod tests {
                     (SpecId::MERGE, true),
                     (SpecId::SHANGHAI, true),
                     (SpecId::CANCUN, true),
-                    (SpecId::LATEST, true),
+                    (SpecId::OSAKA, false),
                 ],
                 vec![(SeismicSpecId::MERCURY, true)],
             ),
@@ -87,12 +87,12 @@ mod tests {
                 );
             }
 
-            // Test OP spec compatibility
+            // Test Seismic spec compatibility
             for (other_seismic_spec, expected) in seismic_tests {
                 assert_eq!(
                     seismic_spec.is_enabled_in(other_seismic_spec),
                     expected,
-                    "{:?} should {} be enabled in OP {:?}",
+                    "{:?} should {} be enabled in Seismic {:?}",
                     seismic_spec,
                     if expected { "" } else { "not " },
                     other_seismic_spec
