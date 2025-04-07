@@ -1,4 +1,4 @@
-use crate::SeismicSpecId;
+use crate::{transaction::abstraction::SeismicTransaction, SeismicSpecId};
 use revm::{
     context::{BlockEnv, CfgEnv, TxEnv},
     database_interface::EmptyDB,
@@ -7,7 +7,7 @@ use revm::{
 
 /// Type alias for the default context type of the OpEvm.
 pub type SeismicContext<DB> =
-    Context<BlockEnv, TxEnv, CfgEnv<SeismicSpecId>, DB, Journal<DB>>;
+    Context<BlockEnv, SeismicTransaction<TxEnv>, CfgEnv<SeismicSpecId>, DB, Journal<DB>>;
 
 /// Trait that allows for a default context to be created.
 pub trait DefaultSeismic {
@@ -18,6 +18,7 @@ pub trait DefaultSeismic {
 impl DefaultSeismic for SeismicContext<EmptyDB> {
     fn seismic() -> Self {
         Context::mainnet()
+            .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
     }
 }
