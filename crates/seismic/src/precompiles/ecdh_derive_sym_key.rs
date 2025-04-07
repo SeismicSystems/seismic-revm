@@ -1,7 +1,7 @@
 use super::hkdf_derive_sym_key::EXPAND_FIXED_COST;
 use revm::{
-    primitives::{Address, Bytes},
-    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, calc_linear_cost_u32, u64_to_address},
+    primitives::Bytes,
+    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, u64_to_address},
 };
 
 use seismic_enclave::{ecdh::SharedSecret, SecretKey, PublicKey,  derive_aes_key};

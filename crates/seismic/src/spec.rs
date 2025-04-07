@@ -1,5 +1,5 @@
 use core::str::FromStr;
-use revm::primitives::hardfork::{name as eth_name, SpecId, UnknownHardfork};
+use revm::primitives::hardfork::{SpecId, UnknownHardfork};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Default)]

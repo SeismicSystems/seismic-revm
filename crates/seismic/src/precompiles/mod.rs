@@ -33,7 +33,7 @@ use revm::{
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{Gas, InstructionResult, InterpreterResult},
     precompile::{
-        self, bn128, secp256r1, PrecompileError, PrecompileResult, PrecompileWithAddress, Precompiles
+        secp256r1, PrecompileError, Precompiles
     },
     primitives::{Address, Bytes},
 };
@@ -83,7 +83,7 @@ pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<C
     });
     
     //TODO: check how expensive is the below instead of a single init! issue with generics
-    let mut stateful_precompiles = StatefulPrecompiles::new();
+    let stateful_precompiles = StatefulPrecompiles::new();
     //stateful_precompiles.extend(rng::precompiles::<CTX>().map(|p| (p.0, p.1)));
     (regular_precompiles, stateful_precompiles)
 }
@@ -167,11 +167,11 @@ where
 mod tests {
     use super::*;
     use revm::database::EmptyDB;
-    use revm::MainnetEvm;
-    use revm::{Context, MainBuilder, precompile::PrecompileError, primitives::hex};
-    use revm::handler::MainnetContext;
+    
+    
+    
     use crate::{DefaultSeismic,SeismicContext};
-    use std::vec;
+    
 
     #[test]
     fn test_cancun_precompiles_in_mercury() {

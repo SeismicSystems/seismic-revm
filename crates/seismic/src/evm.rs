@@ -1,6 +1,6 @@
 use crate::precompiles::SeismicPrecompiles;
 use revm::{
-    context::{ContextSetters, Evm, EvmData, Cfg},
+    context::{ContextSetters, Evm, EvmData},
     context_interface::ContextTr,
     handler::{
         instructions::{EthInstructions, InstructionProvider},
