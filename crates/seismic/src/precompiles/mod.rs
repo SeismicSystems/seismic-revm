@@ -85,7 +85,7 @@ pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<C
     
     //TODO: check how expensive is the below instead of a single init! issue with generics
     let stateful_precompiles = StatefulPrecompiles::new();
-    stateful_precompiles.extend(rng::precompiles::<CTX>().map(|p| (p.0, p.1)));
+    //stateful_precompiles.extend(rng::precompiles::<CTX>().map(|p| (p.0, p.1)));
     (regular_precompiles, stateful_precompiles)
 }
 

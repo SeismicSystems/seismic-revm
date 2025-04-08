@@ -6,16 +6,18 @@
 extern crate alloc as std;
 
 pub mod api;
+pub mod evm;
 pub mod handler;
 pub mod precompiles;
+pub mod rng_container;
 pub mod transaction;
 pub mod spec;
-pub mod evm;
 
-pub use spec::*;
 pub use api::{
     builder::SeismicBuilder,
     default_ctx::{DefaultSeismic, SeismicContext},
 };
-
 pub use evm::SeismicEvm;
+pub use rng_container::RngContainer;
+pub use spec::*;
+

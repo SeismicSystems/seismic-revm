@@ -1,4 +1,4 @@
-use crate::{SeismicEvm, SeismicSpecId};
+use crate::{RngContainer, SeismicEvm, SeismicSpecId};
 use revm::{
     context::{Cfg, ContextTr, JournalOutput},
     context_interface::{Block, JournalTr, Transaction},
@@ -22,7 +22,7 @@ pub trait SeismicBuilder: Sized {
     ) -> SeismicEvm<Self::Context, INSP, EthInstructions<EthInterpreter, Self::Context>>;
 }
 
-impl<BLOCK, TX, CFG, DB, JOURNAL> SeismicBuilder for Context<BLOCK, TX, CFG, DB, JOURNAL>
+impl<BLOCK, TX, CFG, DB, JOURNAL> SeismicBuilder for Context<BLOCK, TX, CFG, DB, JOURNAL, RngContainer>
 where
     BLOCK: Block,
     TX: Transaction,

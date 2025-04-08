@@ -19,7 +19,7 @@ pub enum RngMode {
 #[auto_impl(&, &mut, Box, Arc)]
 pub trait SeismicTxTr: Transaction {
     /// tx hash of the transaction
-    fn tx_hash(&self) -> Option<B256>;
+    fn tx_hash(&self) -> B256;
 
     /// rng mode for this transaction 
     fn rng_mode(&self) -> RngMode;
@@ -30,7 +30,7 @@ pub trait SeismicTxTr: Transaction {
 pub struct SeismicTransaction<T: Transaction> {
     pub base: T,
     /// tx hash of the transaction. Used for domain separation in the RNG.
-    pub tx_hash: Option<B256>,
+    pub tx_hash: B256,
     pub rng_mode: RngMode,
 }
 
@@ -38,9 +38,19 @@ impl<T: Transaction> SeismicTransaction<T> {
     pub fn new(base: T) -> Self {
         Self {
             base,
-            tx_hash: None,
+            tx_hash: B256::ZERO,
             rng_mode: RngMode::Execution,
         }
+    }
+
+    pub fn with_tx_hash(mut self, tx_hash: B256) -> Self {
+        self.tx_hash = tx_hash;
+        self
+    }
+
+    pub fn with_rng_mode(mut self, rng_mode: RngMode) -> Self {
+        self.rng_mode = rng_mode;
+        self
     }
 }
 
@@ -48,7 +58,7 @@ impl Default for SeismicTransaction<TxEnv> {
     fn default() -> Self {
         Self {
             base: TxEnv::default(),
-            tx_hash: None,
+            tx_hash: B256::ZERO,
             rng_mode: RngMode::Execution,
         }
     }
@@ -128,7 +138,7 @@ impl<T: Transaction> Transaction for SeismicTransaction<T> {
 }
 
 impl<T: Transaction> SeismicTxTr for SeismicTransaction<T> {
-    fn tx_hash(&self) -> Option<B256> {
+    fn tx_hash(&self) -> B256 {
         self.tx_hash
     }
 
