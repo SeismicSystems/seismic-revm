@@ -1,13 +1,12 @@
-use revm::{
-    interpreter::{interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr}, popn, popn_top, require_non_staticcall, gas, Interpreter},
-    interpreter::Host, interpreter::InstructionResult, interpreter::gas::CALL_STIPEND,
-};
+use revm::interpreter::{gas::CALL_STIPEND, interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr}, popn, popn_top, require_non_staticcall, gas, Host, InstructionResult, Interpreter};
+use crate::{check, spec::SeismicSpecId::*};
 use revm::primitives::hardfork::SpecId::*;
 
 pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
     interpreter: &mut Interpreter<WIRE>,
     host: &mut H,
 ) {
+    //check!(interpreter, MERCURY).into();
     popn_top!([], index, interpreter);
 
     if let Some(value) = host.cload(interpreter.input.target_address(), *index) {
@@ -34,8 +33,8 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
     interpreter: &mut Interpreter<WIRE>,
     host: &mut H,
 ) {
+    //check!(interpreter, MERCURY);
     require_non_staticcall!(interpreter);
-
     popn!([index, value], interpreter);
     
     let Some(state_load) = host.cstore(interpreter.input.target_address(), index, value) else {

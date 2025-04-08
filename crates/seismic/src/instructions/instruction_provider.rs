@@ -3,6 +3,8 @@ use revm::{handler::instructions::InstructionProvider, interpreter::{
 }};
 use std::boxed::Box;
 
+use super::confidential_storage::{cload, cstore};
+
 /// Custom opcodes for CLOAD and CSTORE
 pub const CLOAD: u8 = 0xB0;
 pub const CSTORE: u8 = 0xB1;
@@ -18,15 +20,11 @@ where
     HOST: Host,
 {
     /// Create a new SeismicInstructions with standard EVM opcodes plus our ISA
-    pub fn new_mainnet(
-        cload_handler: Instruction<WIRE, HOST>,
-        cstore_handler: Instruction<WIRE, HOST>,
-    ) -> Self {
+    pub fn new_mainnet() -> Self {
         let mut table = instruction_table::<WIRE, HOST>();
-        
-        // Insert our custom instructions
-        table[CLOAD as usize] = cload_handler;
-        table[CSTORE as usize] = cstore_handler;
+
+        table[CLOAD as usize] = cload;
+        table[CSTORE as usize] = cstore;
         
         Self {
             instruction_table: Box::new(table),
@@ -35,14 +33,8 @@ where
 
     /// Create a new SeismicInstructions from a provided base table
     pub fn new(
-        mut base_table: InstructionTable<WIRE, HOST>,
-        cload_handler: Instruction<WIRE, HOST>,
-        cstore_handler: Instruction<WIRE, HOST>,
+        base_table: InstructionTable<WIRE, HOST>,
     ) -> Self {
-        // Insert our custom instructions
-        base_table[CLOAD as usize] = cload_handler;
-        base_table[CSTORE as usize] = cstore_handler;
-        
         Self {
             instruction_table: Box::new(base_table),
         }
@@ -93,10 +85,7 @@ mod tests {
     #[test]
     fn test_custom_opcodes_are_registered() {
         // Create a SeismicInstructions with our mock handlers
-        let seismic_instructions = SeismicInstructions::<EthInterpreter, DummyHost>::new_mainnet(
-            cload,
-            cstore,
-        );
+        let seismic_instructions = SeismicInstructions::<EthInterpreter, DummyHost>::new_mainnet();
         
         // Get reference to the instruction table
         let table = seismic_instructions.instruction_table();
@@ -122,30 +111,9 @@ mod tests {
     }
     
     #[test]
-    fn test_instruction_provider_implementation() {
-        // Create a SeismicInstructions
-        let seismic_instructions = SeismicInstructions::<EthInterpreter, DummyHost>::new_mainnet(
-            cload,
-            cstore,
-        );
-        
-        // Access the instruction table through the InstructionProvider trait
-        let table = seismic_instructions.instruction_table();
-        
-        // Verify we can access our custom opcodes through the trait
-        assert!(instructions_equal(table[CLOAD as usize], cload),
-                "Should be able to access CLOAD through InstructionProvider trait");
-        assert!(instructions_equal(table[CSTORE as usize], cstore),
-                "Should be able to access CSTORE through InstructionProvider trait");
-    }
-    
-    #[test]
     fn test_insert_instruction() {
         // Create a base SeismicInstructions
-        let mut seismic_instructions = SeismicInstructions::<EthInterpreter, DummyHost>::new_mainnet(
-            cload,
-            cstore,
-        );
+        let mut seismic_instructions = SeismicInstructions::<EthInterpreter, DummyHost>::new_mainnet();
         
         // Create an alternative handler
         fn alternative_handler<W, H>(_: &mut Interpreter<W>, _: &mut H)
@@ -153,7 +121,6 @@ mod tests {
             W: InterpreterTypes,
             H: Host,
         {
-            // Empty alternative implementation
         }
         
         // Override the CLOAD instruction
@@ -175,16 +142,14 @@ mod tests {
         // Create a SeismicInstructions using the new constructor
         let seismic_instructions = SeismicInstructions::<EthInterpreter, DummyHost>::new(
             base_table,
-            cload,
-            cstore,
         );
         
-        // Verify our custom opcodes were inserted
+        // Verify our custom opcodes weren't inserted
         let table = seismic_instructions.instruction_table();
-        assert!(instructions_equal(table[CLOAD as usize], cload),
-                "CLOAD should be added to the base table");
-        assert!(instructions_equal(table[CSTORE as usize], cstore),
-                "CSTORE should be added to the base table");
+        assert!(!instructions_equal(table[CLOAD as usize], cload),
+                "CLOAD shouldn't be added to the base table by default");
+        assert!(!instructions_equal(table[CSTORE as usize], cstore),
+                "CSTORE shouldn't be added to the base table by default");
     }
     
     #[test]
@@ -194,8 +159,6 @@ mod tests {
         
         // Create a SeismicInstructions
         let seismic_instructions = SeismicInstructions::<EthInterpreter, DummyHost>::new_mainnet(
-            cload,
-            cstore,
         );
         
         // Get our custom table
