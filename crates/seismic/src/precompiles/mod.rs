@@ -169,17 +169,15 @@ mod tests {
     use super::*;
     use revm::database::EmptyDB;
     
-    use crate::{DefaultSeismic,SeismicContext};
+    use crate::SeismicContext;
 
     #[test]
     fn test_cancun_precompiles_in_mercury() {
-        let context = SeismicContext::<EmptyDB>::seismic();
         assert_eq!(mercury::<SeismicContext<EmptyDB>>().0.difference(Precompiles::prague()).len(), 6)
     }
 
     #[test]
     fn test_default_precompiles_is_latest() {
-        let context = SeismicContext::<EmptyDB>::seismic();
         let latest = SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::default())
             .inner
             .precompiles;

@@ -4,7 +4,6 @@ use revm::{
     context_interface::transaction::Transaction,
     primitives::{Address, Bytes, TxKind, B256, U256},
 };
-use std::vec;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

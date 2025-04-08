@@ -7,9 +7,9 @@ use revm::{
     interpreter::InterpreterResult,
     precompile::{
         self, bn128, secp256r1, PrecompileError, Precompiles,
-        {PrecompileResult, PrecompileWithAddress},
+        PrecompileResult,
     },
-    primitives::{Address, Bytes},
+    primitives::Bytes,
 };
 use std::boxed::Box;
 use std::string::String;

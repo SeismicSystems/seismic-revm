@@ -1,9 +1,9 @@
 //!Handler related to Seismic chain
 use crate::api::exec::SeismicContextTr;
 use revm::{
-    context::result::{HaltReason, InvalidTransaction}, context_interface::{
-        result::{EVMError, FromStringError, ResultAndState}, JournalTr,
-    }, handler::{
+    context::result::{HaltReason, InvalidTransaction}, context_interface::
+        result::{EVMError, FromStringError, ResultAndState},
+    handler::{
         handler::EvmTrError, EvmTr, Frame, FrameResult,
         Handler, MainnetHandler,
     }, inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler}, interpreter::{interpreter::EthInterpreter, FrameInput}

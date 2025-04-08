@@ -2,7 +2,7 @@ use crate::{
     evm::SeismicEvm, handler::SeismicHandler, transaction::abstraction::SeismicTxTr, RngContainer, SeismicSpecId
 };
 use revm::{
-    context::{result::{HaltReason, InvalidTransaction}, ContextSetters, JournalOutput, Transaction},
+    context::{result::{HaltReason, InvalidTransaction}, ContextSetters, JournalOutput},
     context_interface::{
         result::{EVMError, ExecutionResult, ResultAndState},
         Cfg, ContextTr, Database, JournalTr,
