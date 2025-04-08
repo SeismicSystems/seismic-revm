@@ -2,12 +2,14 @@
 #[macro_export]
 macro_rules! check {
     ($interpreter:expr, $min:ident) => {
-        if !$min
-            .is_enabled_in($interpreter.runtime_flag.spec_id()) 
+        if !$interpreter
+            .runtime_flag
+            .spec_id()
+            .is_enabled_in(crate::spec::SeismicSpecId::$min)
         {
             $interpreter
                 .control
-                .set_instruction_result(revm::interpreter::InstructionResult::NotActivated);
+                .set_instruction_result($crate::InstructionResult::NotActivated);
             return;
         }
     };
