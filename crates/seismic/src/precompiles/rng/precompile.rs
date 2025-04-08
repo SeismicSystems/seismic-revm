@@ -14,7 +14,7 @@ Constants & Setup
 // to produce different randomness
 pub const RNG_ADDRESS: u64 = 100; // Hex address `0x64`.
 
-pub fn precompiles<CTX: SeismicContextTr>() -> impl Iterator<Item = StatefulPrecompileWithAddress<CTX>> {
+pub fn rng_precompile_iter<CTX: SeismicContextTr>() -> impl Iterator<Item = StatefulPrecompileWithAddress<CTX>> {
     [rng_precompile::<CTX>()].into_iter()
 }
 

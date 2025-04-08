@@ -1,7 +1,6 @@
-use crate::precompiles::SeismicPrecompiles;
+use crate::{api::exec::SeismicContextTr, precompiles::SeismicPrecompiles};
 use revm::{
     context::{ContextSetters, Evm, EvmData},
-    context_interface::ContextTr,
     handler::{
         instructions::{EthInstructions, InstructionProvider},
         EvmTr,
@@ -15,7 +14,7 @@ pub struct SeismicEvm<CTX, INSP, I = EthInstructions<EthInterpreter, CTX>, P = S
     pub Evm<CTX, INSP, I, P>,
 );
 
-impl<CTX: ContextTr, INSP> SeismicEvm<CTX, INSP, EthInstructions<EthInterpreter, CTX>, SeismicPrecompiles<CTX>> {
+impl<CTX: SeismicContextTr, INSP> SeismicEvm<CTX, INSP, EthInstructions<EthInterpreter, CTX>, SeismicPrecompiles<CTX>> {
     pub fn new(ctx: CTX, inspector: INSP) -> Self {
         Self(Evm {
             data: EvmData { ctx, inspector },
@@ -27,7 +26,7 @@ impl<CTX: ContextTr, INSP> SeismicEvm<CTX, INSP, EthInstructions<EthInterpreter,
 
 impl<CTX, INSP, I, P> InspectorEvmTr for SeismicEvm<CTX, INSP, I, P>
 where
-    CTX: ContextTr<Journal: JournalExt> + ContextSetters,
+    CTX: SeismicContextTr<Journal: JournalExt> + ContextSetters,
     I: InstructionProvider<
         Context = CTX,
         InterpreterTypes: InterpreterTypes<Output = InterpreterAction>,
@@ -57,7 +56,7 @@ where
 
 impl<CTX, INSP, I, P> EvmTr for SeismicEvm<CTX, INSP, I, P>
 where
-    CTX: ContextTr,
+    CTX: SeismicContextTr,
     I: InstructionProvider<
         Context = CTX,
         InterpreterTypes: InterpreterTypes<Output = InterpreterAction>,
