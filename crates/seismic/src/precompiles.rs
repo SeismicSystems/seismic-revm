@@ -20,17 +20,15 @@
 pub mod aes;
 pub mod ecdh_derive_sym_key;
 pub mod hkdf_derive_sym_key;
-//pub mod rng;
 pub mod secp256k1_sign;
 pub mod rng;
 pub mod stateful_precompile;
 pub use stateful_precompile::StatefulPrecompiles;
 
-use crate::SeismicSpecId;
+use crate::{api::exec::SeismicContextTr, SeismicSpecId};
 use once_cell::race::OnceBox;
 use revm::{
     context::Cfg,
-    context_interface::ContextTr,
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{Gas, InstructionResult, InterpreterResult},
     precompile::{
@@ -42,12 +40,12 @@ use std::boxed::Box;
 use std::string::String;
 
 #[derive(Debug, Clone)]
-pub struct SeismicPrecompiles<CTX: ContextTr> {
+pub struct SeismicPrecompiles<CTX: SeismicContextTr> {
     inner: EthPrecompiles,
     stateful_precompiles: StatefulPrecompiles<CTX>,
 }
 
-impl <CTX: ContextTr> SeismicPrecompiles<CTX> {
+impl <CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
     /// Create a new [`SeismicPrecompiles`] with the given precompiles.
     pub fn new(precompiles: (&'static Precompiles, StatefulPrecompiles<CTX>)) -> Self {
         Self {
@@ -66,7 +64,7 @@ impl <CTX: ContextTr> SeismicPrecompiles<CTX> {
 }
 
 /// Returns precompiles for MERCURY spec.
-pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<CTX>) {
+pub fn mercury<CTX: SeismicContextTr>() -> (&'static Precompiles, StatefulPrecompiles<CTX>) {
     // Store only the stateless precompiles in the static OnceBox
     static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
     
@@ -84,14 +82,14 @@ pub fn mercury<CTX: ContextTr>() -> (&'static Precompiles, StatefulPrecompiles<C
     });
     
     //TODO: check how expensive is the below instead of a single init! issue with generics
-    let stateful_precompiles = StatefulPrecompiles::new();
-    stateful_precompiles.extend(rng::precompiles::<CTX>().map(|p| (p.0, p.1)));
+    let mut stateful_precompiles = StatefulPrecompiles::new();
+    stateful_precompiles.extend(rng::precompile::rng_precompile_iter::<CTX>().map(|p| (p.0, p.1)));
     (regular_precompiles, stateful_precompiles)
 }
 
 impl<CTX> PrecompileProvider<CTX> for SeismicPrecompiles<CTX>
 where
-    CTX: ContextTr,
+    CTX: SeismicContextTr,
     CTX::Cfg: Cfg<Spec = SeismicSpecId>,
 {
     type Output = InterpreterResult;
@@ -155,7 +153,7 @@ where
     }
 }
 
-impl<CTX: ContextTr> Default for SeismicPrecompiles<CTX>
+impl<CTX: SeismicContextTr> Default for SeismicPrecompiles<CTX>
 where
     CTX::Cfg: Cfg, 
 {
@@ -167,19 +165,17 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use revm::database::EmptyDB;
+    use revm::{database::EmptyDB, primitives::hex};
     
-    use crate::{DefaultSeismic,SeismicContext};
+    use crate::{SeismicContext, DefaultSeismic};
 
     #[test]
     fn test_cancun_precompiles_in_mercury() {
-        let context = SeismicContext::<EmptyDB>::seismic();
         assert_eq!(mercury::<SeismicContext<EmptyDB>>().0.difference(Precompiles::prague()).len(), 6)
     }
 
     #[test]
     fn test_default_precompiles_is_latest() {
-        let context = SeismicContext::<EmptyDB>::seismic();
         let latest = SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::default())
             .inner
             .precompiles;
@@ -188,6 +184,75 @@ mod tests {
 
         let intersection = default.intersection(latest);
         assert_eq!(intersection.len(), latest.len())
+    }
+
+    #[test]
+    fn test_seismic_precompiles_rng() {
+        let mut precompiles = SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
+        let mut context = SeismicContext::<EmptyDB>::seismic();
+        let rng_address = *precompiles.stateful_precompiles.addresses().next().expect("RNG precompile address should exist");
+        
+        let bytes_requested: u32 = 32;
+        let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
+        let mut input_data = bytes_requested.to_be_bytes().to_vec();
+        input_data.extend(personalization);
+        let input = Bytes::from(input_data);
+        
+        let gas_limit = 10000;
+        
+        let result = precompiles.run(&mut context, &rng_address, &input, gas_limit);
+        
+        assert!(result.is_ok(), "SeismicPrecompiles should successfully route RNG call");
+        
+        let interpreter_result = result.unwrap().expect("Should return Some(InterpreterResult)");
+        let output_bytes = interpreter_result.output;
+        
+        assert_eq!(output_bytes.len(), 32, "RNG output should be 32 bytes");
+        assert_eq!(output_bytes, Bytes::from(hex!("6205fa1fc78e42116f1b370e200a867805679032f64ab68256ae59d678dc441d")), 
+                  "RNG precompile should return successfully");
+        
+        let gas_used = gas_limit - interpreter_result.gas.remaining();
+        assert!(gas_used >= 3500 && gas_used <= 3600, 
+                "Gas used should be in expected range, got {}", gas_used);
+        
+        let result2 = precompiles.run(&mut context, &rng_address, &input, gas_limit);
+        assert!(result2.is_ok(), "Second RNG call should succeed");
+        
+        let interpreter_result2 = result2.unwrap().expect("Should return Some(InterpreterResult)");
+        let output_bytes2 = interpreter_result2.output;
+        
+        assert_eq!(output_bytes2.len(), 32, "Second RNG output should be 32 bytes");
+        
+        let gas_used2 = gas_limit - interpreter_result2.gas.remaining();
+        assert!(gas_used2 < gas_used, 
+                "Second call should use less gas, used {} vs first call {}", gas_used2, gas_used);
+        
+        assert_ne!(output_bytes, output_bytes2, 
+                  "Subsequent RNG calls should return different outputs");
+    }
+    
+    #[test]
+    fn test_seismic_precompiles_warm_addresses() {
+        // Setup the SeismicPrecompiles
+        let precompiles = SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
+        
+        // Get all warm addresses
+        let warm_addresses: Vec<Address> = precompiles.warm_addresses().collect();
+        
+        // Verify RNG address is included
+        let rng_address = *precompiles.stateful_precompiles.addresses().next().expect("RNG precompile address should exist");
+        assert!(warm_addresses.contains(&rng_address), 
+                "warm_addresses() should include RNG precompile address");
+        
+        // Verify standard precompile addresses are included
+        let ecrecover_address = Address::from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
+        assert!(warm_addresses.contains(&ecrecover_address), 
+                "warm_addresses() should include standard precompile addresses");
+        
+        // Verify we have the expected number of warm addresses
+        // This should be the number of standard precompiles + number of stateful precompiles
+        assert!(warm_addresses.len() > 10, 
+                "warm_addresses() should return multiple addresses, got {}", warm_addresses.len());
     }
 }
 

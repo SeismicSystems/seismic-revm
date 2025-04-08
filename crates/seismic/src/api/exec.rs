@@ -1,8 +1,8 @@
 use crate::{
-    evm::SeismicEvm, handler::SeismicHandler, SeismicSpecId
+    evm::SeismicEvm, handler::SeismicHandler, transaction::abstraction::SeismicTxTr, RngContainer, SeismicSpecId
 };
 use revm::{
-    context::{result::{HaltReason, InvalidTransaction}, ContextSetters, JournalOutput, Transaction},
+    context::{result::{HaltReason, InvalidTransaction}, ContextSetters, JournalOutput},
     context_interface::{
         result::{EVMError, ExecutionResult, ResultAndState},
         Cfg, ContextTr, Database, JournalTr,
@@ -17,16 +17,20 @@ use revm::{
 pub trait SeismicContextTr:
     ContextTr<
     Journal: JournalTr<FinalOutput = JournalOutput>,
-    Tx: Transaction,
-    Cfg: Cfg<Spec = SeismicSpecId>>
+    Tx: SeismicTxTr,
+    Cfg: Cfg<Spec = SeismicSpecId>,
+    //Could do with higher level of abstraction, but until it's warranted, this will work.
+    Chain= RngContainer
+    >
 {
 }
 
 impl<T> SeismicContextTr for T where
     T: ContextTr<
         Journal: JournalTr<FinalOutput = JournalOutput>,
-        Tx: Transaction,
-        Cfg: Cfg<Spec = SeismicSpecId>
+        Tx: SeismicTxTr,
+        Cfg: Cfg<Spec = SeismicSpecId>,
+        Chain= RngContainer
     >
 {
 }
