@@ -4,7 +4,7 @@ use primitives::hex::FromHex;
 use revm::{
     database::{CacheDB, EmptyDB}, inspector::inspectors::TracerEip3155, primitives::{
         Address, Bytes, FixedBytes, Log, TxKind, U256
-    }, Context, DatabaseCommit, ExecuteEvm, MainBuilder, MainContext 
+    }, Context, DatabaseCommit, DatabaseRef, ExecuteEvm, MainBuilder, MainContext 
 };
 use seismic_revm::{DefaultSeismic, SeismicBuilder};
 use std::str::FromStr;
@@ -112,7 +112,7 @@ impl EvmExecutor {
         trace: bool,
         value: U256,
     ) -> Result<(Address, Vec<Log>), Errors> {
-        // Choose builder based on version: Mercury gets seismic, others get mainnet.
+        let nonce = self.db.basic_ref(self.config.caller).unwrap().map_or(0, |account| account.nonce);
         let deploy_out = if self.evm_version == EVMVersion::Mercury {
             if trace {
                 let mut evm = Context::seismic()
@@ -122,6 +122,7 @@ impl EvmExecutor {
                         tx.base.kind = TxKind::Create;
                         tx.base.data = deploy_data.clone();
                         tx.base.value = value;
+                        tx.base.nonce = nonce;
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
@@ -137,6 +138,7 @@ impl EvmExecutor {
                         tx.base.kind = TxKind::Create;
                         tx.base.data = deploy_data.clone();
                         tx.base.value = value;
+                        tx.base.nonce = nonce;
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
                     .build_seismic();
@@ -154,6 +156,7 @@ impl EvmExecutor {
                         tx.kind = TxKind::Create;
                         tx.data = deploy_data.clone();
                         tx.value = value;
+                        tx.nonce = nonce;
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
@@ -169,6 +172,7 @@ impl EvmExecutor {
                         tx.kind = TxKind::Create;
                         tx.data = deploy_data.clone();
                         tx.value = value;
+                        tx.nonce = nonce;
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet();
@@ -209,6 +213,7 @@ impl EvmExecutor {
         test_file: &str,
         value: U256,
     ) -> Result<Vec<Log>, Errors> {
+        let nonce = self.db.basic_ref(self.config.caller).unwrap().map_or(0, |account| account.nonce);
         let out = if self.evm_version == EVMVersion::Mercury {
             if trace {
                 let mut evm = Context::seismic()
@@ -224,6 +229,7 @@ impl EvmExecutor {
                         }
                         tx.base.gas_limit = self.config.gas_limit;
                         tx.base.gas_price = self.config.gas_price;
+                        tx.base.nonce = nonce;
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);
@@ -257,6 +263,7 @@ impl EvmExecutor {
                         }
                         tx.base.gas_limit = self.config.gas_limit;
                         tx.base.gas_price = self.config.gas_price;
+                        tx.base.nonce = nonce;
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);
@@ -292,6 +299,7 @@ impl EvmExecutor {
                         }
                         tx.gas_limit = self.config.gas_limit;
                         tx.gas_price = self.config.gas_price;
+                        tx.nonce = nonce;
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);
@@ -325,6 +333,7 @@ impl EvmExecutor {
                         }
                         tx.gas_limit = self.config.gas_limit;
                         tx.gas_price = self.config.gas_price;
+                        tx.nonce = nonce;
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);

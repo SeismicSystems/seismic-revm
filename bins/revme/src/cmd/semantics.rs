@@ -39,7 +39,7 @@ pub struct Cmd {
     
     /// Increase output verbosity. Can be used multiple times. For example `-vvv` will set the log level to `TRACE`.
     #[clap(short, long, action = ArgAction::Count)]
-    verbose: usize,
+    verbose: u8,
     
     /// Run tests in a single thread.
     #[clap(short = 's', long)]

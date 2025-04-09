@@ -14,7 +14,6 @@ impl Parser {
     pub(crate) fn parse_function_signature(
         signature: &str,
     ) -> Result<(Vec<u8>, Vec<String>), Errors> {
-use hex::FromHex;
         if let Some(start_idx) = signature.find('(') {
             if let Some(end_idx) = signature.rfind(')') {
                 let function_name = &signature[..start_idx];
