@@ -4,10 +4,9 @@ use super::{
     errors::Errors,
     utils::{count_used_bytes_right, parse_string_with_escapes},
 };
-use alloy_primitives::{keccak256, I256, U256};
-use hex::FromHex;
 use log::error;
-use revm::primitives::{Bytes, FixedBytes};
+use primitives::hex::FromHex;
+use revm::primitives::{keccak256, I256, U256, Bytes, FixedBytes, hex};
 
 pub struct Parser {}
 
@@ -15,6 +14,7 @@ impl Parser {
     pub(crate) fn parse_function_signature(
         signature: &str,
     ) -> Result<(Vec<u8>, Vec<String>), Errors> {
+use hex::FromHex;
         if let Some(start_idx) = signature.find('(') {
             if let Some(end_idx) = signature.rfind(')') {
                 let function_name = &signature[..start_idx];

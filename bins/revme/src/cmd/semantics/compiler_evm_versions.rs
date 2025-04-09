@@ -1,6 +1,6 @@
 use std::fmt;
 
-use revm::primitives::SpecId;
+use primitives::hardfork::SpecId;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum EVMVersion {

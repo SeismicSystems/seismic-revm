@@ -1,9 +1,9 @@
 use log::error;
-use revm::db::{CacheDB, EmptyDB};
+use primitives::HashMap;
+use revm::database::{CacheDB, EmptyDB};
 use revm::primitives::{Address, Bytes, FixedBytes, Log, LogData, U256};
 
 use crate::cmd::semantics::Errors;
-use std::collections::HashMap;
 use std::{
     fs,
     path::{Path, PathBuf},

@@ -2,15 +2,14 @@ use std::fs;
 use std::process::Command;
 
 use log::error;
+use primitives::hardfork::SpecId;
 use regex::Regex;
-use revm::primitives::{Address, Bytes, SpecId};
-
-use crate::cmd::semantics::Errors;
+use revm::primitives::{Address, Bytes, hex};
 
 use super::{
     compiler_evm_versions::EVMVersion,
     test_cases::TestCase,
-    utils::{extract_compile_via_yul, extract_functions_from_source},
+    utils::{extract_compile_via_yul, extract_functions_from_source}, Errors,
 };
 
 const SKIP_KEYWORD: [&str; 3] = [
