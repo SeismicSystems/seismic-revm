@@ -1,5 +1,5 @@
 use revm::interpreter::{gas::CALL_STIPEND, interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr}, popn, popn_top, require_non_staticcall, gas, Host, InstructionResult, Interpreter};
-use crate::check;
+use crate::{check, SeismicHaltReason};
 use revm::primitives::hardfork::SpecId::*;
 
 pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
@@ -13,7 +13,7 @@ pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
         if !value.is_private {
             interpreter
             .control
-            .set_instruction_result(InstructionResult::InvalidPrivateStorageAccess);
+            .set_instruction_result(SeismicHaltReason::InvalidPublicStorageAccess);
             return
         }
         gas!(
