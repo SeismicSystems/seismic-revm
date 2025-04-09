@@ -8,6 +8,7 @@ extern crate alloc as std;
 pub mod api;
 pub mod evm;
 pub mod handler;
+pub mod instructions;
 pub mod precompiles;
 pub mod rng_container;
 pub mod transaction;
