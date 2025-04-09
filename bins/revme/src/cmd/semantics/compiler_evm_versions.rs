@@ -1,8 +1,9 @@
 use std::fmt;
 
 use primitives::hardfork::SpecId;
+use seismic_revm::SeismicSpecId;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub(crate) enum EVMVersion {
     Homestead,
     Byzantium,
@@ -122,27 +123,9 @@ impl EVMVersion {
     }
 }
 
-impl From<SpecId> for EVMVersion {
-    fn from(spec_id: SpecId) -> Self {
-        match spec_id {
-            SpecId::HOMESTEAD => EVMVersion::Homestead,
-            SpecId::BYZANTIUM => EVMVersion::Byzantium,
-            SpecId::CONSTANTINOPLE | SpecId::PETERSBURG => EVMVersion::Constantinople,
-            SpecId::ISTANBUL => EVMVersion::Istanbul,
-            SpecId::BERLIN => EVMVersion::Berlin,
-            SpecId::LONDON => EVMVersion::London,
-            SpecId::MERGE => EVMVersion::Paris,
-            SpecId::SHANGHAI => EVMVersion::Shangain,
-            SpecId::CANCUN => EVMVersion::Cancun,
-            SpecId::MERCURY => EVMVersion::Mercury,
-            _ => panic!("Unsupported SpecId for EVMVersion mapping"),
-        }
-    }
-}
-
-impl From<EVMVersion> for SpecId {
-    fn from(version: EVMVersion) -> Self {
-        match version {
+impl EVMVersion {
+    pub fn to_spec_id(&self) -> SpecId {
+        match self {
             EVMVersion::Homestead => SpecId::HOMESTEAD,
             EVMVersion::Byzantium => SpecId::BYZANTIUM,
             EVMVersion::Constantinople => SpecId::CONSTANTINOPLE,
@@ -152,7 +135,18 @@ impl From<EVMVersion> for SpecId {
             EVMVersion::Paris => SpecId::MERGE,
             EVMVersion::Shangain => SpecId::SHANGHAI,
             EVMVersion::Cancun => SpecId::CANCUN,
-            EVMVersion::Mercury => SpecId::MERCURY,
+            EVMVersion::Mercury => {
+                panic!("Mercury cannot be converted to a mainnet SpecId. Use to_seismic_spec_id() instead.")
+            }
+        }
+    }
+
+    pub fn to_seismic_spec_id(&self) -> SeismicSpecId {
+        match self {
+            EVMVersion::Mercury => SeismicSpecId::MERCURY,
+            _ => {
+                panic!("Only Mercury can be converted to a SeismicSpecId")
+            }
         }
     }
 }

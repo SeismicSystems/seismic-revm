@@ -1,11 +1,10 @@
 use context::result::{ExecutionResult, Output};
-use handler::EvmTr;
 use log::{debug, error};
-use primitives::{hardfork::SpecId, hex::FromHex};
+use primitives::hex::FromHex;
 use revm::{
     database::{CacheDB, EmptyDB}, inspector::inspectors::TracerEip3155, primitives::{
-        hex, Address, Bytes, FixedBytes, Log, TxKind, U256
-    }, Context, DatabaseCommit, ExecuteEvm, MainBuilder 
+        Address, Bytes, FixedBytes, Log, TxKind, U256
+    }, Context, DatabaseCommit, ExecuteEvm, MainBuilder, MainContext 
 };
 use seismic_revm::{DefaultSeismic, SeismicBuilder};
 use std::str::FromStr;
@@ -13,9 +12,7 @@ use std::str::FromStr;
 use crate::cmd::semantics::{test_cases::TestStep, utils::verify_emitted_events};
 
 use super::{
-    test_cases::{ExpectedOutputs, TestCase},
-    utils::{verify_expected_balances, verify_storage_empty},
-    Errors,
+    compiler_evm_versions::EVMVersion, test_cases::{ExpectedOutputs, TestCase}, utils::{verify_expected_balances, verify_storage_empty}, Errors
 };
 
 #[derive(Debug, Clone)]
@@ -35,8 +32,8 @@ pub(crate) struct EvmConfig {
 }
 
 impl EvmConfig {
-    pub(crate) fn new(evm_version: SpecId) -> Self {
-        let blob_hashes = if evm_version >= SpecId::CANCUN {
+    pub(crate) fn new(evm_version: EVMVersion) -> Self {
+        let blob_hashes = if evm_version >= EVMVersion::Cancun {
             vec![
                 FixedBytes::<32>::from_hex(
                     "0100000000000000000000000000000000000000000000000000000000000001",
@@ -51,7 +48,7 @@ impl EvmConfig {
             vec![]
         };
 
-        let max_blob_fee = if evm_version >= SpecId::CANCUN {
+        let max_blob_fee = if evm_version >= EVMVersion::Cancun {
             1 as u128
         } else {
             0 as u128
@@ -95,12 +92,12 @@ impl EvmConfig {
 pub(crate) struct EvmExecutor {
     db: CacheDB<EmptyDB>,
     pub config: EvmConfig,
-    evm_version: SpecId,
+    evm_version: EVMVersion,
     libraries: Vec<Address>,
 }
 
 impl EvmExecutor {
-    pub(crate) fn new(db: CacheDB<EmptyDB>, config: EvmConfig, evm_version: SpecId) -> Self {
+    pub(crate) fn new(db: CacheDB<EmptyDB>, config: EvmConfig, evm_version: EVMVersion) -> Self {
         Self {
             db,
             config,
@@ -115,40 +112,71 @@ impl EvmExecutor {
         trace: bool,
         value: U256,
     ) -> Result<(Address, Vec<Log>), Errors> {
-
-        let deploy_out = if trace {
-            let evm = Context::seismic()
-                .with_db(self.db.clone())
-                .modify_tx_chained(|tx| {
-                    tx.base.caller = self.config.caller;
-                    tx.base.kind = TxKind::Create;
-                    tx.base.data = deploy_data.clone();
-                    tx.base.value = value
-                })
-                .modify_cfg_chained(|cfg| cfg.spec = self.evm_version)
-                .build_mainnet_with_inspector(TracerEip3155::new(
-                    Box::new(std::io::stdout())));
-
-            evm.replay().map_err(|err| {
-                error!("DEPLOY transaction error: {:?}", err.to_string());
-                Errors::EVMError
-            })?
+        // Choose builder based on version: Mercury gets seismic, others get mainnet.
+        let deploy_out = if self.evm_version == EVMVersion::Mercury {
+            if trace {
+                let mut evm = Context::seismic()
+                    .with_db(self.db.clone())
+                    .modify_tx_chained(|tx| {
+                        tx.base.caller = self.config.caller;
+                        tx.base.kind = TxKind::Create;
+                        tx.base.data = deploy_data.clone();
+                        tx.base.value = value;
+                    })
+                    .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
+                    .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
+                evm.replay().map_err(|err| {
+                    error!("DEPLOY transaction error: {:?}", err.to_string());
+                    Errors::EVMError
+                })?
+            } else {
+                let mut evm = Context::seismic()
+                    .with_db(self.db.clone())
+                    .modify_tx_chained(|tx| {
+                        tx.base.caller = self.config.caller;
+                        tx.base.kind = TxKind::Create;
+                        tx.base.data = deploy_data.clone();
+                        tx.base.value = value;
+                    })
+                    .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
+                    .build_seismic();
+                evm.replay().map_err(|err| {
+                    error!("DEPLOY transaction error: {:?}", err.to_string());
+                    Errors::EVMError
+                })?
+            }
         } else {
-            let evm = Context::seismic()
-                .with_db(self.db.clone())
-                .modify_tx_chained(|tx| {
-                    tx.base.caller = self.config.caller;
-                    tx.base.kind = TxKind::Create;
-                    tx.base.data = deploy_data.clone();
-                    tx.base.value = value
-                })
-                .modify_cfg_chained(|cfg| cfg.spec = self.evm_version)
-                .build_seismic();
-
-            evm.replay().map_err(|err| {
-                error!("DEPLOY transaction error: {:?}", err.to_string());
-                Errors::EVMError
-            })?
+            if trace {
+                let mut evm = Context::mainnet()
+                    .with_db(self.db.clone())
+                    .modify_tx_chained(|tx| {
+                        tx.caller = self.config.caller;
+                        tx.kind = TxKind::Create;
+                        tx.data = deploy_data.clone();
+                        tx.value = value;
+                    })
+                    .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
+                    .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
+                evm.replay().map_err(|err| {
+                    error!("DEPLOY transaction error: {:?}", err.to_string());
+                    Errors::EVMError
+                })?
+            } else {
+                let mut evm = Context::mainnet()
+                    .with_db(self.db.clone())
+                    .modify_tx_chained(|tx| {
+                        tx.caller = self.config.caller;
+                        tx.kind = TxKind::Create;
+                        tx.data = deploy_data.clone();
+                        tx.value = value;
+                    })
+                    .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
+                    .build_mainnet();
+                evm.replay().map_err(|err| {
+                    error!("DEPLOY transaction error: {:?}", err.to_string());
+                    Errors::EVMError
+                })?
+            }
         };
 
         let (contract_address, logs) = match deploy_out.clone().result {
@@ -171,6 +199,7 @@ impl EvmExecutor {
         Ok((contract_address, logs))
     }
 
+
     pub(crate) fn execute_function_call(
         &mut self,
         function_name: &str,
@@ -180,74 +209,142 @@ impl EvmExecutor {
         test_file: &str,
         value: U256,
     ) -> Result<Vec<Log>, Errors> {
-        let out = if trace {
-            let evm = Context::seismic()
-                .with_db(self.db.clone())
-                .modify_tx_chained(|tx| {
-                    tx.base.caller = self.config.caller;
-                    tx.base.kind = TxKind::Call(self.config.env_contract_address);
-                    tx.base.data = input_data.clone();
-                    tx.base.value = value;
-                    if self.evm_version >= SpecId::CANCUN {
-                        tx.base.blob_hashes = self.config.blob_hashes.clone();
-                        tx.base.max_fee_per_blob_gas = self.config.max_blob_fee;
-                }
-                    tx.base.gas_limit = self.config.gas_limit;
-                    tx.base.gas_price = self.config.gas_price;
-                })
-                .modify_block_chained(|block| {
-                    block.prevrandao = Some(self.config.block_prevrandao);
-                    block.difficulty = self.config.block_difficulty.into();
-                    block.gas_limit = self.config.block_gas_limit;
-                    block.basefee = self.config.block_basefee;
-                    block.number = self.config.block_number;
-                    block.timestamp = self.config.timestamp;
-                })
-                .modify_cfg_chained(|cfg| cfg.spec = self.evm_version)
-                .build_mainnet_with_inspector(TracerEip3155::new(
-                    Box::new(std::io::stdout())));
-
-            evm.replay().map_err(|err| {
-                error!(
-                    "EVM transaction error: {:?}, for the file: {:?}",
-                    err.to_string(),
-                    test_file
-                );
-                Errors::EVMError
-            })?
+        let out = if self.evm_version == EVMVersion::Mercury {
+            if trace {
+                let mut evm = Context::seismic()
+                    .with_db(self.db.clone())
+                    .modify_tx_chained(|tx| {
+                        tx.base.caller = self.config.caller;
+                        tx.base.kind = TxKind::Call(self.config.env_contract_address);
+                        tx.base.data = input_data.clone();
+                        tx.base.value = value;
+                        if self.evm_version >= EVMVersion::Cancun {
+                            tx.base.blob_hashes = self.config.blob_hashes.clone();
+                            tx.base.max_fee_per_blob_gas = self.config.max_blob_fee;
+                        }
+                        tx.base.gas_limit = self.config.gas_limit;
+                        tx.base.gas_price = self.config.gas_price;
+                    })
+                    .modify_block_chained(|block| {
+                        block.prevrandao = Some(self.config.block_prevrandao);
+                        block.difficulty = self.config.block_difficulty.into();
+                        block.gas_limit = self.config.block_gas_limit;
+                        block.basefee = self.config.block_basefee;
+                        block.number = self.config.block_number;
+                        block.timestamp = self.config.timestamp;
+                    })
+                    .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
+                    .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
+                evm.replay().map_err(|err| {
+                    error!(
+                        "EVM transaction error: {:?}, for the file: {:?}",
+                        err.to_string(),
+                        test_file
+                    );
+                    Errors::EVMError
+                })?
+            } else {
+                let mut evm = Context::seismic()
+                    .with_db(self.db.clone())
+                    .modify_tx_chained(|tx| {
+                        tx.base.caller = self.config.caller;
+                        tx.base.kind = TxKind::Call(self.config.env_contract_address);
+                        tx.base.data = input_data.clone();
+                        tx.base.value = value;
+                        if self.evm_version >= EVMVersion::Cancun {
+                            tx.base.blob_hashes = self.config.blob_hashes.clone();
+                            tx.base.max_fee_per_blob_gas = self.config.max_blob_fee;
+                        }
+                        tx.base.gas_limit = self.config.gas_limit;
+                        tx.base.gas_price = self.config.gas_price;
+                    })
+                    .modify_block_chained(|block| {
+                        block.prevrandao = Some(self.config.block_prevrandao);
+                        block.difficulty = self.config.block_difficulty.into();
+                        block.gas_limit = self.config.block_gas_limit;
+                        block.basefee = self.config.block_basefee;
+                        block.number = self.config.block_number;
+                        block.timestamp = self.config.timestamp;
+                    })
+                    .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
+                    .build_seismic();
+                evm.replay().map_err(|err| {
+                    error!(
+                        "EVM transaction error: {:?}, for the file: {:?}",
+                        err.to_string(),
+                        test_file
+                    );
+                    Errors::EVMError
+                })?
+            }
         } else {
-            let evm = Context::seismic()
-                .with_db(self.db.clone())
-                .modify_tx_chained(|tx| {
-                    tx.base.caller = self.config.caller;
-                    tx.base.kind = TxKind::Call(self.config.env_contract_address);
-                    tx.base.data = input_data.clone();
-                    tx.base.value = value;
-                    if self.evm_version >= SpecId::CANCUN {
-                        tx.base.blob_hashes = self.config.blob_hashes.clone();
-                        tx.base.max_fee_per_blob_gas = self.config.max_blob_fee;
-                }
-                    tx.base.gas_limit = self.config.gas_limit;
-                    tx.base.gas_price = self.config.gas_price;
-                })
-                .modify_block_chained(|block| {
-                    block.prevrandao = Some(self.config.block_prevrandao);
-                    block.difficulty = self.config.block_difficulty.into();
-                    block.gas_limit = self.config.block_gas_limit;
-                    block.basefee = self.config.block_basefee;
-                    block.number = self.config.block_number;
-                    block.timestamp = self.config.timestamp;
-                })
-                .modify_cfg_chained(|cfg| cfg.spec = self.evm_version)
-                .build_seismic();
-            evm.replay().map_err(|err| {
-                error!(
-                    "EVM transaction error: {:?}, for the file: {:?}",
-                    err.to_string(),
-                    test_file
-                );
-                Errors::EVMError
-            })?
+            if trace {
+                let mut evm = Context::mainnet()
+                    .with_db(self.db.clone())
+                    .modify_tx_chained(|tx| {
+                        tx.caller = self.config.caller;
+                        tx.kind = TxKind::Call(self.config.env_contract_address);
+                        tx.data = input_data.clone();
+                        tx.value = value;
+                        if self.evm_version >= EVMVersion::Cancun {
+                            tx.blob_hashes = self.config.blob_hashes.clone();
+                            tx.max_fee_per_blob_gas = self.config.max_blob_fee;
+                        }
+                        tx.gas_limit = self.config.gas_limit;
+                        tx.gas_price = self.config.gas_price;
+                    })
+                    .modify_block_chained(|block| {
+                        block.prevrandao = Some(self.config.block_prevrandao);
+                        block.difficulty = self.config.block_difficulty.into();
+                        block.gas_limit = self.config.block_gas_limit;
+                        block.basefee = self.config.block_basefee;
+                        block.number = self.config.block_number;
+                        block.timestamp = self.config.timestamp;
+                    })
+                    .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
+                    .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
+                evm.replay().map_err(|err| {
+                    error!(
+                        "EVM transaction error: {:?}, for the file: {:?}",
+                        err.to_string(),
+                        test_file
+                    );
+                    Errors::EVMError
+                })?
+            } else {
+                let mut evm = Context::mainnet()
+                    .with_db(self.db.clone())
+                    .modify_tx_chained(|tx| {
+                        tx.caller = self.config.caller;
+                        tx.kind = TxKind::Call(self.config.env_contract_address);
+                        tx.data = input_data.clone();
+                        tx.value = value;
+                        if self.evm_version >= EVMVersion::Cancun {
+                            tx.blob_hashes = self.config.blob_hashes.clone();
+                            tx.max_fee_per_blob_gas = self.config.max_blob_fee;
+                        }
+                        tx.gas_limit = self.config.gas_limit;
+                        tx.gas_price = self.config.gas_price;
+                    })
+                    .modify_block_chained(|block| {
+                        block.prevrandao = Some(self.config.block_prevrandao);
+                        block.difficulty = self.config.block_difficulty.into();
+                        block.gas_limit = self.config.block_gas_limit;
+                        block.basefee = self.config.block_basefee;
+                        block.number = self.config.block_number;
+                        block.timestamp = self.config.timestamp;
+                    })
+                    .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
+                    .build_mainnet();
+                evm.replay().map_err(|err| {
+                    error!(
+                        "EVM transaction error: {:?}, for the file: {:?}",
+                        err.to_string(),
+                        test_file
+                    );
+                    Errors::EVMError
+                })?
+            }
         };
 
         let logs = match out.clone().result {
@@ -261,11 +358,14 @@ impl EvmExecutor {
                     }
                     logs
                 } else {
-                    error!("an Error was expected from the testCase, and yet, the test passed with output: {:?}, for file: {:?}", output, test_file);
+                    error!(
+                        "An error was expected from the testCase, yet the test passed with output: {:?}, for file: {:?}",
+                        output,
+                        test_file
+                    );
                     return Err(Errors::EVMError);
                 }
             }
-
             ExecutionResult::Revert { output, .. } => {
                 if !expected_outputs.is_success() {
                     return Ok(vec![]);
@@ -279,7 +379,6 @@ impl EvmExecutor {
                     vec![]
                 }
             }
-
             ExecutionResult::Halt { reason, .. } => {
                 if !expected_outputs.is_success() {
                     return Ok(vec![]);

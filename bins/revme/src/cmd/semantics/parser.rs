@@ -5,7 +5,7 @@ use super::{
     utils::{count_used_bytes_right, parse_string_with_escapes},
 };
 use log::error;
-use primitives::hex::FromHex;
+use hex::FromHex;
 use revm::primitives::{keccak256, I256, U256, Bytes, FixedBytes, hex};
 
 pub struct Parser {}

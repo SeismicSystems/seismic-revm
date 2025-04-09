@@ -1,7 +1,7 @@
 use evm_handler::{EvmConfig, EvmExecutor};
 use revm::{
     database::{CacheDB, EmptyDB},
-    primitives::{Bytes, U256},
+    primitives::U256,
 };
 
 use log::{info, LevelFilter};
@@ -10,8 +10,7 @@ use state::AccountInfo;
 use std::path::PathBuf;
 use std::time::Instant;
 
-//TODO: Use PARSER and remove structopt dep
-use clap::Parser;
+use clap::{ArgAction, Parser};
 
 mod errors;
 pub use errors::Errors;

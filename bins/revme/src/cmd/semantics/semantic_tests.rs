@@ -2,7 +2,6 @@ use std::fs;
 use std::process::Command;
 
 use log::error;
-use primitives::hardfork::SpecId;
 use regex::Regex;
 use revm::primitives::{Address, Bytes, hex};
 
@@ -21,7 +20,7 @@ const SKIP_KEYWORD: [&str; 3] = [
 #[derive(Debug, Clone)]
 pub struct ContractInfo {
     pub contract_name: String,
-    pub evm_version: SpecId,
+    pub evm_version: EVMVersion,
     compile_binary: String,
     pub functions: Vec<String>,
     pub is_library: bool,
@@ -33,7 +32,7 @@ impl ContractInfo {
     pub fn new(
         contract_name: String,
         compile_binary: String,
-        evm_version: SpecId,
+        evm_version: EVMVersion,
         is_library: bool,
     ) -> Self {
         Self {
@@ -189,7 +188,7 @@ impl SemanticTests {
     ) -> Result<Vec<ContractInfo>, Errors> {
         let stdout_output = Self::compile_solidity(path, evm_version, via_ir, runtime)?;
 
-        let revm_version: SpecId = evm_version.map(SpecId::from).unwrap_or(SpecId::LATEST);
+        let revm_version = evm_version.unwrap_or(EVMVersion::Mercury);
 
         let mut contract_infos = Vec::new();
 
