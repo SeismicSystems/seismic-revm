@@ -98,6 +98,10 @@ pub enum InstructionResult {
     EofAuxDataTooSmall,
     /// `EXT*CALL` target address needs to be padded with 0s.
     InvalidEXTCALLTarget,
+    /// Invalid Private Storage Access: Cannot access private storage with public instructions
+    InvalidPrivateStorageAccess,
+    /// Invalid Public Storage Access: Cannot access public storage with private instructions
+    InvalidPublicStorageAccess,
 }
 
 impl From<TransferError> for InstructionResult {
@@ -154,6 +158,8 @@ impl From<HaltReason> for InstructionResult {
             HaltReason::EofAuxDataTooSmall => Self::EofAuxDataTooSmall,
             HaltReason::SubRoutineStackOverflow => Self::SubRoutineStackOverflow,
             HaltReason::InvalidEXTCALLTarget => Self::InvalidEXTCALLTarget,
+            HaltReason::InvalidPrivateStorageAccess => Self::InvalidPrivateStorageAccess,
+            HaltReason::InvalidPublicStorageAccess => Self::InvalidPublicStorageAccess,
         }
     }
 }
@@ -213,6 +219,8 @@ macro_rules! return_error {
             | $crate::InstructionResult::EofAuxDataTooSmall
             | $crate::InstructionResult::EofAuxDataOverflow
             | $crate::InstructionResult::InvalidEXTCALLTarget
+            | $crate::InstructionResult::InvalidPrivateStorageAccess
+            | $crate::InstructionResult::InvalidPublicStorageAccess
     };
 }
 
@@ -389,6 +397,12 @@ impl<HaltReasonTr: From<HaltReason>> From<InstructionResult> for SuccessOrHalt<H
             }
             InstructionResult::InvalidExtDelegateCallTarget => {
                 Self::Internal(InternalResult::InvalidExtDelegateCallTarget)
+            }
+            InstructionResult::InvalidPrivateStorageAccess => {
+                Self::Halt(HaltReason::InvalidPrivateStorageAccess.into())
+            }
+            InstructionResult::InvalidPublicStorageAccess => {
+                Self::Halt(HaltReason::InvalidPublicStorageAccess.into())
             }
         }
     }
