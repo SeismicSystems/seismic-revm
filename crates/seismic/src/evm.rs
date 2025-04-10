@@ -1,8 +1,8 @@
-use crate::{api::exec::SeismicContextTr, precompiles::SeismicPrecompiles};
+use crate::{api::exec::SeismicContextTr, instructions::instruction_provider::SeismicInstructions, precompiles::SeismicPrecompiles};
 use revm::{
     context::{ContextSetters, Evm, EvmData},
     handler::{
-        instructions::{EthInstructions, InstructionProvider},
+        instructions::InstructionProvider,
         EvmTr,
     },
     inspector::{InspectorEvmTr, JournalExt},
@@ -10,15 +10,15 @@ use revm::{
     Inspector,
 };
 
-pub struct SeismicEvm<CTX, INSP, I = EthInstructions<EthInterpreter, CTX>, P = SeismicPrecompiles<CTX>>(
+pub struct SeismicEvm<CTX, INSP, I = SeismicInstructions<EthInterpreter, CTX>, P = SeismicPrecompiles<CTX>>(
     pub Evm<CTX, INSP, I, P>,
 );
 
-impl<CTX: SeismicContextTr, INSP> SeismicEvm<CTX, INSP, EthInstructions<EthInterpreter, CTX>, SeismicPrecompiles<CTX>> {
+impl<CTX: SeismicContextTr, INSP> SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, SeismicPrecompiles<CTX>> {
     pub fn new(ctx: CTX, inspector: INSP) -> Self {
         Self(Evm {
             data: EvmData { ctx, inspector },
-            instruction: EthInstructions::new_mainnet(),
+            instruction: SeismicInstructions::new_mainnet(),
             precompiles: SeismicPrecompiles::<CTX>::default(),
         })
     }

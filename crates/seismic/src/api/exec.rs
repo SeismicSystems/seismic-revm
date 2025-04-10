@@ -1,5 +1,5 @@
 use crate::{
-    evm::SeismicEvm, handler::SeismicHandler, transaction::abstraction::SeismicTxTr, RngContainer, SeismicSpecId
+    evm::SeismicEvm, handler::SeismicHandler, instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr, RngContainer, SeismicSpecId
 };
 use revm::{
     context::{result::{HaltReason, InvalidTransaction}, ContextSetters, JournalOutput},
@@ -7,7 +7,7 @@ use revm::{
         result::{EVMError, ExecutionResult, ResultAndState},
         Cfg, ContextTr, Database, JournalTr,
     },
-    handler::{instructions::EthInstructions, EthFrame, EvmTr, Handler, PrecompileProvider},
+    handler::{EthFrame, EvmTr, Handler, PrecompileProvider},
     inspector::{InspectCommitEvm, InspectEvm, Inspector, InspectorHandler, JournalExt},
     interpreter::{interpreter::EthInterpreter, InterpreterResult},
     DatabaseCommit, ExecuteCommitEvm, ExecuteEvm,
@@ -39,7 +39,7 @@ impl<T> SeismicContextTr for T where
 type SeismicError<CTX> = EVMError<<<CTX as ContextTr>::Db as Database>::Error, InvalidTransaction>;
 
 impl<CTX, INSP, PRECOMPILE> ExecuteEvm
-    for SeismicEvm<CTX, INSP, EthInstructions<EthInterpreter, CTX>, PRECOMPILE>
+    for SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, PRECOMPILE>
 where
     CTX: SeismicContextTr + ContextSetters,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
@@ -65,7 +65,7 @@ where
 }
 
 impl<CTX, INSP, PRECOMPILE> ExecuteCommitEvm
-    for SeismicEvm<CTX, INSP, EthInstructions<EthInterpreter, CTX>, PRECOMPILE>
+    for SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, PRECOMPILE>
 where
     CTX: SeismicContextTr<Db: DatabaseCommit> + ContextSetters,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
@@ -81,7 +81,7 @@ where
 }
 
 impl<CTX, INSP, PRECOMPILE> InspectEvm
-    for SeismicEvm<CTX, INSP, EthInstructions<EthInterpreter, CTX>, PRECOMPILE>
+    for SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, PRECOMPILE>
 where
     CTX: SeismicContextTr<Journal: JournalExt> + ContextSetters,
     INSP: Inspector<CTX, EthInterpreter>,
@@ -100,7 +100,7 @@ where
 }
 
 impl<CTX, INSP, PRECOMPILE> InspectCommitEvm
-    for SeismicEvm<CTX, INSP, EthInstructions<EthInterpreter, CTX>, PRECOMPILE>
+    for SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, PRECOMPILE>
 where
     CTX: SeismicContextTr<Journal: JournalExt, Db: DatabaseCommit> + ContextSetters,
     INSP: Inspector<CTX, EthInterpreter>,
