@@ -10,7 +10,7 @@ pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
     popn_top!([], index, interpreter);
 
     if let Some(value) = host.cload(interpreter.input.target_address(), *index) {
-        if !value.is_private {
+        if !value.is_private & !value.data.is_zero() {
             interpreter
             .control
             .set_instruction_result(InstructionResult::InvalidPublicStorageAccess);
@@ -21,11 +21,11 @@ pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
             gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
         );
         *index = value.data;
-        } else {
-            interpreter
-            .control
-            .set_instruction_result(InstructionResult::FatalExternalError);
-            return
+    } else {
+        interpreter
+        .control
+        .set_instruction_result(InstructionResult::FatalExternalError);
+        return
     }
 }
 

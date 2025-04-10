@@ -174,7 +174,6 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
     }
 
     fn set_spec_id(&mut self, spec_id: SpecId) {
-        println!("spec_id {:?}", spec_id);
         self.spec = spec_id;
     }
 

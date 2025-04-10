@@ -54,8 +54,8 @@ impl EvmConfig {
             0 as u128
         };
 
-        let block_gas_limit = 20000000_u64;
-        let gas_limit = 20000000 - 10;
+        let block_gas_limit = 30000000_u64;
+        let gas_limit = 30000000 - 10;
         let gas_price = 3000000000_u128;
         let block_prevrandao = FixedBytes::<32>::from_hex(
             "0xa86c2e601b6c44eb4848f7d23d9df3113fbcac42041c49cbed5000cb4f118777",
@@ -157,7 +157,6 @@ impl EvmExecutor {
                         tx.data = deploy_data.clone();
                         tx.value = value;
                         tx.nonce = nonce;
-                        tx.derive_tx_type();
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
@@ -174,7 +173,6 @@ impl EvmExecutor {
                         tx.data = deploy_data.clone();
                         tx.value = value;
                         tx.nonce = nonce;
-                        tx.derive_tx_type();
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet();
@@ -305,11 +303,11 @@ impl EvmExecutor {
                         if self.evm_version >= EVMVersion::Cancun {
                             tx.blob_hashes = self.config.blob_hashes.clone();
                             tx.max_fee_per_blob_gas = self.config.max_blob_fee;
+                            let _ = tx.derive_tx_type();
                         }
                         tx.gas_limit = self.config.gas_limit;
                         tx.gas_price = self.config.gas_price;
                         tx.nonce = nonce;
-                        tx.derive_tx_type();
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);
@@ -330,9 +328,6 @@ impl EvmExecutor {
                     Errors::EVMError
                 })?
             } else {
-                println!("EvmVersion: {:?}", self.evm_version);
-                println!("EvmVersion higher than cancun: {:?}", self.evm_version >= EVMVersion::Cancun);
-                println!("self.config.blob_hashes.clone(): {:?}", self.config.blob_hashes.clone());
                 let mut evm = Context::mainnet()
                     .with_db(self.db.clone())
                     .modify_tx_chained(|tx| {
@@ -343,11 +338,11 @@ impl EvmExecutor {
                         if self.evm_version >= EVMVersion::Cancun {
                             tx.blob_hashes = self.config.blob_hashes.clone();
                             tx.max_fee_per_blob_gas = self.config.max_blob_fee;
+                            let _ = tx.derive_tx_type();
                         }
                         tx.gas_limit = self.config.gas_limit;
                         tx.gas_price = self.config.gas_price;
                         tx.nonce = nonce;
-                        tx.derive_tx_type();
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);
