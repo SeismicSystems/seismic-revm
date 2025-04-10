@@ -29,6 +29,7 @@ pub(crate) struct EvmConfig {
     pub block_number: u64,
     pub env_contract_address: Address,
     pub caller: Address,
+    pub gas_priority_fee: Option<u128>,
 }
 
 impl EvmConfig {
@@ -54,8 +55,8 @@ impl EvmConfig {
             0 as u128
         };
 
-        let block_gas_limit = 30000000_u64;
-        let gas_limit = 30000000 - 10;
+        let block_gas_limit = 20000000_u64;
+        let gas_limit = 20000000 - 10;
         let gas_price = 3000000000_u128;
         let block_prevrandao = FixedBytes::<32>::from_hex(
             "0xa86c2e601b6c44eb4848f7d23d9df3113fbcac42041c49cbed5000cb4f118777",
@@ -66,6 +67,7 @@ impl EvmConfig {
         )
         .unwrap();
         let block_basefee = 7_u64;
+        let gas_priority_fee = Some(gas_price - block_basefee as u128);
         let block_number = 1_u64;
         let timestamp = 15_u64;
         let env_contract_address =
@@ -85,6 +87,7 @@ impl EvmConfig {
             block_number,
             env_contract_address,
             caller,
+            gas_priority_fee 
         }
     }
 }
@@ -236,6 +239,7 @@ impl EvmExecutor {
                         }
                         tx.base.gas_limit = self.config.gas_limit;
                         tx.base.gas_price = self.config.gas_price;
+                        tx.base.gas_priority_fee = self.config.gas_priority_fee;
                         tx.base.nonce = nonce;
                     })
                     .modify_block_chained(|block| {
@@ -271,6 +275,7 @@ impl EvmExecutor {
                         tx.base.gas_limit = self.config.gas_limit;
                         tx.base.gas_price = self.config.gas_price;
                         tx.base.nonce = nonce;
+                        tx.base.gas_priority_fee = self.config.gas_priority_fee;
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);
@@ -308,6 +313,7 @@ impl EvmExecutor {
                         tx.gas_limit = self.config.gas_limit;
                         tx.gas_price = self.config.gas_price;
                         tx.nonce = nonce;
+                        tx.gas_priority_fee = self.config.gas_priority_fee;
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);
@@ -343,6 +349,7 @@ impl EvmExecutor {
                         tx.gas_limit = self.config.gas_limit;
                         tx.gas_price = self.config.gas_price;
                         tx.nonce = nonce;
+                        tx.gas_priority_fee = self.config.gas_priority_fee;
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);

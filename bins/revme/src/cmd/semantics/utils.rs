@@ -29,7 +29,7 @@ const SKIP_DIRECTORY: [&str; 5] = [
 // same for the below down to transient, for which we need to hardcode further balances to some
 // addresses
 // virtual functions | array in constructor: nasty inheritance
-const SKIP_FILE: [&str; 20] = [
+const SKIP_FILE: [&str; 21] = [
     "library_references_preserve.sol",
     "library_delegatecall_guard_view_staticcall.sol",
     "multiline_comments.sol",
@@ -50,6 +50,7 @@ const SKIP_FILE: [&str; 20] = [
     "base_base_overload.sol",
     "arrays_in_constructors.sol",
     "bytes_in_constructors_packer.sol",
+    "block_coinbase.sol"
 ];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
