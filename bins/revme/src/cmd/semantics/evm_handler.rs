@@ -4,7 +4,7 @@ use primitives::hex::FromHex;
 use revm::{
     database::{CacheDB, EmptyDB}, inspector::inspectors::TracerEip3155, primitives::{
         Address, Bytes, FixedBytes, Log, TxKind, U256
-    }, Context, DatabaseCommit, DatabaseRef, ExecuteEvm, MainBuilder, MainContext 
+    }, Context, DatabaseCommit, DatabaseRef, ExecuteEvm, InspectEvm, MainBuilder, MainContext 
 };
 use seismic_revm::{DefaultSeismic, SeismicBuilder};
 use std::str::FromStr;
@@ -125,8 +125,8 @@ impl EvmExecutor {
                         tx.base.nonce = nonce;
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
-                    .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
-                evm.replay().map_err(|err| {
+                    .build_seismic_with_inspector(TracerEip3155::new_stdout().without_summary());
+                evm.inspect_replay().map_err(|err| {
                     error!("DEPLOY transaction error: {:?}", err.to_string());
                     Errors::EVMError
                 })?
@@ -160,7 +160,7 @@ impl EvmExecutor {
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
-                evm.replay().map_err(|err| {
+                evm.inspect_replay().map_err(|err| {
                     error!("DEPLOY transaction error: {:?}", err.to_string());
                     Errors::EVMError
                 })?
@@ -240,8 +240,8 @@ impl EvmExecutor {
                         block.timestamp = self.config.timestamp;
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
-                    .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
-                evm.replay().map_err(|err| {
+                    .build_seismic_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
+                evm.inspect_replay().map_err(|err| {
                     error!(
                         "EVM transaction error: {:?}, for the file: {:?}",
                         err.to_string(),
@@ -311,7 +311,7 @@ impl EvmExecutor {
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
-                evm.replay().map_err(|err| {
+                evm.inspect_replay().map_err(|err| {
                     error!(
                         "EVM transaction error: {:?}, for the file: {:?}",
                         err.to_string(),
