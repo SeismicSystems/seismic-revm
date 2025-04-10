@@ -10,7 +10,7 @@ pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
     popn_top!([], index, interpreter);
 
     if let Some(value) = host.cload(interpreter.input.target_address(), *index) {
-        if !value.is_private & !value.data.is_zero() {
+        if !value.is_private && !value.data.is_zero() {
             interpreter
             .control
             .set_instruction_result(InstructionResult::InvalidPublicStorageAccess);

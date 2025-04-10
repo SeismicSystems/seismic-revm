@@ -824,7 +824,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         self.journal
             .last_mut()
             .unwrap()
-            .push(ENTRY::storage_changed(address, key, FlaggedStorage::new_from_value(present.data).set_visibility(is_private)));
+            .push(ENTRY::storage_changed(address, key, FlaggedStorage::new_from_value(present.data).set_visibility(present.is_private)));
 
         // insert value into present state.
         slot.present_value = FlaggedStorage::new_from_value(new).set_visibility(is_private);
