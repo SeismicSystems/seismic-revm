@@ -157,6 +157,7 @@ impl EvmExecutor {
                         tx.data = deploy_data.clone();
                         tx.value = value;
                         tx.nonce = nonce;
+                        tx.derive_tx_type();
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
@@ -173,6 +174,7 @@ impl EvmExecutor {
                         tx.data = deploy_data.clone();
                         tx.value = value;
                         tx.nonce = nonce;
+                        tx.derive_tx_type();
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet();
@@ -186,8 +188,15 @@ impl EvmExecutor {
         let (contract_address, logs) = match deploy_out.clone().result {
             ExecutionResult::Success { output, logs, .. } => match output {
                 Output::Create(_, Some(addr)) => (addr, logs),
-                Output::Create(_, None) => return Err(Errors::EVMError),
-                _ => return Err(Errors::EVMError),
+                Output::Create(_, None) => {
+                error!("EVM deploy transaction error, no address returned: {:?}", output);
+                return Err(Errors::EVMError)
+                }
+                _ => 
+                {
+                error!("EVM deploy transaction fatal error: {:?}", output);
+                return Err(Errors::EVMError)
+                }
             },
             ExecutionResult::Revert { output, .. } => {
                 error!("EVM deploy transaction error: {:?}", output.to_string());
@@ -300,6 +309,7 @@ impl EvmExecutor {
                         tx.gas_limit = self.config.gas_limit;
                         tx.gas_price = self.config.gas_price;
                         tx.nonce = nonce;
+                        tx.derive_tx_type();
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);
@@ -320,6 +330,9 @@ impl EvmExecutor {
                     Errors::EVMError
                 })?
             } else {
+                println!("EvmVersion: {:?}", self.evm_version);
+                println!("EvmVersion higher than cancun: {:?}", self.evm_version >= EVMVersion::Cancun);
+                println!("self.config.blob_hashes.clone(): {:?}", self.config.blob_hashes.clone());
                 let mut evm = Context::mainnet()
                     .with_db(self.db.clone())
                     .modify_tx_chained(|tx| {
@@ -334,6 +347,7 @@ impl EvmExecutor {
                         tx.gas_limit = self.config.gas_limit;
                         tx.gas_price = self.config.gas_price;
                         tx.nonce = nonce;
+                        tx.derive_tx_type();
                     })
                     .modify_block_chained(|block| {
                         block.prevrandao = Some(self.config.block_prevrandao);
@@ -429,7 +443,7 @@ impl EvmExecutor {
         trace: bool,
         test_file: &str,
     ) -> Result<(), Errors> {
-        debug!("running test_case: {:?}", test_case);
+        debug!("running file: {:?}, test_case: {:?}", test_file, test_case);
         for step in &test_case.steps {
             match step {
                 TestStep::Deploy {
