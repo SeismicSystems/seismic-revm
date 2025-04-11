@@ -1,13 +1,15 @@
 use super::hkdf_derive_sym_key::EXPAND_FIXED_COST;
 use revm::{
+    precompile::{
+        u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+    },
     primitives::Bytes,
-    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, u64_to_address},
 };
 
-use seismic_enclave::{ecdh::SharedSecret, SecretKey, PublicKey,  derive_aes_key};
+use seismic_enclave::{derive_aes_key, ecdh::SharedSecret, PublicKey, SecretKey};
 
 /// Address of ECDH precompile.
-pub const ECDH_ADDRESS: u64 = 101; 
+pub const ECDH_ADDRESS: u64 = 101;
 
 /// Returns the ecdh precompile with its address.
 pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
@@ -101,8 +103,8 @@ pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use revm::primitives::hex;
     use revm::precompile::PrecompileError;
+    use revm::primitives::hex;
 
     /// 1) Tests normal usage with valid 65-byte input,
     ///    ensuring we get a 32-byte output and don't exceed gas.

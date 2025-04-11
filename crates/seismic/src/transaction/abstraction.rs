@@ -20,7 +20,7 @@ pub trait SeismicTxTr: Transaction {
     /// tx hash of the transaction
     fn tx_hash(&self) -> B256;
 
-    /// rng mode for this transaction 
+    /// rng mode for this transaction
     fn rng_mode(&self) -> RngMode;
 }
 
@@ -145,4 +145,3 @@ impl<T: Transaction> SeismicTxTr for SeismicTransaction<T> {
         self.rng_mode
     }
 }
-

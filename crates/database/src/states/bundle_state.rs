@@ -114,7 +114,11 @@ impl BundleBuilder {
     }
 
     /// Collects storage info of BundleState state.
-    pub fn state_storage(mut self, address: Address, storage: HashMap<U256, (FlaggedStorage, FlaggedStorage)>) -> Self {
+    pub fn state_storage(
+        mut self,
+        address: Address,
+        storage: HashMap<U256, (FlaggedStorage, FlaggedStorage)>,
+    ) -> Self {
         self.set_state_storage(address, storage);
         self
     }

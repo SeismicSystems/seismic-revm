@@ -1,6 +1,9 @@
 use revm::{
+    precompile::{
+        calc_linear_cost_u32, u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult,
+        PrecompileWithAddress,
+    },
     primitives::Bytes,
-    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, calc_linear_cost_u32, u64_to_address},
 };
 
 use hkdf::Hkdf;
@@ -10,7 +13,7 @@ use sha2::Sha256;
 Precompile Wiring
 -------------------------------------------------------------------------- */
 /// Address of ECDH precompile.
-pub const HKDF_ADDRESS: u64 = 104; 
+pub const HKDF_ADDRESS: u64 = 104;
 
 /// Returns the ecdh precompile with its address.
 pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
@@ -112,8 +115,8 @@ pub fn hkdf_derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileRes
 #[cfg(test)]
 mod tests {
     use super::*;
-    use revm::primitives::Bytes;
     use revm::precompile::PrecompileError;
+    use revm::primitives::Bytes;
     use sha2::Sha256;
 
     /// 1) **Test Basic Derivation**  
@@ -187,9 +190,7 @@ mod tests {
         assert!(result.is_err(), "Should fail due to out of gas");
         assert_eq!(
             result.err(),
-            Some(
-                PrecompileError::OutOfGas
-            ),
+            Some(PrecompileError::OutOfGas),
             "Expected OutOfGas error"
         );
     }

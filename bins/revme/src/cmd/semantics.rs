@@ -32,19 +32,19 @@ pub struct Cmd {
     /// it will default to the Solidity semantic tests directory.
     #[clap(long)]
     path: Option<PathBuf>,
-    
+
     /// Print the trace.
     #[clap(long)]
     trace: bool,
-    
+
     /// Increase output verbosity. Can be used multiple times. For example `-vvv` will set the log level to `TRACE`.
     #[clap(short, long, action = ArgAction::Count)]
     verbose: u8,
-    
+
     /// Run tests in a single thread.
     #[clap(short = 's', long)]
     single_thread: bool,
-    
+
     /// Will not return on failure.
     #[clap(long, alias = "no-fail-fast")]
     keep_going: bool,
@@ -137,8 +137,7 @@ impl Cmd {
                     evm_executor.config.block_number =
                         evm_executor.config.block_number.wrapping_add(1);
 
-                    evm_executor.config.timestamp =
-                        evm_executor.config.timestamp.wrapping_add(15);
+                    evm_executor.config.timestamp = evm_executor.config.timestamp.wrapping_add(15);
                 }
             }
             Err(Errors::UnhandledTestFormat) => {

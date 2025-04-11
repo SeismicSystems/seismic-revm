@@ -5,11 +5,8 @@ use revm::{
     context_interface::ContextTr,
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::InterpreterResult,
-    precompile::{
-        self, bn128, secp256r1, PrecompileError, Precompiles,
-        PrecompileResult,
-    },
-    primitives::{Bytes, Address},
+    precompile::{self, bn128, secp256r1, PrecompileError, PrecompileResult, Precompiles},
+    primitives::{Address, Bytes},
 };
 use std::boxed::Box;
 use std::string::String;

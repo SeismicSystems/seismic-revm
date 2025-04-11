@@ -14,7 +14,7 @@ impl SeismicSpecId {
     /// Converts the [`SeismicSpecId`] into a [`SpecId`].
     pub const fn into_eth_spec(self) -> SpecId {
         match self {
-            Self::MERCURY  => SpecId::PRAGUE,
+            Self::MERCURY => SpecId::PRAGUE,
         }
     }
 
@@ -61,18 +61,16 @@ mod tests {
     #[test]
     fn test_seismic_spec_id_eth_spec_compatibility() {
         // Define test cases: (SeismicSpecId, enabled in ETH specs, enabled in Seismic specs)
-        let test_cases = [
-            (
-                SeismicSpecId::MERCURY,
-                vec![
-                    (SpecId::MERGE, true),
-                    (SpecId::SHANGHAI, true),
-                    (SpecId::CANCUN, true),
-                    (SpecId::OSAKA, false),
-                ],
-                vec![(SeismicSpecId::MERCURY, true)],
-            ),
-        ];
+        let test_cases = [(
+            SeismicSpecId::MERCURY,
+            vec![
+                (SpecId::MERGE, true),
+                (SpecId::SHANGHAI, true),
+                (SpecId::CANCUN, true),
+                (SpecId::OSAKA, false),
+            ],
+            vec![(SeismicSpecId::MERCURY, true)],
+        )];
 
         for (seismic_spec, eth_tests, seismic_tests) in test_cases {
             // Test ETH spec compatibility
@@ -101,4 +99,3 @@ mod tests {
         }
     }
 }
-

@@ -11,8 +11,8 @@ pub mod handler;
 pub mod instructions;
 pub mod precompiles;
 pub mod rng_container;
-pub mod transaction;
 pub mod spec;
+pub mod transaction;
 
 pub use api::{
     builder::SeismicBuilder,
@@ -21,4 +21,3 @@ pub use api::{
 pub use evm::SeismicEvm;
 pub use rng_container::RngContainer;
 pub use spec::*;
-

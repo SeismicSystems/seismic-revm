@@ -1,6 +1,8 @@
 use revm::{
+    precompile::{
+        u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+    },
     primitives::Bytes,
-    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileOutput, PrecompileError, u64_to_address},
 };
 
 use super::common::{
@@ -13,7 +15,7 @@ use seismic_enclave::aes_decrypt;
 Constants & Setup
 -------------------------------------------------------------------------- */
 /// Address of AES-GCM decryption precompile.
-pub const AES_GCM_DEC_ADDRESS: u64 = 103; 
+pub const AES_GCM_DEC_ADDRESS: u64 = 103;
 
 /// Returns the aes-gcm-decryption precompile with its address.
 pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
@@ -64,8 +66,8 @@ pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use revm::primitives::{hex, Bytes};
     use revm::precompile::PrecompileError;
+    use revm::primitives::{hex, Bytes};
 
     /// 1) Test the smallest possible cyphertext:
     ///    - 32-byte key + 12-byte nonce + 16-byte ciphertext (one block)

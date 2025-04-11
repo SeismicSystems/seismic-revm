@@ -1,6 +1,8 @@
 use revm::{
+    precompile::{
+        u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+    },
     primitives::Bytes,
-    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileOutput, PrecompileError, u64_to_address},
 };
 
 use super::common::{
@@ -14,7 +16,7 @@ Constants & Setup
 -------------------------------------------------------------------------- */
 
 /// Address of AES-GCM encryption precompile.
-pub const AES_GCM_ENC_ADDRESS: u64 = 102; 
+pub const AES_GCM_ENC_ADDRESS: u64 = 102;
 
 /// Returns the aes-gcm-encryption precompile with its address.
 pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
@@ -23,7 +25,6 @@ pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
 
 pub const AES_GCM_ENC: PrecompileWithAddress =
     PrecompileWithAddress(u64_to_address(AES_GCM_ENC_ADDRESS), precompile_encrypt);
-
 
 /// Minimal input size:
 /// - 32 bytes for the AES key,
@@ -79,8 +80,8 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use revm::primitives::Bytes;
     use revm::precompile::PrecompileError;
+    use revm::primitives::Bytes;
 
     /// 1) Test a normal case: a small non-empty plaintext,
     ///    verifying correct gas usage and successful encryption.

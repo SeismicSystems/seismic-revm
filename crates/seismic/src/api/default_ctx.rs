@@ -2,12 +2,18 @@ use crate::{transaction::abstraction::SeismicTransaction, RngContainer, SeismicS
 use revm::{
     context::{BlockEnv, CfgEnv, TxEnv},
     database_interface::EmptyDB,
-    Context, Journal, MainContext 
+    Context, Journal, MainContext,
 };
 
 /// Type alias for the default context type of the SeismicEvm.
-pub type SeismicContext<DB> =
-    Context<BlockEnv, SeismicTransaction<TxEnv>, CfgEnv<SeismicSpecId>, DB, Journal<DB>, RngContainer>;
+pub type SeismicContext<DB> = Context<
+    BlockEnv,
+    SeismicTransaction<TxEnv>,
+    CfgEnv<SeismicSpecId>,
+    DB,
+    Journal<DB>,
+    RngContainer,
+>;
 
 /// Trait that allows for a default context to be created.
 pub trait DefaultSeismic {
@@ -44,4 +50,3 @@ mod test {
         let _ = evm.inspect_replay();
     }
 }
-

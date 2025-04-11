@@ -99,7 +99,11 @@ impl<N: Network, P: Provider<N>> DatabaseAsyncRef for AlloyDB<N, P> {
         // This is not needed, as the code is already loaded with basic_ref
     }
 
-    async fn storage_async_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
+    async fn storage_async_ref(
+        &self,
+        address: Address,
+        index: U256,
+    ) -> Result<FlaggedStorage, Self::Error> {
         Ok(self
             .provider
             .get_storage_at(address, index)

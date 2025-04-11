@@ -1,12 +1,14 @@
 //!Handler related to Seismic chain
 use crate::api::exec::SeismicContextTr;
 use revm::{
-    context::{result::{HaltReason, InvalidTransaction}, ContextTr}, context_interface::
-        result::{EVMError, FromStringError},
-    handler::{
-        handler::EvmTrError, EvmTr, Frame, FrameResult,
-        Handler, MainnetHandler,
-    }, inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler}, interpreter::{interpreter::EthInterpreter, FrameInput}
+    context::{
+        result::{HaltReason, InvalidTransaction},
+        ContextTr,
+    },
+    context_interface::result::{EVMError, FromStringError},
+    handler::{handler::EvmTrError, EvmTr, Frame, FrameResult, Handler, MainnetHandler},
+    inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
+    interpreter::{interpreter::EthInterpreter, FrameInput},
 };
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
@@ -63,11 +65,11 @@ where
     EVM: InspectorEvmTr<Context: SeismicContextTr>,
     ERROR: EvmTrError<EVM> + From<InvalidTransaction> + FromStringError + IsTxError,
     FRAME: InspectorFrame<
-        Evm = EVM, 
+        Evm = EVM,
         Error = ERROR,
         FrameResult = FrameResult,
         FrameInit = FrameInput,
-        IT = EthInterpreter
+        IT = EthInterpreter,
     >,
     EVM::Inspector: Inspector<EVM::Context, EthInterpreter>,
 {

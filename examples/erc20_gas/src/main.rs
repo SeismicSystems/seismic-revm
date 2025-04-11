@@ -49,7 +49,11 @@ async fn main() -> Result<()> {
     let balance_slot = erc_address_storage(account);
     println!("Balance slot: {balance_slot}");
     cache_db
-        .insert_account_storage(TOKEN, balance_slot, FlaggedStorage::new_from_value(hundred_tokens * U256::from(2)))
+        .insert_account_storage(
+            TOKEN,
+            balance_slot,
+            FlaggedStorage::new_from_value(hundred_tokens * U256::from(2)),
+        )
         .unwrap();
     cache_db.insert_account_info(
         account,

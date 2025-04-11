@@ -1,7 +1,7 @@
 use super::*;
 use domain_sep_rng::RootRng;
-use revm::primitives::B256;
 use rand_core::RngCore;
+use revm::primitives::B256;
 use schnorrkel::{keys::Keypair as SchnorrkelKeypair, ExpansionMode};
 use std::str::FromStr;
 

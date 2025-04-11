@@ -178,17 +178,17 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(
     if let Some(value) = host.sload(interpreter.input.target_address(), *index) {
         if value.is_private {
             interpreter
-            .control
-            .set_instruction_result(InstructionResult::InvalidPrivateStorageAccess);
-            return
+                .control
+                .set_instruction_result(InstructionResult::InvalidPrivateStorageAccess);
+            return;
         }
         gas!(
             interpreter,
             gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
         );
         *index = value.data;
-        } else {
-            interpreter
+    } else {
+        interpreter
             .control
             .set_instruction_result(InstructionResult::FatalExternalError);
         return;

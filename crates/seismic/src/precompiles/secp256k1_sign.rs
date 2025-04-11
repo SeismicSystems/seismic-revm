@@ -1,6 +1,8 @@
 use revm::{
+    precompile::{
+        u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+    },
     primitives::Bytes,
-    precompile::{PrecompileWithAddress, PrecompileResult, PrecompileError, PrecompileOutput, u64_to_address},
 };
 
 use secp256k1::Secp256k1;
@@ -9,15 +11,17 @@ use secp256k1::Secp256k1;
 Precompile Wiring
 -------------------------------------------------------------------------- */
 /// Address of SECP256K1 sign precompile.
-pub const SECP256K1_SIGN_ADDRESS: u64 = 105; 
+pub const SECP256K1_SIGN_ADDRESS: u64 = 105;
 
 /// Returns the ecdh precompile with its address.
 pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
     [SECP256K1_SIGN].into_iter()
 }
 
-pub const SECP256K1_SIGN: PrecompileWithAddress =
-    PrecompileWithAddress(u64_to_address(SECP256K1_SIGN_ADDRESS), secp256k1_sign_ecdsa_recoverable);
+pub const SECP256K1_SIGN: PrecompileWithAddress = PrecompileWithAddress(
+    u64_to_address(SECP256K1_SIGN_ADDRESS),
+    secp256k1_sign_ecdsa_recoverable,
+);
 
 const BASE_GAS: u64 = 3000;
 
@@ -138,7 +142,9 @@ mod tests {
             Some(PrecompileError::Other(msg)) => {
                 assert_eq!(msg, "Invalid input length");
             }
-            other => panic!("Expected PrecompileError::Other(Invalid input length), got: {other:?}"),
+            other => {
+                panic!("Expected PrecompileError::Other(Invalid input length), got: {other:?}")
+            }
         }
     }
 

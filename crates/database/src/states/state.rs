@@ -499,7 +499,10 @@ mod tests {
                     AccountRevert {
                         account: AccountInfoRevert::DeleteIt,
                         previous_status: AccountStatus::LoadedNotExisting,
-                        storage: HashMap::from_iter([(slot1, RevertToSlot::Some(FlaggedStorage::ZERO))]),
+                        storage: HashMap::from_iter([(
+                            slot1,
+                            RevertToSlot::Some(FlaggedStorage::ZERO)
+                        )]),
                         wipe_storage: false,
                     }
                 ),

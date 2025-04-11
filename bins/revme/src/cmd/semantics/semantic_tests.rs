@@ -3,12 +3,13 @@ use std::process::Command;
 
 use log::error;
 use regex::Regex;
-use revm::primitives::{Address, Bytes, hex};
+use revm::primitives::{hex, Address, Bytes};
 
 use super::{
     compiler_evm_versions::EVMVersion,
     test_cases::TestCase,
-    utils::{extract_compile_via_yul, extract_functions_from_source}, Errors,
+    utils::{extract_compile_via_yul, extract_functions_from_source},
+    Errors,
 };
 
 const SKIP_KEYWORD: [&str; 3] = [

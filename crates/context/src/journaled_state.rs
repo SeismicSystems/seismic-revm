@@ -14,9 +14,9 @@ use database_interface::Database;
 use primitives::{
     hardfork::{SpecId, SpecId::*},
     hash_map::Entry,
-    Address, HashMap, HashSet, Log, B256, KECCAK_EMPTY, U256
+    Address, HashMap, HashSet, Log, B256, KECCAK_EMPTY, U256,
 };
-use state::{Account, EvmState, EvmStorageSlot, TransientStorage, FlaggedStorage};
+use state::{Account, EvmState, EvmStorageSlot, FlaggedStorage, TransientStorage};
 use std::{vec, vec::Vec};
 
 /// A journal of state changes internal to the EVM
@@ -88,7 +88,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
     fn db(&mut self) -> &mut Self::Database {
         &mut self.database
     }
-    
+
     fn cload(
         &mut self,
         address: Address,
@@ -113,7 +113,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
         self.store(address, key, value, true)
     }
-    
+
     fn sstore(
         &mut self,
         address: Address,
@@ -673,7 +673,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 is_empty,
             },
             account.is_cold,
-            false
+            false,
         );
 
         // load delegate code if account is EIP-7702
@@ -747,11 +747,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
     }
 
     #[inline]
-    pub fn load(
-        &mut self,
-        address: Address,
-        key: U256,
-    ) -> Result<StateLoad<U256>, DB::Error> {
+    pub fn load(&mut self, address: Address, key: U256) -> Result<StateLoad<U256>, DB::Error> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx can we assume that storage is empty.
@@ -813,7 +809,8 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
             return Ok(StateLoad::new(
                 SStoreResult {
                     original_value: slot.original_value(),
-                    present_value: FlaggedStorage::new_from_value(present.data).set_visibility(present.is_private),
+                    present_value: FlaggedStorage::new_from_value(present.data)
+                        .set_visibility(present.is_private),
                     new_value: FlaggedStorage::new_from_value(new).set_visibility(is_private),
                 },
                 present.is_cold,
@@ -824,14 +821,19 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         self.journal
             .last_mut()
             .unwrap()
-            .push(ENTRY::storage_changed(address, key, FlaggedStorage::new_from_value(present.data).set_visibility(present.is_private)));
+            .push(ENTRY::storage_changed(
+                address,
+                key,
+                FlaggedStorage::new_from_value(present.data).set_visibility(present.is_private),
+            ));
 
         // insert value into present state.
         slot.present_value = FlaggedStorage::new_from_value(new).set_visibility(is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value(),
-                present_value:FlaggedStorage::new_from_value(present.data).set_visibility(present.is_private), 
+                present_value: FlaggedStorage::new_from_value(present.data)
+                    .set_visibility(present.is_private),
                 new_value: FlaggedStorage::new_from_value(new).set_visibility(is_private),
             },
             present.is_cold,

@@ -1,5 +1,10 @@
-use revm::interpreter::{gas::CALL_STIPEND, interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr}, popn, popn_top, require_non_staticcall, gas, Host, InstructionResult, Interpreter};
 use crate::check;
+use revm::interpreter::{
+    gas,
+    gas::CALL_STIPEND,
+    interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr},
+    popn, popn_top, require_non_staticcall, Host, InstructionResult, Interpreter,
+};
 use revm::primitives::hardfork::SpecId::*;
 
 pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
@@ -12,9 +17,9 @@ pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
     if let Some(value) = host.cload(interpreter.input.target_address(), *index) {
         if !value.is_private && !value.data.is_zero() {
             interpreter
-            .control
-            .set_instruction_result(InstructionResult::InvalidPublicStorageAccess);
-            return
+                .control
+                .set_instruction_result(InstructionResult::InvalidPublicStorageAccess);
+            return;
         }
         gas!(
             interpreter,
@@ -23,9 +28,9 @@ pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
         *index = value.data;
     } else {
         interpreter
-        .control
-        .set_instruction_result(InstructionResult::FatalExternalError);
-        return
+            .control
+            .set_instruction_result(InstructionResult::FatalExternalError);
+        return;
     }
 }
 
@@ -77,14 +82,12 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
-    use revm::interpreter::{InputsImpl, SharedMemory};
-    use revm::primitives::{Address, Bytes, U256};
     use revm::interpreter::host::DummyHost;
     use revm::interpreter::interpreter::{EthInterpreter, ExtBytecode};
-    use revm::interpreter::{
-        InstructionResult, Interpreter,  
-    };
+    use revm::interpreter::{InputsImpl, SharedMemory};
+    use revm::interpreter::{InstructionResult, Interpreter};
     use revm::primitives::hardfork::SpecId;
+    use revm::primitives::{Address, Bytes, U256};
     use revm::state::Bytecode;
 
     // Helper to build an interpreter with a given SpecId.
@@ -128,10 +131,10 @@ mod tests {
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);
-        
+
         //60 2A          PUSH1 0x2A    ; push decimal 42 as "value"
         //60 0A          PUSH1 0x0A    ; push decimal 10 as "index"
-        //0xB1           CSTORE        ; CSTORE 
+        //0xB1           CSTORE        ; CSTORE
         let _ = interpreter.stack.push(U256::from(0x0A)); // index
         let _ = interpreter.stack.push(U256::from(0x2A)); // value
         cstore(&mut interpreter, &mut host);
@@ -169,9 +172,9 @@ mod tests {
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);
-        
+
         //60 0A          PUSH1 0x0A    ; push decimal 10 as "index"
-        //0xB            CLOAD         ; CLOAD 
+        //0xB            CLOAD         ; CLOAD
         let _ = interpreter.stack.push(U256::from(0x0A)); // index
         cload(&mut interpreter, &mut host);
 

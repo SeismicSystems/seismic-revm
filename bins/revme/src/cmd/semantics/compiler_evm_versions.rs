@@ -75,7 +75,7 @@ impl fmt::Display for EVMVersion {
             EVMVersion::Homestead => "homestead",
             EVMVersion::Byzantium => "byzantium",
             EVMVersion::Constantinople => "constantinople",
-            EVMVersion:: Petersburg => "petersburg",
+            EVMVersion::Petersburg => "petersburg",
             EVMVersion::Istanbul => "istanbul",
             EVMVersion::Berlin => "berlin",
             EVMVersion::London => "london",

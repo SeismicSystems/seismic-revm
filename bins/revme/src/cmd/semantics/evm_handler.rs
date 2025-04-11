@@ -2,9 +2,10 @@ use context::result::{ExecutionResult, Output};
 use log::{debug, error};
 use primitives::hex::FromHex;
 use revm::{
-    database::{CacheDB, EmptyDB}, inspector::inspectors::TracerEip3155, primitives::{
-        Address, Bytes, FixedBytes, Log, TxKind, U256
-    }, Context, DatabaseCommit, DatabaseRef, ExecuteEvm, InspectEvm, MainBuilder, MainContext 
+    database::{CacheDB, EmptyDB},
+    inspector::inspectors::TracerEip3155,
+    primitives::{Address, Bytes, FixedBytes, Log, TxKind, U256},
+    Context, DatabaseCommit, DatabaseRef, ExecuteEvm, InspectEvm, MainBuilder, MainContext,
 };
 use seismic_revm::{DefaultSeismic, SeismicBuilder};
 use std::str::FromStr;
@@ -12,7 +13,10 @@ use std::str::FromStr;
 use crate::cmd::semantics::{test_cases::TestStep, utils::verify_emitted_events};
 
 use super::{
-    compiler_evm_versions::EVMVersion, test_cases::{ExpectedOutputs, TestCase}, utils::{verify_expected_balances, verify_storage_empty}, Errors
+    compiler_evm_versions::EVMVersion,
+    test_cases::{ExpectedOutputs, TestCase},
+    utils::{verify_expected_balances, verify_storage_empty},
+    Errors,
 };
 
 #[derive(Debug, Clone)]
@@ -87,7 +91,7 @@ impl EvmConfig {
             block_number,
             env_contract_address,
             caller,
-            gas_priority_fee 
+            gas_priority_fee,
         }
     }
 }
@@ -115,7 +119,11 @@ impl EvmExecutor {
         trace: bool,
         value: U256,
     ) -> Result<(Address, Vec<Log>), Errors> {
-        let nonce = self.db.basic_ref(self.config.caller).unwrap().map_or(0, |account| account.nonce);
+        let nonce = self
+            .db
+            .basic_ref(self.config.caller)
+            .unwrap()
+            .map_or(0, |account| account.nonce);
         let deploy_out = if self.evm_version == EVMVersion::Mercury {
             if trace {
                 let mut evm = Context::seismic()
@@ -190,13 +198,15 @@ impl EvmExecutor {
             ExecutionResult::Success { output, logs, .. } => match output {
                 Output::Create(_, Some(addr)) => (addr, logs),
                 Output::Create(_, None) => {
-                error!("EVM deploy transaction error, no address returned: {:?}", output);
-                return Err(Errors::EVMError)
+                    error!(
+                        "EVM deploy transaction error, no address returned: {:?}",
+                        output
+                    );
+                    return Err(Errors::EVMError);
                 }
-                _ => 
-                {
-                error!("EVM deploy transaction fatal error: {:?}", output);
-                return Err(Errors::EVMError)
+                _ => {
+                    error!("EVM deploy transaction fatal error: {:?}", output);
+                    return Err(Errors::EVMError);
                 }
             },
             ExecutionResult::Revert { output, .. } => {
@@ -213,7 +223,6 @@ impl EvmExecutor {
         Ok((contract_address, logs))
     }
 
-
     pub(crate) fn execute_function_call(
         &mut self,
         _function_name: &str,
@@ -223,7 +232,11 @@ impl EvmExecutor {
         test_file: &str,
         value: U256,
     ) -> Result<Vec<Log>, Errors> {
-        let nonce = self.db.basic_ref(self.config.caller).unwrap().map_or(0, |account| account.nonce);
+        let nonce = self
+            .db
+            .basic_ref(self.config.caller)
+            .unwrap()
+            .map_or(0, |account| account.nonce);
         let out = if self.evm_version == EVMVersion::Mercury {
             if trace {
                 let mut evm = Context::seismic()

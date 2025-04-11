@@ -1,11 +1,17 @@
 use core::fmt;
 use rand_core::RngCore;
-use revm::{precompile::PrecompileError, primitives::{Bytes, B256}};
+use revm::{
+    precompile::PrecompileError,
+    primitives::{Bytes, B256},
+};
 
 use crate::transaction::abstraction::RngMode;
 use seismic_enclave::get_sample_schnorrkel_keypair;
 
-use crate::precompiles::rng::{domain_sep_rng::{LeafRng, RootRng}, precompile::{calculate_fill_cost, calculate_init_cost}};
+use crate::precompiles::rng::{
+    domain_sep_rng::{LeafRng, RootRng},
+    precompile::{calculate_fill_cost, calculate_init_cost},
+};
 
 pub struct RngContainer {
     rng: RootRng,

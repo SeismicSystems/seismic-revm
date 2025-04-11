@@ -84,7 +84,7 @@ impl Reverts {
         state_reverts
     }
 
-        /// Compare two Reverts instances, ignoring the order of elements
+    /// Compare two Reverts instances, ignoring the order of elements
     pub fn content_eq(&self, other: &Self) -> bool {
         if self.0.len() != other.0.len() {
             return false;

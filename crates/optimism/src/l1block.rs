@@ -76,7 +76,9 @@ impl L1BlockInfo {
                 ..Default::default()
             })
         } else {
-            let l1_blob_base_fee = db.storage(L1_BLOCK_CONTRACT, ECOTONE_L1_BLOB_BASE_FEE_SLOT)?.value;
+            let l1_blob_base_fee = db
+                .storage(L1_BLOCK_CONTRACT, ECOTONE_L1_BLOB_BASE_FEE_SLOT)?
+                .value;
             let l1_scalars_u256: U256 = db
                 .storage(L1_BLOCK_CONTRACT, ECOTONE_L1_FEE_SCALARS_SLOT)?
                 .into();

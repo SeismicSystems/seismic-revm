@@ -1,8 +1,13 @@
 use crate::{
-    evm::SeismicEvm, handler::SeismicHandler, instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr, RngContainer, SeismicSpecId
+    evm::SeismicEvm, handler::SeismicHandler,
+    instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr,
+    RngContainer, SeismicSpecId,
 };
 use revm::{
-    context::{result::{HaltReason, InvalidTransaction}, ContextSetters, JournalOutput},
+    context::{
+        result::{HaltReason, InvalidTransaction},
+        ContextSetters, JournalOutput,
+    },
     context_interface::{
         result::{EVMError, ExecutionResult, ResultAndState},
         Cfg, ContextTr, Database, JournalTr,
@@ -30,7 +35,7 @@ impl<T> SeismicContextTr for T where
         Journal: JournalTr<FinalOutput = JournalOutput>,
         Tx: SeismicTxTr,
         Cfg: Cfg<Spec = SeismicSpecId>,
-        Chain= RngContainer
+        Chain = RngContainer,
     >
 {
 }
@@ -113,4 +118,3 @@ where
         })
     }
 }
-

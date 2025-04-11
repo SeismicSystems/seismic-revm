@@ -1,20 +1,25 @@
-use crate::{api::exec::SeismicContextTr, instructions::instruction_provider::SeismicInstructions, precompiles::SeismicPrecompiles};
+use crate::{
+    api::exec::SeismicContextTr, instructions::instruction_provider::SeismicInstructions,
+    precompiles::SeismicPrecompiles,
+};
 use revm::{
     context::{ContextSetters, Evm, EvmData},
-    handler::{
-        instructions::InstructionProvider,
-        EvmTr,
-    },
+    handler::{instructions::InstructionProvider, EvmTr},
     inspector::{InspectorEvmTr, JournalExt},
     interpreter::{interpreter::EthInterpreter, Interpreter, InterpreterAction, InterpreterTypes},
     Inspector,
 };
 
-pub struct SeismicEvm<CTX, INSP, I = SeismicInstructions<EthInterpreter, CTX>, P = SeismicPrecompiles<CTX>>(
-    pub Evm<CTX, INSP, I, P>,
-);
+pub struct SeismicEvm<
+    CTX,
+    INSP,
+    I = SeismicInstructions<EthInterpreter, CTX>,
+    P = SeismicPrecompiles<CTX>,
+>(pub Evm<CTX, INSP, I, P>);
 
-impl<CTX: SeismicContextTr, INSP> SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, SeismicPrecompiles<CTX>> {
+impl<CTX: SeismicContextTr, INSP>
+    SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, SeismicPrecompiles<CTX>>
+{
     pub fn new(ctx: CTX, inspector: INSP) -> Self {
         Self(Evm {
             data: EvmData { ctx, inspector },
@@ -94,4 +99,3 @@ where
         (&mut self.0.data.ctx, &mut self.0.precompiles)
     }
 }
-

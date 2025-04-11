@@ -50,7 +50,7 @@ const SKIP_FILE: [&str; 21] = [
     "base_base_overload.sol",
     "arrays_in_constructors.sol",
     "bytes_in_constructors_packer.sol",
-    "block_coinbase.sol"
+    "block_coinbase.sol",
 ];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {

@@ -216,7 +216,7 @@ impl<CTX: ContextTr> Host for CTX {
             })
             .ok()
     }
-    
+
     /// Get (private) storage value of `address` at `index` and if the account is cold
     fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
         self.journal()
@@ -379,7 +379,7 @@ impl Host for DummyHost {
     ) -> Option<StateLoad<SStoreResult>> {
         None
     }
-    
+
     fn sstore(
         &mut self,
         _address: Address,
@@ -392,7 +392,7 @@ impl Host for DummyHost {
     fn sload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
         None
     }
-    
+
     fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
         None
     }

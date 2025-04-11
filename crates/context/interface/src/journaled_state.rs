@@ -30,7 +30,7 @@ pub trait JournalTr {
         address: Address,
         key: U256,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
-    
+
     /// Returns the private storage value from Journal state.
     ///
     /// Loads the storage from database if not found in Journal state.
@@ -47,7 +47,7 @@ pub trait JournalTr {
         key: U256,
         value: U256,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
-    
+
     /// Stores the storage value in Journal state.
     fn cstore(
         &mut self,
@@ -225,7 +225,7 @@ pub struct StateLoad<T> {
     /// Is account is cold loaded
     pub is_cold: bool,
     /// True if slot was tagged as private.
-    pub is_private: bool
+    pub is_private: bool,
 }
 
 impl<T> Deref for StateLoad<T> {
@@ -245,7 +245,11 @@ impl<T> DerefMut for StateLoad<T> {
 impl<T> StateLoad<T> {
     /// Returns a new [`StateLoad`] with the given data and cold load status.
     pub fn new(data: T, is_cold: bool, is_private: bool) -> Self {
-        Self { data, is_cold , is_private }
+        Self {
+            data,
+            is_cold,
+            is_private,
+        }
     }
 
     /// Maps the data of the [`StateLoad`] to a new value.
