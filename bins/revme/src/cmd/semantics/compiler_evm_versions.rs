@@ -1,14 +1,12 @@
 use std::fmt;
 
-use primitives::hardfork::SpecId;
-use seismic_revm::SeismicSpecId;
+use revm::primitives::SpecId;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum EVMVersion {
     Homestead,
     Byzantium,
     Constantinople,
-    Petersburg,
     Istanbul,
     Berlin,
     London,
@@ -25,7 +23,6 @@ impl EVMVersion {
             "homestead" => Some(Self::Homestead),
             "byzantium" => Some(Self::Byzantium),
             "constantinople" => Some(Self::Constantinople),
-            "petersburg" => Some(Self::Petersburg),
             "istanbul" => Some(Self::Istanbul),
             "berlin" => Some(Self::Berlin),
             "london" => Some(Self::London),
@@ -47,7 +44,6 @@ impl EVMVersion {
             EVMVersion::Berlin => Some("istanbul"),
             EVMVersion::Istanbul => Some("constantinople"),
             EVMVersion::Constantinople => Some("byzantium"),
-            EVMVersion::Petersburg => Some("byzantium"),
             EVMVersion::Byzantium => Some("homestead"),
             EVMVersion::Homestead => None,
         }
@@ -57,7 +53,6 @@ impl EVMVersion {
             EVMVersion::Homestead => Some("byzantium"),
             EVMVersion::Byzantium => Some("constantinople"),
             EVMVersion::Constantinople => Some("istanbul"),
-            EVMVersion::Petersburg => Some("istanbul"),
             EVMVersion::Istanbul => Some("berlin"),
             EVMVersion::Berlin => Some("london"),
             EVMVersion::London => Some("arrowglacier"),
@@ -75,7 +70,6 @@ impl fmt::Display for EVMVersion {
             EVMVersion::Homestead => "homestead",
             EVMVersion::Byzantium => "byzantium",
             EVMVersion::Constantinople => "constantinople",
-            EVMVersion::Petersburg => "petersburg",
             EVMVersion::Istanbul => "istanbul",
             EVMVersion::Berlin => "berlin",
             EVMVersion::London => "london",
@@ -128,31 +122,37 @@ impl EVMVersion {
     }
 }
 
-impl EVMVersion {
-    pub fn to_spec_id(&self) -> SpecId {
-        match self {
+impl From<SpecId> for EVMVersion {
+    fn from(spec_id: SpecId) -> Self {
+        match spec_id {
+            SpecId::HOMESTEAD => EVMVersion::Homestead,
+            SpecId::BYZANTIUM => EVMVersion::Byzantium,
+            SpecId::CONSTANTINOPLE | SpecId::PETERSBURG => EVMVersion::Constantinople,
+            SpecId::ISTANBUL => EVMVersion::Istanbul,
+            SpecId::BERLIN => EVMVersion::Berlin,
+            SpecId::LONDON => EVMVersion::London,
+            SpecId::MERGE => EVMVersion::Paris,
+            SpecId::SHANGHAI => EVMVersion::Shangain,
+            SpecId::CANCUN => EVMVersion::Cancun,
+            SpecId::MERCURY => EVMVersion::Mercury,
+            _ => panic!("Unsupported SpecId for EVMVersion mapping"),
+        }
+    }
+}
+
+impl From<EVMVersion> for SpecId {
+    fn from(version: EVMVersion) -> Self {
+        match version {
             EVMVersion::Homestead => SpecId::HOMESTEAD,
             EVMVersion::Byzantium => SpecId::BYZANTIUM,
-            EVMVersion::Constantinople => SpecId::PETERSBURG,
-            EVMVersion::Petersburg => SpecId::PETERSBURG,
+            EVMVersion::Constantinople => SpecId::CONSTANTINOPLE,
             EVMVersion::Istanbul => SpecId::ISTANBUL,
             EVMVersion::Berlin => SpecId::BERLIN,
             EVMVersion::London => SpecId::LONDON,
             EVMVersion::Paris => SpecId::MERGE,
             EVMVersion::Shangain => SpecId::SHANGHAI,
             EVMVersion::Cancun => SpecId::CANCUN,
-            EVMVersion::Mercury => {
-                panic!("Mercury cannot be converted to a mainnet SpecId. Use to_seismic_spec_id() instead.")
-            }
-        }
-    }
-
-    pub fn to_seismic_spec_id(&self) -> SeismicSpecId {
-        match self {
-            EVMVersion::Mercury => SeismicSpecId::MERCURY,
-            _ => {
-                panic!("Only Mercury can be converted to a SeismicSpecId")
-            }
+            EVMVersion::Mercury => SpecId::MERCURY,
         }
     }
 }

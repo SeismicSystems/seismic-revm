@@ -4,9 +4,10 @@ use super::{
     errors::Errors,
     utils::{count_used_bytes_right, parse_string_with_escapes},
 };
+use alloy_primitives::{keccak256, I256, U256};
 use hex::FromHex;
 use log::error;
-use revm::primitives::{hex, keccak256, Bytes, FixedBytes, I256, U256};
+use revm::primitives::{Bytes, FixedBytes};
 
 pub struct Parser {}
 

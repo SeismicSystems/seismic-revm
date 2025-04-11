@@ -1,15 +1,16 @@
-use crate::{Address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress};
+use crate::{Address, Error, Precompile, PrecompileResult, PrecompileWithAddress};
 cfg_if::cfg_if! {
     if #[cfg(feature = "c-kzg")] {
-        use c_kzg::{Bytes32, Bytes48, KzgProof};
+        use c_kzg::{Bytes32, Bytes48, KzgProof, KzgSettings};
     } else if #[cfg(feature = "kzg-rs")] {
-        use kzg_rs::{Bytes32, Bytes48, KzgProof};
+        use kzg_rs::{Bytes32, Bytes48, KzgProof, KzgSettings};
     }
 }
-use primitives::{hex_literal::hex, Bytes};
+use revm_primitives::{hex_literal::hex, Bytes, Env, PrecompileOutput};
 use sha2::{Digest, Sha256};
 
-pub const POINT_EVALUATION: PrecompileWithAddress = PrecompileWithAddress(ADDRESS, run);
+pub const POINT_EVALUATION: PrecompileWithAddress =
+    PrecompileWithAddress(ADDRESS, Precompile::Env(run));
 
 pub const ADDRESS: Address = crate::u64_to_address(0x0A);
 pub const GAS_COST: u64 = 50_000;
@@ -29,21 +30,21 @@ pub const RETURN_VALUE: &[u8; 64] = &hex!(
 /// | versioned_hash |  z  |  y  | commitment | proof |
 /// |     32         | 32  | 32  |     48     |   48  |
 /// with z and y being padded 32 byte big endian values
-pub fn run(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+pub fn run(input: &Bytes, gas_limit: u64, env: &Env) -> PrecompileResult {
     if gas_limit < GAS_COST {
-        return Err(PrecompileError::OutOfGas);
+        return Err(Error::OutOfGas.into());
     }
 
     // Verify input length.
     if input.len() != 192 {
-        return Err(PrecompileError::BlobInvalidInputLength);
+        return Err(Error::BlobInvalidInputLength.into());
     }
 
     // Verify commitment matches versioned_hash
     let versioned_hash = &input[..32];
     let commitment = &input[96..144];
     if kzg_to_versioned_hash(commitment) != versioned_hash {
-        return Err(PrecompileError::BlobMismatchedVersion);
+        return Err(Error::BlobMismatchedVersion.into());
     }
 
     // Verify KZG proof with z and y in big endian format
@@ -51,8 +52,8 @@ pub fn run(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let z = as_bytes32(&input[32..64]);
     let y = as_bytes32(&input[64..96]);
     let proof = as_bytes48(&input[144..192]);
-    if !verify_kzg_proof(commitment, z, y, proof) {
-        return Err(PrecompileError::BlobVerifyKzgProofFailed);
+    if !verify_kzg_proof(commitment, z, y, proof, env.cfg.kzg_settings.get()) {
+        return Err(Error::BlobVerifyKzgProofFailed.into());
     }
 
     // Return FIELD_ELEMENTS_PER_BLOB and BLS_MODULUS as padded 32 byte big endian values
@@ -68,15 +69,13 @@ pub fn kzg_to_versioned_hash(commitment: &[u8]) -> [u8; 32] {
 }
 
 #[inline]
-pub fn verify_kzg_proof(commitment: &Bytes48, z: &Bytes32, y: &Bytes32, proof: &Bytes48) -> bool {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "c-kzg")] {
-            let kzg_settings = c_kzg::ethereum_kzg_settings();
-        } else if #[cfg(feature = "kzg-rs")] {
-            let env = kzg_rs::EnvKzgSettings::default();
-            let kzg_settings = env.get();
-        }
-    }
+pub fn verify_kzg_proof(
+    commitment: &Bytes48,
+    z: &Bytes32,
+    y: &Bytes32,
+    proof: &Bytes48,
+    kzg_settings: &KzgSettings,
+) -> bool {
     KzgProof::verify_kzg_proof(commitment, z, y, proof, kzg_settings).unwrap_or(false)
 }
 
@@ -106,7 +105,7 @@ mod tests {
 
     #[test]
     fn basic_test() {
-        // Test data from: https://github.com/ethereum/c-kzg-4844/blob/main/tests/verify_kzg_proof/kzg-mainnet/verify_kzg_proof_case_correct_proof_31ebd010e6098750/data.yaml
+        // test data from: https://github.com/ethereum/c-kzg-4844/blob/main/tests/verify_kzg_proof/kzg-mainnet/verify_kzg_proof_case_correct_proof_31ebd010e6098750/data.yaml
 
         let commitment = hex!("8f59a8d2a1a625a17f3fea0fe5eb8c896db3764f3185481bc22f91b4aaffcca25f26936857bc3a7c2539ea8ec3a952b7").to_vec();
         let mut versioned_hash = Sha256::digest(&commitment).to_vec();
@@ -119,7 +118,8 @@ mod tests {
 
         let expected_output = hex!("000000000000000000000000000000000000000000000000000000000000100073eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
         let gas = 50000;
-        let output = run(&input.into(), gas).unwrap();
+        let env = Env::default();
+        let output = run(&input.into(), gas, &env).unwrap();
         assert_eq!(output.gas_used, gas);
         assert_eq!(output.bytes[..], expected_output);
     }

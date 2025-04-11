@@ -1,5 +1,0 @@
-[default]
-extend-ignore-identifiers-re = ["[sS]imular", "ba"]
-
-[files]
-extend-exclude = ["CHANGELOG.md", "tests"]

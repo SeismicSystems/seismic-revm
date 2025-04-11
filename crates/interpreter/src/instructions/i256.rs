@@ -1,10 +1,10 @@
+use crate::primitives::U256;
 use core::cmp::Ordering;
-use primitives::U256;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i8)]
 pub enum Sign {
-    // Same as `cmp::Ordering`
+    // same as `cmp::Ordering`
     Minus = -1,
     Zero = 0,
     #[allow(dead_code)] // "constructed" with `mem::transmute` in `i256_sign` below
@@ -69,7 +69,7 @@ pub fn i256_cmp(first: &U256, second: &U256) -> Ordering {
     let first_sign = i256_sign(first);
     let second_sign = i256_sign(second);
     match first_sign.cmp(&second_sign) {
-        // Note: Adding `if first_sign != Sign::Zero` to short circuit zero comparisons performs
+        // note: adding `if first_sign != Sign::Zero` to short circuit zero comparisons performs
         // slower on average, as of #582
         Ordering::Equal => first.cmp(second),
         o => o,
@@ -88,14 +88,14 @@ pub fn i256_div(mut first: U256, mut second: U256) -> U256 {
         return two_compl(MIN_NEGATIVE_VALUE);
     }
 
-    // Necessary overflow checks are done above, perform the division
+    // necessary overflow checks are done above, perform the division
     let mut d = first / second;
 
-    // Set sign bit to zero
+    // set sign bit to zero
     u256_remove_sign(&mut d);
 
-    // Two's complement only if the signs are different
-    // Note: This condition has better codegen than an exhaustive match, as of #582
+    // two's complement only if the signs are different
+    // note: this condition has better codegen than an exhaustive match, as of #582
     if (first_sign == Sign::Minus && second_sign != Sign::Minus)
         || (second_sign == Sign::Minus && first_sign != Sign::Minus)
     {
@@ -119,7 +119,7 @@ pub fn i256_mod(mut first: U256, mut second: U256) -> U256 {
 
     let mut r = first % second;
 
-    // Set sign bit to zero
+    // set sign bit to zero
     u256_remove_sign(&mut r);
 
     if first_sign == Sign::Minus {
@@ -132,8 +132,8 @@ pub fn i256_mod(mut first: U256, mut second: U256) -> U256 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::primitives::uint;
     use core::num::Wrapping;
-    use primitives::uint;
 
     #[test]
     fn div_i256() {

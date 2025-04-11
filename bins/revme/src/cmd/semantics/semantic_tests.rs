@@ -3,13 +3,14 @@ use std::process::Command;
 
 use log::error;
 use regex::Regex;
-use revm::primitives::{hex, Address, Bytes};
+use revm::primitives::{Address, Bytes, SpecId};
+
+use crate::cmd::semantics::Errors;
 
 use super::{
     compiler_evm_versions::EVMVersion,
     test_cases::TestCase,
     utils::{extract_compile_via_yul, extract_functions_from_source},
-    Errors,
 };
 
 const SKIP_KEYWORD: [&str; 3] = [
@@ -21,7 +22,7 @@ const SKIP_KEYWORD: [&str; 3] = [
 #[derive(Debug, Clone)]
 pub struct ContractInfo {
     pub contract_name: String,
-    pub evm_version: EVMVersion,
+    pub evm_version: SpecId,
     compile_binary: String,
     pub functions: Vec<String>,
     pub is_library: bool,
@@ -33,7 +34,7 @@ impl ContractInfo {
     pub fn new(
         contract_name: String,
         compile_binary: String,
-        evm_version: EVMVersion,
+        evm_version: SpecId,
         is_library: bool,
     ) -> Self {
         Self {
@@ -189,7 +190,7 @@ impl SemanticTests {
     ) -> Result<Vec<ContractInfo>, Errors> {
         let stdout_output = Self::compile_solidity(path, evm_version, via_ir, runtime)?;
 
-        let revm_version = evm_version.unwrap_or(EVMVersion::Mercury);
+        let revm_version: SpecId = evm_version.map(SpecId::from).unwrap_or(SpecId::LATEST);
 
         let mut contract_infos = Vec::new();
 

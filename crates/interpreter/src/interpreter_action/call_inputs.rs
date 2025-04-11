@@ -1,5 +1,6 @@
+use crate::primitives::{Address, Bytes, TxEnv, TxKind, U256};
 use core::ops::Range;
-use primitives::{Address, Bytes, U256};
+use std::boxed::Box;
 
 /// Inputs for a call.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -27,7 +28,7 @@ pub struct CallInputs {
     pub caller: Address,
     /// Call value.
     ///
-    /// **Note**: This value may not necessarily be transferred from caller to callee, see [`CallValue`].
+    /// NOTE: This value may not necessarily be transferred from caller to callee, see [`CallValue`].
     ///
     /// Previously `transfer.value` or `context.apparent_value`.
     pub value: CallValue,
@@ -44,6 +45,35 @@ pub struct CallInputs {
 }
 
 impl CallInputs {
+    /// Creates new call inputs.
+    ///
+    /// Returns `None` if the transaction is not a call.
+    pub fn new(tx_env: &TxEnv, gas_limit: u64) -> Option<Self> {
+        let TxKind::Call(target_address) = tx_env.transact_to else {
+            return None;
+        };
+        Some(CallInputs {
+            input: tx_env.data.clone(),
+            gas_limit,
+            target_address,
+            bytecode_address: target_address,
+            caller: tx_env.caller,
+            value: CallValue::Transfer(tx_env.value),
+            scheme: CallScheme::Call,
+            is_static: false,
+            is_eof: false,
+            return_memory_offset: 0..0,
+            tx_type: tx_env.tx_type,
+        })
+    }
+
+    /// Creates new boxed call inputs.
+    ///
+    /// Returns `None` if the transaction is not a call.
+    pub fn new_boxed(tx_env: &TxEnv, gas_limit: u64) -> Option<Box<Self>> {
+        Self::new(tx_env, gas_limit).map(Box::new)
+    }
+
     /// Returns `true` if the call will transfer a non-zero value.
     #[inline]
     pub fn transfers_value(&self) -> bool {
@@ -84,7 +114,7 @@ impl CallInputs {
 
     /// Returns the call value, regardless of the transfer value type.
     ///
-    /// **Note**: This value may not necessarily be transferred from caller to callee, see [`CallValue`].
+    /// NOTE: this value may not necessarily be transferred from caller to callee, see [`CallValue`].
     #[inline]
     pub const fn call_value(&self) -> U256 {
         self.value.get()

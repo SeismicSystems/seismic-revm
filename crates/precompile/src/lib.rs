@@ -11,12 +11,10 @@ extern crate alloc as std;
 pub mod blake2;
 #[cfg(feature = "blst")]
 pub mod bls12_381;
-pub mod bls12_381_const;
-pub mod bls12_381_utils;
 pub mod bn128;
+pub mod fatal_precompile;
 pub mod hash;
 pub mod identity;
-pub mod interface;
 #[cfg(any(feature = "c-kzg", feature = "kzg-rs"))]
 pub mod kzg_point_evaluation;
 pub mod modexp;
@@ -25,15 +23,21 @@ pub mod secp256k1;
 pub mod secp256r1;
 pub mod utilities;
 
-pub use interface::*;
+pub use fatal_precompile::fatal_precompile;
+
 #[cfg(all(feature = "c-kzg", feature = "kzg-rs"))]
 // silence kzg-rs lint as c-kzg will be used as default if both are enabled.
 use kzg_rs as _;
+pub use primitives::{
+    precompile::{PrecompileError as Error, *},
+    Address, Bytes, HashMap, HashSet, Log, B256,
+};
+#[doc(hidden)]
+pub use revm_primitives as primitives;
 
 use cfg_if::cfg_if;
 use core::hash::Hash;
 use once_cell::race::OnceBox;
-use primitives::{hardfork::SpecId, Address, HashMap, HashSet};
 use std::{boxed::Box, vec::Vec};
 
 pub fn calc_linear_cost_u32(len: usize, base: u64, word: u64) -> u64 {
@@ -46,9 +50,9 @@ pub fn calc_linear_cost(bus: u64, len: usize, base: u64, word: u64) -> u64 {
 
 #[derive(Clone, Default, Debug)]
 pub struct Precompiles {
-    /// Precompiles
-    inner: HashMap<Address, PrecompileFn>,
-    /// Addresses of precompile
+    /// Precompiles.
+    inner: HashMap<Address, Precompile>,
+    /// Addresses of precompile.
     addresses: HashSet<Address>,
 }
 
@@ -82,7 +86,7 @@ impl Precompiles {
     }
 
     /// Returns inner HashMap of precompiles.
-    pub fn inner(&self) -> &HashMap<Address, PrecompileFn> {
+    pub fn inner(&self) -> &HashMap<Address, Precompile> {
         &self.inner
     }
 
@@ -148,10 +152,10 @@ impl Precompiles {
                 if #[cfg(any(feature = "c-kzg", feature = "kzg-rs"))] {
                     let precompile = kzg_point_evaluation::POINT_EVALUATION.clone();
                 } else {
-                    let precompile = PrecompileWithAddress(u64_to_address(0x0A), |_,_| Err(PrecompileError::Fatal("c-kzg feature is not enabled".into())));
+                    // TODO move constants to separate file.
+                    let precompile = fatal_precompile(u64_to_address(0x0A), "c-kzg feature is not enabled".into());
                 }
             }
-
 
             precompiles.extend([
                 precompile,
@@ -165,16 +169,15 @@ impl Precompiles {
     pub fn prague() -> &'static Self {
         static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
         INSTANCE.get_or_init(|| {
-            let mut precompiles = Self::cancun().clone();
+            let precompiles = Self::cancun().clone();
 
-            cfg_if! {
-                  if #[cfg(feature = "blst")] {  // if blst is enabled
-                      let bls = bls12_381::precompiles();
-                  } else {
-                      let bls = bls12_381_utils:: bls12_381_precompiles_not_supported();
-                  }
-            }
-            precompiles.extend(bls);
+            // Don't include BLS12-381 precompiles in no_std builds.
+            #[cfg(feature = "blst")]
+            let precompiles = {
+                let mut precompiles = precompiles;
+                precompiles.extend(bls12_381::precompiles());
+                precompiles
+            };
 
             Box::new(precompiles)
         })
@@ -205,13 +208,13 @@ impl Precompiles {
 
     /// Returns the precompile for the given address.
     #[inline]
-    pub fn get(&self, address: &Address) -> Option<&PrecompileFn> {
+    pub fn get(&self, address: &Address) -> Option<&Precompile> {
         self.inner.get(address)
     }
 
     /// Returns the precompile for the given address.
     #[inline]
-    pub fn get_mut(&mut self, address: &Address) -> Option<&mut PrecompileFn> {
+    pub fn get_mut(&mut self, address: &Address) -> Option<&mut Precompile> {
         self.inner.get_mut(address)
     }
 
@@ -235,56 +238,22 @@ impl Precompiles {
     /// Other precompiles with overwrite existing precompiles.
     #[inline]
     pub fn extend(&mut self, other: impl IntoIterator<Item = PrecompileWithAddress>) {
-        let items: Vec<PrecompileWithAddress> = other.into_iter().collect::<Vec<_>>();
+        let items = other.into_iter().collect::<Vec<_>>();
         self.addresses.extend(items.iter().map(|p| *p.address()));
-        self.inner.extend(items.into_iter().map(|p| (p.0, p.1)));
-    }
-
-    /// Returns complement of `other` in `self`.
-    ///
-    /// Two entries are considered equal if the precompile addresses are equal.
-    pub fn difference(&self, other: &Self) -> Self {
-        let Self { inner, .. } = self;
-
-        let inner = inner
-            .iter()
-            .filter(|(a, _)| !other.inner.contains_key(*a))
-            .map(|(a, p)| (*a, *p))
-            .collect::<HashMap<_, _>>();
-
-        let addresses = inner.keys().cloned().collect::<HashSet<_>>();
-
-        Self { inner, addresses }
-    }
-
-    /// Returns intersection of `self` and `other`.
-    ///
-    /// Two entries are considered equal if the precompile addresses are equal.
-    pub fn intersection(&self, other: &Self) -> Self {
-        let Self { inner, .. } = self;
-
-        let inner = inner
-            .iter()
-            .filter(|(a, _)| other.inner.contains_key(*a))
-            .map(|(a, p)| (*a, *p))
-            .collect::<HashMap<_, _>>();
-
-        let addresses = inner.keys().cloned().collect::<HashSet<_>>();
-
-        Self { inner, addresses }
+        self.inner.extend(items.into_iter().map(Into::into));
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct PrecompileWithAddress(pub Address, pub PrecompileFn);
+pub struct PrecompileWithAddress(pub Address, pub Precompile);
 
-impl From<(Address, PrecompileFn)> for PrecompileWithAddress {
-    fn from(value: (Address, PrecompileFn)) -> Self {
+impl From<(Address, Precompile)> for PrecompileWithAddress {
+    fn from(value: (Address, Precompile)) -> Self {
         PrecompileWithAddress(value.0, value.1)
     }
 }
 
-impl From<PrecompileWithAddress> for (Address, PrecompileFn) {
+impl From<PrecompileWithAddress> for (Address, Precompile) {
     fn from(value: PrecompileWithAddress) -> Self {
         (value.0, value.1)
     }
@@ -299,7 +268,7 @@ impl PrecompileWithAddress {
 
     /// Returns reference of precompile.
     #[inline]
-    pub fn precompile(&self) -> &PrecompileFn {
+    pub fn precompile(&self) -> &Precompile {
         &self.1
     }
 }
@@ -315,16 +284,10 @@ pub enum PrecompileSpecId {
     LATEST,
 }
 
-impl From<SpecId> for PrecompileSpecId {
-    fn from(spec_id: SpecId) -> Self {
-        Self::from_spec_id(spec_id)
-    }
-}
-
 impl PrecompileSpecId {
-    /// Returns the appropriate precompile Spec for the primitive [SpecId].
-    pub const fn from_spec_id(spec_id: primitives::hardfork::SpecId) -> Self {
-        use primitives::hardfork::SpecId::*;
+    /// Returns the appropriate precompile Spec for the primitive [SpecId](revm_primitives::SpecId)
+    pub const fn from_spec_id(spec_id: revm_primitives::SpecId) -> Self {
+        use revm_primitives::SpecId::*;
         match spec_id {
             FRONTIER | FRONTIER_THAWING | HOMESTEAD | DAO_FORK | TANGERINE | SPURIOUS_DRAGON => {
                 Self::HOMESTEAD
@@ -335,37 +298,24 @@ impl PrecompileSpecId {
             CANCUN => Self::CANCUN,
             PRAGUE | OSAKA => Self::PRAGUE,
             LATEST => Self::LATEST,
+            #[cfg(feature = "optimism")]
+            BEDROCK | REGOLITH | CANYON => Self::BERLIN,
+            #[cfg(feature = "optimism")]
+            ECOTONE | FJORD | GRANITE | HOLOCENE => Self::CANCUN,
+            #[cfg(feature = "seismic")]
+            MERCURY => Self::PRAGUE,
         }
     }
 }
 
 /// Const function for making an address by concatenating the bytes from two given numbers.
 ///
-/// Note that 32 + 128 = 160 = 20 bytes (the length of an address).
-///
-/// This function is used as a convenience for specifying the addresses of the various precompiles.
+/// Note that 32 + 128 = 160 = 20 bytes (the length of an address). This function is used
+/// as a convenience for specifying the addresses of the various precompiles.
 #[inline]
 pub const fn u64_to_address(x: u64) -> Address {
     let x = x.to_be_bytes();
     Address::new([
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7],
     ])
-}
-
-#[cfg(test)]
-mod test {
-    use crate::Precompiles;
-
-    #[test]
-    fn test_difference_precompile_sets() {
-        let difference = Precompiles::istanbul().difference(Precompiles::berlin());
-        assert!(difference.is_empty());
-    }
-
-    #[test]
-    fn test_intersection_precompile_sets() {
-        let intersection = Precompiles::homestead().intersection(Precompiles::byzantium());
-
-        assert_eq!(intersection.len(), 4)
-    }
 }

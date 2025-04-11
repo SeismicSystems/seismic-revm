@@ -1,4 +1,4 @@
-name: Eth
+name: Ethereum Tests
 
 concurrency:
   cancel-in-progress: true
@@ -6,12 +6,13 @@ concurrency:
 
 on:
   push:
-    branches: [seismic, "release/**"]
+    branches: [main, "release/**"]
   pull_request:
-    branches: [seismic, "release/**"]
+    branches: [main, "release/**"]
 
 jobs:
-  test:
+  tests-stable:
+    name: Ethereum Tests (Stable)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -39,16 +40,18 @@ jobs:
       - name: Install cross
         run: cargo install cross
 
-      - name: Statetests
+      - name: Run Ethereum tests
         run: |
           cross run --target ${{matrix.target}} --profile ${{ matrix.profile }} -p revme -- statetest \
             ethtests/GeneralStateTests/ \
             ethtests/LegacyTests/Constantinople/GeneralStateTests/ \
-            tests/eof/state_tests \
-            tests/stable/state_tests \
-            tests/develop/state_tests
-      - name: EOF validation
+            ethtests/EIPTests/StateTests/stEIP1153-transientStorage/ \
+            ethtests/EIPTests/StateTests/stEIP4844-blobtransactions/ \
+            ethtests/EIPTests/StateTests/stEIP2537/ \
+            tests/eof_suite/eest/state_tests \
+            tests/prague_suite/state_tests
+      - name: Run EOF validation tests
         run: |
           cross run --target ${{matrix.target}} --profile ${{ matrix.profile }} -p revme -- eof-validation \
-          tests/eof/eof_tests
+          tests/eof_suite/eest/eof_tests/osaka
 
