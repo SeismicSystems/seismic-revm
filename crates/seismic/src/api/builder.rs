@@ -13,10 +13,10 @@ pub trait SeismicBuilder: Sized {
     /// Type of the context.
     type Context: SeismicContextTr;
 
-    /// Build the op.
+    /// Build seismic.
     fn build_seismic(self) -> SeismicEvm<Self::Context, (), SeismicInstructions<EthInterpreter, Self::Context>>;
 
-    /// Build the op with an inspector.
+    /// Build seismic with an inspector.
     fn build_seismic_with_inspector<INSP>(
         self,
         inspector: INSP,

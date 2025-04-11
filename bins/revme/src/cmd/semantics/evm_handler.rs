@@ -216,7 +216,7 @@ impl EvmExecutor {
 
     pub(crate) fn execute_function_call(
         &mut self,
-        function_name: &str,
+        _function_name: &str,
         input_data: &Bytes,
         expected_outputs: &ExpectedOutputs,
         trace: bool,
