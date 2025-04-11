@@ -1,16 +1,16 @@
 use evm_handler::{EvmConfig, EvmExecutor};
 use revm::{
-    db::{CacheDB, EmptyDB},
-    primitives::{AccountInfo, Bytes, U256},
+    database::{CacheDB, EmptyDB},
+    primitives::U256,
 };
 
 use log::{info, LevelFilter};
 use rayon::prelude::*;
+use state::AccountInfo;
 use std::path::PathBuf;
 use std::time::Instant;
-use structopt::StructOpt;
 
-extern crate alloc;
+use clap::{ArgAction, Parser};
 
 mod errors;
 pub use errors::Errors;
@@ -26,22 +26,27 @@ use utils::find_test_files;
 /// EVM runner command that allows running Solidity semantic tests.
 /// If a path is provided, it will process that file or recursively process all `.sol` files in that directory.
 /// If no path is provided, it defaults to the Solidity semantic tests directory.
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 pub struct Cmd {
-    /// Path to a Solidity file or directory containing Solidity files. If no file is provided, it will default to the Solidity semantic tests directory.
-    #[structopt(long)]
+    /// Path to a Solidity file or directory containing Solidity files. If no file is provided,
+    /// it will default to the Solidity semantic tests directory.
+    #[clap(long)]
     path: Option<PathBuf>,
+
     /// Print the trace.
-    #[structopt(long)]
+    #[clap(long)]
     trace: bool,
+
     /// Increase output verbosity. Can be used multiple times. For example `-vvv` will set the log level to `TRACE`.
-    #[structopt(short, long, parse(from_occurrences))]
-    verbose: usize,
+    #[clap(short, long, action = ArgAction::Count)]
+    verbose: u8,
+
     /// Run tests in a single thread.
-    #[structopt(short = "s", long)]
+    #[clap(short = 's', long)]
     single_thread: bool,
+
     /// Will not return on failure.
-    #[structopt(long, alias = "no-fail-fast")]
+    #[clap(long, alias = "no-fail-fast")]
     keep_going: bool,
 }
 
@@ -130,10 +135,9 @@ impl Cmd {
                         }
                     };
                     evm_executor.config.block_number =
-                        evm_executor.config.block_number.wrapping_add(U256::from(1));
+                        evm_executor.config.block_number.wrapping_add(1);
 
-                    evm_executor.config.timestamp =
-                        evm_executor.config.timestamp.wrapping_add(U256::from(15));
+                    evm_executor.config.timestamp = evm_executor.config.timestamp.wrapping_add(15);
                 }
             }
             Err(Errors::UnhandledTestFormat) => {
