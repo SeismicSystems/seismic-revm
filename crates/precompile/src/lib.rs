@@ -335,8 +335,6 @@ impl PrecompileSpecId {
             CANCUN => Self::CANCUN,
             PRAGUE | OSAKA => Self::PRAGUE,
             LATEST => Self::LATEST,
-            #[cfg(feature = "seismic")]
-            MERCURY => Self::PRAGUE,
         }
     }
 }

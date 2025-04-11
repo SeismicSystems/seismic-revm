@@ -6,9 +6,9 @@ concurrency:
 
 on:
   push:
-    branches: [main, "release/**"]
+    branches: [seismic "release/**"]
   pull_request:
-    branches: [main, "release/**"]
+    branches: [seismic, "release/**"]
 
 env:
   CARGO_TERM_COLOR: always

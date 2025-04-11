@@ -3,7 +3,7 @@ use core::future::Future;
 use crate::{DBErrorMarker, Database, DatabaseRef};
 use core::error::Error;
 use primitives::{Address, B256, U256};
-use state::{AccountInfo, Bytecode};
+use state::{AccountInfo, Bytecode, FlaggedStorage};
 use tokio::runtime::{Handle, Runtime};
 
 /// The async EVM database interface
@@ -32,7 +32,7 @@ pub trait DatabaseAsync {
         &mut self,
         address: Address,
         index: U256,
-    ) -> impl Future<Output = Result<U256, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<FlaggedStorage, Self::Error>> + Send;
 
     /// Gets block hash by block number.
     fn block_hash_async(
@@ -67,7 +67,7 @@ pub trait DatabaseAsyncRef {
         &self,
         address: Address,
         index: U256,
-    ) -> impl Future<Output = Result<U256, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<FlaggedStorage, Self::Error>> + Send;
 
     /// Gets block hash by block number.
     fn block_hash_async_ref(
@@ -134,7 +134,7 @@ impl<T: DatabaseAsync> Database for WrapDatabaseAsync<T> {
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.rt.block_on(self.db.storage_async(address, index))
     }
 
@@ -158,7 +158,7 @@ impl<T: DatabaseAsyncRef> DatabaseRef for WrapDatabaseAsync<T> {
     }
 
     #[inline]
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.rt.block_on(self.db.storage_async_ref(address, index))
     }
 

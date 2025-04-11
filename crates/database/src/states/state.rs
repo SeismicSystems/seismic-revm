@@ -379,8 +379,8 @@ mod tests {
             ..Default::default()
         };
         let existing_account_initial_storage = HashMap::<U256, FlaggedStorage>::from_iter([
-            (slot1, U256::from(100)), // 0x01 => 100
-            (slot2, U256::from(200)), // 0x02 => 200
+            (slot1, FlaggedStorage::new_from_value(U256::from(100))), // 0x01 => 100
+            (slot2, FlaggedStorage::new_from_value(U256::from(100))), // 0x02 => 200
         ]);
         let existing_account_changed_info = AccountInfo {
             nonce: 2,

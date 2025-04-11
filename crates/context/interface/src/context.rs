@@ -1,7 +1,6 @@
 pub use crate::journaled_state::StateLoad;
 use crate::{Block, Cfg, Database, JournalTr, Transaction};
 use auto_impl::auto_impl;
-use primitives::U256;
 use state::FlaggedStorage;
 use std::string::String;
 
@@ -80,19 +79,19 @@ impl SStoreResult {
     /// Returns `true` if the new value is equal to the present value.
     #[inline]
     pub fn is_new_eq_present(&self) -> bool {
-        self.new_value == self.present_value
+        self.new_value.value == self.present_value.value
     }
 
     /// Returns `true` if the original value is equal to the present value.
     #[inline]
     pub fn is_original_eq_present(&self) -> bool {
-        self.original_value == self.present_value
+        self.original_value.value == self.present_value.value
     }
 
     /// Returns `true` if the original value is equal to the new value.
     #[inline]
     pub fn is_original_eq_new(&self) -> bool {
-        self.original_value == self.new_value
+        self.original_value.value == self.new_value.value
     }
 
     /// Returns `true` if the original value is zero.
