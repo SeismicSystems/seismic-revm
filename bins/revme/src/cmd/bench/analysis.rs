@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use criterion::Criterion;
 use database::{BenchmarkDB, BENCH_CALLER, BENCH_TARGET};
 use revm::{
