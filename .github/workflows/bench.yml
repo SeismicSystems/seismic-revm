@@ -2,9 +2,9 @@ name: Benchmark
 
 on:
   push:
-    branches: [seismic]
+    branches: [main]
   pull_request:
-    branches: [seismic]
+    branches: [main]
   workflow_dispatch:
 
 env:

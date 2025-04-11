@@ -6,9 +6,9 @@ concurrency:
 
 on:
   push:
-    branches: [seismic]
+    branches: [main]
   pull_request:
-    branches: [seismic]
+    branches: [main]
   merge_group:
 
 jobs:
