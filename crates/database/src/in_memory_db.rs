@@ -473,9 +473,8 @@ impl Database for BenchmarkDB {
 
 #[cfg(test)]
 mod tests {
-    use super::{CacheDB, EmptyDB};
+    use super::*;
     use database_interface::Database;
-    use primitives::{Address, HashMap, U256, FlaggedStorage};
     use state::AccountInfo;
 
     #[test]

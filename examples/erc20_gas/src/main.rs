@@ -16,7 +16,7 @@ use revm::{
     database::{AlloyDB, BlockId, CacheDB},
     database_interface::WrapDatabaseAsync,
     primitives::{address, hardfork::SpecId, keccak256, Address, TxKind, KECCAK_EMPTY, U256},
-    state::AccountInfo,
+    state::{AccountInfo, FlaggedStorage},
     Context, Database, MainBuilder, MainContext,
 };
 
@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
     let balance_slot = erc_address_storage(account);
     println!("Balance slot: {balance_slot}");
     cache_db
-        .insert_account_storage(TOKEN, balance_slot, hundred_tokens * U256::from(2))
+        .insert_account_storage(TOKEN, balance_slot, FlaggedStorage::new_from_value(hundred_tokens * U256::from(2)))
         .unwrap();
     cache_db.insert_account_info(
         account,
@@ -61,14 +61,14 @@ async fn main() -> Result<()> {
         },
     );
 
-    let balance_before = balance_of(account, &mut cache_db).unwrap();
+    let balance_before = balance_of(account, &mut cache_db).unwrap().value;
     println!("Balance before: {balance_before}");
 
     // Transfer 100 tokens from account to account_to
     // Magic happens here with custom handlers
     transfer(account, account_to, hundred_tokens, &mut cache_db)?;
 
-    let balance_after = balance_of(account, &mut cache_db)?;
+    let balance_after = balance_of(account, &mut cache_db)?.value;
     println!("Balance after: {balance_after}");
 
     Ok(())
@@ -111,7 +111,7 @@ where
     Ok(())
 }
 
-fn balance_of(address: Address, alloy_db: &mut AlloyCacheDB) -> Result<U256> {
+fn balance_of(address: Address, alloy_db: &mut AlloyCacheDB) -> Result<FlaggedStorage> {
     let slot = erc_address_storage(address);
     alloy_db.storage(TOKEN, slot).map_err(From::from)
 }

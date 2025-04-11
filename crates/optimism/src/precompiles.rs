@@ -9,7 +9,7 @@ use revm::{
         self, bn128, secp256r1, PrecompileError, Precompiles,
         PrecompileResult,
     },
-    primitives::Bytes,
+    primitives::{Bytes, Address},
 };
 use std::boxed::Box;
 use std::string::String;
@@ -129,6 +129,8 @@ impl Default for OpPrecompiles {
 }
 
 pub mod bn128_pair {
+    use precompile::PrecompileWithAddress;
+
     use super::*;
 
     pub const GRANITE_MAX_INPUT_SIZE: usize = 112687;

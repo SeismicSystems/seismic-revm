@@ -3,14 +3,7 @@
 
 use anyhow::{anyhow, bail};
 use revm::{
-    bytecode::opcode,
-    context::Context,
-    context_interface::result::{ExecutionResult, Output},
-    database::CacheDB,
-    database_interface::EmptyDB,
-    handler::EvmTr,
-    primitives::{hex, Bytes, TxKind, U256},
-    ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext,
+    bytecode::opcode, context::Context, context_interface::result::{ExecutionResult, Output}, database::CacheDB, database_interface::EmptyDB, handler::EvmTr, primitives::{hex, Bytes, TxKind, U256}, state::FlaggedStorage, ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext
 };
 
 /// Load number parameter and set to storage with slot 0
@@ -86,6 +79,6 @@ fn main() -> anyhow::Result<()> {
     };
 
     println!("storage U256(0) at {address}:  {storage0:#?}");
-    assert_eq!(storage0.present_value(), param.try_into()?, "{result:#?}");
+    assert_eq!(storage0.present_value(), FlaggedStorage::new_from_value(param), "{result:#?}");
     Ok(())
 }

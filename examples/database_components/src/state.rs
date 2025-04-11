@@ -4,7 +4,7 @@ use auto_impl::auto_impl;
 use core::ops::Deref;
 use revm::{
     primitives::{Address, B256, U256},
-    state::{AccountInfo, Bytecode},
+    state::{AccountInfo, Bytecode, FlaggedStorage},
 };
 use std::{error::Error as StdError, sync::Arc};
 
