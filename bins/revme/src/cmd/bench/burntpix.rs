@@ -1,5 +1,6 @@
-pub mod static_data;
+    letpub mod static_data;
 
+use criterion::Criterion;
 use static_data::{
     BURNTPIX_ADDRESS_ONE, BURNTPIX_ADDRESS_THREE, BURNTPIX_ADDRESS_TWO, BURNTPIX_BYTECODE_FOUR,
     BURNTPIX_BYTECODE_ONE, BURNTPIX_BYTECODE_THREE, BURNTPIX_BYTECODE_TWO, BURNTPIX_MAIN_ADDRESS,
@@ -9,17 +10,15 @@ use static_data::{
 use alloy_sol_types::{sol, SolCall};
 use database::{CacheDB, BENCH_CALLER};
 use revm::{
-    context_interface::result::{ExecutionResult, Output},
     database_interface::EmptyDB,
     primitives::{hex, keccak256, Address, Bytes, TxKind, B256, U256},
     state::{AccountInfo, Bytecode},
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
 
-use std::fs::File;
-use std::{error::Error, time::Instant};
+use std::{error::Error, fs::File, io::Write};
 
-use std::{io::Write, str::FromStr};
+use std::str::FromStr;
 
 sol! {
     #[derive(Debug, PartialEq, Eq)]
@@ -28,8 +27,8 @@ sol! {
     }
 }
 
-pub fn run() {
-    let (seed, iterations) = try_init_env_vars().expect("Failed to parse env vars");
+pub fn run(criterion: &mut Criterion) {
+    (seed, iterations) = try_init_env_vars().expect("Failed to parse env vars");
 
     let run_call_data = IBURNTPIX::runCall { seed, iterations }.abi_encode();
 

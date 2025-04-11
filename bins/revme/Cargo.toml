@@ -26,6 +26,7 @@ context-interface.workspace = true
 handler.workspace = true
 inspector = { workspace = true, features = ["std", "serde-json"] }
 statetest-types.workspace = true
+criterion.workspace = true
 
 #seismic
 seismic-revm = { path = "../../crates/seismic", default-features = true }
