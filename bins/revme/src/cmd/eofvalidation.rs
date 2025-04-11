@@ -3,24 +3,24 @@ mod test_suite;
 pub use test_suite::{TestResult, TestSuite, TestUnit, TestVector};
 
 use crate::{cmd::Error, dir_utils::find_all_json_tests};
-use clap::Parser;
-use revm::bytecode::eof::{validate_raw_eof_inner, CodeType, EofError};
+use revm::interpreter::analysis::{validate_raw_eof_inner, CodeType, EofError};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use structopt::StructOpt;
 
-/// `eof-validation` subcommand
-#[derive(Parser, Debug)]
+/// Eof validation command.
+#[derive(StructOpt, Debug)]
 pub struct Cmd {
-    /// Input paths to EOF validation tests
-    #[arg(required = true, num_args = 1..)]
-    paths: Vec<PathBuf>,
+    /// Input path to eof validation test
+    #[structopt(required = true)]
+    path: Vec<PathBuf>,
 }
 
 impl Cmd {
-    /// Runs statetest command.
+    /// Run statetest command.
     pub fn run(&self) -> Result<(), Error> {
-        // Check if path exists.
-        for path in &self.paths {
+        // check if path exists.
+        for path in &self.path {
             if !path.exists() {
                 return Err(Error::Custom("The specified path does not exist"));
             }
@@ -31,7 +31,7 @@ impl Cmd {
 }
 
 fn skip_test(name: &str) -> bool {
-    // Embedded containers rules changed
+    // embedded containers rules changed
     if name.starts_with("EOF1_embedded_container") {
         return true;
     }
@@ -39,7 +39,7 @@ fn skip_test(name: &str) -> bool {
         name,
         "EOF1_undefined_opcodes_186"
         | ""
-        // Truncated data is only allowed in embedded containers
+        // truncated data is only allowed in embedded containers
         | "validInvalid_48"
         | "validInvalid_1"
         | "EOF1_truncated_section_3"
@@ -68,7 +68,7 @@ pub fn run_test(path: &Path) -> Result<(), Error> {
     }
     let mut types_of_error: BTreeMap<ErrorType, usize> = BTreeMap::new();
     for test_file in test_files {
-        let s = std::fs::read_to_string(&test_file).unwrap();
+        let s = std::fs::read_to_string(test_file).unwrap();
         let suite: TestSuite = serde_json::from_str(&s).unwrap();
         for (name, test_unit) in suite.0 {
             for (vector_name, test_vector) in test_unit.vectors {
@@ -76,11 +76,10 @@ pub fn run_test(path: &Path) -> Result<(), Error> {
                     continue;
                 }
                 test_sum += 1;
-                let kind = match test_vector.container_kind.as_deref() {
-                    Some("RUNTIME") => CodeType::Runtime,
-                    Some("INITCODE") => CodeType::Initcode,
-                    None => CodeType::Runtime,
-                    _ => return Err(Error::Custom("Invalid container kind")),
+                let kind = if test_vector.container_kind.is_some() {
+                    Some(CodeType::ReturnContract)
+                } else {
+                    Some(CodeType::ReturnOrStop)
                 };
                 // In future this can be generalized to cover multiple forks, Not just Osaka.
                 let Some(test_result) = test_vector.results.get("Osaka") else {
@@ -88,16 +87,14 @@ pub fn run_test(path: &Path) -> Result<(), Error> {
                     println!("Test without result: {} - {}", name, vector_name);
                     continue;
                 };
-                let res = validate_raw_eof_inner(test_vector.code.clone(), Some(kind));
+                let res = validate_raw_eof_inner(test_vector.code.clone(), kind);
                 if test_result.result != res.is_ok() {
                     println!(
-                        "\nTest failed: {} - {}\nPath:{:?}\nresult:{:?}\nrevm err_result:{:#?}\nExpected exception:{:?}\nbytes:{:?}\n",
+                        "\nTest failed: {} - {}\nresult:{:?}\nrevm err_result:{:#?}\nbytes:{:?}\n",
                         name,
                         vector_name,
-                        test_file,
                         test_result.result,
                         res.as_ref().err(),
-                        test_result.exception,
                         test_vector.code
                     );
                     *types_of_error
