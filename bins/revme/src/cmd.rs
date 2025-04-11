@@ -53,7 +53,7 @@ impl MainCmd {
             Self::Bench(cmd) => {
                 cmd.run();
             }
-            Self::Semantics(cmd) => cmd.run().map_err(Into::into),
+            Self::Semantics(cmd) => cmd.run()?,
         }
         Ok(())
     }

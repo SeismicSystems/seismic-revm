@@ -15,7 +15,6 @@ revm = { workspace = true, features = [
     "hashbrown",
     "c-kzg",
     "blst",
-    "seismic",
     "serde-json",] }
 primitives.workspace = true
 database.workspace = true
@@ -27,6 +26,9 @@ context-interface.workspace = true
 handler.workspace = true
 inspector = { workspace = true, features = ["std", "serde-json"] }
 statetest-types.workspace = true
+
+#seismic
+seismic-revm = { path = "../../crates/seismic", default-features = true }
 
 # alloy
 alloy-rlp = { workspace = true, features = ["arrayvec", "derive"] }
@@ -44,6 +46,11 @@ thiserror.workspace = true
 triehash.workspace = true
 walkdir.workspace = true
 k256 = { workspace = true, features = ["ecdsa"] }
+log = "0.4"
+env_logger = "0.9"
+rayon = "1.5"
+regex = "1.11.1"
+structopt = "0.3"
 
 [dev-dependencies]
 criterion.workspace = true

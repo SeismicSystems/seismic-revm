@@ -1,8 +1,7 @@
-use crate::{transaction::abstraction::SeismicTxTr, RngContainer, SeismicEvm, SeismicSpecId};
+use crate::{instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr, RngContainer, SeismicEvm, SeismicSpecId};
 use revm::{
     context::{Cfg, JournalOutput},
     context_interface::{Block, JournalTr},
-    handler::instructions::EthInstructions,
     interpreter::interpreter::EthInterpreter,
     Context, Database,
 };
@@ -15,13 +14,13 @@ pub trait SeismicBuilder: Sized {
     type Context: SeismicContextTr;
 
     /// Build the op.
-    fn build_seismic(self) -> SeismicEvm<Self::Context, (), EthInstructions<EthInterpreter, Self::Context>>;
+    fn build_seismic(self) -> SeismicEvm<Self::Context, (), SeismicInstructions<EthInterpreter, Self::Context>>;
 
     /// Build the op with an inspector.
     fn build_seismic_with_inspector<INSP>(
         self,
         inspector: INSP,
-    ) -> SeismicEvm<Self::Context, INSP, EthInstructions<EthInterpreter, Self::Context>>;
+    ) -> SeismicEvm<Self::Context, INSP, SeismicInstructions<EthInterpreter, Self::Context>>;
 }
 
 impl<BLOCK, TX, CFG, DB, JOURNAL> SeismicBuilder for Context<BLOCK, TX, CFG, DB, JOURNAL, RngContainer>
@@ -34,14 +33,14 @@ where
 {
     type Context = Self;
 
-    fn build_seismic(self) -> SeismicEvm<Self::Context, (), EthInstructions<EthInterpreter, Self::Context>> {
+    fn build_seismic(self) -> SeismicEvm<Self::Context, (), SeismicInstructions<EthInterpreter, Self::Context>> {
         SeismicEvm::new(self, ())
     }
 
     fn build_seismic_with_inspector<INSP>(
         self,
         inspector: INSP,
-    ) -> SeismicEvm<Self::Context, INSP, EthInstructions<EthInterpreter, Self::Context>> {
+    ) -> SeismicEvm<Self::Context, INSP, SeismicInstructions<EthInterpreter, Self::Context>> {
         SeismicEvm::new(self, inspector)
     }
 }
