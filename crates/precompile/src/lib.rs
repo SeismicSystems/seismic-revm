@@ -40,10 +40,6 @@ pub fn calc_linear_cost_u32(len: usize, base: u64, word: u64) -> u64 {
     (len as u64).div_ceil(32) * word + base
 }
 
-pub fn calc_linear_cost(bus: u64, len: usize, base: u64, word: u64) -> u64 {
-    (len as u64).div_ceil(bus) * word + base
-}
-
 #[derive(Clone, Default, Debug)]
 pub struct Precompiles {
     /// Precompiles

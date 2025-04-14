@@ -46,3 +46,8 @@ pub(crate) fn validate_gas_limit(cost: u64, gas_limit: u64) -> Result<(), Precom
     }
     Ok(())
 }
+
+pub fn calc_linear_cost(bus: u64, len: usize, base: u64, word: u64) -> u64 {
+    (len as u64).div_ceil(bus) * word + base
+}
+

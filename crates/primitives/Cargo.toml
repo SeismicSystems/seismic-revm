@@ -31,6 +31,7 @@ enumn.workspace = true
 # Optional
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 
+
 [features]
 default = ["std"]
 std = [

@@ -91,7 +91,7 @@ impl CacheAccount {
         )
     }
 
-    /// Return storage slot if it exist.
+    /// Returns storage slot if it exists.
     pub fn storage_slot(&self, slot: U256) -> Option<FlaggedStorage> {
         self.account
             .as_ref()
