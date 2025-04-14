@@ -1,4 +1,4 @@
-use revm::precompile::{calc_linear_cost, PrecompileError};
+use revm::precompile::PrecompileError;
 
 /// The below gas cost are very rough estimates.
 /// Overhead cost for AES-GCM setup & finalization. We intentionally overprice to stay safe.
@@ -40,14 +40,13 @@ pub(crate) fn calculate_cost(ciphertext_len: usize) -> u64 {
     calc_linear_cost(16, ciphertext_len, AES_GCM_BASE, AES_GCM_PER_BLOCK)
 }
 
+fn calc_linear_cost(bus: u64, len: usize, base: u64, word: u64) -> u64 {
+    (len as u64).div_ceil(bus) * word + base
+}
+
 pub(crate) fn validate_gas_limit(cost: u64, gas_limit: u64) -> Result<(), PrecompileError> {
     if cost > gas_limit {
         return Err(PrecompileError::OutOfGas);
     }
     Ok(())
 }
-
-pub fn calc_linear_cost(bus: u64, len: usize, base: u64, word: u64) -> u64 {
-    (len as u64).div_ceil(bus) * word + base
-}
-
