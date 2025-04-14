@@ -50,8 +50,6 @@ std = [
 	"primitives/std",
 	"state/std"
 ]
-
-
 hashbrown = ["interpreter/hashbrown", "precompile/hashbrown"]
 serde = [
 	"interpreter/serde",
