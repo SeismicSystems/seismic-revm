@@ -1,4 +1,3 @@
-use criterion::Criterion;
 use database::{BenchmarkDB, BENCH_CALLER, BENCH_TARGET};
 use revm::{
     bytecode::Bytecode,
@@ -6,9 +5,7 @@ use revm::{
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
 
-pub fn run(criterion: &mut Criterion) {
-    let bytecode = Bytecode::new_raw(Bytes::from(hex::decode(BYTES).unwrap()));
-
+pub fn simple_example(bytecode: Bytecode) {
     let mut evm = Context::mainnet()
         .with_db(BenchmarkDB::new_bytecode(bytecode.clone()))
         .modify_tx_chained(|tx| {
@@ -19,11 +16,16 @@ pub fn run(criterion: &mut Criterion) {
             tx.gas_limit = 1_000_000_000;
         })
         .build_mainnet();
-    criterion.bench_function("snailtracer", |b| {
-        b.iter(|| {
-            let _ = evm.replay().unwrap();
-        })
-    });
+    let _ = evm.replay().unwrap();
+}
+
+pub fn run() {
+    println!("Running snailtracer example!");
+    let bytecode = Bytecode::new_raw(Bytes::from(hex::decode(BYTES).unwrap()));
+    let start = std::time::Instant::now();
+    simple_example(bytecode);
+    let elapsed = start.elapsed();
+    println!("elapsed: {:?}", elapsed);
 }
 
 const BYTES: &str = include_str!("snailtracer.hex");

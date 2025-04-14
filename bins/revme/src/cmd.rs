@@ -18,7 +18,7 @@ pub enum MainCmd {
     /// Run arbitrary EVM bytecode.
     Evm(evmrunner::Cmd),
     Semantics(semantics::Cmd),
-    #[structopt(alias = "bc", about = "Prints the opcodes of an hex Bytecodes.")]
+    /// Print the structure of an EVM bytecode.
     Bytecode(bytecode::Cmd),
     /// Run bench from specified list.
     Bench(bench::Cmd),
