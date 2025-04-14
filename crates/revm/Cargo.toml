@@ -1,6 +1,6 @@
 [package]
 name = "revm"
-description = "Seismic Revm - Rust Ethereum Virtual Machine"
+description = "Revm - Rust Ethereum Virtual Machine"
 version = "20.0.0"
 authors.workspace = true
 edition.workspace = true
@@ -36,8 +36,7 @@ context-interface.workspace = true
 handler.workspace = true
 
 [features]
-default = ["std", "c-kzg", "secp256k1", "portable", "blst", "seismic"]
-seismic = []
+default = ["std", "c-kzg", "secp256k1", "portable", "blst"]
 std = [
 	"interpreter/std",
 	"precompile/std",
@@ -51,6 +50,7 @@ std = [
 	"primitives/std",
 	"state/std"
 ]
+
 
 hashbrown = ["interpreter/hashbrown", "precompile/hashbrown"]
 serde = [

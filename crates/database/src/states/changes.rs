@@ -30,7 +30,7 @@ pub struct PlainStorageChangeset {
     pub address: Address,
     /// Wipe storage
     pub wipe_storage: bool,
-    /// Storage key value pairs.
+    /// Storage key value pairs
     pub storage: Vec<(U256, FlaggedStorage)>,
 }
 

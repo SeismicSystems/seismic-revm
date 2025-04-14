@@ -33,11 +33,11 @@ once_cell = { workspace = true, features = ["alloc"] }
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 
 # seismic 
-schnorrkel = { workspace = true }
-merlin = { workspace = true }
-rand_core = { workspace = true }
-seismic-enclave = { workspace = true }
-hkdf = { workspace = true }
+schnorrkel = { version = "0.11.2", default-features = false }
+merlin = { version = "3.0.0", default-features = false }
+rand_core = { version = "0.6.4", default-features = false }
+hkdf = { version = "0.12", default-features = false }
+seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "f2c0757", default-features = false }
 sha2 = { workspace = true } 
 secp256k1 = { workspace = true }
 

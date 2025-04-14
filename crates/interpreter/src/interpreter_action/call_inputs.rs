@@ -39,8 +39,6 @@ pub struct CallInputs {
     pub is_static: bool,
     /// Whether the call is initiated from EOF bytecode.
     pub is_eof: bool,
-    /// Transasction type, if any
-    pub tx_type: Option<isize>,
 }
 
 impl CallInputs {

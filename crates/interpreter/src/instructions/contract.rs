@@ -284,7 +284,6 @@ pub fn extcall<WIRE: InterpreterTypes, H: Host + ?Sized>(
             is_static: interpreter.runtime_flag.is_static(),
             is_eof: true,
             return_memory_offset: 0..0,
-            tx_type: None,
         }))),
         InstructionResult::CallOrCreate,
     );
@@ -323,7 +322,6 @@ pub fn extdelegatecall<WIRE: InterpreterTypes, H: Host + ?Sized>(
             is_static: interpreter.runtime_flag.is_static(),
             is_eof: true,
             return_memory_offset: 0..0,
-            tx_type: None,
         }))),
         InstructionResult::CallOrCreate,
     );
@@ -362,7 +360,6 @@ pub fn extstaticcall<WIRE: InterpreterTypes, H: Host + ?Sized>(
             is_static: true,
             is_eof: true,
             return_memory_offset: 0..0,
-            tx_type: None,
         }))),
         InstructionResult::CallOrCreate,
     );
@@ -496,7 +493,6 @@ pub fn call<WIRE: InterpreterTypes, H: Host + ?Sized>(
             is_static: interpreter.runtime_flag.is_static(),
             is_eof: false,
             return_memory_offset,
-            tx_type: None,
         }))),
         InstructionResult::CallOrCreate,
     );
@@ -550,7 +546,6 @@ pub fn call_code<WIRE: InterpreterTypes, H: Host + ?Sized>(
             is_static: interpreter.runtime_flag.is_static(),
             is_eof: false,
             return_memory_offset,
-            tx_type: None,
         }))),
         InstructionResult::CallOrCreate,
     );
@@ -598,7 +593,6 @@ pub fn delegate_call<WIRE: InterpreterTypes, H: Host + ?Sized>(
             is_static: interpreter.runtime_flag.is_static(),
             is_eof: false,
             return_memory_offset,
-            tx_type: None,
         }))),
         InstructionResult::CallOrCreate,
     );
@@ -644,7 +638,6 @@ pub fn static_call<WIRE: InterpreterTypes, H: Host + ?Sized>(
             is_static: true,
             is_eof: false,
             return_memory_offset,
-            tx_type: None,
         }))),
         InstructionResult::CallOrCreate,
     );
