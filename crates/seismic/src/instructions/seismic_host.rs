@@ -4,13 +4,23 @@ use revm::{
     }, database::EmptyDB, interpreter::{host::DummyHost, Host, SStoreResult, SelfDestructResult, StateLoad}, primitives::{Address, Bytes, Log, B256, U256}
 };
 
-use crate::api::exec::SeismicContextTr;
+use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
 
 // Extend Host with an associated Db type and error() method
 pub trait SeismicHost: Host {
     type Db: Database;
 
     fn ctx_error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>>;
+    fn set_ctx_error<E>(&mut self, error: E)
+    where
+        E: Into<ContextError<<Self::Db as Database>::Error>>
+    {
+        *self.ctx_error() = Err(error.into());
+    }
+    
+    fn set_halt_reason(&mut self, reason: SeismicHaltReason) {
+        *self.ctx_error() = Err(ContextError::Custom(reason.to_string()));
+    }
 }
 
 impl<CTX> SeismicHost for CTX

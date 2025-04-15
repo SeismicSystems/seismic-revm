@@ -1,11 +1,10 @@
-use crate::{check, result::SeismicDbError, SeismicHost};
+use crate::{check, SeismicHaltReason, SeismicHost};
 use revm::interpreter::{
     gas,
     gas::CALL_STIPEND,
     interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr},
     popn, popn_top, require_non_staticcall, Host, InstructionResult, Interpreter,
 };
-use revm::context_interface::context::ContextError;
 use revm::primitives::hardfork::SpecId::*;
 
 pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
@@ -21,9 +20,7 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             interpreter
                 .control
                 .set_instruction_result(InstructionResult::FatalExternalError);
-            *host.ctx_error() = Err(ContextError::Custom(
-               "rekt".to_owned() 
-            ));
+            host.set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
             return;
         }
         gas!(

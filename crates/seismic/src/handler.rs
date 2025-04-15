@@ -2,14 +2,15 @@
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
 use revm::{
     context::{
-        result::{InvalidTransaction, ResultAndState},
-        ContextTr,
+        result::{ExecutionResult, InvalidTransaction, ResultAndState},
+        ContextTr, Transaction,
     },
     context_interface::result::{EVMError, FromStringError},
     handler::{handler::EvmTrError, EvmTr, Frame, FrameResult, Handler, MainnetHandler},
     inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
-    interpreter::{interpreter::EthInterpreter, FrameInput, InstructionResult},
+    interpreter::{interpreter::EthInterpreter, FrameInput, InstructionResult}, primitives::hash_map::HashMap,
 };
+use sha2::digest::KeyInit;
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
     pub mainnet: MainnetHandler<EVM, ERROR, FRAME>,
@@ -47,33 +48,39 @@ where
         self.mainnet.pre_execution(evm)
     }
     
-    //fn catch_error(
-    //    &self,
-    //    evm: &mut Self::Evm,
-    //    error: Self::Error,
-    //) -> Result<ResultAndState<SeismicHaltReason>, Self::Error> {
-    //    if evm.ctx_instructions().() == Some(InstructionResult::FatalExternalError) {
-    //        if let Some(custom_reason) = evm.ctx().chain().take_halt_reason() {
-    //            if let Some(result_and_state) = error.into_result() {
-    //                return Ok(result_and_state.map_haltreason(|_| custom_reason));
-    //            }
-    //            
-    //            // Otherwise create a minimal result with our custom reason
-    //            let gas_used = evm.ctx().tx().gas_limit();
-    //            return Ok(ResultAndState {
-    //                result: ExecutionResult::Halt { reason: custom_reason, gas_used },
-    //                state: HashMap::new(),
-    //            });
-    //        }
-    //    }
-    //    
-    //    // For non-FatalExternalError cases, convert standard HaltReason to SeismicHaltReason
-    //    if let Some(result_and_state) = error.into_result() {
-    //        Ok(result_and_state.map_haltreason(SeismicHaltReason::from))
-    //    } else {
-    //        Err(error)
-    //    }
-    //}
+    fn catch_error(
+        &self,
+        evm: &mut Self::Evm,
+        error: Self::Error,
+    ) -> Result<ResultAndState<SeismicHaltReason>, Self::Error> {
+        println!("evm error code : {:?}", evm.ctx().error());
+        let gas_used = evm.ctx().tx().gas_limit();
+        return Ok(ResultAndState {
+            result: ExecutionResult::Halt { reason: SeismicHaltReason::InvalidPublicStorageAccess, gas_used },
+            state: HashMap::new(),
+        });
+        //if evm.ctx_instructions().() == Some(InstructionResult::FatalExternalError) {
+        //    if let Some(custom_reason) = evm.ctx().chain().take_halt_reason() {
+        //        if let Some(result_and_state) = error.into_result() {
+        //            return Ok(result_and_state.map_haltreason(|_| custom_reason));
+        //        }
+        //        
+        //        // Otherwise create a minimal result with our custom reason
+        //        let gas_used = evm.ctx().tx().gas_limit();
+        //        return Ok(ResultAndState {
+        //            result: ExecutionResult::Halt { reason: custom_reason, gas_used },
+        //            state: HashMap::new(),
+        //        });
+        //    }
+        //}
+        //
+        //// For non-FatalExternalError cases, convert standard HaltReason to SeismicHaltReason
+        //if let Some(result_and_state) = error.into_result() {
+        //    Ok(result_and_state.map_haltreason(SeismicHaltReason::from))
+        //} else {
+        //    Err(error)
+        //}
+    }
 }
 
 // Fix for the first error: Simplify the InspectorHandler implementation with proper bounds

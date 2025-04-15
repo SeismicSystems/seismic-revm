@@ -1,4 +1,7 @@
-use revm::{context::DBErrorMarker, context_interface::result::HaltReason};
+use core::fmt;
+use std::convert::Infallible;
+
+use revm::context_interface::{context::ContextError, result::HaltReason};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -16,34 +19,18 @@ impl From<HaltReason> for SeismicHaltReason {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SeismicDbError<BaseDbError> {
-    Base(BaseDbError),
-    InvalidPrivateStorageAccess,
-    InvalidPublicStorageAccess,
-}
-
-// Implement the DBErrorMarker trait
-impl<T: DBErrorMarker> DBErrorMarker for SeismicDbError<T> {}
-
-// Conversion from base DB error
-impl<T> From<T> for SeismicDbError<T> {
-    fn from(err: T) -> Self {
-        Self::Base(err)
+impl fmt::Display for SeismicHaltReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SeismicHaltReason::Base(_) => write!(f, "Base error"),
+            SeismicHaltReason::InvalidPrivateStorageAccess => write!(f, "InvalidPrivateStorageAccess"),
+            SeismicHaltReason::InvalidPublicStorageAccess => write!(f, "InvalidPublicStorageAccess"),
+        }
     }
 }
 
-// Conversion to SeismicHaltReason
-impl<T> From<SeismicDbError<T>> for SeismicHaltReason 
-where 
-    T: DBErrorMarker,
-    HaltReason: From<T>, 
-{
-    fn from(err: SeismicDbError<T>) -> Self {
-        match err {
-            SeismicDbError::Base(err) => SeismicHaltReason::Base(HaltReason::from(err)), // Convert err to HaltReason
-            SeismicDbError::InvalidPrivateStorageAccess => SeismicHaltReason::InvalidPrivateStorageAccess,
-            SeismicDbError::InvalidPublicStorageAccess => SeismicHaltReason::InvalidPublicStorageAccess,
-        }
+impl From<SeismicHaltReason> for ContextError<Infallible> {
+    fn from(reason: SeismicHaltReason) -> Self {
+        ContextError::Custom(reason.to_string())
     }
 }
