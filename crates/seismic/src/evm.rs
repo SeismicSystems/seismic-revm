@@ -99,3 +99,120 @@ where
         (&mut self.0.data.ctx, &mut self.0.precompiles)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::str::FromStr;
+    use std::io::Empty;
+
+    use super::*;
+    use crate::api::exec::SeismicContextTr;
+    use anyhow::bail;
+    use revm::handler::EthFrame;
+    use revm::state::Bytecode;
+    use revm::{ExecuteCommitEvm, ExecuteEvm};
+    use crate::handler::SeismicHandler;
+    use crate::{DefaultSeismic, SeismicBuilder, SeismicContext, SeismicHaltReason};
+    use revm::context::{Context, ContextTr, TxEnv};
+    use revm::context::result::{ExecutionResult, Output, ResultAndState};
+    use revm::database::{CacheDB, EmptyDB};
+    use revm::inspector::NoOpInspector;
+    use revm::interpreter::{InstructionResult, InterpreterResult};
+    use revm::primitives::{Address, Bytes, TxKind, U256};
+    
+    // Helper to create a context with a transaction that includes CLOAD
+    fn get_mata_data() -> (Bytes, Bytes) {
+        // Create bytecode that will execute CLOAD
+        //contract C {
+        //    function f() external returns (uint256 result) {
+        //        assembly {
+        //            sstore(0, 1)
+        //            result := cload(0)
+        //        }
+        //    }
+        //}
+        let bytecode = Bytes::from_str("6080604052348015600e575f5ffd5b5060d880601a5f395ff3fe6080604052348015600e575f5ffd5b50600436106026575f3560e01c806326121ff014602a575b5f5ffd5b60306044565b604051603b91906066565b60405180910390f35b5f60015f555fb0905090565b5f819050919050565b6060816050565b82525050565b5f60208201905060775f8301846059565b9291505056fea26469706673582212203976fb983ef7119eeabfd96d1698e9bca8ad8a92c6f39e22bc2c6b412755a16864736f6c637827302e382e32382d63692e323032342e31312e342b636f6d6d69742e64396333323834372e6d6f640058").unwrap();
+        let function_selector = Bytes::from_str("26121ff0").unwrap();
+        (bytecode, function_selector)
+    }
+    
+    #[test]
+    fn test_cload_error_bubbles_up() -> anyhow::Result<()> {
+        // Create the test context
+        let (bytecode, function_selector) = get_mata_data();
+
+        let ctx = Context::seismic()
+            .modify_tx_chained(|tx| {
+            tx.base.kind = TxKind::Create;
+            tx.base.data = bytecode.clone();
+        })
+        .with_db(CacheDB::<EmptyDB>::default());
+        
+        let mut evm = ctx.build_seismic();
+        let ref_tx = evm.replay_commit()?;
+            let ExecutionResult::Success {
+                output: Output::Create(_, Some(address)),
+                ..
+            } = ref_tx
+            else {
+                bail!("Failed to create contract: {ref_tx:#?}");
+            };
+
+        evm.ctx().modify_tx(|tx| {
+            tx.base.kind = TxKind::Call(address);
+            tx.base.data = function_selector;
+            tx.base.nonce += 1;
+        });
+        
+        // Execute the transaction
+        let result = evm.replay()?;
+
+        println!("result: {result:#?}");
+        
+        // Check if the error bubbled up correctly
+        assert!(matches!(
+            result.result,
+            ExecutionResult::Halt {
+                reason: SeismicHaltReason::InvalidPublicStorageAccess,
+                ..
+            } 
+        ));
+
+        Ok(())
+    }
+    
+    //#[test]
+    //fn test_cload_handler_error_handling() {
+    //    // Create the test context
+    //    let ctx = create_cload_test_context();
+    //    
+    //    // Build the SeismicEvm with a host that will trigger the error
+    //    // You'll need to implement a test host that returns a value where:
+    //    // value.is_private == false && !value.data.is_zero()
+    //    let mut evm = create_evm_with_error_triggering_host(ctx);
+    //    
+    //    // Create the handler
+    //    let handler = SeismicHandler::
+    //        SeismicEvm<_, _>, 
+    //        EVMError<_, _>, 
+    //        EthFrame<_, _, _>
+    //    >::new();
+    //    
+    //    // Execute a frame with CLOAD instruction
+    //    let frame_input = FrameInput::new(
+    //        Address::ZERO,
+    //        Address::ZERO,
+    //        Bytes::from_static(&[0x60, 0x0A, 0xB0]),
+    //        U256::ZERO,
+    //        u64::MAX
+    //    );
+    //    
+    //    let result = handler.execute_frame(&mut evm, frame_input);
+    //    
+    //    // Check that the error was properly handled
+    //    assert!(matches!(
+    //        result,
+    //        Err(EVMError::Custom(reason)) if reason == "rekt"
+    //    ));
+    //}
+}

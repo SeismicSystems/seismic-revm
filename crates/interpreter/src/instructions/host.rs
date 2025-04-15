@@ -203,6 +203,8 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
 
     popn!([index, value], interpreter);
 
+    println!("sstore");
+
     let Some(state_load) = host.sstore(interpreter.input.target_address(), index, value) else {
         interpreter
             .control

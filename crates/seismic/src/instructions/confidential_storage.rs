@@ -14,6 +14,7 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
 ) {
     check!(interpreter, MERCURY);
     popn_top!([], index, interpreter);
+    println!("cload");
 
     if let Some(value) = host.cload(interpreter.input.target_address(), *index) {
         if !value.is_private && !value.data.is_zero() {

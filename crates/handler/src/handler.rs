@@ -457,6 +457,7 @@ pub trait Handler {
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
         // Clean up journal state if error occurs
         evm.ctx().journal().clear();
+        println!("catcvhing errrorrr: ");
         Err(error)
     }
 }
