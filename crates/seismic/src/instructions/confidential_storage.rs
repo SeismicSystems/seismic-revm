@@ -1,13 +1,14 @@
-use crate::check;
+use crate::{check, result::SeismicDbError, SeismicHost};
 use revm::interpreter::{
     gas,
     gas::CALL_STIPEND,
     interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr},
     popn, popn_top, require_non_staticcall, Host, InstructionResult, Interpreter,
 };
+use revm::context_interface::context::ContextError;
 use revm::primitives::hardfork::SpecId::*;
 
-pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
+pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     interpreter: &mut Interpreter<WIRE>,
     host: &mut H,
 ) {
@@ -18,7 +19,10 @@ pub fn cload<WIRE: InterpreterTypes, H: Host + ?Sized>(
         if !value.is_private && !value.data.is_zero() {
             interpreter
                 .control
-                .set_instruction_result(InstructionResult::InvalidPublicStorageAccess);
+                .set_instruction_result(InstructionResult::FatalExternalError);
+            *host.ctx_error() = Err(ContextError::Custom(
+               "rekt".to_owned() 
+            ));
             return;
         }
         gas!(
@@ -81,8 +85,9 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
+    use crate::instructions::seismic_host::SeismicDummyHost;
+
     use super::*;
-    use revm::interpreter::host::DummyHost;
     use revm::interpreter::interpreter::{EthInterpreter, ExtBytecode};
     use revm::interpreter::{InputsImpl, SharedMemory};
     use revm::interpreter::{InstructionResult, Interpreter};
@@ -113,7 +118,7 @@ mod tests {
     fn test_cload_before_mercury() {
         // SpecId < PRAGUE => Mercury check should fail => NotActivated
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x60, 0x00, 0x60, 0x00, 0x01][..]));
-        let mut host = DummyHost;
+        let mut host = SeismicDummyHost::new();
         let mut interpreter = build_interpreter(SpecId::LONDON, bytecode);
 
         cload(&mut interpreter, &mut host);
@@ -127,7 +132,7 @@ mod tests {
     #[test]
     fn test_cstore_mercury_or_later() {
         // SpecId >= PRAGUE => Mercury is "enabled", so it shouldn't fail at the macro check
-        let mut host = DummyHost;
+        let mut host = SeismicDummyHost::new();
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);
@@ -154,7 +159,7 @@ mod tests {
     #[test]
     fn test_cstore_before_mercury() {
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x60, 0x00, 0x60, 0x00, 0x01][..]));
-        let mut host = DummyHost;
+        let mut host = SeismicDummyHost::new();
         let mut interpreter = build_interpreter(SpecId::LONDON, bytecode);
 
         cstore(&mut interpreter, &mut host);
@@ -168,7 +173,7 @@ mod tests {
     #[test]
     fn test_cload_mercury_or_later() {
         // SpecId >= PRAGUE => Mercury is "enabled", so it shouldn't fail at the macro check
-        let mut host = DummyHost;
+        let mut host = SeismicDummyHost::new();
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);

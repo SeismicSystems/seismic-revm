@@ -7,6 +7,8 @@ use revm::{
 };
 use std::boxed::Box;
 
+use crate::SeismicHost;
+
 use super::confidential_storage::{cload, cstore};
 
 /// Custom opcodes for CLOAD and CSTORE
@@ -21,7 +23,7 @@ pub struct SeismicInstructions<WIRE: InterpreterTypes, HOST> {
 impl<WIRE, HOST> SeismicInstructions<WIRE, HOST>
 where
     WIRE: InterpreterTypes,
-    HOST: Host,
+    HOST: SeismicHost,
 {
     /// Create a new SeismicInstructions with standard EVM opcodes plus our ISA
     pub fn new_mainnet() -> Self {
@@ -65,9 +67,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instructions::confidential_storage::{cload, cstore};
+    use crate::instructions::{confidential_storage::{cload, cstore}, seismic_host::SeismicDummyHost};
     use revm::interpreter::{
-        host::DummyHost,
         instructions::control,
         interpreter::{EthInterpreter, Interpreter},
     };
@@ -87,13 +88,13 @@ mod tests {
     #[test]
     fn test_custom_opcodes_are_registered() {
         // Create a SeismicInstructions with our mock handlers
-        let seismic_instructions = SeismicInstructions::<EthInterpreter, DummyHost>::new_mainnet();
+        let seismic_instructions = SeismicInstructions::<EthInterpreter, SeismicDummyHost>::new_mainnet();
 
         // Get reference to the instruction table
         let table = seismic_instructions.instruction_table();
 
         // Get the standard unknown instruction for comparison
-        let unknown_instruction = control::unknown::<EthInterpreter, DummyHost>;
+        let unknown_instruction = control::unknown::<EthInterpreter, SeismicDummyHost>;
 
         // Verify CLOAD is not the unknown instruction
         assert!(
@@ -124,7 +125,7 @@ mod tests {
     fn test_insert_instruction() {
         // Create a base SeismicInstructions
         let mut seismic_instructions =
-            SeismicInstructions::<EthInterpreter, DummyHost>::new_mainnet();
+            SeismicInstructions::<EthInterpreter, SeismicDummyHost>::new_mainnet();
 
         // Create an alternative handler
         fn alternative_handler<W, H>(_: &mut Interpreter<W>, _: &mut H)
@@ -152,11 +153,11 @@ mod tests {
     #[test]
     fn test_new_constructor() {
         // Get a standard instruction table
-        let base_table = instruction_table::<EthInterpreter, DummyHost>();
+        let base_table = instruction_table::<EthInterpreter, SeismicDummyHost>();
 
         // Create a SeismicInstructions using the new constructor
         let seismic_instructions =
-            SeismicInstructions::<EthInterpreter, DummyHost>::new(base_table);
+            SeismicInstructions::<EthInterpreter, SeismicDummyHost>::new(base_table);
 
         // Verify our custom opcodes weren't inserted
         let table = seismic_instructions.instruction_table();
@@ -173,10 +174,10 @@ mod tests {
     #[test]
     fn test_preserve_original_instructions() {
         // Get a standard instruction table
-        let standard_table = instruction_table::<EthInterpreter, DummyHost>();
+        let standard_table = instruction_table::<EthInterpreter, SeismicDummyHost>();
 
         // Create a SeismicInstructions
-        let seismic_instructions = SeismicInstructions::<EthInterpreter, DummyHost>::new_mainnet();
+        let seismic_instructions = SeismicInstructions::<EthInterpreter, SeismicDummyHost>::new_mainnet();
 
         // Get our custom table
         let custom_table = seismic_instructions.instruction_table();

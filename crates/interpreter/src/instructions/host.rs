@@ -179,7 +179,7 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(
         if value.is_private {
             interpreter
                 .control
-                .set_instruction_result(InstructionResult::InvalidPrivateStorageAccess);
+                .set_instruction_result(InstructionResult::FatalExternalError);
             return;
         }
         gas!(
