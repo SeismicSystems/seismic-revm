@@ -19,6 +19,7 @@ pub trait EvmTrError<EVM: EvmTr>:
     + From<InvalidHeader>
     + From<<<EVM::Context as ContextTr>::Db as Database>::Error>
     + FromStringError
+    + std::fmt::Debug
 {
 }
 
@@ -27,7 +28,8 @@ impl<
         T: From<InvalidTransaction>
             + From<InvalidHeader>
             + From<<<EVM::Context as ContextTr>::Db as Database>::Error>
-            + FromStringError,
+            + FromStringError
+            + std::fmt::Debug,
     > EvmTrError<EVM> for T
 {
 }
@@ -100,6 +102,7 @@ pub trait Handler {
         let init_and_floor_gas = self.validate(evm)?;
         let eip7702_refund = self.pre_execution(evm)? as i64;
         let exec_result = self.execution(evm, &init_and_floor_gas)?;
+        println!("YOOOOOOOOOOOO exec_result: {:?}", exec_result);
         self.post_execution(evm, exec_result, init_and_floor_gas, eip7702_refund)
     }
 
@@ -457,7 +460,7 @@ pub trait Handler {
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
         // Clean up journal state if error occurs
         evm.ctx().journal().clear();
-        println!("catcvhing errrorrr: ");
+
         Err(error)
     }
 }

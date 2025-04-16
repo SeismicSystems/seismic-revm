@@ -2,15 +2,13 @@
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
 use revm::{
     context::{
-        result::{ExecutionResult, InvalidTransaction, ResultAndState},
-        ContextTr, Transaction,
+        result::{ExecutionResult, InvalidTransaction, ResultAndState}, ContextTr, JournalTr, Transaction
     },
-    context_interface::result::{EVMError, FromStringError},
-    handler::{handler::EvmTrError, EvmTr, Frame, FrameResult, Handler, MainnetHandler},
+    context_interface::{context::ContextError, result::FromStringError},
+    handler::{handler::EvmTrError, post_execution, EvmTr, Frame, FrameResult, Handler, MainnetHandler},
     inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
-    interpreter::{interpreter::EthInterpreter, FrameInput, InstructionResult}, primitives::hash_map::HashMap,
+    interpreter::{interpreter::EthInterpreter, FrameInput}, primitives::hash_map::HashMap,
 };
-use sha2::digest::KeyInit;
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
     pub mainnet: MainnetHandler<EVM, ERROR, FRAME>,
@@ -47,40 +45,74 @@ where
         evm.ctx().chain().reset_rng();
         self.mainnet.pre_execution(evm)
     }
-    
-    fn catch_error(
+
+    /// Processes the final execution output.
+    ///
+    /// This method, retrieves the final state from the journal, converts internal results to the external output format.
+    /// Internal state is cleared and EVM is prepared for the next transaction.
+    #[inline]
+    fn output(
         &self,
         evm: &mut Self::Evm,
-        error: Self::Error,
-    ) -> Result<ResultAndState<SeismicHaltReason>, Self::Error> {
-        println!("evm error code : {:?}", evm.ctx().error());
-        let gas_used = evm.ctx().tx().gas_limit();
-        return Ok(ResultAndState {
-            result: ExecutionResult::Halt { reason: SeismicHaltReason::InvalidPublicStorageAccess, gas_used },
-            state: HashMap::new(),
-        });
-        //if evm.ctx_instructions().() == Some(InstructionResult::FatalExternalError) {
-        //    if let Some(custom_reason) = evm.ctx().chain().take_halt_reason() {
-        //        if let Some(result_and_state) = error.into_result() {
-        //            return Ok(result_and_state.map_haltreason(|_| custom_reason));
-        //        }
-        //        
-        //        // Otherwise create a minimal result with our custom reason
-        //        let gas_used = evm.ctx().tx().gas_limit();
-        //        return Ok(ResultAndState {
-        //            result: ExecutionResult::Halt { reason: custom_reason, gas_used },
-        //            state: HashMap::new(),
-        //        });
-        //    }
-        //}
-        //
-        //// For non-FatalExternalError cases, convert standard HaltReason to SeismicHaltReason
-        //if let Some(result_and_state) = error.into_result() {
-        //    Ok(result_and_state.map_haltreason(SeismicHaltReason::from))
-        //} else {
-        //    Err(error)
-        //}
+        result: <Self::Frame as Frame>::FrameResult,
+    ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
+        match core::mem::replace(evm.ctx().error(), Ok(())) {
+            Err(ContextError::Db(e)) => Err(e.into()),
+            Err(ContextError::Custom(e)) => {
+                if let Some(seismic_reason) = SeismicHaltReason::try_from_error_string(&e.to_string()) {
+                    let output: ResultAndState<Self::HaltReason> = post_execution::output(evm.ctx(), result);
+                    evm.ctx().journal().clear();
+                    
+                    return Ok(ResultAndState {
+                        result: ExecutionResult::Halt { 
+                            reason: seismic_reason,
+                            gas_used: evm.ctx().tx().gas_limit() 
+                        },
+                        state: output.state,
+                    });
+                }
+                
+                // For non-seismic custom errors
+                Err(Self::Error::from_string(e))
+            },
+            
+            // No error - proceed with normal processing
+            Ok(_) => {
+                let output = post_execution::output(evm.ctx(), result);
+                evm.ctx().journal().clear();
+                Ok(output)
+            },
+        }
     }
+
+    //fn catch_error(
+    //    &self,
+    //    evm: &mut Self::Evm,
+    //    error: Self::Error,
+    //) -> Result<ResultAndState<SeismicHaltReason>, Self::Error> {
+    //    // Convert the error to a string for pattern matching
+    //    let error_str = format!("{:?}", error);
+    //    
+    //    // Check if it matches any of our SeismicHaltReason variants
+    //    let halt_reason = if error_str.contains("InvalidPublicStorageAccess") {
+    //        SeismicHaltReason::InvalidPublicStorageAccess
+    //    } else if error_str.contains("InvalidPrivateStorageAccess") {
+    //        SeismicHaltReason::InvalidPrivateStorageAccess
+    //    } else {
+    //        evm.ctx().journal().clear();
+    //        return Err(error);
+    //    };
+    //    
+    //    // If we matched a SeismicHaltReason, return a ResultAndState with it
+    //    let gas_used = evm.ctx().tx().gas_limit();
+    //    Ok(ResultAndState {
+    //        result: ExecutionResult::Halt { 
+    //            reason: halt_reason, 
+    //            gas_used 
+    //        },
+    //        state: HashMap::new(),
+    //    })
+    //}
 }
 
 // Fix for the first error: Simplify the InspectorHandler implementation with proper bounds
@@ -98,4 +130,65 @@ where
     EVM::Inspector: Inspector<EVM::Context, EthInterpreter>,
 {
     type IT = EthInterpreter;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{api::default_ctx::SeismicContext, DefaultSeismic, SeismicBuilder};
+    use revm::{
+        context::{result::EVMError, transaction::TransactionError, Context}, database::InMemoryDB, database_interface::EmptyDB, handler::EthFrame, interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult}, primitives::{Bytes, B256, U256, Address}, state::AccountInfo
+    };
+
+    /// Creates frame result.
+    fn call_last_frame_return(
+        ctx: SeismicContext<EmptyDB>,
+        instruction_result: InstructionResult,
+        gas: Gas,
+    ) -> Gas {
+        let mut evm = ctx.build_seismic();
+
+        let mut exec_result = FrameResult::Call(CallOutcome::new(
+            InterpreterResult {
+                result: instruction_result,
+                output: Bytes::new(),
+                gas,
+            },
+            0..0,
+        ));
+
+        let handler = SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<_, _, _>>::new();
+
+        handler
+            .last_frame_result(&mut evm, &mut exec_result)
+            .unwrap();
+        handler.refund(&mut evm, &mut exec_result, 0);
+        *exec_result.gas()
+    }
+
+    #[test]
+    fn test_revert_gas() {
+        let ctx = Context::seismic()
+            .modify_tx_chained(|tx| {
+                tx.base.gas_limit = 100;
+            });
+
+        let gas = call_last_frame_return(ctx, InstructionResult::Revert, Gas::new(90));
+        assert_eq!(gas.remaining(), 90);
+        assert_eq!(gas.spent(), 10);
+        assert_eq!(gas.refunded(), 0);
+    }
+    
+    #[test]
+    fn test_fatal_external_error_gas() {
+        let ctx = Context::seismic()
+            .modify_tx_chained(|tx| {
+                tx.base.gas_limit = 100;
+            });
+
+        let gas = call_last_frame_return(ctx, InstructionResult::FatalExternalError, Gas::new(90));
+        assert_eq!(gas.remaining(), 0);
+        assert_eq!(gas.spent(), 100);
+        assert_eq!(gas.refunded(), 0);
+    }
 }

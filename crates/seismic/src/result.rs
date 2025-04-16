@@ -13,6 +13,28 @@ pub enum SeismicHaltReason {
     InvalidPublicStorageAccess,
 }
 
+impl SeismicHaltReason {
+    pub fn try_from_error_string(error_str: &str) -> Option<Self> {
+        match () {
+            _ if error_str.contains("InvalidPublicStorageAccess") => 
+                Some(Self::InvalidPublicStorageAccess),
+            _ if error_str.contains("InvalidPrivateStorageAccess") => 
+                Some(Self::InvalidPrivateStorageAccess),
+            _ => None
+        }
+    }
+
+    pub fn try_from_error_string_exact(error_str: &str) -> Option<Self> {
+        match error_str {
+            "FatalExternalError: InvalidPublicStorageAccess" => 
+                Some(Self::InvalidPublicStorageAccess),
+            "FatalExternalError: InvalidPrivateStorageAccess" => 
+                Some(Self::InvalidPrivateStorageAccess),
+            _ => None
+        }
+    }
+}
+
 impl From<HaltReason> for SeismicHaltReason {
     fn from(value: HaltReason) -> Self {
         Self::Base(value)
