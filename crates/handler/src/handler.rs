@@ -27,7 +27,7 @@ impl<
         T: From<InvalidTransaction>
             + From<InvalidHeader>
             + From<<<EVM::Context as ContextTr>::Db as Database>::Error>
-            + FromStringError
+            + FromStringError,
     > EvmTrError<EVM> for T
 {
 }
