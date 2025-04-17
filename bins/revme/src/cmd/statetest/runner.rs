@@ -10,11 +10,11 @@ use revm::{
     context::{block::BlockEnv, cfg::CfgEnv},
     context_interface::{
         block::calc_excess_blob_gas,
-        result::{EVMError, ExecutionResult, HaltReason, InvalidTransaction},
+        result::{EVMError, ExecutionResult, InvalidTransaction},
         Cfg,
     },
     database_interface::EmptyDB,
-    {ExecuteEvm, ExecuteCommitEvm},
+    ExecuteCommitEvm,
     primitives::{
         eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes, TxKind, B256,
     }, Context,
