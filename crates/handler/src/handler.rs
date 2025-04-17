@@ -102,7 +102,6 @@ pub trait Handler {
         let init_and_floor_gas = self.validate(evm)?;
         let eip7702_refund = self.pre_execution(evm)? as i64;
         let exec_result = self.execution(evm, &init_and_floor_gas)?;
-        println!("YOOOOOOOOOOOO exec_result: {:?}", exec_result);
         self.post_execution(evm, exec_result, init_and_floor_gas, eip7702_refund)
     }
 

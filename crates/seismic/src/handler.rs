@@ -7,7 +7,7 @@ use revm::{
     context_interface::{context::ContextError, result::FromStringError},
     handler::{handler::EvmTrError, post_execution, EvmTr, Frame, FrameResult, Handler, MainnetHandler},
     inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
-    interpreter::{interpreter::EthInterpreter, FrameInput}, primitives::hash_map::HashMap,
+    interpreter::{interpreter::EthInterpreter, FrameInput}, 
 };
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
@@ -50,6 +50,10 @@ where
     ///
     /// This method, retrieves the final state from the journal, converts internal results to the external output format.
     /// Internal state is cleared and EVM is prepared for the next transaction.
+    ///
+    /// Seismic Addendum
+    /// Given that we can't yet pass instruction_result which aren't in the InstructionResult enum,
+    /// We leverage context_error to bubble up our instruction set specific errors!
     #[inline]
     fn output(
         &self,
@@ -60,23 +64,20 @@ where
             Err(ContextError::Db(e)) => Err(e.into()),
             Err(ContextError::Custom(e)) => {
                 if let Some(seismic_reason) = SeismicHaltReason::try_from_error_string(&e.to_string()) {
-                    let output: ResultAndState<Self::HaltReason> = post_execution::output(evm.ctx(), result);
-                    evm.ctx().journal().clear();
+                    let state = evm.ctx().journal().finalize().state;
+                    evm.ctx().journal().clear(); 
                     
                     return Ok(ResultAndState {
                         result: ExecutionResult::Halt { 
                             reason: seismic_reason,
                             gas_used: evm.ctx().tx().gas_limit() 
                         },
-                        state: output.state,
+                        state,
                     });
                 }
                 
-                // For non-seismic custom errors
                 Err(Self::Error::from_string(e))
             },
-            
-            // No error - proceed with normal processing
             Ok(_) => {
                 let output = post_execution::output(evm.ctx(), result);
                 evm.ctx().journal().clear();
@@ -84,35 +85,6 @@ where
             },
         }
     }
-
-    //fn catch_error(
-    //    &self,
-    //    evm: &mut Self::Evm,
-    //    error: Self::Error,
-    //) -> Result<ResultAndState<SeismicHaltReason>, Self::Error> {
-    //    // Convert the error to a string for pattern matching
-    //    let error_str = format!("{:?}", error);
-    //    
-    //    // Check if it matches any of our SeismicHaltReason variants
-    //    let halt_reason = if error_str.contains("InvalidPublicStorageAccess") {
-    //        SeismicHaltReason::InvalidPublicStorageAccess
-    //    } else if error_str.contains("InvalidPrivateStorageAccess") {
-    //        SeismicHaltReason::InvalidPrivateStorageAccess
-    //    } else {
-    //        evm.ctx().journal().clear();
-    //        return Err(error);
-    //    };
-    //    
-    //    // If we matched a SeismicHaltReason, return a ResultAndState with it
-    //    let gas_used = evm.ctx().tx().gas_limit();
-    //    Ok(ResultAndState {
-    //        result: ExecutionResult::Halt { 
-    //            reason: halt_reason, 
-    //            gas_used 
-    //        },
-    //        state: HashMap::new(),
-    //    })
-    //}
 }
 
 // Fix for the first error: Simplify the InspectorHandler implementation with proper bounds
@@ -137,7 +109,7 @@ mod tests {
     use super::*;
     use crate::{api::default_ctx::SeismicContext, DefaultSeismic, SeismicBuilder};
     use revm::{
-        context::{result::EVMError, transaction::TransactionError, Context}, database::InMemoryDB, database_interface::EmptyDB, handler::EthFrame, interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult}, primitives::{Bytes, B256, U256, Address}, state::AccountInfo
+        context::{result::EVMError, Context}, database_interface::EmptyDB, handler::EthFrame, interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult}, primitives::Bytes
     };
 
     /// Creates frame result.

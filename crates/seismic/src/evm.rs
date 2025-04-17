@@ -103,24 +103,16 @@ where
 #[cfg(test)]
 mod tests {
     use core::str::FromStr;
-    use std::io::Empty;
 
     use super::*;
-    use crate::api::exec::SeismicContextTr;
     use anyhow::bail;
-    use revm::handler::EthFrame;
-    use revm::state::Bytecode;
     use revm::{ExecuteCommitEvm, ExecuteEvm};
-    use crate::handler::SeismicHandler;
-    use crate::{DefaultSeismic, SeismicBuilder, SeismicContext, SeismicHaltReason};
-    use revm::context::{Context, ContextTr, TxEnv};
-    use revm::context::result::{ExecutionResult, Output, ResultAndState};
-    use revm::database::{CacheDB, EmptyDB, InMemoryDB};
-    use revm::inspector::NoOpInspector;
-    use revm::interpreter::{InstructionResult, InterpreterResult};
-    use revm::primitives::{Address, Bytes, TxKind, U256};
+    use crate::{DefaultSeismic, SeismicBuilder, SeismicHaltReason};
+    use revm::context::{Context, ContextTr};
+    use revm::context::result::{ExecutionResult, Output};
+    use revm::database::{InMemoryDB, BENCH_CALLER};
+    use revm::primitives::{Bytes, TxKind, U256};
     
-    // Helper to create a context with a transaction that includes CLOAD
     fn get_mata_data() -> (Bytes, Bytes) {
         // Create bytecode that will execute CLOAD
         //contract C {
@@ -138,7 +130,6 @@ mod tests {
     
     #[test]
     fn test_cload_error_bubbles_up() -> anyhow::Result<()> {
-        // Create the test context
         let (bytecode, function_selector) = get_mata_data();
 
         let ctx = Context::seismic()
@@ -149,8 +140,6 @@ mod tests {
         .with_db(InMemoryDB::default());
         
         let mut evm = ctx.build_seismic();
-        let account = evm.ctx().journal().load_account(Address::default()).unwrap();
-        account.data.info.balance = U256::from(1000);
         let ref_tx = evm.replay_commit()?;
             let ExecutionResult::Success {
                 output: Output::Create(_, Some(address)),
@@ -159,33 +148,44 @@ mod tests {
             else {
                 bail!("Failed to create contract: {ref_tx:#?}");
             };
+        
+
+        let account_balance = 1_000_000;
+        let gas_limit = 59_000;
+        let gas_price = 10;
+
+        let account = evm.ctx().journal().load_account(BENCH_CALLER).unwrap();
+        account.data.info.balance = U256::from(account_balance);
 
         evm.ctx().modify_tx(|tx| {
             tx.base.kind = TxKind::Call(address);
             tx.base.data = function_selector;
-            tx.base.nonce += 1;
-            tx.base.gas_limit = 100_000;
+            tx.base.gas_limit = gas_limit;
             tx.base.gas_priority_fee = None;
+            tx.base.gas_price = gas_price;
+            tx.base.caller = BENCH_CALLER;
         });
         
-        // Execute the transaction
-        let result = evm.replay_commit()?;
-        println!("result: {result:#?}");
-        // Check if the error bubbled up correctly
-        //assert!(matches!(
-        //    result,
-        //    ExecutionResult::Halt {
-        //        reason: SeismicHaltReason::InvalidPublicStorageAccess,
-        //        ..
-        //    } 
-        //));
+        let result = evm.replay()?;
 
-        // Check user nonce got incremented + balance spent
-        let account = evm.ctx().journal().load_account(Address::default()).unwrap();
-        println!("account: {account:#?}");
-        println!("Address::default(): {:?}", Address::default());
-        println!("contract address: {address:#?}");
+        // Check correct execution result 
+        assert!(matches!(
+            result.result,
+            ExecutionResult::Halt {
+                reason: SeismicHaltReason::InvalidPublicStorageAccess,
+                ..
+            } 
+        ));
 
+        // Check correct State Output
+    
+        // Check if the balance got deducted by gas_limit * gas_price 
+        assert_eq!(result.state.get(&BENCH_CALLER).unwrap().info.balance,
+            U256::from(account_balance - gas_limit * gas_price as u64));
+        
+        // Check correct nonce increment 
+        assert_eq!(result.state.get(&BENCH_CALLER).unwrap().info.nonce,
+            1 as u64);
 
         Ok(())
     }

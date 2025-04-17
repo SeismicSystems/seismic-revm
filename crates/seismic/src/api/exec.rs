@@ -7,11 +7,11 @@ use revm::{
         ContextSetters, JournalOutput,
     },
     context_interface::{
-        context::ContextError, result::{EVMError, ExecutionResult, ResultAndState}, Cfg, ContextTr, Database, JournalTr
+        result::{EVMError, ExecutionResult, ResultAndState}, Cfg, ContextTr, Database, JournalTr
     },
     handler::{EthFrame, EvmTr, Handler, PrecompileProvider},
     inspector::{InspectCommitEvm, InspectEvm, Inspector, InspectorHandler, JournalExt},
-    interpreter::{interpreter::EthInterpreter, Host, InterpreterResult},
+    interpreter::{interpreter::EthInterpreter, InterpreterResult},
     DatabaseCommit, ExecuteCommitEvm, ExecuteEvm,
 };
 
