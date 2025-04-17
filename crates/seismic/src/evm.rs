@@ -115,6 +115,7 @@ mod tests {
 
 
     // === Fixture data ===
+
     fn get_meta_data() -> (Bytes, Bytes) {
         // bytecode for a contract whose function f() does `cload(0)` after `sstore(0,1)`
         let bytecode = Bytes::from_str(
@@ -132,7 +133,6 @@ mod tests {
 
     // === Test helpers ===
 
-    /// Deploys the test contract and returns its address.
     fn deploy_contract() -> anyhow::Result<(SeismicContext<InMemoryDB>, Address)> {
         let (bytecode, _) = get_meta_data();
         let ctx = Context::seismic()
@@ -172,14 +172,12 @@ mod tests {
         ctx
     }
 
-    /// Asserts that the CLLOAD error bubbled up and gas & nonce are handled correctly.
     fn assert_cload_error(
         result: &ResultAndState<SeismicHaltReason>,
         starting_balance: u64,
         gas_limit: u64,
         gas_price: u64,
     ) {
-        // error bubbled
         assert!(matches!(
             result.result,
             ExecutionResult::Halt {
@@ -188,11 +186,9 @@ mod tests {
             }
         ));
 
-        // balance deduction
         let expected = U256::from(starting_balance - gas_limit * gas_price);
         assert_eq!(result.state.get(&BENCH_CALLER).unwrap().info.balance, expected, "Caller balance after gas");
 
-        // nonce increment
         let final_nonce = result.state.get(&BENCH_CALLER).unwrap().info.nonce;
         assert_eq!(final_nonce, 1, "Caller nonce incremented by 1");
     }
