@@ -15,7 +15,7 @@ use crate::cmd::semantics::{test_cases::TestStep, utils::verify_emitted_events};
 use super::{
     compiler_evm_versions::EVMVersion,
     test_cases::{ExpectedOutputs, TestCase},
-    utils::{verify_expected_balances, verify_storage_empty},
+    utils::{mainnet_to_seismic, verify_expected_balances, verify_storage_empty},
     Errors,
 };
 
@@ -159,7 +159,7 @@ impl EvmExecutor {
                 })?
             }
         } else {
-            if trace {
+            let raw = if trace {
                 let mut evm = Context::mainnet()
                     .with_db(self.db.clone())
                     .modify_tx_chained(|tx| {
@@ -191,7 +191,8 @@ impl EvmExecutor {
                     error!("DEPLOY transaction error: {:?}", err.to_string());
                     Errors::EVMError
                 })?
-            }
+            };
+            mainnet_to_seismic(raw)
         };
 
         let (contract_address, logs) = match deploy_out.clone().result {
@@ -310,7 +311,7 @@ impl EvmExecutor {
                 })?
             }
         } else {
-            if trace {
+            let raw = if trace {
                 let mut evm = Context::mainnet()
                     .with_db(self.db.clone())
                     .modify_tx_chained(|tx| {
@@ -382,7 +383,8 @@ impl EvmExecutor {
                     );
                     Errors::EVMError
                 })?
-            }
+            };
+            mainnet_to_seismic(raw)
         };
 
         let logs = match out.clone().result {

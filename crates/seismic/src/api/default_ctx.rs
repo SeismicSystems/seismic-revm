@@ -1,4 +1,4 @@
-use crate::{transaction::abstraction::SeismicTransaction, RngContainer, SeismicSpecId};
+use crate::{transaction::abstraction::SeismicTransaction, SeismicChain, SeismicSpecId};
 use revm::{
     context::{BlockEnv, CfgEnv, TxEnv},
     database_interface::EmptyDB,
@@ -12,7 +12,7 @@ pub type SeismicContext<DB> = Context<
     CfgEnv<SeismicSpecId>,
     DB,
     Journal<DB>,
-    RngContainer,
+    SeismicChain,
 >;
 
 /// Trait that allows for a default context to be created.
@@ -26,7 +26,7 @@ impl DefaultSeismic for SeismicContext<EmptyDB> {
         Context::mainnet()
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
-            .with_chain(RngContainer::default())
+            .with_chain(SeismicChain::default())
     }
 }
 

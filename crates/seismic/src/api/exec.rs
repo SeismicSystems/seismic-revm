@@ -1,13 +1,10 @@
 use crate::{
     evm::SeismicEvm, handler::SeismicHandler,
     instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr,
-    RngContainer, SeismicSpecId,
+    SeismicChain, SeismicHaltReason, SeismicSpecId,
 };
 use revm::{
-    context::{
-        result::{HaltReason, InvalidTransaction},
-        ContextSetters, JournalOutput,
-    },
+    context::{result::InvalidTransaction, ContextSetters, JournalOutput},
     context_interface::{
         result::{EVMError, ExecutionResult, ResultAndState},
         Cfg, ContextTr, Database, JournalTr,
@@ -24,9 +21,8 @@ pub trait SeismicContextTr:
     Journal: JournalTr<FinalOutput = JournalOutput>,
     Tx: SeismicTxTr,
     Cfg: Cfg<Spec = SeismicSpecId>,
-    //Could do with higher level of abstraction, but until it's warranted, this will work.
-    Chain= RngContainer
-    >
+    Chain = SeismicChain,
+>
 {
 }
 
@@ -35,7 +31,7 @@ impl<T> SeismicContextTr for T where
         Journal: JournalTr<FinalOutput = JournalOutput>,
         Tx: SeismicTxTr,
         Cfg: Cfg<Spec = SeismicSpecId>,
-        Chain = RngContainer,
+        Chain = SeismicChain,
     >
 {
 }
@@ -49,7 +45,7 @@ where
     CTX: SeismicContextTr + ContextSetters,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
-    type Output = Result<ResultAndState<HaltReason>, SeismicError<CTX>>;
+    type Output = Result<ResultAndState<SeismicHaltReason>, SeismicError<CTX>>;
 
     type Tx = <CTX as ContextTr>::Tx;
 
@@ -75,7 +71,7 @@ where
     CTX: SeismicContextTr<Db: DatabaseCommit> + ContextSetters,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
-    type CommitOutput = Result<ExecutionResult<HaltReason>, SeismicError<CTX>>;
+    type CommitOutput = Result<ExecutionResult<SeismicHaltReason>, SeismicError<CTX>>;
 
     fn replay_commit(&mut self) -> Self::CommitOutput {
         self.replay().map(|r| {

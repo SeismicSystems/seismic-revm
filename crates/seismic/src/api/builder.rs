@@ -1,6 +1,6 @@
 use crate::{
-    instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr,
-    RngContainer, SeismicEvm, SeismicSpecId,
+    chain::seismic_chain::SeismicChain, instructions::instruction_provider::SeismicInstructions,
+    transaction::abstraction::SeismicTxTr, SeismicEvm, SeismicSpecId,
 };
 use revm::{
     context::{Cfg, JournalOutput},
@@ -29,7 +29,7 @@ pub trait SeismicBuilder: Sized {
 }
 
 impl<BLOCK, TX, CFG, DB, JOURNAL> SeismicBuilder
-    for Context<BLOCK, TX, CFG, DB, JOURNAL, RngContainer>
+    for Context<BLOCK, TX, CFG, DB, JOURNAL, SeismicChain>
 where
     BLOCK: Block,
     TX: SeismicTxTr,
