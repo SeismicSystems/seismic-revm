@@ -21,7 +21,6 @@ pub trait SeismicContextTr:
     Journal: JournalTr<FinalOutput = JournalOutput>,
     Tx: SeismicTxTr,
     Cfg: Cfg<Spec = SeismicSpecId>,
-    //Could do with higher level of abstraction, but until it's warranted, this will work.
     Chain= SeismicChain
     >
 {

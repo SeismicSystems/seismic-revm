@@ -19,7 +19,6 @@ pub trait EvmTrError<EVM: EvmTr>:
     + From<InvalidHeader>
     + From<<<EVM::Context as ContextTr>::Db as Database>::Error>
     + FromStringError
-    + std::fmt::Debug
 {
 }
 
@@ -29,7 +28,6 @@ impl<
             + From<InvalidHeader>
             + From<<<EVM::Context as ContextTr>::Db as Database>::Error>
             + FromStringError
-            + std::fmt::Debug,
     > EvmTrError<EVM> for T
 {
 }
@@ -459,7 +457,6 @@ pub trait Handler {
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
         // Clean up journal state if error occurs
         evm.ctx().journal().clear();
-
         Err(error)
     }
 }

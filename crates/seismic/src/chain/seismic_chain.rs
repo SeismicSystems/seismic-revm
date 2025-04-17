@@ -1,20 +1,18 @@
 use revm::{precompile::PrecompileError, primitives::{Bytes, B256}};
 
-use crate::{transaction::abstraction::RngMode, SeismicHaltReason};
+use crate::transaction::abstraction::RngMode;
 
 use super::rng_container::RngContainer;
 
 #[derive(Clone, Debug)]
 pub struct SeismicChain {
     rng_container: RngContainer,
-    halt_reason: Option<SeismicHaltReason>,
 }
 
 impl Default for SeismicChain {
     fn default() -> Self {
         Self {
             rng_container: RngContainer::default(),
-            halt_reason: None,
         }
     }
 }
@@ -23,7 +21,6 @@ impl SeismicChain {
     pub fn new(root_vrf_key: schnorrkel::Keypair) -> Self {
         Self {
             rng_container: RngContainer::new(root_vrf_key),
-            halt_reason: None,
         }
     }
     
@@ -55,21 +52,5 @@ impl SeismicChain {
         tx_hash: &B256,
     ) -> Result<Bytes, PrecompileError> {
         self.rng_container.process_rng(pers, requested_output_len, kernel_mode, tx_hash)
-    }
-    
-    pub fn set_halt_reason(&mut self, reason: SeismicHaltReason) {
-        self.halt_reason = Some(reason);
-    }
-    
-    pub fn has_halt_reason(&self) -> bool {
-        self.halt_reason.is_some()
-    }
-    
-    pub fn take_halt_reason(&mut self) -> Option<SeismicHaltReason> {
-        self.halt_reason.take()
-    }
-    
-    pub fn clear_halt_reason(&mut self) {
-        self.halt_reason = None;
     }
 }

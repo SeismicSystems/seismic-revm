@@ -107,121 +107,121 @@ mod tests {
     use super::*;
     use anyhow::bail;
     use revm::{ExecuteCommitEvm, ExecuteEvm};
-    use crate::{DefaultSeismic, SeismicBuilder, SeismicHaltReason};
+    use crate::{DefaultSeismic, SeismicBuilder, SeismicContext, SeismicHaltReason};
     use revm::context::{Context, ContextTr};
-    use revm::context::result::{ExecutionResult, Output};
+    use revm::context::result::{ExecutionResult, Output, ResultAndState};
     use revm::database::{InMemoryDB, BENCH_CALLER};
-    use revm::primitives::{Bytes, TxKind, U256};
-    
-    fn get_mata_data() -> (Bytes, Bytes) {
-        // Create bytecode that will execute CLOAD
-        //contract C {
-        //    function f() external returns (uint256 result) {
-        //        assembly {
-        //            sstore(0, 1)
-        //            result := cload(0)
-        //        }
-        //    }
-        //}
-        let bytecode = Bytes::from_str("6080604052348015600e575f5ffd5b5060d880601a5f395ff3fe6080604052348015600e575f5ffd5b50600436106026575f3560e01c806326121ff014602a575b5f5ffd5b60306044565b604051603b91906066565b60405180910390f35b5f60015f555fb0905090565b5f819050919050565b6060816050565b82525050565b5f60208201905060775f8301846059565b9291505056fea26469706673582212203976fb983ef7119eeabfd96d1698e9bca8ad8a92c6f39e22bc2c6b412755a16864736f6c637827302e382e32382d63692e323032342e31312e342b636f6d6d69742e64396333323834372e6d6f640058").unwrap();
-        let function_selector = Bytes::from_str("26121ff0").unwrap();
-        (bytecode, function_selector)
-    }
-    
-    #[test]
-    fn test_cload_error_bubbles_up() -> anyhow::Result<()> {
-        let (bytecode, function_selector) = get_mata_data();
+    use revm::primitives::{Bytes, TxKind, U256, Address};
 
+
+    // === Fixture data ===
+    fn get_meta_data() -> (Bytes, Bytes) {
+        // bytecode for a contract whose function f() does `cload(0)` after `sstore(0,1)`
+        let bytecode = Bytes::from_str(
+            "6080604052348015600e575f5ffd5b5060d880601a5f395ff3fe6080604052348015600e\
+             575f5ffd5b50600436106026575f3560e01c806326121ff014602a575b5f5ffd5b60306\
+             044565b604051603b91906066565b60405180910390f35b5f60015f555fb0905090565b\
+             5f819050919050565b6060816050565b82525050565b5f60208201905060775f830184\
+             6059565b9291505056fea26469706673582212203976fb983ef7119eeabfd96d1698e9\
+             bca8ad8a92c6f39e22bc2c6b412755a16864736f6c637827302e382e32382d63692e32\
+             3032342e31312e342b636f6d6d69742e64396333323834372e6d6f640058"
+        ).unwrap();
+        let selector = Bytes::from_str("26121ff0").unwrap();
+        (bytecode, selector)
+    }
+
+    // === Test helpers ===
+
+    /// Deploys the test contract and returns its address.
+    fn deploy_contract() -> anyhow::Result<(SeismicContext<InMemoryDB>, Address)> {
+        let (bytecode, _) = get_meta_data();
         let ctx = Context::seismic()
             .modify_tx_chained(|tx| {
-            tx.base.kind = TxKind::Create;
-            tx.base.data = bytecode.clone();
-        })
-        .with_db(InMemoryDB::default());
-        
+                tx.base.kind = TxKind::Create;
+                tx.base.data = bytecode.clone();
+            })
+            .with_db(InMemoryDB::default());
+
         let mut evm = ctx.build_seismic();
-        let ref_tx = evm.replay_commit()?;
-            let ExecutionResult::Success {
-                output: Output::Create(_, Some(address)),
-                ..
-            } = ref_tx
-            else {
-                bail!("Failed to create contract: {ref_tx:#?}");
-            };
+        let receipt = evm.replay_commit()?;
+        if let ExecutionResult::Success { output: Output::Create(_, Some(addr)), .. } = receipt {
+            Ok((evm.ctx().clone(), addr))
+        } else {
+            bail!("Contract deployment failed: {receipt:#?}");
+        }
+    }
+   
+    fn prepare_call(
+        ctx: SeismicContext<InMemoryDB>,
+        contract: Address,
+        selector: Bytes,
+        gas_limit: u64,
+        gas_price: u64,
+    ) -> SeismicContext<InMemoryDB> {
+        let mut ctx = ctx;
         
-
-        let account_balance = 1_000_000;
-        let gas_limit = 59_000;
-        let gas_price = 10;
-
-        let account = evm.ctx().journal().load_account(BENCH_CALLER).unwrap();
-        account.data.info.balance = U256::from(account_balance);
-
-        evm.ctx().modify_tx(|tx| {
-            tx.base.kind = TxKind::Call(address);
-            tx.base.data = function_selector;
+        ctx.modify_tx(|tx| {
+            tx.base.kind = TxKind::Call(contract);
+            tx.base.data = selector.clone();
             tx.base.gas_limit = gas_limit;
-            tx.base.gas_priority_fee = None;
-            tx.base.gas_price = gas_price;
+            tx.base.gas_price = gas_price as u128;
             tx.base.caller = BENCH_CALLER;
+            tx.base.gas_priority_fee = None;
         });
-        
-        let result = evm.replay()?;
 
-        // Check correct execution result 
+        ctx
+    }
+
+    /// Asserts that the CLLOAD error bubbled up and gas & nonce are handled correctly.
+    fn assert_cload_error(
+        result: &ResultAndState<SeismicHaltReason>,
+        starting_balance: u64,
+        gas_limit: u64,
+        gas_price: u64,
+    ) {
+        // error bubbled
         assert!(matches!(
             result.result,
             ExecutionResult::Halt {
                 reason: SeismicHaltReason::InvalidPublicStorageAccess,
                 ..
-            } 
+            }
         ));
 
-        // Check correct State Output
-    
-        // Check if the balance got deducted by gas_limit * gas_price 
-        assert_eq!(result.state.get(&BENCH_CALLER).unwrap().info.balance,
-            U256::from(account_balance - gas_limit * gas_price as u64));
-        
-        // Check correct nonce increment 
-        assert_eq!(result.state.get(&BENCH_CALLER).unwrap().info.nonce,
-            1 as u64);
+        // balance deduction
+        let expected = U256::from(starting_balance - gas_limit * gas_price);
+        assert_eq!(result.state.get(&BENCH_CALLER).unwrap().info.balance, expected, "Caller balance after gas");
 
+        // nonce increment
+        let final_nonce = result.state.get(&BENCH_CALLER).unwrap().info.nonce;
+        assert_eq!(final_nonce, 1, "Caller nonce incremented by 1");
+    }
+
+    #[test]
+    fn cload_access_violation_bubbles_up_and_charges_gas() -> anyhow::Result<()> {
+        let (ctx, contract) = deploy_contract()?;
+
+        let balance = 1_000_000;
+        let gas_limit = 59_000;
+        let gas_price = 10;
+
+        let (_, selector) = get_meta_data();
+        let call_ctx = prepare_call(
+            ctx,
+            contract,
+            selector,
+            gas_limit,
+            gas_price,
+        );
+
+        let mut evm = call_ctx.build_seismic();
+
+        let account = evm.ctx().journal().load_account(BENCH_CALLER).unwrap();
+        account.data.info.balance = U256::from(balance);
+
+        let result = evm.replay()?;
+
+        assert_cload_error(&result, balance, gas_limit, gas_price);
         Ok(())
     }
-    
-    //#[test]
-    //fn test_cload_handler_error_handling() {
-    //    // Create the test context
-    //    let ctx = create_cload_test_context();
-    //    
-    //    // Build the SeismicEvm with a host that will trigger the error
-    //    // You'll need to implement a test host that returns a value where:
-    //    // value.is_private == false && !value.data.is_zero()
-    //    let mut evm = create_evm_with_error_triggering_host(ctx);
-    //    
-    //    // Create the handler
-    //    let handler = SeismicHandler::
-    //        SeismicEvm<_, _>, 
-    //        EVMError<_, _>, 
-    //        EthFrame<_, _, _>
-    //    >::new();
-    //    
-    //    // Execute a frame with CLOAD instruction
-    //    let frame_input = FrameInput::new(
-    //        Address::ZERO,
-    //        Address::ZERO,
-    //        Bytes::from_static(&[0x60, 0x0A, 0xB0]),
-    //        U256::ZERO,
-    //        u64::MAX
-    //    );
-    //    
-    //    let result = handler.execute_frame(&mut evm, frame_input);
-    //    
-    //    // Check that the error was properly handled
-    //    assert!(matches!(
-    //        result,
-    //        Err(EVMError::Custom(reason)) if reason == "rekt"
-    //    ));
-    //}
 }
