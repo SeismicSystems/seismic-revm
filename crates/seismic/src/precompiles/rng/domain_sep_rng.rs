@@ -154,9 +154,14 @@ impl RootRng {
     }
 
     #[cfg(test)]
-    pub fn state_snapshot(&self) -> ([u8;32], bool, bool, u64) {
+    pub fn state_snapshot(&self) -> ([u8; 32], bool, bool, u64) {
         let inner = self.inner.borrow_mut();
-        (inner.root_vrf_key.clone().public.to_bytes(), inner.rng.is_none(), inner.cloning_transcript.is_none(), inner.num_forks)
+        (
+            inner.root_vrf_key.clone().public.to_bytes(),
+            inner.rng.is_none(),
+            inner.cloning_transcript.is_none(),
+            inner.num_forks,
+        )
     }
 }
 

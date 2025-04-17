@@ -88,7 +88,7 @@ where
             }
         }
     }
-    
+
     /// Handles cleanup when an error occurs during execution.
     ///
     /// Ensures the journal state is properly cleared before propagating the error.

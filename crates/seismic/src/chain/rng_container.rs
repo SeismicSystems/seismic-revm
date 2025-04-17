@@ -101,7 +101,7 @@ impl RngContainer {
     pub fn root_rng(&self) -> &RootRng {
         &self.rng
     }
-    
+
     #[cfg(test)]
     pub fn leaf_rng(&self) -> &Option<LeafRng> {
         &self.leaf_rng

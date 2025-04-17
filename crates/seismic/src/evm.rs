@@ -109,7 +109,10 @@ mod tests {
     use crate::precompiles::rng::domain_sep_rng::RootRng;
     use crate::precompiles::rng::precompile::{calculate_fill_cost, calculate_init_cost};
     use crate::transaction::abstraction::SeismicTransaction;
-    use crate::{DefaultSeismic, SeismicBuilder, SeismicChain, SeismicContext, SeismicHaltReason, SeismicSpecId};
+    use crate::{
+        DefaultSeismic, SeismicBuilder, SeismicChain, SeismicContext, SeismicHaltReason,
+        SeismicSpecId,
+    };
     use anyhow::bail;
     use rand_core::RngCore;
     use revm::context::result::{ExecutionResult, Output, ResultAndState};
@@ -231,7 +234,7 @@ mod tests {
         assert_cload_error(&result, balance, gas_limit, gas_price);
         Ok(())
     }
-    
+
     fn rng_test_tx(
         spec: SeismicSpecId,
         bytes_requested: u32,
@@ -251,7 +254,9 @@ mod tests {
         let InitialAndFloorGas { initial_gas, .. } =
             calculate_initial_tx_gas(spec.into(), &input[..], false, 0, 0, 0);
 
-        let total_gas = initial_gas + calculate_init_cost(personalization.len()) + calculate_fill_cost(bytes_requested as usize);
+        let total_gas = initial_gas
+            + calculate_init_cost(personalization.len())
+            + calculate_fill_cost(bytes_requested as usize);
 
         Context::seismic()
             .modify_tx_chained(|tx| {
@@ -269,7 +274,11 @@ mod tests {
         let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
 
         // Get EVM output
-        let ctx = rng_test_tx(SeismicSpecId::MERCURY, bytes_requested, personalization.clone());
+        let ctx = rng_test_tx(
+            SeismicSpecId::MERCURY,
+            bytes_requested,
+            personalization.clone(),
+        );
 
         let mut evm = ctx.build_seismic();
         let output = evm.replay().unwrap();
@@ -282,11 +291,31 @@ mod tests {
         let mut leaf_rng = root_rng.fork(&personalization);
         let mut rng_bytes = vec![0u8; bytes_requested as usize];
         leaf_rng.fill_bytes(&mut rng_bytes);
-        assert_eq!(Bytes::from(rng_bytes), evm_output, "expected output and evm output should be equal");
+        assert_eq!(
+            Bytes::from(rng_bytes),
+            evm_output,
+            "expected output and evm output should be equal"
+        );
 
         // check root rng state is reset post execution
-        let expected_root_rng_state = (get_sample_schnorrkel_keypair().public.to_bytes(), true, true, 0 as u64);
-        assert!(evm.ctx().chain().rng_container().leaf_rng().is_none(), "leaf rng should be none post execution");
-        assert_eq!(evm.ctx().chain().rng_container().root_rng().state_snapshot(), expected_root_rng_state, "root rng state should be as expected");
+        let expected_root_rng_state = (
+            get_sample_schnorrkel_keypair().public.to_bytes(),
+            true,
+            true,
+            0 as u64,
+        );
+        assert!(
+            evm.ctx().chain().rng_container().leaf_rng().is_none(),
+            "leaf rng should be none post execution"
+        );
+        assert_eq!(
+            evm.ctx()
+                .chain()
+                .rng_container()
+                .root_rng()
+                .state_snapshot(),
+            expected_root_rng_state,
+            "root rng state should be as expected"
+        );
     }
 }
