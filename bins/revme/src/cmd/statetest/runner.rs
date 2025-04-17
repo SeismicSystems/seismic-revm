@@ -14,12 +14,15 @@ use revm::{
         Cfg,
     },
     database_interface::EmptyDB,
-    ExecuteCommitEvm,
     primitives::{
         eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes, TxKind, B256,
-    }, Context,
+    },
+    Context, ExecuteCommitEvm,
 };
-use seismic_revm::{transaction::abstraction::SeismicTransaction, DefaultSeismic, SeismicBuilder, SeismicHaltReason, SeismicSpecId};
+use seismic_revm::{
+    transaction::abstraction::SeismicTransaction, DefaultSeismic, SeismicBuilder,
+    SeismicHaltReason, SeismicSpecId,
+};
 use serde_json::json;
 use state::FlaggedStorage;
 use statetest_types::{SpecName, Test, TestSuite};
@@ -140,7 +143,10 @@ fn check_evm_execution(
     test: &Test,
     expected_output: Option<&Bytes>,
     test_name: &str,
-    exec_result: &Result<ExecutionResult<SeismicHaltReason>, EVMError<Infallible, InvalidTransaction>>,
+    exec_result: &Result<
+        ExecutionResult<SeismicHaltReason>,
+        EVMError<Infallible, InvalidTransaction>,
+    >,
     db: &mut State<EmptyDB>,
     spec: SeismicSpecId,
     print_json_outcome: bool,
@@ -340,7 +346,7 @@ pub fn execute_test_suite(
             if let Some(current_excess_blob_gas) = unit.env.current_excess_blob_gas {
                 block.set_blob_excess_gas_and_price(
                     current_excess_blob_gas.to(),
-                    SpecId::PRAGUE.is_enabled_in(cfg.spec().into_eth_spec())
+                    SpecId::PRAGUE.is_enabled_in(cfg.spec().into_eth_spec()),
                 );
             } else if let (Some(parent_blob_gas_used), Some(parent_excess_blob_gas)) = (
                 unit.env.parent_blob_gas_used,
@@ -355,11 +361,12 @@ pub fn execute_test_suite(
                             .map(|i| i.to())
                             .unwrap_or(TARGET_BLOB_GAS_PER_BLOCK_CANCUN),
                     ),
-                    SpecId::PRAGUE.is_enabled_in(cfg.spec().into_eth_spec())
+                    SpecId::PRAGUE.is_enabled_in(cfg.spec().into_eth_spec()),
                 );
             }
 
-            if SpecId::MERGE.is_enabled_in(cfg.spec().into_eth_spec()) && block.prevrandao.is_none() {
+            if SpecId::MERGE.is_enabled_in(cfg.spec().into_eth_spec()) && block.prevrandao.is_none()
+            {
                 // If spec is merge and prevrandao is not set, set it to default
                 block.prevrandao = Some(B256::default());
             }
@@ -409,7 +416,9 @@ pub fn execute_test_suite(
                 tx.base.kind = to;
 
                 let mut cache = cache_state.clone();
-                cache.set_state_clear_flag(SpecId::SPURIOUS_DRAGON.is_enabled_in(cfg.spec().into_eth_spec()));
+                cache.set_state_clear_flag(
+                    SpecId::SPURIOUS_DRAGON.is_enabled_in(cfg.spec().into_eth_spec()),
+                );
                 let mut state = database::State::builder()
                     .with_cached_prestate(cache)
                     .with_bundle_update()
@@ -488,7 +497,9 @@ pub fn execute_test_suite(
 
                 // Re-build to run with tracing
                 let mut cache = cache_state.clone();
-                cache.set_state_clear_flag(SpecId::SPURIOUS_DRAGON.is_enabled_in(cfg.spec().into_eth_spec()));
+                cache.set_state_clear_flag(
+                    SpecId::SPURIOUS_DRAGON.is_enabled_in(cfg.spec().into_eth_spec()),
+                );
                 let mut state = database::State::builder()
                     .with_cached_prestate(cache)
                     .with_bundle_update()
