@@ -77,6 +77,76 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
         ));
 }
 
+pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
+    interpreter: &mut Interpreter<WIRE>,
+    host: &mut H,
+) {
+    popn_top!([], index, interpreter);
+
+    if let Some(value) = host.sload(interpreter.input.target_address(), *index) {
+        if value.is_private {
+            interpreter
+                .control
+                .set_instruction_result(InstructionResult::FatalExternalError);
+            host.set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+            return;
+        }
+        gas!(
+            interpreter,
+            gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
+        );
+        *index = value.data;
+    } else {
+        interpreter
+            .control
+            .set_instruction_result(InstructionResult::FatalExternalError);
+        return;
+    }
+}
+
+pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
+    interpreter: &mut Interpreter<WIRE>,
+    host: &mut H,
+) {
+    require_non_staticcall!(interpreter);
+
+    popn!([index, value], interpreter);
+
+    let Some(state_load) = host.sstore(interpreter.input.target_address(), index, value) else {
+        interpreter
+            .control
+            .set_instruction_result(InstructionResult::FatalExternalError);
+        return;
+    };
+
+    // EIP-1706 Disable SSTORE with gasleft lower than call stipend
+    if interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL)
+        && interpreter.control.gas().remaining() <= CALL_STIPEND
+    {
+        interpreter
+            .control
+            .set_instruction_result(InstructionResult::ReentrancySentryOOG);
+        return;
+    }
+    gas!(
+        interpreter,
+        gas::sstore_cost(
+            interpreter.runtime_flag.spec_id(),
+            &state_load.data,
+            state_load.is_cold
+        )
+    );
+
+    interpreter
+        .control
+        .gas_mut()
+        .record_refund(gas::sstore_refund(
+            interpreter.runtime_flag.spec_id(),
+            &state_load.data,
+        ));
+}
+
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;

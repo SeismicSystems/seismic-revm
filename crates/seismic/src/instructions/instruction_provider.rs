@@ -1,15 +1,14 @@
 use revm::{
-    handler::instructions::InstructionProvider,
-    interpreter::{
+    bytecode::opcode::{SLOAD, SSTORE}, handler::instructions::InstructionProvider, interpreter::{
         instructions::{instruction_table, InstructionTable},
         Host, Instruction, InterpreterTypes,
-    },
+    }
 };
 use std::boxed::Box;
 
 use crate::SeismicHost;
 
-use super::confidential_storage::{cload, cstore};
+use super::confidential_storage::{cload, cstore, sload as seismic_sload, sstore as seismic_sstore};
 
 /// Custom opcodes for CLOAD and CSTORE
 pub const CLOAD: u8 = 0xB0;
@@ -31,6 +30,8 @@ where
 
         table[CLOAD as usize] = cload;
         table[CSTORE as usize] = cstore;
+        table[SLOAD as usize] = seismic_sload;
+        table[SSTORE as usize] = seismic_sstore;
 
         Self {
             instruction_table: Box::new(table),
@@ -119,6 +120,18 @@ mod tests {
             instructions_equal(table[CSTORE as usize], cstore),
             "CSTORE (0xB1) should be our cstore handler"
         );
+        
+        // Verify SSTORE is our SSTORE 
+        assert!(
+            instructions_equal(table[SSTORE as usize], seismic_sstore),
+            "CLOAD (0xB0) should be our cload handler"
+        );
+
+        // Verify SLOAD is our SLOAD 
+        assert!(
+            instructions_equal(table[SLOAD as usize], seismic_sload),
+            "CLOAD (0xB0) should be our cload handler"
+        );
     }
 
     #[test]
@@ -184,7 +197,7 @@ mod tests {
 
         // Verify all standard opcodes remain unchanged (except our custom ones)
         for i in 0..256 {
-            if i != CLOAD as usize && i != CSTORE as usize {
+            if i != CLOAD as usize && i != CSTORE as usize && i != SLOAD as usize && i != SSTORE as usize {
                 assert!(
                     instructions_equal(custom_table[i], standard_table[i]),
                     "Opcode 0x{:X?} should remain unchanged",
