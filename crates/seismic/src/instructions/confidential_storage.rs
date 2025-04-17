@@ -146,7 +146,6 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
         ));
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;

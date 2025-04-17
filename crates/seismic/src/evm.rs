@@ -105,14 +105,13 @@ mod tests {
     use core::str::FromStr;
 
     use super::*;
-    use anyhow::bail;
-    use revm::{ExecuteCommitEvm, ExecuteEvm};
     use crate::{DefaultSeismic, SeismicBuilder, SeismicContext, SeismicHaltReason};
-    use revm::context::{Context, ContextTr};
+    use anyhow::bail;
     use revm::context::result::{ExecutionResult, Output, ResultAndState};
+    use revm::context::{Context, ContextTr};
     use revm::database::{InMemoryDB, BENCH_CALLER};
-    use revm::primitives::{Bytes, TxKind, U256, Address};
-
+    use revm::primitives::{Address, Bytes, TxKind, U256};
+    use revm::{ExecuteCommitEvm, ExecuteEvm};
 
     // === Fixture data ===
 
@@ -125,8 +124,9 @@ mod tests {
              5f819050919050565b6060816050565b82525050565b5f60208201905060775f830184\
              6059565b9291505056fea26469706673582212203976fb983ef7119eeabfd96d1698e9\
              bca8ad8a92c6f39e22bc2c6b412755a16864736f6c637827302e382e32382d63692e32\
-             3032342e31312e342b636f6d6d69742e64396333323834372e6d6f640058"
-        ).unwrap();
+             3032342e31312e342b636f6d6d69742e64396333323834372e6d6f640058",
+        )
+        .unwrap();
         let selector = Bytes::from_str("26121ff0").unwrap();
         (bytecode, selector)
     }
@@ -144,13 +144,17 @@ mod tests {
 
         let mut evm = ctx.build_seismic();
         let receipt = evm.replay_commit()?;
-        if let ExecutionResult::Success { output: Output::Create(_, Some(addr)), .. } = receipt {
+        if let ExecutionResult::Success {
+            output: Output::Create(_, Some(addr)),
+            ..
+        } = receipt
+        {
             Ok((evm.ctx().clone(), addr))
         } else {
             bail!("Contract deployment failed: {receipt:#?}");
         }
     }
-   
+
     fn prepare_call(
         ctx: SeismicContext<InMemoryDB>,
         contract: Address,
@@ -159,7 +163,7 @@ mod tests {
         gas_price: u64,
     ) -> SeismicContext<InMemoryDB> {
         let mut ctx = ctx;
-        
+
         ctx.modify_tx(|tx| {
             tx.base.kind = TxKind::Call(contract);
             tx.base.data = selector.clone();
@@ -187,7 +191,11 @@ mod tests {
         ));
 
         let expected = U256::from(starting_balance - gas_limit * gas_price);
-        assert_eq!(result.state.get(&BENCH_CALLER).unwrap().info.balance, expected, "Caller balance after gas");
+        assert_eq!(
+            result.state.get(&BENCH_CALLER).unwrap().info.balance,
+            expected,
+            "Caller balance after gas"
+        );
 
         let final_nonce = result.state.get(&BENCH_CALLER).unwrap().info.nonce;
         assert_eq!(final_nonce, 1, "Caller nonce incremented by 1");
@@ -202,13 +210,7 @@ mod tests {
         let gas_price = 10;
 
         let (_, selector) = get_meta_data();
-        let call_ctx = prepare_call(
-            ctx,
-            contract,
-            selector,
-            gas_limit,
-            gas_price,
-        );
+        let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
         let mut evm = call_ctx.build_seismic();
 

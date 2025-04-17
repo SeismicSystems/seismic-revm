@@ -19,8 +19,8 @@ pub use api::{
     builder::SeismicBuilder,
     default_ctx::{DefaultSeismic, SeismicContext},
 };
+pub use chain::seismic_chain::SeismicChain;
 pub use evm::SeismicEvm;
 pub use instructions::seismic_host::SeismicHost;
 pub use result::SeismicHaltReason;
-pub use chain::seismic_chain::SeismicChain;
 pub use spec::*;

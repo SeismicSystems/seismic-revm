@@ -1,7 +1,9 @@
 use revm::{
-    context::ContextTr, context_interface::{
-        context::ContextError, journaled_state::AccountLoad, Database
-    }, database::EmptyDB, interpreter::{host::DummyHost, Host, SStoreResult, SelfDestructResult, StateLoad}, primitives::{Address, Bytes, Log, B256, U256}
+    context::ContextTr,
+    context_interface::{context::ContextError, journaled_state::AccountLoad, Database},
+    database::EmptyDB,
+    interpreter::{host::DummyHost, Host, SStoreResult, SelfDestructResult, StateLoad},
+    primitives::{Address, Bytes, Log, B256, U256},
 };
 
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
@@ -13,11 +15,11 @@ pub trait SeismicHost: Host {
     fn ctx_error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>>;
     fn set_ctx_error<E>(&mut self, error: E)
     where
-        E: Into<ContextError<<Self::Db as Database>::Error>>
+        E: Into<ContextError<<Self::Db as Database>::Error>>,
     {
         *self.ctx_error() = Err(error.into());
     }
-    
+
     fn set_halt_reason(&mut self, reason: SeismicHaltReason) {
         *self.ctx_error() = Err(ContextError::Custom(reason.to_string()));
     }
@@ -140,11 +142,11 @@ impl Host for SeismicDummyHost {
         key: U256,
         value: U256,
     ) -> Option<StateLoad<SStoreResult>> {
-       self.dummy_host.sstore(address, key, value)
+        self.dummy_host.sstore(address, key, value)
     }
 
     fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
-       self.dummy_host.sload(address, key)
+        self.dummy_host.sload(address, key)
     }
 
     fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
@@ -160,18 +162,18 @@ impl Host for SeismicDummyHost {
     }
 
     fn balance(&mut self, address: Address) -> Option<StateLoad<U256>> {
-       self.dummy_host.balance(address)
+        self.dummy_host.balance(address)
     }
 
     fn load_account_delegated(&mut self, address: Address) -> Option<StateLoad<AccountLoad>> {
-       self.dummy_host.load_account_delegated(address)
+        self.dummy_host.load_account_delegated(address)
     }
 
     fn load_account_code(&mut self, address: Address) -> Option<StateLoad<Bytes>> {
-       self.dummy_host.load_account_code(address)
+        self.dummy_host.load_account_code(address)
     }
 
     fn load_account_code_hash(&mut self, address: Address) -> Option<StateLoad<B256>> {
-       self.dummy_host.load_account_code_hash(address)
+        self.dummy_host.load_account_code_hash(address)
     }
 }

@@ -16,21 +16,25 @@ pub enum SeismicHaltReason {
 impl SeismicHaltReason {
     pub fn try_from_error_string(error_str: &str) -> Option<Self> {
         match () {
-            _ if error_str.contains("InvalidPublicStorageAccess") => 
-                Some(Self::InvalidPublicStorageAccess),
-            _ if error_str.contains("InvalidPrivateStorageAccess") => 
-                Some(Self::InvalidPrivateStorageAccess),
-            _ => None
+            _ if error_str.contains("InvalidPublicStorageAccess") => {
+                Some(Self::InvalidPublicStorageAccess)
+            }
+            _ if error_str.contains("InvalidPrivateStorageAccess") => {
+                Some(Self::InvalidPrivateStorageAccess)
+            }
+            _ => None,
         }
     }
 
     pub fn try_from_error_string_exact(error_str: &str) -> Option<Self> {
         match error_str {
-            "FatalExternalError: InvalidPublicStorageAccess" => 
-                Some(Self::InvalidPublicStorageAccess),
-            "FatalExternalError: InvalidPrivateStorageAccess" => 
-                Some(Self::InvalidPrivateStorageAccess),
-            _ => None
+            "FatalExternalError: InvalidPublicStorageAccess" => {
+                Some(Self::InvalidPublicStorageAccess)
+            }
+            "FatalExternalError: InvalidPrivateStorageAccess" => {
+                Some(Self::InvalidPrivateStorageAccess)
+            }
+            _ => None,
         }
     }
 }
@@ -45,8 +49,12 @@ impl fmt::Display for SeismicHaltReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SeismicHaltReason::Base(_) => write!(f, "Base error"),
-            SeismicHaltReason::InvalidPrivateStorageAccess => write!(f, "InvalidPrivateStorageAccess"),
-            SeismicHaltReason::InvalidPublicStorageAccess => write!(f, "InvalidPublicStorageAccess"),
+            SeismicHaltReason::InvalidPrivateStorageAccess => {
+                write!(f, "InvalidPrivateStorageAccess")
+            }
+            SeismicHaltReason::InvalidPublicStorageAccess => {
+                write!(f, "InvalidPublicStorageAccess")
+            }
         }
     }
 }

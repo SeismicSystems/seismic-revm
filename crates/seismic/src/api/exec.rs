@@ -1,13 +1,13 @@
 use crate::{
-    evm::SeismicEvm, handler::SeismicHandler, instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr, SeismicChain, SeismicHaltReason, SeismicSpecId
+    evm::SeismicEvm, handler::SeismicHandler,
+    instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr,
+    SeismicChain, SeismicHaltReason, SeismicSpecId,
 };
 use revm::{
-    context::{
-        result::InvalidTransaction,
-        ContextSetters, JournalOutput,
-    },
+    context::{result::InvalidTransaction, ContextSetters, JournalOutput},
     context_interface::{
-        result::{EVMError, ExecutionResult, ResultAndState}, Cfg, ContextTr, Database, JournalTr
+        result::{EVMError, ExecutionResult, ResultAndState},
+        Cfg, ContextTr, Database, JournalTr,
     },
     handler::{EthFrame, EvmTr, Handler, PrecompileProvider},
     inspector::{InspectCommitEvm, InspectEvm, Inspector, InspectorHandler, JournalExt},
@@ -21,8 +21,8 @@ pub trait SeismicContextTr:
     Journal: JournalTr<FinalOutput = JournalOutput>,
     Tx: SeismicTxTr,
     Cfg: Cfg<Spec = SeismicSpecId>,
-    Chain= SeismicChain
-    >
+    Chain = SeismicChain,
+>
 {
 }
 

@@ -1,5 +1,6 @@
 use crate::{
-    chain::seismic_chain::SeismicChain, instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr, SeismicEvm, SeismicSpecId
+    chain::seismic_chain::SeismicChain, instructions::instruction_provider::SeismicInstructions,
+    transaction::abstraction::SeismicTxTr, SeismicEvm, SeismicSpecId,
 };
 use revm::{
     context::{Cfg, JournalOutput},

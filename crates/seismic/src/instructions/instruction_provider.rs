@@ -1,14 +1,18 @@
 use revm::{
-    bytecode::opcode::{SLOAD, SSTORE}, handler::instructions::InstructionProvider, interpreter::{
+    bytecode::opcode::{SLOAD, SSTORE},
+    handler::instructions::InstructionProvider,
+    interpreter::{
         instructions::{instruction_table, InstructionTable},
         Host, Instruction, InterpreterTypes,
-    }
+    },
 };
 use std::boxed::Box;
 
 use crate::SeismicHost;
 
-use super::confidential_storage::{cload, cstore, sload as seismic_sload, sstore as seismic_sstore};
+use super::confidential_storage::{
+    cload, cstore, sload as seismic_sload, sstore as seismic_sstore,
+};
 
 /// Custom opcodes for CLOAD and CSTORE
 pub const CLOAD: u8 = 0xB0;
@@ -68,7 +72,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instructions::{confidential_storage::{cload, cstore}, seismic_host::SeismicDummyHost};
+    use crate::instructions::{
+        confidential_storage::{cload, cstore},
+        seismic_host::SeismicDummyHost,
+    };
     use revm::interpreter::{
         instructions::control,
         interpreter::{EthInterpreter, Interpreter},
@@ -89,7 +96,8 @@ mod tests {
     #[test]
     fn test_custom_opcodes_are_registered() {
         // Create a SeismicInstructions with our mock handlers
-        let seismic_instructions = SeismicInstructions::<EthInterpreter, SeismicDummyHost>::new_mainnet();
+        let seismic_instructions =
+            SeismicInstructions::<EthInterpreter, SeismicDummyHost>::new_mainnet();
 
         // Get reference to the instruction table
         let table = seismic_instructions.instruction_table();
@@ -120,14 +128,14 @@ mod tests {
             instructions_equal(table[CSTORE as usize], cstore),
             "CSTORE (0xB1) should be our cstore handler"
         );
-        
-        // Verify SSTORE is our SSTORE 
+
+        // Verify SSTORE is our SSTORE
         assert!(
             instructions_equal(table[SSTORE as usize], seismic_sstore),
             "CLOAD (0xB0) should be our cload handler"
         );
 
-        // Verify SLOAD is our SLOAD 
+        // Verify SLOAD is our SLOAD
         assert!(
             instructions_equal(table[SLOAD as usize], seismic_sload),
             "CLOAD (0xB0) should be our cload handler"
@@ -190,14 +198,19 @@ mod tests {
         let standard_table = instruction_table::<EthInterpreter, SeismicDummyHost>();
 
         // Create a SeismicInstructions
-        let seismic_instructions = SeismicInstructions::<EthInterpreter, SeismicDummyHost>::new_mainnet();
+        let seismic_instructions =
+            SeismicInstructions::<EthInterpreter, SeismicDummyHost>::new_mainnet();
 
         // Get our custom table
         let custom_table = seismic_instructions.instruction_table();
 
         // Verify all standard opcodes remain unchanged (except our custom ones)
         for i in 0..256 {
-            if i != CLOAD as usize && i != CSTORE as usize && i != SLOAD as usize && i != SSTORE as usize {
+            if i != CLOAD as usize
+                && i != CSTORE as usize
+                && i != SLOAD as usize
+                && i != SSTORE as usize
+            {
                 assert!(
                     instructions_equal(custom_table[i], standard_table[i]),
                     "Opcode 0x{:X?} should remain unchanged",

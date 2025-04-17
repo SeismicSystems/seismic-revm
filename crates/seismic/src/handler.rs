@@ -2,12 +2,15 @@
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
 use revm::{
     context::{
-        result::{ExecutionResult, InvalidTransaction, ResultAndState}, ContextTr, JournalTr, Transaction
+        result::{ExecutionResult, InvalidTransaction, ResultAndState},
+        ContextTr, JournalTr, Transaction,
     },
     context_interface::{context::ContextError, result::FromStringError},
-    handler::{handler::EvmTrError, post_execution, EvmTr, Frame, FrameResult, Handler, MainnetHandler},
+    handler::{
+        handler::EvmTrError, post_execution, EvmTr, Frame, FrameResult, Handler, MainnetHandler,
+    },
     inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
-    interpreter::{interpreter::EthInterpreter, FrameInput}, 
+    interpreter::{interpreter::EthInterpreter, FrameInput},
 };
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
@@ -63,26 +66,28 @@ where
         match core::mem::replace(evm.ctx().error(), Ok(())) {
             Err(ContextError::Db(e)) => Err(e.into()),
             Err(ContextError::Custom(e)) => {
-                if let Some(seismic_reason) = SeismicHaltReason::try_from_error_string(&e.to_string()) {
+                if let Some(seismic_reason) =
+                    SeismicHaltReason::try_from_error_string(&e.to_string())
+                {
                     let state = evm.ctx().journal().finalize().state;
-                    evm.ctx().journal().clear(); 
-                    
+                    evm.ctx().journal().clear();
+
                     return Ok(ResultAndState {
-                        result: ExecutionResult::Halt { 
+                        result: ExecutionResult::Halt {
                             reason: seismic_reason,
-                            gas_used: evm.ctx().tx().gas_limit() 
+                            gas_used: evm.ctx().tx().gas_limit(),
                         },
                         state,
                     });
                 }
-                
+
                 Err(Self::Error::from_string(e))
-            },
+            }
             Ok(_) => {
                 let output = post_execution::output(evm.ctx(), result);
                 evm.ctx().journal().clear();
                 Ok(output)
-            },
+            }
         }
     }
 }
@@ -109,7 +114,11 @@ mod tests {
     use super::*;
     use crate::{api::default_ctx::SeismicContext, DefaultSeismic, SeismicBuilder};
     use revm::{
-        context::{result::EVMError, Context}, database_interface::EmptyDB, handler::EthFrame, interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult}, primitives::Bytes
+        context::{result::EVMError, Context},
+        database_interface::EmptyDB,
+        handler::EthFrame,
+        interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
+        primitives::Bytes,
     };
 
     /// Creates frame result.
@@ -129,7 +138,8 @@ mod tests {
             0..0,
         ));
 
-        let handler = SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<_, _, _>>::new();
+        let handler =
+            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<_, _, _>>::new();
 
         handler
             .last_frame_result(&mut evm, &mut exec_result)
@@ -140,23 +150,21 @@ mod tests {
 
     #[test]
     fn test_revert_gas() {
-        let ctx = Context::seismic()
-            .modify_tx_chained(|tx| {
-                tx.base.gas_limit = 100;
-            });
+        let ctx = Context::seismic().modify_tx_chained(|tx| {
+            tx.base.gas_limit = 100;
+        });
 
         let gas = call_last_frame_return(ctx, InstructionResult::Revert, Gas::new(90));
         assert_eq!(gas.remaining(), 90);
         assert_eq!(gas.spent(), 10);
         assert_eq!(gas.refunded(), 0);
     }
-    
+
     #[test]
     fn test_fatal_external_error_gas() {
-        let ctx = Context::seismic()
-            .modify_tx_chained(|tx| {
-                tx.base.gas_limit = 100;
-            });
+        let ctx = Context::seismic().modify_tx_chained(|tx| {
+            tx.base.gas_limit = 100;
+        });
 
         let gas = call_last_frame_return(ctx, InstructionResult::FatalExternalError, Gas::new(90));
         assert_eq!(gas.remaining(), 0);
