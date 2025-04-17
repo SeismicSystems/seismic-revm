@@ -105,13 +105,25 @@ mod tests {
     use core::str::FromStr;
 
     use super::*;
-    use crate::{DefaultSeismic, SeismicBuilder, SeismicContext, SeismicHaltReason};
+    use crate::precompiles::rng;
+    use crate::precompiles::rng::domain_sep_rng::RootRng;
+    use crate::precompiles::rng::precompile::{calculate_fill_cost, calculate_init_cost};
+    use crate::transaction::abstraction::SeismicTransaction;
+    use crate::{
+        DefaultSeismic, SeismicBuilder, SeismicChain, SeismicContext, SeismicHaltReason,
+        SeismicSpecId,
+    };
     use anyhow::bail;
+    use rand_core::RngCore;
     use revm::context::result::{ExecutionResult, Output, ResultAndState};
-    use revm::context::{Context, ContextTr};
-    use revm::database::{InMemoryDB, BENCH_CALLER};
-    use revm::primitives::{Address, Bytes, TxKind, U256};
-    use revm::{ExecuteCommitEvm, ExecuteEvm};
+    use revm::context::{BlockEnv, CfgEnv, Context, ContextTr, TxEnv};
+    use revm::database::{EmptyDB, InMemoryDB, BENCH_CALLER};
+    use revm::interpreter::gas::calculate_initial_tx_gas;
+    use revm::interpreter::InitialAndFloorGas;
+    use revm::precompile::u64_to_address;
+    use revm::primitives::{Address, Bytes, TxKind, B256, U256};
+    use revm::{ExecuteCommitEvm, ExecuteEvm, Journal};
+    use seismic_enclave::get_sample_schnorrkel_keypair;
 
     // === Fixture data ===
 
@@ -221,5 +233,89 @@ mod tests {
 
         assert_cload_error(&result, balance, gas_limit, gas_price);
         Ok(())
+    }
+
+    fn rng_test_tx(
+        spec: SeismicSpecId,
+        bytes_requested: u32,
+        personalization: Vec<u8>,
+    ) -> Context<
+        BlockEnv,
+        SeismicTransaction<TxEnv>,
+        CfgEnv<SeismicSpecId>,
+        EmptyDB,
+        Journal<EmptyDB>,
+        SeismicChain,
+    > {
+        let mut input_data = bytes_requested.to_be_bytes().to_vec();
+        input_data.extend(personalization.clone());
+        let input = Bytes::from(input_data);
+
+        let InitialAndFloorGas { initial_gas, .. } =
+            calculate_initial_tx_gas(spec.into(), &input[..], false, 0, 0, 0);
+
+        let total_gas = initial_gas
+            + calculate_init_cost(personalization.len())
+            + calculate_fill_cost(bytes_requested as usize);
+
+        Context::seismic()
+            .modify_tx_chained(|tx| {
+                tx.base.kind = TxKind::Call(u64_to_address(rng::precompile::RNG_ADDRESS));
+                tx.base.data = input;
+                tx.base.gas_limit = total_gas;
+            })
+            .modify_cfg_chained(|cfg| cfg.spec = spec)
+    }
+
+    #[test]
+    fn test_rng_precompile_expected_output_and_cleared() {
+        // Variables
+        let bytes_requested: u32 = 32;
+        let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
+
+        // Get EVM output
+        let ctx = rng_test_tx(
+            SeismicSpecId::MERCURY,
+            bytes_requested,
+            personalization.clone(),
+        );
+
+        let mut evm = ctx.build_seismic();
+        let output = evm.replay().unwrap();
+
+        let evm_output = output.result.into_output().unwrap();
+
+        // reconstruct expected output
+        let root_rng = RootRng::test_default();
+        root_rng.append_tx(&B256::default());
+        let mut leaf_rng = root_rng.fork(&personalization);
+        let mut rng_bytes = vec![0u8; bytes_requested as usize];
+        leaf_rng.fill_bytes(&mut rng_bytes);
+        assert_eq!(
+            Bytes::from(rng_bytes),
+            evm_output,
+            "expected output and evm output should be equal"
+        );
+
+        // check root rng state is reset post execution
+        let expected_root_rng_state = (
+            get_sample_schnorrkel_keypair().public.to_bytes(),
+            true,
+            true,
+            0 as u64,
+        );
+        assert!(
+            evm.ctx().chain().rng_container().leaf_rng().is_none(),
+            "leaf rng should be none post execution"
+        );
+        assert_eq!(
+            evm.ctx()
+                .chain()
+                .rng_container()
+                .root_rng()
+                .state_snapshot(),
+            expected_root_rng_state,
+            "root rng state should be as expected"
+        );
     }
 }
