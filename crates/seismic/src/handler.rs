@@ -44,11 +44,6 @@ where
     type Frame = FRAME;
     type HaltReason = SeismicHaltReason;
 
-    fn pre_execution(&self, evm: &mut Self::Evm) -> Result<u64, Self::Error> {
-        evm.ctx().chain().reset_rng();
-        self.mainnet.pre_execution(evm)
-    }
-
     /// Processes the final execution output.
     ///
     /// This method, retrieves the final state from the journal, converts internal results to the external output format.
@@ -56,7 +51,8 @@ where
     ///
     /// Seismic Addendum
     /// Given that we can't yet pass instruction_result which aren't in the InstructionResult enum,
-    /// We leverage context_error to bubble up our instruction set specific errors!
+    /// We leverage context_error to bubble up our instruction set specific errors! We also clear
+    /// the rng state on returns that won't go through catch_error.
     #[inline]
     fn output(
         &self,
@@ -71,6 +67,7 @@ where
                 {
                     let state = evm.ctx().journal().finalize().state;
                     evm.ctx().journal().clear();
+                    evm.ctx().chain().reset_rng();
 
                     return Ok(ResultAndState {
                         result: ExecutionResult::Halt {
@@ -86,9 +83,27 @@ where
             Ok(_) => {
                 let output = post_execution::output(evm.ctx(), result);
                 evm.ctx().journal().clear();
+                evm.ctx().chain().reset_rng();
                 Ok(output)
             }
         }
+    }
+    
+    /// Handles cleanup when an error occurs during execution.
+    ///
+    /// Ensures the journal state is properly cleared before propagating the error.
+    /// Also ensures the rng has been reset.
+    /// On happy path journal is cleared in [`Handler::output`] method.
+    #[inline]
+    fn catch_error(
+        &self,
+        evm: &mut Self::Evm,
+        error: Self::Error,
+    ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
+        // Clean up journal state if error occurs
+        evm.ctx().journal().clear();
+        evm.ctx().chain().reset_rng();
+        Err(error)
     }
 }
 
