@@ -120,6 +120,7 @@ mod tests {
     use revm::precompile::u64_to_address;
     use revm::primitives::{Address, Bytes, TxKind, B256, U256};
     use revm::{ExecuteCommitEvm, ExecuteEvm, Journal};
+    use seismic_enclave::get_sample_schnorrkel_keypair;
 
     // === Fixture data ===
 
@@ -262,7 +263,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rng_precompile_expected_output() {
+    fn test_rng_precompile_expected_output_and_cleared() {
         // Variables
         let bytes_requested: u32 = 32;
         let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
@@ -281,8 +282,11 @@ mod tests {
         let mut leaf_rng = root_rng.fork(&personalization);
         let mut rng_bytes = vec![0u8; bytes_requested as usize];
         leaf_rng.fill_bytes(&mut rng_bytes);
-
         assert_eq!(Bytes::from(rng_bytes), evm_output, "expected output and evm output should be equal");
 
+        // check root rng state is reset post execution
+        let expected_root_rng_state = (get_sample_schnorrkel_keypair().public.to_bytes(), true, true, 0 as u64);
+        assert!(evm.ctx().chain().rng_container().leaf_rng().is_none(), "leaf rng should be none post execution");
+        assert_eq!(evm.ctx().chain().rng_container().root_rng().state_snapshot(), expected_root_rng_state, "root rng state should be as expected");
     }
 }
