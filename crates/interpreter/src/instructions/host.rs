@@ -175,24 +175,18 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(
 ) {
     popn_top!([], index, interpreter);
 
-    if let Some(value) = host.sload(interpreter.input.target_address(), *index) {
-        if value.is_private {
-            interpreter
-                .control
-                .set_instruction_result(InstructionResult::FatalExternalError);
-            return;
-        }
-        gas!(
-            interpreter,
-            gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
-        );
-        *index = value.data;
-    } else {
+    let Some(value) = host.sload(interpreter.input.target_address(), *index) else {
         interpreter
             .control
             .set_instruction_result(InstructionResult::FatalExternalError);
         return;
-    }
+    };
+
+    gas!(
+        interpreter,
+        gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
+    );
+    *index = value.data;
 }
 
 pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
