@@ -82,7 +82,7 @@ pub mod algo {
 
     #[inline]
     #[allow(clippy::many_single_char_names)]
-    /// G function: <https://tools.ietf.org/html/rfc7693#section-3.1>
+    /// G function: <https://datatracker.ietf.org/doc/html/rfc7693#section-3.1>
     pub fn g(v: &mut [u64], a: usize, b: usize, c: usize, d: usize, x: u64, y: u64) {
         v[a] = v[a].wrapping_add(v[b]).wrapping_add(x);
         v[d] = (v[d] ^ v[a]).rotate_right(32);
