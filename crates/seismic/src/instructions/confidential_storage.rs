@@ -15,7 +15,11 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     popn_top!([], index, interpreter);
 
     if let Some(value) = host.cload(interpreter.input.target_address(), *index) {
-        if !value.is_private && !value.data.is_zero() {
+        // Below basically means allow CLOAD for uninitialized storage.
+        // t;dr:
+        // allow ⇢ (private)  OR  (public && zero && !mutated)
+        // fail  ⇢  public && (non‑zero  OR  mutated)
+        if !value.is_private && (!value.data.is_zero() || value.is_mutated) {
             interpreter
                 .control
                 .set_instruction_result(InstructionResult::FatalExternalError);

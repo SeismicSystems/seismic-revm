@@ -145,7 +145,7 @@ pub trait JournalTr {
             code.original_bytes()
         };
 
-        Ok(StateLoad::new(code, a.is_cold, false))
+        Ok(StateLoad::new(code, a.is_cold, false, false))
     }
 
     /// Gets code hash of account.
@@ -158,7 +158,7 @@ pub trait JournalTr {
     ) -> Result<StateLoad<B256>, <Self::Database as Database>::Error> {
         let acc = self.load_account_code(address)?;
         if acc.is_empty() {
-            return Ok(StateLoad::new(B256::ZERO, acc.is_cold, false));
+            return Ok(StateLoad::new(B256::ZERO, acc.is_cold, false, false));
         }
         // SAFETY: Safe to unwrap as load_code will insert code if it is empty.
         let code = acc.info.code.as_ref().unwrap();
@@ -169,7 +169,7 @@ pub trait JournalTr {
             acc.info.code_hash
         };
 
-        Ok(StateLoad::new(hash, acc.is_cold, false))
+        Ok(StateLoad::new(hash, acc.is_cold, false, false))
     }
 
     /// Called at the end of the transaction to clean all residue data from journal.
@@ -226,6 +226,10 @@ pub struct StateLoad<T> {
     pub is_cold: bool,
     /// True if slot was tagged as private.
     pub is_private: bool,
+    /// True if slot was mutated already.
+    /// We add this instead of using is_dirty tricks because we still want people to amortize gas
+    /// costs. This flag is used solely for access checks on CLOADs for uninitialized storage.
+    pub is_mutated: bool,
 }
 
 impl<T> Deref for StateLoad<T> {
@@ -244,11 +248,12 @@ impl<T> DerefMut for StateLoad<T> {
 
 impl<T> StateLoad<T> {
     /// Returns a new [`StateLoad`] with the given data and cold load status.
-    pub fn new(data: T, is_cold: bool, is_private: bool) -> Self {
+    pub fn new(data: T, is_cold: bool, is_private: bool, is_mutated: bool) -> Self {
         Self {
             data,
             is_cold,
             is_private,
+            is_mutated
         }
     }
 
@@ -259,7 +264,7 @@ impl<T> StateLoad<T> {
     where
         F: FnOnce(T) -> B,
     {
-        StateLoad::new(f(self.data), self.is_cold, self.is_private)
+        StateLoad::new(f(self.data), self.is_cold, self.is_private, self.is_mutated)
     }
 }
 

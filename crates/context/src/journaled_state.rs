@@ -621,6 +621,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
             },
             is_cold,
             is_private: false,
+            is_mutated: false,
         })
     }
 
@@ -674,6 +675,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
             },
             account.is_cold,
             false,
+            false
         );
 
         // load delegate code if account is EIP-7702
@@ -705,6 +707,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                     data: account,
                     is_cold,
                     is_private: false,
+                    is_mutated: false
                 }
             }
             Entry::Vacant(vac) => {
@@ -721,6 +724,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                     data: vac.insert(account),
                     is_cold,
                     is_private: false,
+                    is_mutated: false
                 }
             }
         };
@@ -752,12 +756,12 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx can we assume that storage is empty.
         let is_newly_created = account.is_created();
-        let (value, is_cold, is_private) = match account.storage.entry(key) {
+        let (value, is_cold, is_private, is_mutated) = match account.storage.entry(key) {
             Entry::Occupied(occ) => {
                 let slot = occ.into_mut();
                 let is_cold = slot.mark_warm();
                 let is_private = slot.present_value().is_private;
-                (slot.present_value, is_cold, is_private)
+                (slot.present_value, is_cold, is_private, true)
             }
             Entry::Vacant(vac) => {
                 // if storage was cleared, we dont need to ping db.
@@ -769,7 +773,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
 
                 vac.insert(EvmStorageSlot::new(value));
 
-                (value, true, value.is_private)
+                (value, true, value.is_private, false)
             }
         };
 
@@ -781,7 +785,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 .push(ENTRY::storage_warmed(address, key));
         }
 
-        Ok(StateLoad::new(value.into(), is_cold, is_private))
+        Ok(StateLoad::new(value.into(), is_cold, is_private, is_mutated))
     }
 
     /// Stores storage slot.
@@ -815,6 +819,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 },
                 present.is_cold,
                 is_private,
+                true 
             ));
         }
 
@@ -838,6 +843,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
             },
             present.is_cold,
             is_private,
+            true
         ))
     }
 

@@ -105,6 +105,7 @@ mod tests {
     use core::str::FromStr;
 
     use super::*;
+    use crate::instructions::instruction_provider::{CLOAD, CSTORE};
     use crate::precompiles::rng;
     use crate::precompiles::rng::domain_sep_rng::RootRng;
     use crate::precompiles::rng::precompile::{calculate_fill_cost, calculate_init_cost};
@@ -115,13 +116,15 @@ mod tests {
     };
     use anyhow::bail;
     use rand_core::RngCore;
+    use revm::bytecode::opcode::{PUSH1, SLOAD, SSTORE, STOP};
     use revm::context::result::{ExecutionResult, Output, ResultAndState};
     use revm::context::{BlockEnv, CfgEnv, Context, ContextTr, TxEnv};
-    use revm::database::{EmptyDB, InMemoryDB, BENCH_CALLER};
+    use revm::database::{BenchmarkDB, EmptyDB, InMemoryDB, BENCH_CALLER, BENCH_TARGET};
     use revm::interpreter::gas::calculate_initial_tx_gas;
     use revm::interpreter::InitialAndFloorGas;
     use revm::precompile::u64_to_address;
     use revm::primitives::{Address, Bytes, TxKind, B256, U256};
+    use revm::state::Bytecode;
     use revm::{ExecuteCommitEvm, ExecuteEvm, Journal};
     use seismic_enclave::get_sample_schnorrkel_keypair;
 
@@ -318,4 +321,112 @@ mod tests {
             "root rng state should be as expected"
         );
     }
+
+    
+    /* ---------------------------------------------------------------
+     * CLOAD/CSTORE tests
+     * ------------------------------------------------------------- */
+
+    /* ---------------------------------------------------------------
+     *  Helpers – build a call‑tx against a one‑shot bytecode blob
+     * ------------------------------------------------------------- */
+    fn build_ctx_with_code(bytecode: Bytes, gas_limit: u64) -> SeismicContext<BenchmarkDB> {
+        Context::seismic()
+            .modify_cfg_chained(|cfg| cfg.spec = SeismicSpecId::MERCURY)       
+            .with_db(BenchmarkDB::new_bytecode(Bytecode::new_raw(
+                bytecode.clone(),
+            )))
+            .modify_tx_chained(|tx| {
+                tx.base.kind      = TxKind::Call(BENCH_TARGET);
+                tx.base.caller    = BENCH_CALLER;
+                tx.base.gas_limit = gas_limit;
+            })
+    }
+
+    /* ---------------------------------------------------------------
+     *  1. CLOAD on an untouched public‑and‑zero slot must succeed
+     * ------------------------------------------------------------- */
+    #[test]
+    fn cload_public_zero_unwritten_succeeds() -> anyhow::Result<()> {
+        // PUSH1 0x0A  ▸ CLOAD ▸ STOP
+        let code = Bytes::from(vec![PUSH1, 0x0A, CLOAD, STOP]);
+
+        let ctx   = build_ctx_with_code(code, 30_000);
+        let mut evm = ctx.build_seismic();
+        let result  = evm.replay()?;
+
+        assert!(
+            matches!(result.result, ExecutionResult::Success { .. }),
+            "CLOAD on an untouched public‑zero slot should run to Success"
+        );
+        Ok(())
+    }
+
+    /* ---------------------------------------------------------------
+     *  2. SSTORE(0, 0) followed by CLOAD(0) on the same slot must revert
+     * ------------------------------------------------------------- */
+    #[test]
+    fn cload_after_sstore_zero_reverts() -> anyhow::Result<()> {
+        // PUSH1 0x00 ▸ PUSH1 0x0A ▸ SSTORE ▸
+        // PUSH1 0x0A ▸ CLOAD      ▸ STOP
+        let code = Bytes::from(vec![
+            PUSH1, 0x00,
+            PUSH1, 0x00,
+            SSTORE,
+            PUSH1, 0x00,
+            CLOAD,
+            STOP,
+        ]);
+
+        let ctx   = build_ctx_with_code(code, 60_000);
+        let mut evm = ctx.build_seismic();
+        let result  = evm.replay()?;
+
+        assert!(
+            matches!(
+                result.result,
+                ExecutionResult::Halt {
+                    reason: SeismicHaltReason::InvalidPublicStorageAccess,
+                    ..
+                }
+            ),
+            "SSTORE→CLOAD on same slot should raise InvalidPublicStorageAccess"
+        );
+        Ok(())
+    }
+
+    /* ---------------------------------------------------------------
+     *  3. CSTORE (makes slot private) then SLOAD must revert
+     * ------------------------------------------------------------- */
+    #[test]
+    fn sload_after_cstore_private_reverts() -> anyhow::Result<()> {
+        // PUSH1 0x2A ▸ PUSH1 0x0A ▸ CSTORE ▸
+        // PUSH1 0x0A ▸ SLOAD      ▸ STOP
+        let code = Bytes::from(vec![
+            PUSH1, 0x2A,
+            PUSH1, 0x0A,
+            CSTORE,
+            PUSH1, 0x0A,
+            SLOAD,
+            STOP,
+        ]);
+
+        let ctx   = build_ctx_with_code(code, 60_000);
+        let mut evm = ctx.build_seismic();
+        let result  = evm.replay()?;
+
+        assert!(
+            matches!(
+                result.result,
+                ExecutionResult::Halt {
+                    reason: SeismicHaltReason::InvalidPrivateStorageAccess,
+                    ..
+                }
+            ),
+            "SLOAD on a slot that CSTORE made private must halt with InvalidPrivateStorageAccess"
+        );
+        Ok(())
+    }
+
 }
+
