@@ -29,7 +29,7 @@ inspector = { workspace = true, features = ["std", "serde-json"] }
 statetest-types.workspace = true
 
 #seismic
-seismic-revm = { path = "../../crates/seismic", default-features = true }
+seismic-revm = { path = "../../crates/seismic", default-features = true, features = ["serde"] }
 
 # alloy
 alloy-rlp = { workspace = true, features = ["arrayvec", "derive"] }

@@ -7,17 +7,21 @@ use indicatif::{ProgressBar, ProgressDrawTarget};
 use inspector::{inspectors::TracerEip3155, InspectCommitEvm};
 use revm::{
     bytecode::Bytecode,
-    context::{block::BlockEnv, cfg::CfgEnv, tx::TxEnv},
+    context::{block::BlockEnv, cfg::CfgEnv},
     context_interface::{
         block::calc_excess_blob_gas,
-        result::{EVMError, ExecutionResult, HaltReason, InvalidTransaction},
+        result::{EVMError, ExecutionResult, InvalidTransaction},
         Cfg,
     },
     database_interface::EmptyDB,
     primitives::{
         eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes, TxKind, B256,
     },
-    Context, ExecuteCommitEvm, MainBuilder, MainContext,
+    Context, ExecuteCommitEvm,
+};
+use seismic_revm::{
+    transaction::abstraction::SeismicTransaction, DefaultSeismic, SeismicBuilder,
+    SeismicHaltReason, SeismicSpecId,
 };
 use serde_json::json;
 use state::FlaggedStorage;
@@ -139,9 +143,12 @@ fn check_evm_execution(
     test: &Test,
     expected_output: Option<&Bytes>,
     test_name: &str,
-    exec_result: &Result<ExecutionResult<HaltReason>, EVMError<Infallible, InvalidTransaction>>,
+    exec_result: &Result<
+        ExecutionResult<SeismicHaltReason>,
+        EVMError<Infallible, InvalidTransaction>,
+    >,
     db: &mut State<EmptyDB>,
-    spec: SpecId,
+    spec: SeismicSpecId,
     print_json_outcome: bool,
 ) -> Result<(), TestErrorKind> {
     let logs_root = log_rlp_hash(exec_result.as_ref().map(|r| r.logs()).unwrap_or_default());
@@ -276,9 +283,9 @@ pub fn execute_test_suite(
             );
         }
 
-        let mut cfg = CfgEnv::default();
+        let mut cfg: CfgEnv<SeismicSpecId> = CfgEnv::default();
         let mut block = BlockEnv::default();
-        let mut tx = TxEnv::default();
+        let mut tx = SeismicTransaction::default();
         // For mainnet
         cfg.chain_id = 1;
 
@@ -298,7 +305,7 @@ pub fn execute_test_suite(
         block.prevrandao = unit.env.current_random;
 
         // Tx env
-        tx.caller = if let Some(address) = unit.transaction.sender {
+        tx.base.caller = if let Some(address) = unit.transaction.sender {
             address
         } else {
             recover_address(unit.transaction.secret_key.as_slice()).ok_or_else(|| TestError {
@@ -307,20 +314,20 @@ pub fn execute_test_suite(
                 kind: TestErrorKind::UnknownPrivateKey(unit.transaction.secret_key),
             })?
         };
-        tx.gas_price = unit
+        tx.base.gas_price = unit
             .transaction
             .gas_price
             .or(unit.transaction.max_fee_per_gas)
             .unwrap_or_default()
             .try_into()
             .unwrap_or(u128::MAX);
-        tx.gas_priority_fee = unit
+        tx.base.gas_priority_fee = unit
             .transaction
             .max_priority_fee_per_gas
             .map(|b| u128::try_from(b).expect("max priority fee less than u128::MAX"));
         // EIP-4844
-        tx.blob_hashes = unit.transaction.blob_versioned_hashes.clone();
-        tx.max_fee_per_blob_gas = unit
+        tx.base.blob_hashes = unit.transaction.blob_versioned_hashes.clone();
+        tx.base.max_fee_per_blob_gas = unit
             .transaction
             .max_fee_per_blob_gas
             .map(|b| u128::try_from(b).expect("max fee less than u128::MAX"))
@@ -335,13 +342,11 @@ pub fn execute_test_suite(
                 continue;
             }
 
-            cfg.spec = spec_name.to_spec_id();
-
             // EIP-4844
             if let Some(current_excess_blob_gas) = unit.env.current_excess_blob_gas {
                 block.set_blob_excess_gas_and_price(
                     current_excess_blob_gas.to(),
-                    cfg.spec.is_enabled_in(SpecId::PRAGUE),
+                    SpecId::PRAGUE.is_enabled_in(cfg.spec().into_eth_spec()),
                 );
             } else if let (Some(parent_blob_gas_used), Some(parent_excess_blob_gas)) = (
                 unit.env.parent_blob_gas_used,
@@ -356,11 +361,12 @@ pub fn execute_test_suite(
                             .map(|i| i.to())
                             .unwrap_or(TARGET_BLOB_GAS_PER_BLOCK_CANCUN),
                     ),
-                    cfg.spec.is_enabled_in(SpecId::PRAGUE),
+                    SpecId::PRAGUE.is_enabled_in(cfg.spec().into_eth_spec()),
                 );
             }
 
-            if cfg.spec.is_enabled_in(SpecId::MERGE) && block.prevrandao.is_none() {
+            if SpecId::MERGE.is_enabled_in(cfg.spec().into_eth_spec()) && block.prevrandao.is_none()
+            {
                 // If spec is merge and prevrandao is not set, set it to default
                 block.prevrandao = Some(B256::default());
             }
@@ -374,21 +380,21 @@ pub fn execute_test_suite(
                     }
                 };
 
-                tx.tx_type = tx_type as u8;
+                tx.base.tx_type = tx_type as u8;
 
-                tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
+                tx.base.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
 
-                tx.data = unit
+                tx.base.data = unit
                     .transaction
                     .data
                     .get(test.indexes.data)
                     .unwrap()
                     .clone();
 
-                tx.nonce = u64::try_from(unit.transaction.nonce).unwrap();
-                tx.value = unit.transaction.value[test.indexes.value];
+                tx.base.nonce = u64::try_from(unit.transaction.nonce).unwrap();
+                tx.base.value = unit.transaction.value[test.indexes.value];
 
-                tx.access_list = unit
+                tx.base.access_list = unit
                     .transaction
                     .access_lists
                     .get(test.indexes.data)
@@ -396,7 +402,7 @@ pub fn execute_test_suite(
                     .flatten()
                     .unwrap_or_default();
 
-                tx.authorization_list = unit
+                tx.base.authorization_list = unit
                     .transaction
                     .authorization_list
                     .clone()
@@ -407,29 +413,31 @@ pub fn execute_test_suite(
                     Some(add) => TxKind::Call(add),
                     None => TxKind::Create,
                 };
-                tx.kind = to;
+                tx.base.kind = to;
 
                 let mut cache = cache_state.clone();
-                cache.set_state_clear_flag(cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
+                cache.set_state_clear_flag(
+                    SpecId::SPURIOUS_DRAGON.is_enabled_in(cfg.spec().into_eth_spec()),
+                );
                 let mut state = database::State::builder()
                     .with_cached_prestate(cache)
                     .with_bundle_update()
                     .build();
-                let mut evm = Context::mainnet()
+                let mut evm = Context::seismic()
                     .with_block(&block)
                     .with_tx(&tx)
                     .with_cfg(&cfg)
                     .with_db(&mut state)
-                    .build_mainnet();
+                    .build_seismic();
 
                 // Do the deed
                 let (e, exec_result) = if trace {
-                    let mut evm = Context::mainnet()
+                    let mut evm = Context::seismic()
                         .with_block(&block)
                         .with_tx(&tx)
                         .with_cfg(&cfg)
                         .with_db(&mut state)
-                        .build_mainnet_with_inspector(
+                        .build_seismic_with_inspector(
                             TracerEip3155::buffered(stderr()).without_summary(),
                         );
 
@@ -438,7 +446,7 @@ pub fn execute_test_suite(
                     *elapsed.lock().unwrap() += timer.elapsed();
 
                     let spec = cfg.spec();
-                    let db = &mut evm.data.ctx.journaled_state.database;
+                    let db = &mut evm.0.data.ctx.journaled_state.database;
                     // Dump state and traces if test failed
                     let output = check_evm_execution(
                         &test,
@@ -459,7 +467,7 @@ pub fn execute_test_suite(
                     *elapsed.lock().unwrap() += timer.elapsed();
 
                     let spec = cfg.spec();
-                    let db = evm.data.ctx.journaled_state.database;
+                    let db = evm.0.data.ctx.journaled_state.database;
                     // Dump state and traces if test failed
                     let output = check_evm_execution(
                         &test,
@@ -489,7 +497,9 @@ pub fn execute_test_suite(
 
                 // Re-build to run with tracing
                 let mut cache = cache_state.clone();
-                cache.set_state_clear_flag(cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
+                cache.set_state_clear_flag(
+                    SpecId::SPURIOUS_DRAGON.is_enabled_in(cfg.spec().into_eth_spec()),
+                );
                 let mut state = database::State::builder()
                     .with_cached_prestate(cache)
                     .with_bundle_update()
@@ -497,12 +507,12 @@ pub fn execute_test_suite(
 
                 println!("\nTraces:");
 
-                let mut evm = Context::mainnet()
+                let mut evm = Context::seismic()
                     .with_db(&mut state)
                     .with_block(&block)
                     .with_tx(&tx)
                     .with_cfg(&cfg)
-                    .build_mainnet_with_inspector(
+                    .build_seismic_with_inspector(
                         TracerEip3155::buffered(stderr()).without_summary(),
                     );
 
@@ -513,7 +523,7 @@ pub fn execute_test_suite(
                 println!("\nState before: {cache_state:#?}");
                 println!(
                     "\nState after: {:#?}",
-                    evm.data.ctx.journaled_state.database.cache
+                    evm.0.data.ctx.journaled_state.database.cache
                 );
                 println!("\nSpecification: {:?}", cfg.spec);
                 println!("\nTx: {tx:#?}");

@@ -96,4 +96,14 @@ impl RngContainer {
         leaf_rng.fill_bytes(&mut rng_bytes);
         Ok(Bytes::from(rng_bytes))
     }
+
+    #[cfg(test)]
+    pub fn root_rng(&self) -> &RootRng {
+        &self.rng
+    }
+
+    #[cfg(test)]
+    pub fn leaf_rng(&self) -> &Option<LeafRng> {
+        &self.leaf_rng
+    }
 }

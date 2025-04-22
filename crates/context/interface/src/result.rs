@@ -527,10 +527,6 @@ pub enum HaltReason {
     SubRoutineStackOverflow,
     /// Check for target address validity is only done inside subcall.
     InvalidEXTCALLTarget,
-    /// Invalid Private Storage Access: Cannot access private storage with public instructions
-    InvalidPrivateStorageAccess,
-    /// Invalid Public Storage Access: Cannot access public storage with private instructions
-    InvalidPublicStorageAccess,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
