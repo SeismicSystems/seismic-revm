@@ -16,6 +16,7 @@ use bitflags::bitflags;
 use core::hash::{BuildHasher, Hash};
 use primitives::hardfork::SpecId;
 use primitives::{FixedBytes, HashMap, B256, U256};
+use proptest_derive::Arbitrary;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -171,7 +172,7 @@ impl Default for AccountStatus {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FlaggedStorage {
     pub value: U256,
