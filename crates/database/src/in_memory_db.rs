@@ -1,7 +1,7 @@
 use core::convert::Infallible;
 use database_interface::{Database, DatabaseCommit, DatabaseRef, EmptyDB};
 use primitives::{address, hash_map::Entry, Address, HashMap, Log, B256, KECCAK_EMPTY, U256};
-use state::{Account, AccountInfo, Bytecode, FlaggedStorage};
+use state::{Account, AccountInfo, Bytecode, EvmStorage, EvmStorageSlot, FlaggedStorage};
 use std::vec::Vec;
 
 /// A [Database] implementation that stores all state changes in memory.
@@ -351,7 +351,7 @@ pub struct DbAccount {
     /// If account is selfdestructed or newly created, storage will be cleared.
     pub account_state: AccountState,
     /// storage slots
-    pub storage: HashMap<U256, FlaggedStorage>,
+    pub storage: HashMap<U256, EvmStorage>,
 }
 
 impl DbAccount {

@@ -2,18 +2,18 @@ use crate::{DBErrorMarker, Database, DatabaseRef};
 use core::error::Error;
 use core::{convert::Infallible, fmt, marker::PhantomData};
 use primitives::{keccak256, Address, B256, U256};
-use state::{AccountInfo, Bytecode, FlaggedStorage};
+use state::{AccountInfo, Bytecode, FlaggedStorage, StorageValue};
 use std::string::ToString;
 
 /// An empty database that always returns default values when queried
-pub type EmptyDB = EmptyDBTyped<Infallible>;
+pub type EmptyDB<E = Infallible, V = U256> = EmptyDBTyped<E, V>;
 
 /// An empty database that always returns default values when queried
 ///
 /// This is generic over a type which is used as the database error type.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct EmptyDBTyped<E> {
-    _phantom: PhantomData<E>,
+pub struct EmptyDBTyped<E, V: StorageValue = U256> {
+    _phantom: PhantomData<(E, V)>,
 }
 
 // Don't derive traits, because the type parameter is unused.
@@ -45,16 +45,23 @@ impl<E> PartialEq for EmptyDBTyped<E> {
 
 impl<E> Eq for EmptyDBTyped<E> {}
 
-impl<E> EmptyDBTyped<E> {
+
+impl<E, V> EmptyDBTyped<E, V>
+where
+    V: StorageValue,
+{
     pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
+        Self { _phantom: PhantomData }
     }
 }
 
-impl<E: DBErrorMarker + Error> Database for EmptyDBTyped<E> {
+impl<E, V> Database for EmptyDBTyped<E, V>
+where
+    E: DBErrorMarker + Error,
+    V: StorageValue + From<U256>,
+{
     type Error = E;
+    type Slot = V;
 
     #[inline]
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -67,7 +74,7 @@ impl<E: DBErrorMarker + Error> Database for EmptyDBTyped<E> {
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<Self::Slot, Self::Error> {
         <Self as DatabaseRef>::storage_ref(self, address, index)
     }
 
@@ -77,8 +84,13 @@ impl<E: DBErrorMarker + Error> Database for EmptyDBTyped<E> {
     }
 }
 
-impl<E: DBErrorMarker + Error> DatabaseRef for EmptyDBTyped<E> {
+impl<E, V> DatabaseRef for EmptyDBTyped<E, V>
+where
+    E: DBErrorMarker + Error,
+    V: StorageValue + From<U256>,
+{
     type Error = E;
+    type Slot  = V;
 
     #[inline]
     fn basic_ref(&self, _address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -91,8 +103,8 @@ impl<E: DBErrorMarker + Error> DatabaseRef for EmptyDBTyped<E> {
     }
 
     #[inline]
-    fn storage_ref(&self, _address: Address, _index: U256) -> Result<FlaggedStorage, Self::Error> {
-        Ok(FlaggedStorage::default())
+    fn storage_ref(&self, _address: Address, _index: U256) -> Result<Self::Slot, Self::Error> {
+        Ok(Self::Slot::default())
     }
 
     #[inline]
