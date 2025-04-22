@@ -13,6 +13,7 @@ pub mod instructions;
 pub mod precompiles;
 pub mod result;
 pub mod spec;
+pub mod storage;
 pub mod transaction;
 
 pub use api::{
@@ -23,4 +24,5 @@ pub use chain::seismic_chain::SeismicChain;
 pub use evm::SeismicEvm;
 pub use instructions::seismic_host::SeismicHost;
 pub use result::SeismicHaltReason;
+pub use storage::{FlaggedStorage, PrivateSlot};
 pub use spec::*;

@@ -10,7 +10,7 @@ pub use account_info::AccountInfo;
 pub use bytecode::Bytecode;
 pub use primitives;
 use primitives::ruint::UintTryFrom;
-pub use types::{EvmState, EvmStorage, TransientStorage};
+pub use types::{EvmState, EvmStorage, TransientStorage, StorageValue};
 
 use bitflags::bitflags;
 use core::hash::{BuildHasher, Hash};
@@ -19,11 +19,11 @@ use primitives::{FixedBytes, HashMap, B256, U256};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Account {
+pub struct Account<T: StorageValue = U256>{
     /// Balance, nonce, and code
     pub info: AccountInfo,
     /// Storage cache
-    pub storage: EvmStorage,
+    pub storage: EvmStorage<T>,
     /// Account status flags
     pub status: AccountStatus,
 }
@@ -282,18 +282,18 @@ impl FlaggedStorage {
 /// This type keeps track of the current value of a storage slot.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct EvmStorageSlot {
+pub struct EvmStorageSlot<T: StorageValue = U256> {
     /// Original value of the storage slot.
-    pub original_value: FlaggedStorage,
+    pub original_value: T,
     /// Present value of the storage slot.
-    pub present_value: FlaggedStorage,
+    pub present_value: T,
     /// Represents if the storage slot is cold.
     pub is_cold: bool,
 }
 
-impl EvmStorageSlot {
+impl <T: StorageValue> EvmStorageSlot <T> {
     /// Creates a new _unchanged_ `EvmStorageSlot` for the given value.
-    pub fn new(original: FlaggedStorage) -> Self {
+    pub fn new(original: T) -> Self {
         Self {
             original_value: original,
             present_value: original,
@@ -302,7 +302,7 @@ impl EvmStorageSlot {
     }
 
     /// Creates a new _changed_ `EvmStorageSlot`.
-    pub fn new_changed(original_value: FlaggedStorage, present_value: FlaggedStorage) -> Self {
+    pub fn new_changed(original_value: T, present_value: T) -> Self {
         Self {
             original_value,
             present_value,
@@ -315,12 +315,12 @@ impl EvmStorageSlot {
     }
 
     /// Returns the original value of the storage slot.
-    pub fn original_value(&self) -> FlaggedStorage {
+    pub fn original_value(&self) -> T {
         self.original_value
     }
 
     /// Returns the current value of the storage slot.
-    pub fn present_value(&self) -> FlaggedStorage {
+    pub fn present_value(&self) -> T {
         self.present_value
     }
 

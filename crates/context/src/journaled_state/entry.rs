@@ -1,9 +1,9 @@
 use primitives::{Address, KECCAK_EMPTY, PRECOMPILE3, U256};
-use state::{EvmState, FlaggedStorage, TransientStorage};
+use state::{EvmState,  TransientStorage, StorageValue};
 
 /// Trait for tracking and reverting state changes in the EVM.
 /// Journal entry contains information about state changes that can be reverted.
-pub trait JournalEntryTr {
+pub trait JournalEntryTr<T: StorageValue = U256> {
     /// Creates a journal entry for when an account is accessed and marked as "warm" for gas metering
     fn account_warmed(address: Address) -> Self;
 
@@ -33,7 +33,7 @@ pub trait JournalEntryTr {
 
     /// Creates a journal entry for when a storage slot is modified
     /// Records the previous value for reverting
-    fn storage_changed(address: Address, key: U256, had_value: FlaggedStorage) -> Self;
+    fn storage_changed(address: Address, key: U256, had_value: T) -> Self;
 
     /// Creates a journal entry for when a storage slot is accessed and marked as "warm" for gas metering
     /// This is called with SLOAD opcode.
@@ -73,7 +73,7 @@ pub trait JournalEntryTr {
 /// Journal entries that are used to track changes to the state and are used to revert it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum JournalEntry {
+pub enum JournalEntry<T: StorageValue = U256> {
     /// Used to mark account that is warm inside EVM in regard to EIP-2929 AccessList.
     /// Action: We will add Account to state.
     /// Revert: we will remove account from state.
@@ -116,7 +116,7 @@ pub enum JournalEntry {
     StorageChanged {
         address: Address,
         key: U256,
-        had_value: FlaggedStorage,
+        had_value: T,
     },
     /// Entry used to track storage warming introduced by EIP-2929.
     /// Action: Storage warmed
@@ -135,7 +135,7 @@ pub enum JournalEntry {
     /// Revert: Revert to previous bytecode.
     CodeChange { address: Address },
 }
-impl JournalEntryTr for JournalEntry {
+impl JournalEntryTr<U256> for JournalEntry<U256> {
     fn account_warmed(address: Address) -> Self {
         JournalEntry::AccountWarmed { address }
     }
@@ -166,7 +166,7 @@ impl JournalEntryTr for JournalEntry {
         JournalEntry::AccountCreated { address }
     }
 
-    fn storage_changed(address: Address, key: U256, had_value: FlaggedStorage) -> Self {
+    fn storage_changed(address: Address, key: U256, had_value: U256) -> Self {
         JournalEntry::StorageChanged {
             address,
             key,
