@@ -8,7 +8,7 @@ This work stands on the shoulders of giants and would not have been possible wit
 
 ## Overview
 
-We introduces several features:
+We introduce several features:
 
 - **Instruction Set:** CLOAD and CSTORE for accessing private storage.
 - **Flagged Storage:** [Flagged Storage](#flagged-storage) introduces a novel mechanism where each slot is represented as a tuple `(value, is_private)` with strict access rules.
@@ -38,7 +38,7 @@ To support private storage, Mercury provides new instructions:
 - **CSTORE:** Stores data into a slot, tagging it as private.
 
 **Access Rules:**
-- **Loading:** The operation must match the slot’s privacy flag. Attempting to load a slot using an instruction that doesn’t match its privacy (e.g., using SLOAD on a private slot or CLOAD on a public slot) is disallowed.
+- **Loading:** The operation must match the slot’s privacy flag. Attempting to load a slot using an instruction that doesn’t match its privacy (e.g., using SLOAD on a private slot or CLOAD on a public slot) is disallowed. The only caveat is that CLOAD can load public slot with value 0.
 - **Storing:** Writing to a slot is allowed regardless of its current privacy flag, enabling seamless transitions between public and private states.
 
 **Gas Costs:**  
@@ -77,9 +77,9 @@ Note that the inner logic of this precompile is strongly inspired from [Oasis Sa
 
 ## Upstream
 
-The upstream repository lives [here](https://github.com/bluealloy/revm). This fork is up-to-date with it through commit `900409f`. You can see this by viewing the [main](https://github.com/SeismicSystems/seismic-revm/tree/main) branch on this repository
+The upstream repository lives [here](https://github.com/bluealloy/revm). This fork is up-to-date with it through commit `398ef74`. You can see this by viewing the [main](https://github.com/SeismicSystems/seismic-revm/tree/main) branch on this repository
 
-You can view all of our changes vs. upstream on this [pull request](https://github.com/SeismicSystems/seismic-revm/pull/2). The sole purpose of this PR is display our diff; it will never be merged in to the main branch of this repo
+You can view all of our changes vs. upstream on this [pull request](https://github.com/SeismicSystems/seismic-revm/pull/2). The sole purpose of this PR is to display our diff; it will never be merged in to the main branch of this repo
 
 ### Structure
 
