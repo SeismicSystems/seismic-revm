@@ -7,7 +7,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use primitives::{Address, HashMap, U256};
-use state::{AccountInfo, FlaggedStorage};
+use state::{AccountInfo, StorageValue};
 use std::vec::Vec;
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).
@@ -141,14 +141,14 @@ impl PartialEq for Reverts {
 /// And we need to be able to read it from database.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AccountRevert {
+pub struct AccountRevert<V: StorageValue = U256> {
     pub account: AccountInfoRevert,
-    pub storage: HashMap<U256, RevertToSlot>,
+    pub storage: HashMap<U256, RevertToSlot<V>>,
     pub previous_status: AccountStatus,
     pub wipe_storage: bool,
 }
 
-impl AccountRevert {
+impl <V: StorageValue> AccountRevert<V> {
     /// The approximate size of changes needed to store this account revert.
     ///
     /// `1 + storage_reverts_len`
@@ -161,12 +161,12 @@ impl AccountRevert {
     pub fn new_selfdestructed_again(
         status: AccountStatus,
         account: AccountInfoRevert,
-        mut previous_storage: StorageWithOriginalValues,
-        updated_storage: StorageWithOriginalValues,
+        mut previous_storage: StorageWithOriginalValues<V>,
+        updated_storage: StorageWithOriginalValues<V>,
     ) -> Self {
         // Take present storage values as the storages that we are going to revert to.
         // As those values got destroyed.
-        let mut previous_storage: HashMap<U256, RevertToSlot> = previous_storage
+        let mut previous_storage: HashMap<U256, RevertToSlot<V>> = previous_storage
             .drain()
             .map(|(key, value)| (key, RevertToSlot::Some(value.present_value)))
             .collect();
@@ -186,8 +186,8 @@ impl AccountRevert {
     /// Creates revert for states that were before selfdestruct.
     pub fn new_selfdestructed_from_bundle(
         account_info_revert: AccountInfoRevert,
-        bundle_account: &mut BundleAccount,
-        updated_storage: &StorageWithOriginalValues,
+        bundle_account: &mut BundleAccount<V>,
+        updated_storage: &StorageWithOriginalValues<V>,
     ) -> Option<Self> {
         match bundle_account.status {
             AccountStatus::InMemoryChange
@@ -211,7 +211,7 @@ impl AccountRevert {
     pub fn new_selfdestructed(
         status: AccountStatus,
         account: AccountInfoRevert,
-        mut storage: StorageWithOriginalValues,
+        mut storage: StorageWithOriginalValues<V>,
     ) -> Self {
         // Zero all present storage values and save present values to AccountRevert.
         let previous_storage = storage
@@ -242,14 +242,14 @@ impl AccountRevert {
 }
 
 /// Implements partial ordering for AccountRevert
-impl PartialOrd for AccountRevert {
+impl <V: StorageValue> PartialOrd for AccountRevert<V> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 /// Implements total ordering for AccountRevert
-impl Ord for AccountRevert {
+impl <V: StorageValue> Ord for AccountRevert<V> {
     fn cmp(&self, other: &Self) -> Ordering {
         // First compare accounts
         if let Some(ord) = self.account.partial_cmp(&other.account) {
@@ -312,16 +312,16 @@ pub enum AccountInfoRevert {
 /// Because if it is destroyed, previous values can be found in database or it can be zero.
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum RevertToSlot {
-    Some(FlaggedStorage),
+pub enum RevertToSlot<V: StorageValue = U256> {
+    Some(V),
     Destroyed,
 }
 
-impl RevertToSlot {
-    pub fn to_previous_value(self) -> FlaggedStorage {
+impl <V: StorageValue> RevertToSlot<V> {
+    pub fn to_previous_value(self) -> V {
         match self {
             RevertToSlot::Some(value) => value,
-            RevertToSlot::Destroyed => FlaggedStorage::ZERO,
+            RevertToSlot::Destroyed => V::zero(),
         }
     }
 }

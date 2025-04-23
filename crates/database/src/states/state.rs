@@ -5,7 +5,7 @@ use super::{
 use bytecode::Bytecode;
 use database_interface::{Database, DatabaseCommit, EmptyDB};
 use primitives::{hash_map, Address, HashMap, B256, BLOCK_HASH_HISTORY, U256};
-use state::{Account, AccountInfo, FlaggedStorage};
+use state::{Account, AccountInfo, StorageValue};
 use std::{
     boxed::Box,
     collections::{btree_map, BTreeMap},
@@ -13,7 +13,7 @@ use std::{
 };
 
 /// Database boxed with a lifetime and Send
-pub type DBBox<'a, E> = Box<dyn Database<Error = E> + Send + 'a>;
+pub type DBBox<'a, E, V: StorageValue = U256> = Box<dyn Database<Error = E, Slot = V> + Send + 'a>;
 
 /// More constrained version of State that uses Boxed database with a lifetime
 ///
@@ -227,6 +227,7 @@ impl<DB: Database> State<DB> {
 
 impl<DB: Database> Database for State<DB> {
     type Error = DB::Error;
+    type Slot = DB::Slot;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         self.load_cache_account(address).map(|a| a.account_info())
@@ -251,7 +252,7 @@ impl<DB: Database> Database for State<DB> {
         res
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<Self::Slot, Self::Error> {
         // Account is guaranteed to be loaded.
         // Note that storage from bundle is already loaded with account.
         if let Some(account) = self.cache.accounts.get_mut(&address) {
@@ -266,7 +267,7 @@ impl<DB: Database> Database for State<DB> {
                         // If account was destroyed or account is newly built
                         // we return zero and don't ask database.
                         let value = if is_storage_known {
-                            FlaggedStorage::ZERO
+                            Self::Slot::zero()
                         } else {
                             self.database.storage(address, index)?
                         };

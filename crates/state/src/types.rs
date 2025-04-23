@@ -11,8 +11,10 @@ pub type TransientStorage = HashMap<(Address, U256), U256>;
 pub type EvmStorage<T = U256> = HashMap<U256, EvmStorageSlot<T>>;
 
 /// An abstraction around Slots.
-pub trait StorageValue: Default + Copy + Eq + Clone + PartialEq + Eq + core::fmt::Debug {
+pub trait StorageValue: Send + Sync + Default + Copy + Eq + Clone + PartialEq + Eq + PartialOrd + Ord + core::fmt::Debug {
     fn word(self) -> U256;
+    //The Below should return zeroed out, default values
+    fn zero() -> Self { Self::default() }
 }
 
 impl StorageValue for U256 {

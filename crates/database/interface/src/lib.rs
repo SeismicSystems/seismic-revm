@@ -36,7 +36,7 @@ impl DBErrorMarker for String {}
 pub trait Database {
     /// The database error type.
     type Error: DBErrorMarker + Error;
-    type Slot: StorageValue = U256;
+    type Slot: StorageValue;
 
     /// Gets basic account information.
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error>;
@@ -125,3 +125,4 @@ impl<T: DatabaseRef + DatabaseCommit> DatabaseCommit for WrapDatabaseRef<T> {
         self.0.commit(changes)
     }
 }
+

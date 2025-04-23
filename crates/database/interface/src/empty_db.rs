@@ -2,11 +2,11 @@ use crate::{DBErrorMarker, Database, DatabaseRef};
 use core::error::Error;
 use core::{convert::Infallible, fmt, marker::PhantomData};
 use primitives::{keccak256, Address, B256, U256};
-use state::{AccountInfo, Bytecode, FlaggedStorage, StorageValue};
+use state::{AccountInfo, Bytecode, StorageValue};
 use std::string::ToString;
 
 /// An empty database that always returns default values when queried
-pub type EmptyDB<E = Infallible, V = U256> = EmptyDBTyped<E, V>;
+pub type EmptyDB= EmptyDBTyped<Infallible, U256>;
 
 /// An empty database that always returns default values when queried
 ///
@@ -17,33 +17,33 @@ pub struct EmptyDBTyped<E, V: StorageValue = U256> {
 }
 
 // Don't derive traits, because the type parameter is unused.
-impl<E> Clone for EmptyDBTyped<E> {
+impl<E, V: StorageValue> Clone for EmptyDBTyped<E, V> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<E> Copy for EmptyDBTyped<E> {}
+impl<E, V: StorageValue> Copy for EmptyDBTyped<E, V> {}
 
-impl<E> Default for EmptyDBTyped<E> {
+impl<E, V: StorageValue> Default for EmptyDBTyped<E, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<E> fmt::Debug for EmptyDBTyped<E> {
+impl<E, V: StorageValue> fmt::Debug for EmptyDBTyped<E, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EmptyDB").finish_non_exhaustive()
     }
 }
 
-impl<E> PartialEq for EmptyDBTyped<E> {
+impl<E, V: StorageValue> PartialEq for EmptyDBTyped<E, V> {
     fn eq(&self, _: &Self) -> bool {
         true
     }
 }
 
-impl<E> Eq for EmptyDBTyped<E> {}
+impl<E, V: StorageValue> Eq for EmptyDBTyped<E, V> {}
 
 
 impl<E, V> EmptyDBTyped<E, V>
@@ -87,7 +87,7 @@ where
 impl<E, V> DatabaseRef for EmptyDBTyped<E, V>
 where
     E: DBErrorMarker + Error,
-    V: StorageValue + From<U256>,
+    V: StorageValue,
 {
     type Error = E;
     type Slot  = V;
