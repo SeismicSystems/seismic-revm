@@ -351,7 +351,7 @@ pub struct DbAccount {
     pub info: AccountInfo,
     /// If account is selfdestructed or newly created, storage will be cleared.
     pub account_state: AccountState,
-    /// storage slots
+    /// Storage slots
     pub storage: HashMap<U256, FlaggedStorage>,
 }
 

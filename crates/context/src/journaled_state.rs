@@ -21,9 +21,6 @@ use std::{vec, vec::Vec};
 use primitives::FlaggedStorage;
 
 
-
-type GenericFlaggedStorage = FlaggedStorage;
-
 /// A journal of state changes internal to the EVM
 ///
 /// On each additional call, the depth of the journaled state is increased (`depth`) and a new journal is added.
@@ -748,10 +745,10 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
     }
 
     #[inline]
-    pub fn load(&mut self, address: Address, key: U256) -> Result<StateLoad<GenericFlaggedStorage>, DB::Error> {
+    pub fn load(&mut self, address: Address, key: U256) -> Result<StateLoad<FlaggedStorage>, DB::Error> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
-        // only if account is created in this tx can we assume that storage is empty.
+        // only if account is created in this tx we can assume that storage is empty.
         let is_newly_created = account.is_created();
         let (value, is_cold) = match account.storage.entry(key) {
             Entry::Occupied(occ) => {
@@ -760,7 +757,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 (slot.present_value, is_cold)
             }
             Entry::Vacant(vac) => {
-                // if storage was cleared, we dont need to ping db.
+                // if storage was cleared, we don't need to ping db.
                 let value = if is_newly_created {
                     FlaggedStorage::ZERO.set_visibility(false)
                 } else {
@@ -781,7 +778,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 .push(ENTRY::storage_warmed(address, key));
         }
 
-        Ok(StateLoad::new(value.into(), is_cold))
+        Ok(StateLoad::new(value, is_cold))
     }
 
     /// Stores storage slot.
