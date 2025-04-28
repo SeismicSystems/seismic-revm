@@ -92,6 +92,7 @@ std = [
 	"serde/std",
 	"serde_json/std"
 ]
+
 hashbrown = ["primitives/hashbrown"]
 asm-keccak = ["primitives/asm-keccak"]
 

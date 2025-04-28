@@ -1,7 +1,7 @@
 pub use crate::journaled_state::StateLoad;
 use crate::{Block, Cfg, Database, JournalTr, Transaction};
 use auto_impl::auto_impl;
-use primitives::U256;
+use state::FlaggedStorage;
 use std::string::String;
 
 /// Trait that defines the context of the EVM execution.
@@ -68,30 +68,30 @@ impl<DbError> From<DbError> for ContextError<DbError> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SStoreResult {
     /// Value of the storage when it is first read
-    pub original_value: U256,
+    pub original_value: FlaggedStorage,
     /// Current value of the storage
-    pub present_value: U256,
+    pub present_value: FlaggedStorage,
     /// New value that is set
-    pub new_value: U256,
+    pub new_value: FlaggedStorage,
 }
 
 impl SStoreResult {
     /// Returns `true` if the new value is equal to the present value.
     #[inline]
     pub fn is_new_eq_present(&self) -> bool {
-        self.new_value == self.present_value
+        self.new_value.value == self.present_value.value
     }
 
     /// Returns `true` if the original value is equal to the present value.
     #[inline]
     pub fn is_original_eq_present(&self) -> bool {
-        self.original_value == self.present_value
+        self.original_value.value == self.present_value.value
     }
 
     /// Returns `true` if the original value is equal to the new value.
     #[inline]
     pub fn is_original_eq_new(&self) -> bool {
-        self.original_value == self.new_value
+        self.original_value.value == self.new_value.value
     }
 
     /// Returns `true` if the original value is zero.

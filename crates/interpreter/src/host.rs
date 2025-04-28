@@ -71,9 +71,18 @@ pub trait Host {
         key: U256,
         value: U256,
     ) -> Option<StateLoad<SStoreResult>>;
+    /// Cstore, calls `ContextTr::journal().Cstore(address, key, value)`
+    fn cstore(
+        &mut self,
+        address: Address,
+        key: U256,
+        value: U256,
+    ) -> Option<StateLoad<SStoreResult>>;
 
     /// Sload, calls `ContextTr::journal().sload(address, key)`
     fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
+    /// Cload, calls `ContextTr::journal().cload(address, key)`
+    fn cload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
     /// Tstore, calls `ContextTr::journal().tstore(address, key, value)`
     fn tstore(&mut self, address: Address, key: U256, value: U256);
     /// Tload, calls `ContextTr::journal().tload(address, key)`
@@ -208,6 +217,16 @@ impl<CTX: ContextTr> Host for CTX {
             .ok()
     }
 
+    /// Get (private) storage value of `address` at `index` and if the account is cold
+    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
+        self.journal()
+            .cload(address, index)
+            .map_err(|e| {
+                *self.error() = Err(e.into());
+            })
+            .ok()
+    }
+
     /// Gets storage value of `address` at `index` and if the account is cold.
     fn sload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
         self.journal()
@@ -229,6 +248,23 @@ impl<CTX: ContextTr> Host for CTX {
     ) -> Option<StateLoad<SStoreResult>> {
         self.journal()
             .sstore(address, index, value)
+            .map_err(|e| {
+                *self.error() = Err(e.into());
+            })
+            .ok()
+    }
+
+    /// Set (private) storage value of account address at index.
+    ///
+    /// Returns [`StateLoad`] with [`SStoreResult`] that contains original/new/old storage value.
+    fn cstore(
+        &mut self,
+        address: Address,
+        index: U256,
+        value: U256,
+    ) -> Option<StateLoad<SStoreResult>> {
+        self.journal()
+            .cstore(address, index, value)
             .map_err(|e| {
                 *self.error() = Err(e.into());
             })
@@ -335,6 +371,15 @@ impl Host for DummyHost {
 
     fn log(&mut self, _log: Log) {}
 
+    fn cstore(
+        &mut self,
+        _address: Address,
+        _key: U256,
+        _value: U256,
+    ) -> Option<StateLoad<SStoreResult>> {
+        None
+    }
+
     fn sstore(
         &mut self,
         _address: Address,
@@ -345,6 +390,10 @@ impl Host for DummyHost {
     }
 
     fn sload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
+        None
+    }
+
+    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
         None
     }
 

@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
     let one_ether = U256::from(1_000_000_000_000_000_000u128);
     let hashed_acc_balance_slot = keccak256((account, weth_balance_slot).abi_encode());
     cache_db
-        .insert_account_storage(weth, hashed_acc_balance_slot.into(), one_ether)
+        .insert_account_storage(weth, hashed_acc_balance_slot.into(), one_ether.into())
         .unwrap();
 
     let acc_info = AccountInfo {
