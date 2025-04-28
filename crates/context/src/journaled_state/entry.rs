@@ -1,6 +1,6 @@
+use primitives::FlaggedStorage;
 use primitives::{Address, KECCAK_EMPTY, PRECOMPILE3, U256};
 use state::{EvmState, TransientStorage};
-use primitives::FlaggedStorage;
 
 /// Trait for tracking and reverting state changes in the EVM.
 /// Journal entry contains information about state changes that can be reverted.

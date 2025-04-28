@@ -3,8 +3,8 @@ use context_interface::{
     journaled_state::AccountLoad,
     Block, Cfg, Database, JournalTr, Transaction, TransactionType,
 };
-use primitives::{Address, Bytes, Log, B256, U256};
 use primitives::FlaggedStorage;
+use primitives::{Address, Bytes, Log, B256, U256};
 
 use crate::instructions::utility::IntoU256;
 

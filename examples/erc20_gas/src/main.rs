@@ -15,9 +15,9 @@ use revm::{
     },
     database::{AlloyDB, BlockId, CacheDB},
     database_interface::WrapDatabaseAsync,
+    primitives::FlaggedStorage,
     primitives::{address, hardfork::SpecId, keccak256, Address, TxKind, KECCAK_EMPTY, U256},
     state::AccountInfo,
-    primitives::FlaggedStorage,
     Context, Database, MainBuilder, MainContext,
 };
 
@@ -91,7 +91,11 @@ where
     ERROR: From<InvalidTransaction> + From<InvalidHeader> + From<<CTX::Db as Database>::Error>,
 {
     let sender_balance_slot = erc_address_storage(sender);
-    let sender_balance = context.journal().sload(TOKEN, sender_balance_slot)?.data.word;
+    let sender_balance = context
+        .journal()
+        .sload(TOKEN, sender_balance_slot)?
+        .data
+        .word;
 
     if sender_balance < amount {
         return Err(ERROR::from(
@@ -106,7 +110,11 @@ where
 
     // Add the amount to the recipient's balance
     let recipient_balance_slot = erc_address_storage(recipient);
-    let recipient_balance = context.journal().sload(TOKEN, recipient_balance_slot)?.data.word;
+    let recipient_balance = context
+        .journal()
+        .sload(TOKEN, recipient_balance_slot)?
+        .data
+        .word;
 
     let recipient_new_balance = recipient_balance.saturating_add(amount);
     context

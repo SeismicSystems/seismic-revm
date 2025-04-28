@@ -11,6 +11,7 @@ use context_interface::{
 };
 use core::mem;
 use database_interface::Database;
+use primitives::FlaggedStorage;
 use primitives::{
     hardfork::{SpecId, SpecId::*},
     hash_map::Entry,
@@ -18,8 +19,6 @@ use primitives::{
 };
 use state::{Account, EvmState, EvmStorageSlot, TransientStorage};
 use std::{vec, vec::Vec};
-use primitives::FlaggedStorage;
-
 
 /// A journal of state changes internal to the EVM
 ///
@@ -745,7 +744,11 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
     }
 
     #[inline]
-    pub fn load(&mut self, address: Address, key: U256) -> Result<StateLoad<FlaggedStorage>, DB::Error> {
+    pub fn load(
+        &mut self,
+        address: Address,
+        key: U256,
+    ) -> Result<StateLoad<FlaggedStorage>, DB::Error> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx we can assume that storage is empty.
@@ -806,8 +809,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
             return Ok(StateLoad::new(
                 SStoreResult {
                     original_value: slot.original_value(),
-                    present_value: present.data
-                        .set_visibility(present.is_private),
+                    present_value: present.data.set_visibility(present.is_private),
                     new_value: FlaggedStorage::new_from_word(new).set_visibility(is_private),
                 },
                 present.is_cold,
@@ -828,8 +830,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value(),
-                present_value: present.data
-                    .set_visibility(present.is_private),
+                present_value: present.data.set_visibility(present.is_private),
                 new_value: FlaggedStorage::new_from_word(new).set_visibility(is_private),
             },
             present.is_cold,

@@ -39,12 +39,7 @@ impl TrieAccount {
                 acc.storage
                     .iter()
                     .filter(|(_k, &v)| !v.word.is_zero())
-                    .map(|(k, v)| {
-                        (
-                            k.to_be_bytes::<32>(),
-                            alloy_rlp::encode_fixed_size(&v.word),
-                        )
-                    }),
+                    .map(|(k, v)| (k.to_be_bytes::<32>(), alloy_rlp::encode_fixed_size(&v.word))),
             ),
             code_hash: acc.info.code_hash,
         }

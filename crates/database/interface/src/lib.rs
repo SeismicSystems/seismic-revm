@@ -9,10 +9,10 @@ use core::convert::Infallible;
 
 use auto_impl::auto_impl;
 use core::error::Error;
+use primitives::FlaggedStorage;
 use primitives::{Address, HashMap, B256, U256};
 use state::{Account, AccountInfo, Bytecode};
 use std::string::String;
-use primitives::FlaggedStorage;
 
 #[cfg(feature = "asyncdb")]
 pub mod async_db;

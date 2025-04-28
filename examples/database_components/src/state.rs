@@ -3,9 +3,9 @@
 use auto_impl::auto_impl;
 use core::ops::Deref;
 use revm::{
+    primitives::FlaggedStorage,
     primitives::{Address, B256, U256},
     state::{AccountInfo, Bytecode},
-    primitives::FlaggedStorage,
 };
 use std::{error::Error as StdError, sync::Arc};
 

@@ -1,12 +1,12 @@
 use crate::context::{SStoreResult, SelfDestructResult};
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
+use primitives::FlaggedStorage;
 use primitives::{hardfork::SpecId, Address, Bytes, HashSet, Log, B256, U256};
 use state::{
     bytecode::{EOF_MAGIC_BYTES, EOF_MAGIC_HASH},
     Account, Bytecode,
 };
-use primitives::FlaggedStorage;
 
 pub trait JournalTr {
     type Database: Database;
@@ -244,10 +244,7 @@ impl<T> DerefMut for StateLoad<T> {
 impl<T> StateLoad<T> {
     /// Returns a new [`StateLoad`] with the given data and cold load status.
     pub fn new(data: T, is_cold: bool) -> Self {
-        Self {
-            data,
-            is_cold,
-        }
+        Self { data, is_cold }
     }
 
     /// Maps the data of the [`StateLoad`] to a new value.

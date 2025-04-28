@@ -10,9 +10,9 @@ pub use state::{State, StateRef};
 
 use revm::{
     database_interface::{DBErrorMarker, Database, DatabaseCommit, DatabaseRef},
+    primitives::FlaggedStorage,
     primitives::{Address, HashMap, B256, U256},
     state::{Account, AccountInfo, Bytecode},
-    primitives::FlaggedStorage,
 };
 
 #[derive(Debug)]
