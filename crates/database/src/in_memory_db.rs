@@ -263,7 +263,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
                             acc_entry.account_state,
                             AccountState::StorageCleared | AccountState::NotExisting
                         ) {
-                            Ok(FlaggedStorage::default())
+                            Ok(FlaggedStorage::ZERO)
                         } else {
                             let slot = self.db.storage_ref(address, index)?;
                             entry.insert(slot);
@@ -281,7 +281,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
                     account.storage.insert(index, value);
                     (account, value)
                 } else {
-                    (info.into(), FlaggedStorage::default())
+                    (info.into(), FlaggedStorage::ZERO)
                 };
                 acc_entry.insert(account);
                 Ok(value)
