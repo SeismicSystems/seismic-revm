@@ -333,7 +333,7 @@ pub(crate) fn verify_storage_empty(
 
     let all_slots_zero = storage_entries
         .iter()
-        .all(|(_, value)| value.value == U256::ZERO);
+        .all(|(_, value)| value.word == U256::ZERO);
 
     if all_slots_zero != expected_empty {
         error!(

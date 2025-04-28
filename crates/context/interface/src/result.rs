@@ -478,6 +478,7 @@ impl fmt::Display for InvalidHeader {
         }
     }
 }
+
 /// Reason a transaction successfully completed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

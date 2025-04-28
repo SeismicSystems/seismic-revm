@@ -3,6 +3,7 @@ use context_interface::{
     journaled_state::AccountLoad,
     Block, Cfg, Database, JournalTr, Transaction, TransactionType,
 };
+use primitives::FlaggedStorage;
 use primitives::{Address, Bytes, Log, B256, U256};
 
 use crate::instructions::utility::IntoU256;
@@ -80,9 +81,9 @@ pub trait Host {
     ) -> Option<StateLoad<SStoreResult>>;
 
     /// Sload, calls `ContextTr::journal().sload(address, key)`
-    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
+    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<FlaggedStorage>>;
     /// Cload, calls `ContextTr::journal().cload(address, key)`
-    fn cload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
+    fn cload(&mut self, address: Address, key: U256) -> Option<StateLoad<FlaggedStorage>>;
     /// Tstore, calls `ContextTr::journal().tstore(address, key, value)`
     fn tstore(&mut self, address: Address, key: U256, value: U256);
     /// Tload, calls `ContextTr::journal().tload(address, key)`
@@ -218,7 +219,7 @@ impl<CTX: ContextTr> Host for CTX {
     }
 
     /// Get (private) storage value of `address` at `index` and if the account is cold
-    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
+    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<FlaggedStorage>> {
         self.journal()
             .cload(address, index)
             .map_err(|e| {
@@ -228,7 +229,7 @@ impl<CTX: ContextTr> Host for CTX {
     }
 
     /// Gets storage value of `address` at `index` and if the account is cold.
-    fn sload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
+    fn sload(&mut self, address: Address, index: U256) -> Option<StateLoad<FlaggedStorage>> {
         self.journal()
             .sload(address, index)
             .map_err(|e| {
@@ -389,11 +390,11 @@ impl Host for DummyHost {
         None
     }
 
-    fn sload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
+    fn sload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<FlaggedStorage>> {
         None
     }
 
-    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
+    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<FlaggedStorage>> {
         None
     }
 

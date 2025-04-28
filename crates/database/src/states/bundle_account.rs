@@ -2,8 +2,9 @@ use super::{
     reverts::AccountInfoRevert, AccountRevert, AccountStatus, RevertToSlot, StorageSlot,
     StorageWithOriginalValues, TransitionAccount,
 };
+use primitives::FlaggedStorage;
 use primitives::{HashMap, U256};
-use state::{AccountInfo, FlaggedStorage};
+use state::AccountInfo;
 
 /// Account information focused on creating of database changesets
 /// and Reverts.

@@ -1,7 +1,8 @@
 use core::convert::Infallible;
 use database_interface::{Database, DatabaseCommit, DatabaseRef, EmptyDB};
+use primitives::FlaggedStorage;
 use primitives::{address, hash_map::Entry, Address, HashMap, Log, B256, KECCAK_EMPTY, U256};
-use state::{Account, AccountInfo, Bytecode, FlaggedStorage};
+use state::{Account, AccountInfo, Bytecode};
 use std::vec::Vec;
 
 /// A [Database] implementation that stores all state changes in memory.
@@ -262,7 +263,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
                             acc_entry.account_state,
                             AccountState::StorageCleared | AccountState::NotExisting
                         ) {
-                            Ok(FlaggedStorage::default())
+                            Ok(FlaggedStorage::ZERO)
                         } else {
                             let slot = self.db.storage_ref(address, index)?;
                             entry.insert(slot);
@@ -280,7 +281,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
                     account.storage.insert(index, value);
                     (account, value)
                 } else {
-                    (info.into(), FlaggedStorage::default())
+                    (info.into(), FlaggedStorage::ZERO)
                 };
                 acc_entry.insert(account);
                 Ok(value)
@@ -350,7 +351,7 @@ pub struct DbAccount {
     pub info: AccountInfo,
     /// If account is selfdestructed or newly created, storage will be cleared.
     pub account_state: AccountState,
-    /// storage slots
+    /// Storage slots
     pub storage: HashMap<U256, FlaggedStorage>,
 }
 

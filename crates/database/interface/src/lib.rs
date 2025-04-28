@@ -9,8 +9,9 @@ use core::convert::Infallible;
 
 use auto_impl::auto_impl;
 use core::error::Error;
+use primitives::FlaggedStorage;
 use primitives::{Address, HashMap, B256, U256};
-use state::{Account, AccountInfo, Bytecode, FlaggedStorage};
+use state::{Account, AccountInfo, Bytecode};
 use std::string::String;
 
 #[cfg(feature = "asyncdb")]
@@ -43,7 +44,7 @@ pub trait Database {
     /// Gets account code by its hash.
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
-    /// Get storage value of address at index.
+    /// Gets storage value of address at index.
     fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
 
     /// Gets block hash by block number.
@@ -74,7 +75,7 @@ pub trait DatabaseRef {
     /// Gets account code by its hash.
     fn code_by_hash_ref(&self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
-    /// Get storage value of address at index.
+    /// Gets storage value of address at index.
     fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
 
     /// Gets block hash by block number.
