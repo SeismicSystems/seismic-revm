@@ -24,7 +24,7 @@ use seismic_revm::{
     SeismicHaltReason, SeismicSpecId,
 };
 use serde_json::json;
-use state::FlaggedStorage;
+use primitives::FlaggedStorage;
 use statetest_types::{SpecName, Test, TestSuite};
 
 use std::{

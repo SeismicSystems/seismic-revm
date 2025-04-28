@@ -5,7 +5,8 @@ use super::{
 use bytecode::Bytecode;
 use database_interface::{Database, DatabaseCommit, EmptyDB};
 use primitives::{hash_map, Address, HashMap, B256, BLOCK_HASH_HISTORY, U256};
-use state::{Account, AccountInfo, FlaggedStorage};
+use state::{Account, AccountInfo};
+use primitives::FlaggedStorage;
 use std::{
     boxed::Box,
     collections::{btree_map, BTreeMap},
@@ -379,8 +380,8 @@ mod tests {
             ..Default::default()
         };
         let existing_account_initial_storage = HashMap::<U256, FlaggedStorage>::from_iter([
-            (slot1, FlaggedStorage::new_from_value(U256::from(100))), // 0x01 => 100
-            (slot2, FlaggedStorage::new_from_value(U256::from(100))), // 0x02 => 200
+            (slot1, FlaggedStorage::new_from_word(U256::from(100))), // 0x01 => 100
+            (slot2, FlaggedStorage::new_from_word(U256::from(100))), // 0x02 => 200
         ]);
         let existing_account_changed_info = AccountInfo {
             nonce: 2,

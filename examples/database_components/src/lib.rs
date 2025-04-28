@@ -11,7 +11,8 @@ pub use state::{State, StateRef};
 use revm::{
     database_interface::{DBErrorMarker, Database, DatabaseCommit, DatabaseRef},
     primitives::{Address, HashMap, B256, U256},
-    state::{Account, AccountInfo, Bytecode, FlaggedStorage},
+    state::{Account, AccountInfo, Bytecode},
+    primitives::FlaggedStorage,
 };
 
 #[derive(Debug)]

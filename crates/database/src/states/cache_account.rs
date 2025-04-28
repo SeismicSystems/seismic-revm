@@ -3,7 +3,8 @@ use super::{
     StorageWithOriginalValues, TransitionAccount,
 };
 use primitives::{HashMap, U256};
-use state::{AccountInfo, FlaggedStorage};
+use state::AccountInfo;
+use primitives::FlaggedStorage;
 
 /// Cache account contains plain state that gets updated
 /// at every transaction when evm output is applied to CacheState.

@@ -16,8 +16,13 @@ use primitives::{
     hash_map::Entry,
     Address, HashMap, HashSet, Log, B256, KECCAK_EMPTY, U256,
 };
-use state::{Account, EvmState, EvmStorageSlot, FlaggedStorage, TransientStorage};
+use state::{Account, EvmState, EvmStorageSlot, TransientStorage};
 use std::{vec, vec::Vec};
+use primitives::FlaggedStorage;
+
+
+
+type GenericFlaggedStorage = FlaggedStorage;
 
 /// A journal of state changes internal to the EVM
 ///
@@ -93,7 +98,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self,
         address: Address,
         key: U256,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+    ) -> Result<StateLoad<FlaggedStorage>, <Self::Database as Database>::Error> {
         self.load(address, key)
     }
 
@@ -101,7 +106,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self,
         address: Address,
         key: U256,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+    ) -> Result<StateLoad<FlaggedStorage>, <Self::Database as Database>::Error> {
         self.load(address, key)
     }
 
@@ -620,7 +625,6 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 previously_destroyed,
             },
             is_cold,
-            is_private: false,
         })
     }
 
@@ -673,7 +677,6 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 is_empty,
             },
             account.is_cold,
-            false,
         );
 
         // load delegate code if account is EIP-7702
@@ -704,7 +707,6 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 StateLoad {
                     data: account,
                     is_cold,
-                    is_private: false,
                 }
             }
             Entry::Vacant(vac) => {
@@ -720,7 +722,6 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 StateLoad {
                     data: vac.insert(account),
                     is_cold,
-                    is_private: false,
                 }
             }
         };
@@ -747,17 +748,16 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
     }
 
     #[inline]
-    pub fn load(&mut self, address: Address, key: U256) -> Result<StateLoad<U256>, DB::Error> {
+    pub fn load(&mut self, address: Address, key: U256) -> Result<StateLoad<GenericFlaggedStorage>, DB::Error> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx can we assume that storage is empty.
         let is_newly_created = account.is_created();
-        let (value, is_cold, is_private) = match account.storage.entry(key) {
+        let (value, is_cold) = match account.storage.entry(key) {
             Entry::Occupied(occ) => {
                 let slot = occ.into_mut();
                 let is_cold = slot.mark_warm();
-                let is_private = slot.present_value().is_private;
-                (slot.present_value, is_cold, is_private)
+                (slot.present_value, is_cold)
             }
             Entry::Vacant(vac) => {
                 // if storage was cleared, we dont need to ping db.
@@ -769,7 +769,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
 
                 vac.insert(EvmStorageSlot::new(value));
 
-                (value, true, value.is_private)
+                (value, true)
             }
         };
 
@@ -781,7 +781,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
                 .push(ENTRY::storage_warmed(address, key));
         }
 
-        Ok(StateLoad::new(value.into(), is_cold, is_private))
+        Ok(StateLoad::new(value.into(), is_cold))
     }
 
     /// Stores storage slot.
@@ -805,16 +805,15 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         let slot = acc.storage.get_mut(&key).unwrap();
 
         // new value is same as present, we don't need to do anything
-        if present.data == new {
+        if present.data == FlaggedStorage::new(new, is_private) {
             return Ok(StateLoad::new(
                 SStoreResult {
                     original_value: slot.original_value(),
-                    present_value: FlaggedStorage::new_from_value(present.data)
+                    present_value: present.data
                         .set_visibility(present.is_private),
-                    new_value: FlaggedStorage::new_from_value(new).set_visibility(is_private),
+                    new_value: FlaggedStorage::new_from_word(new).set_visibility(is_private),
                 },
                 present.is_cold,
-                is_private,
             ));
         }
 
@@ -824,20 +823,19 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
             .push(ENTRY::storage_changed(
                 address,
                 key,
-                FlaggedStorage::new_from_value(present.data).set_visibility(present.is_private),
+                present.data.set_visibility(present.is_private),
             ));
 
         // insert value into present state.
-        slot.present_value = FlaggedStorage::new_from_value(new).set_visibility(is_private);
+        slot.present_value = FlaggedStorage::new_from_word(new).set_visibility(is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value(),
-                present_value: FlaggedStorage::new_from_value(present.data)
+                present_value: present.data
                     .set_visibility(present.is_private),
-                new_value: FlaggedStorage::new_from_value(new).set_visibility(is_private),
+                new_value: FlaggedStorage::new_from_word(new).set_visibility(is_private),
             },
             present.is_cold,
-            is_private,
         ))
     }
 

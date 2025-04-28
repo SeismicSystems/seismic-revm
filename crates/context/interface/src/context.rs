@@ -1,7 +1,8 @@
 pub use crate::journaled_state::StateLoad;
 use crate::{Block, Cfg, Database, JournalTr, Transaction};
 use auto_impl::auto_impl;
-use state::FlaggedStorage;
+use primitives::FlaggedStorage;
+use primitives::StorageSlot;
 use std::string::String;
 
 /// Trait that defines the context of the EVM execution.
@@ -79,19 +80,19 @@ impl SStoreResult {
     /// Returns `true` if the new value is equal to the present value.
     #[inline]
     pub fn is_new_eq_present(&self) -> bool {
-        self.new_value.value == self.present_value.value
+        self.new_value.word() == self.present_value.word()
     }
 
     /// Returns `true` if the original value is equal to the present value.
     #[inline]
     pub fn is_original_eq_present(&self) -> bool {
-        self.original_value.value == self.present_value.value
+        self.original_value.word() == self.present_value.word()
     }
 
     /// Returns `true` if the original value is equal to the new value.
     #[inline]
     pub fn is_original_eq_new(&self) -> bool {
-        self.original_value.value == self.new_value.value
+        self.original_value.word() == self.new_value.word()
     }
 
     /// Returns `true` if the original value is zero.

@@ -32,10 +32,6 @@ bitflags.workspace = true
 # Optional
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 
-# Seismic
-proptest = "1.4"
-proptest-derive = "0.5"
-
 [features]
 default = ["std"]
 std = [

@@ -7,7 +7,8 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use primitives::{Address, HashMap, U256};
-use state::{AccountInfo, FlaggedStorage};
+use state::AccountInfo;
+use primitives::FlaggedStorage;
 use std::vec::Vec;
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).
