@@ -157,4 +157,4 @@ inherits = "test"
 opt-level = 3
 
 [patch.crates-io]
-alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "eff1f8d" }
+alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "4aa721c" }

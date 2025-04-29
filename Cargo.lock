@@ -252,7 +252,7 @@ dependencies = [
 [[package]]
 name = "alloy-primitives"
 version = "0.8.22"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=eff1f8d#eff1f8d041b5fab987e7497fd719ec24235f179c"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=4aa721c#4aa721cf9fcb2f421752fd0483c03501f82bd44d"
 dependencies = [
  "alloy-rlp",
  "arbitrary",
