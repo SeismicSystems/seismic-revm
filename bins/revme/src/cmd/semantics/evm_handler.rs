@@ -59,8 +59,8 @@ impl EvmConfig {
             0 as u128
         };
 
-        let block_gas_limit = 20000000_u64;
-        let gas_limit = 20000000 - 10;
+        let block_gas_limit = 30000000_u64;
+        let gas_limit = 30000000 - 10;
         let gas_price = 3000000000_u128;
         let block_prevrandao = FixedBytes::<32>::from_hex(
             "0xa86c2e601b6c44eb4848f7d23d9df3113fbcac42041c49cbed5000cb4f118777",

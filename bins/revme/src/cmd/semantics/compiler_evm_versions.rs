@@ -16,6 +16,7 @@ pub(crate) enum EVMVersion {
     Shangain,
     Cancun,
     Mercury,
+    Osaka
 }
 
 // Not fully exhaustive list of versions, trying to cover all SOLIDITY VERSIONING is the goal here
@@ -33,12 +34,14 @@ impl EVMVersion {
             "shanghai" => Some(Self::Shangain),
             "cancun" => Some(Self::Cancun),
             "mercury" => Some(Self::Mercury),
+            "osaka" => Some(Self::Osaka),
             _ => None,
         }
     }
 
     pub(crate) fn previous(&self) -> Option<&'static str> {
         match self {
+            EVMVersion::Osaka => Some("mercury"),
             EVMVersion::Mercury => Some("cancun"),
             EVMVersion::Cancun => Some("shanghai"),
             EVMVersion::Shangain => Some("paris"),
@@ -64,7 +67,8 @@ impl EVMVersion {
             EVMVersion::Paris => Some("shanghai"),
             EVMVersion::Shangain => Some("cancun"),
             EVMVersion::Cancun => Some("mercury"),
-            EVMVersion::Mercury => None,
+            EVMVersion::Mercury => Some("osaka"),
+            EVMVersion::Osaka => None,
         }
     }
 }
@@ -83,52 +87,61 @@ impl fmt::Display for EVMVersion {
             EVMVersion::Shangain => "shanghai",
             EVMVersion::Cancun => "cancun",
             EVMVersion::Mercury => "mercury",
+            EVMVersion::Osaka => "osaka",
         };
         write!(f, "{}", version_str)
     }
 }
 
 impl EVMVersion {
-    pub(crate) fn extract(content: &str) -> Option<Self> {
-        let parts: Vec<&str> = content.split("// ====").collect();
-        if parts.len() < 2 {
-            return None;
-        }
-
-        for line in parts[1].lines() {
-            if let Some(version_part) = line.trim().strip_prefix("// EVMVersion:") {
-                let version_str = version_part.trim();
-
-                let (comparison, version) = if version_str.starts_with("<=") {
-                    ("<=", version_str.trim_start_matches("<=").trim())
-                } else if version_str.starts_with('<') {
-                    ("<", version_str.trim_start_matches('<').trim())
-                } else if version_str.starts_with(">=") {
-                    (">=", version_str.trim_start_matches(">=").trim())
-                } else if version_str.starts_with('>') {
-                    (">", version_str.trim_start_matches('>').trim())
-                } else if version_str.starts_with('=') {
-                    ("=", version_str.trim_start_matches('=').trim())
-                } else {
-                    ("=", version_str)
-                };
-
-                if let Some(ev_version) = EVMVersion::from_str(version) {
-                    return match comparison {
-                        "<" => ev_version.previous().and_then(EVMVersion::from_str),
-                        "<=" | "=" => Some(ev_version),
-                        ">" => ev_version.next().and_then(EVMVersion::from_str),
-                        ">=" => Some(ev_version),
-                        _ => None,
-                    };
-                }
+    fn parse_version_token(tok: &str) -> (&str, &str) {
+        let tok = tok.trim();
+        for op in ["<=", "<", ">=", ">", "="] {
+            if let Some(rest) = tok.strip_prefix(op) {
+                return (op, rest.trim());
             }
         }
-        None
+        ("=", tok) 
     }
-}
 
-impl EVMVersion {
+    fn apply_cmp(op: &str, ver: Self) -> Option<Self> {
+        match op {
+            "<"  => ver.previous().and_then(Self::from_str),
+            "<=" | "=" => Some(ver),
+            ">"  => ver.next().and_then(Self::from_str),
+            ">=" => Some(ver),
+            _    => None,
+        }
+    }
+
+    pub(crate) fn extract(content: &str) -> Option<Self> {
+        let header = content.split("// ====").nth(1)?; 
+
+        // 1. Prefer an explicit "// EVMVersion:" tag
+        for line in header.lines() {
+            if let Some(v_part) = line.trim().strip_prefix("// EVMVersion:") {
+                let (op, ver_str) = Self::parse_version_token(v_part);
+                let base = Self::from_str(ver_str)?;
+                return Self::apply_cmp(op, base);
+            }
+        }
+
+        // 2. Fallback: new "// bytecodeFormat:" tag
+        for line in header.lines() {
+            if let Some(fmt) = line.trim().strip_prefix("// bytecodeFormat:") {
+                return match fmt.trim() {
+                    "legacy" |
+                    "legacy,>=EOFv1" |
+                    ">=EOFv1,legacy" => Some(Self::Mercury), // default
+                    ">=EOFv1"        => Some(Self::Osaka),
+                    _                => None,                // unknown / future flag
+                };
+            }
+        }
+
+        None 
+    }
+    
     pub fn to_spec_id(&self) -> SpecId {
         match self {
             EVMVersion::Homestead => SpecId::HOMESTEAD,
@@ -143,7 +156,9 @@ impl EVMVersion {
             EVMVersion::Cancun => SpecId::CANCUN,
             EVMVersion::Mercury => {
                 panic!("Mercury cannot be converted to a mainnet SpecId. Use to_seismic_spec_id() instead.")
-            }
+            },
+            EVMVersion::Osaka => SpecId::OSAKA,
+
         }
     }
 
@@ -154,5 +169,30 @@ impl EVMVersion {
                 panic!("Only Mercury can be converted to a SeismicSpecId")
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const HEADER: &str = "// ====\n";
+
+    #[test]
+    fn explicit_version_beats_bytecode_format() {
+        let s = format!("{HEADER}// EVMVersion: >= Osaka\n// bytecodeFormat: legacy\n");
+        assert_eq!(EVMVersion::extract(&s), Some(EVMVersion::Osaka));
+    }
+
+    #[test]
+    fn bytecode_format_legacy() {
+        let s = format!("{HEADER}// bytecodeFormat: legacy\n");
+        assert_eq!(EVMVersion::extract(&s), Some(EVMVersion::Mercury));
+    }
+
+    #[test]
+    fn bytecode_format_eof() {
+        let s = format!("{HEADER}// bytecodeFormat: >=EOFv1\n");
+        assert_eq!(EVMVersion::extract(&s), Some(EVMVersion::Osaka));
     }
 }
