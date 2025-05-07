@@ -10,7 +10,7 @@ use core::convert::Infallible;
 use auto_impl::auto_impl;
 use core::error::Error;
 use primitives::{Address, HashMap, B256, U256};
-use state::{Account, AccountInfo, Bytecode};
+use state::{Account, AccountInfo, Bytecode, FlaggedStorage};
 use std::string::String;
 
 #[cfg(feature = "asyncdb")]
@@ -43,8 +43,8 @@ pub trait Database {
     /// Gets account code by its hash.
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
-    /// Gets storage value of address at index.
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error>;
+    /// Get storage value of address at index.
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
 
     /// Gets block hash by block number.
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error>;
@@ -74,8 +74,8 @@ pub trait DatabaseRef {
     /// Gets account code by its hash.
     fn code_by_hash_ref(&self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
-    /// Gets storage value of address at index.
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error>;
+    /// Get storage value of address at index.
+    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
 
     /// Gets block hash by block number.
     fn block_hash_ref(&self, number: u64) -> Result<B256, Self::Error>;
@@ -106,7 +106,7 @@ impl<T: DatabaseRef> Database for WrapDatabaseRef<T> {
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.0.storage_ref(address, index)
     }
 

@@ -3,7 +3,7 @@ use super::{
     StorageWithOriginalValues, TransitionAccount,
 };
 use primitives::{HashMap, U256};
-use state::AccountInfo;
+use state::{AccountInfo, FlaggedStorage};
 
 /// Account information focused on creating of database changesets
 /// and Reverts.
@@ -56,12 +56,12 @@ impl BundleAccount {
     /// Return storage slot if it exists.
     ///
     /// In case we know that account is newly created or destroyed, return `Some(U256::ZERO)`
-    pub fn storage_slot(&self, slot: U256) -> Option<U256> {
+    pub fn storage_slot(&self, slot: U256) -> Option<FlaggedStorage> {
         let slot = self.storage.get(&slot).map(|s| s.present_value);
         if slot.is_some() {
             slot
         } else if self.status.is_storage_known() {
-            Some(U256::ZERO)
+            Some(FlaggedStorage::ZERO)
         } else {
             None
         }
@@ -101,7 +101,7 @@ impl BundleAccount {
                 } else {
                     // Set all storage to zero but preserve original values.
                     self.storage.iter_mut().for_each(|(_, v)| {
-                        v.present_value = U256::ZERO;
+                        v.present_value = FlaggedStorage::ZERO;
                     });
                     return false;
                 }

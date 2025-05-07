@@ -1,7 +1,7 @@
 use super::RevertToSlot;
 use bytecode::Bytecode;
 use primitives::{Address, B256, U256};
-use state::AccountInfo;
+use state::{AccountInfo, FlaggedStorage};
 use std::vec::Vec;
 
 /// `accounts`/`storages`/`contracts` for inclusion into database.
@@ -31,7 +31,7 @@ pub struct PlainStorageChangeset {
     /// Wipe storage
     pub wipe_storage: bool,
     /// Storage key value pairs
-    pub storage: Vec<(U256, U256)>,
+    pub storage: Vec<(U256, FlaggedStorage)>,
 }
 
 /// Plain Storage Revert.

@@ -9,12 +9,14 @@ pub use bytecode;
 pub use account_info::AccountInfo;
 pub use bytecode::Bytecode;
 pub use primitives;
+use primitives::ruint::UintTryFrom;
 pub use types::{EvmState, EvmStorage, TransientStorage};
 
 use bitflags::bitflags;
-use core::hash::Hash;
+use core::hash::{BuildHasher, Hash};
 use primitives::hardfork::SpecId;
-use primitives::{HashMap, U256};
+use primitives::{FixedBytes, HashMap, B256, U256};
+use proptest_derive::Arbitrary;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -170,21 +172,129 @@ impl Default for AccountStatus {
     }
 }
 
+#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Arbitrary)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct FlaggedStorage {
+    pub value: U256,
+    pub is_private: bool,
+}
+
+impl From<U256> for FlaggedStorage {
+    fn from(value: U256) -> Self {
+        // by default, assume values are public (as original revm tests expect this)
+        FlaggedStorage {
+            value,
+            is_private: false,
+        }
+    }
+}
+
+impl From<FlaggedStorage> for FixedBytes<32> {
+    fn from(storage: FlaggedStorage) -> FixedBytes<32> {
+        FixedBytes::<32>::from(storage.value)
+    }
+}
+
+impl From<FlaggedStorage> for U256 {
+    fn from(storage: FlaggedStorage) -> U256 {
+        storage.value
+    }
+}
+
+impl From<&FlaggedStorage> for U256 {
+    fn from(storage: &FlaggedStorage) -> U256 {
+        storage.value
+    }
+}
+
+impl FlaggedStorage {
+    pub const ZERO: Self = Self {
+        value: U256::ZERO,
+        is_private: false,
+    };
+
+    pub fn new<T>(value: T, is_private: bool) -> Self
+    where
+        U256: UintTryFrom<T>,
+    {
+        Self {
+            value: U256::from(value),
+            is_private,
+        }
+    }
+
+    pub fn new_from_tuple<T>((value, is_private): (T, bool)) -> Self
+    where
+        U256: UintTryFrom<T>,
+    {
+        Self {
+            value: U256::from(value),
+            is_private,
+        }
+    }
+
+    pub fn new_from_value<T>(value: T) -> Self
+    where
+        U256: UintTryFrom<T>,
+    {
+        Self {
+            value: U256::from(value),
+            is_private: false, // Default to false
+        }
+    }
+
+    pub fn collect_value<S: BuildHasher + Default>(
+        container: HashMap<B256, FlaggedStorage, S>,
+    ) -> HashMap<B256, U256, S> {
+        container
+            .into_iter()
+            .map(|(key, flagged_storage)| (key, flagged_storage.value))
+            .collect()
+    }
+
+    pub fn is_private(&self) -> bool {
+        self.is_private
+    }
+
+    pub fn is_public(&self) -> bool {
+        !self.is_private
+    }
+
+    pub fn set_visibility(&self, is_private: bool) -> Self {
+        FlaggedStorage {
+            value: self.value,
+            is_private,
+        }
+    }
+
+    pub fn mark_private(&self) -> Self {
+        self.set_visibility(true)
+    }
+
+    pub fn mark_public(&self) -> Self {
+        self.set_visibility(false)
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.is_public() && self.value.is_zero()
+    }
+}
+
 /// This type keeps track of the current value of a storage slot.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EvmStorageSlot {
-    /// Original value of the storage slot
-    pub original_value: U256,
-    /// Present value of the storage slot
-    pub present_value: U256,
-    /// Represents if the storage slot is cold
+    /// Original value of the storage slot.
+    pub original_value: FlaggedStorage,
+    /// Present value of the storage slot.
+    pub present_value: FlaggedStorage,
+    /// Represents if the storage slot is cold.
     pub is_cold: bool,
 }
 
 impl EvmStorageSlot {
     /// Creates a new _unchanged_ `EvmStorageSlot` for the given value.
-    pub fn new(original: U256) -> Self {
+    pub fn new(original: FlaggedStorage) -> Self {
         Self {
             original_value: original,
             present_value: original,
@@ -193,7 +303,7 @@ impl EvmStorageSlot {
     }
 
     /// Creates a new _changed_ `EvmStorageSlot`.
-    pub fn new_changed(original_value: U256, present_value: U256) -> Self {
+    pub fn new_changed(original_value: FlaggedStorage, present_value: FlaggedStorage) -> Self {
         Self {
             original_value,
             present_value,
@@ -206,12 +316,12 @@ impl EvmStorageSlot {
     }
 
     /// Returns the original value of the storage slot.
-    pub fn original_value(&self) -> U256 {
+    pub fn original_value(&self) -> FlaggedStorage {
         self.original_value
     }
 
     /// Returns the current value of the storage slot.
-    pub fn present_value(&self) -> U256 {
+    pub fn present_value(&self) -> FlaggedStorage {
         self.present_value
     }
 

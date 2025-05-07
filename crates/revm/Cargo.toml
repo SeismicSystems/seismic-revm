@@ -35,7 +35,6 @@ context.workspace = true
 context-interface.workspace = true
 handler.workspace = true
 
-
 [features]
 default = ["std", "c-kzg", "secp256k1", "portable", "blst"]
 std = [

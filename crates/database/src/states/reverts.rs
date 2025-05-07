@@ -7,7 +7,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use primitives::{Address, HashMap, U256};
-use state::AccountInfo;
+use state::{AccountInfo, FlaggedStorage};
 use std::vec::Vec;
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).
@@ -313,15 +313,15 @@ pub enum AccountInfoRevert {
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RevertToSlot {
-    Some(U256),
+    Some(FlaggedStorage),
     Destroyed,
 }
 
 impl RevertToSlot {
-    pub fn to_previous_value(self) -> U256 {
+    pub fn to_previous_value(self) -> FlaggedStorage {
         match self {
             RevertToSlot::Some(value) => value,
-            RevertToSlot::Destroyed => U256::ZERO,
+            RevertToSlot::Destroyed => FlaggedStorage::ZERO,
         }
     }
 }

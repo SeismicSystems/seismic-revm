@@ -63,23 +63,26 @@ impl L1BlockInfo {
             let _ = db.basic(L1_BLOCK_CONTRACT)?;
         }
 
-        let l1_base_fee = db.storage(L1_BLOCK_CONTRACT, L1_BASE_FEE_SLOT)?;
+        let l1_base_fee = db.storage(L1_BLOCK_CONTRACT, L1_BASE_FEE_SLOT)?.value;
 
         if !spec_id.is_enabled_in(OpSpecId::ECOTONE) {
-            let l1_fee_overhead = db.storage(L1_BLOCK_CONTRACT, L1_OVERHEAD_SLOT)?;
-            let l1_fee_scalar = db.storage(L1_BLOCK_CONTRACT, L1_SCALAR_SLOT)?;
+            let l1_fee_overhead = db.storage(L1_BLOCK_CONTRACT, L1_OVERHEAD_SLOT)?.value;
+            let l1_fee_scalar = db.storage(L1_BLOCK_CONTRACT, L1_SCALAR_SLOT)?.value;
 
             Ok(L1BlockInfo {
-                l1_base_fee,
-                l1_fee_overhead: Some(l1_fee_overhead),
-                l1_base_fee_scalar: l1_fee_scalar,
+                l1_base_fee: l1_base_fee.into(),
+                l1_fee_overhead: Some(l1_fee_overhead.into()),
+                l1_base_fee_scalar: l1_fee_scalar.into(),
                 ..Default::default()
             })
         } else {
-            let l1_blob_base_fee = db.storage(L1_BLOCK_CONTRACT, ECOTONE_L1_BLOB_BASE_FEE_SLOT)?;
-            let l1_fee_scalars = db
+            let l1_blob_base_fee = db
+                .storage(L1_BLOCK_CONTRACT, ECOTONE_L1_BLOB_BASE_FEE_SLOT)?
+                .value;
+            let l1_scalars_u256: U256 = db
                 .storage(L1_BLOCK_CONTRACT, ECOTONE_L1_FEE_SCALARS_SLOT)?
-                .to_be_bytes::<32>();
+                .into();
+            let l1_fee_scalars = l1_scalars_u256.to_be_bytes::<32>();
 
             let l1_base_fee_scalar = U256::from_be_slice(
                 l1_fee_scalars[BASE_FEE_SCALAR_OFFSET..BASE_FEE_SCALAR_OFFSET + 4].as_ref(),
@@ -95,12 +98,13 @@ impl L1BlockInfo {
                 && l1_fee_scalars[BASE_FEE_SCALAR_OFFSET..BLOB_BASE_FEE_SCALAR_OFFSET + 4]
                     == EMPTY_SCALARS;
             let l1_fee_overhead = empty_ecotone_scalars
-                .then(|| db.storage(L1_BLOCK_CONTRACT, L1_OVERHEAD_SLOT))
+                .then(|| Ok(db.storage(L1_BLOCK_CONTRACT, L1_OVERHEAD_SLOT)?.value))
                 .transpose()?;
 
             if spec_id.is_enabled_in(OpSpecId::ISTHMUS) {
                 let operator_fee_scalars = db
                     .storage(L1_BLOCK_CONTRACT, OPERATOR_FEE_SCALARS_SLOT)?
+                    .value
                     .to_be_bytes::<32>();
 
                 // Post-isthmus L1 block info

@@ -18,6 +18,7 @@ members = [
 
     # variants
     "crates/optimism",
+    "crates/seismic",
     "crates/inspector",
 
     # utility
@@ -154,3 +155,6 @@ inherits = "profiling"
 [profile.ethtests]
 inherits = "test"
 opt-level = 3
+
+[patch.crates-io]
+alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "fac24f18" }

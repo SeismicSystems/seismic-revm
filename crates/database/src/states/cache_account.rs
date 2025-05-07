@@ -3,7 +3,7 @@ use super::{
     StorageWithOriginalValues, TransitionAccount,
 };
 use primitives::{HashMap, U256};
-use state::AccountInfo;
+use state::{AccountInfo, FlaggedStorage};
 
 /// Cache account contains plain state that gets updated
 /// at every transaction when evm output is applied to CacheState.
@@ -92,7 +92,7 @@ impl CacheAccount {
     }
 
     /// Returns storage slot if it exists.
-    pub fn storage_slot(&self, slot: U256) -> Option<U256> {
+    pub fn storage_slot(&self, slot: U256) -> Option<FlaggedStorage> {
         self.account
             .as_ref()
             .and_then(|a| a.storage.get(&slot).cloned())

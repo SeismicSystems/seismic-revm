@@ -5,10 +5,7 @@ use revm::{
     context_interface::ContextTr,
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::InterpreterResult,
-    precompile::{
-        self, bn128, secp256r1, PrecompileError, Precompiles,
-        {PrecompileResult, PrecompileWithAddress},
-    },
+    precompile::{self, bn128, secp256r1, PrecompileError, PrecompileResult, Precompiles},
     primitives::{Address, Bytes},
 };
 use std::boxed::Box;
@@ -129,6 +126,8 @@ impl Default for OpPrecompiles {
 }
 
 pub mod bn128_pair {
+    use precompile::PrecompileWithAddress;
+
     use super::*;
 
     pub const GRANITE_MAX_INPUT_SIZE: usize = 112687;
