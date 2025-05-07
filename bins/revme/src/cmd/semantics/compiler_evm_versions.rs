@@ -16,7 +16,7 @@ pub(crate) enum EVMVersion {
     Shangain,
     Cancun,
     Mercury,
-    Osaka
+    Osaka,
 }
 
 // Not fully exhaustive list of versions, trying to cover all SOLIDITY VERSIONING is the goal here
@@ -101,21 +101,21 @@ impl EVMVersion {
                 return (op, rest.trim());
             }
         }
-        ("=", tok) 
+        ("=", tok)
     }
 
     fn apply_cmp(op: &str, ver: Self) -> Option<Self> {
         match op {
-            "<"  => ver.previous().and_then(Self::from_str),
+            "<" => ver.previous().and_then(Self::from_str),
             "<=" | "=" => Some(ver),
-            ">"  => ver.next().and_then(Self::from_str),
+            ">" => ver.next().and_then(Self::from_str),
             ">=" => Some(ver),
-            _    => None,
+            _ => None,
         }
     }
 
     pub(crate) fn extract(content: &str) -> Option<Self> {
-        let header = content.split("// ====").nth(1)?; 
+        let header = content.split("// ====").nth(1)?;
 
         // 1. Prefer an explicit "// EVMVersion:" tag
         for line in header.lines() {
@@ -130,18 +130,16 @@ impl EVMVersion {
         for line in header.lines() {
             if let Some(fmt) = line.trim().strip_prefix("// bytecodeFormat:") {
                 return match fmt.trim() {
-                    "legacy" |
-                    "legacy,>=EOFv1" |
-                    ">=EOFv1,legacy" => Some(Self::Mercury), // default
-                    ">=EOFv1"        => Some(Self::Osaka),
-                    _                => None,                // unknown / future flag
+                    "legacy" | "legacy,>=EOFv1" | ">=EOFv1,legacy" => Some(Self::Mercury), // default
+                    ">=EOFv1" => Some(Self::Osaka),
+                    _ => None, // unknown / future flag
                 };
             }
         }
 
-        None 
+        None
     }
-    
+
     pub fn to_spec_id(&self) -> SpecId {
         match self {
             EVMVersion::Homestead => SpecId::HOMESTEAD,
@@ -156,9 +154,8 @@ impl EVMVersion {
             EVMVersion::Cancun => SpecId::CANCUN,
             EVMVersion::Mercury => {
                 panic!("Mercury cannot be converted to a mainnet SpecId. Use to_seismic_spec_id() instead.")
-            },
+            }
             EVMVersion::Osaka => SpecId::OSAKA,
-
         }
     }
 

@@ -128,10 +128,11 @@ impl SemanticTests {
 
         let evm_version = EVMVersion::extract(&content);
         let via_ir = extract_compile_via_yul(&content);
-        let eof_mode = needs_eof(&content); 
-        
-        let mut contract_infos = Self::get_contract_infos(path, evm_version, via_ir, eof_mode, false)?;
-        
+        let eof_mode = needs_eof(&content);
+
+        let mut contract_infos =
+            Self::get_contract_infos(path, evm_version, via_ir, eof_mode, false)?;
+
         let test_cases = TestCase::from_expectations(expectations, &mut contract_infos[..])?;
         Ok(SemanticTests {
             test_cases,
@@ -148,7 +149,6 @@ impl SemanticTests {
     ) -> Result<String, Errors> {
         let mut solc = Command::new("/usr/local/bin/solc");
 
-
         solc.arg(if runtime { "--bin-runtime" } else { "--bin" })
             .arg(path);
 
@@ -157,7 +157,9 @@ impl SemanticTests {
         }
 
         // via‑IR is required for EOF; keep explicit flag for legacy tests
-        if via_ir || eof_mode { solc.arg("--via-ir"); }
+        if via_ir || eof_mode {
+            solc.arg("--via-ir");
+        }
 
         if eof_mode {
             solc.arg("--experimental-eof-version").arg("1");
