@@ -26,7 +26,7 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             interpreter,
             gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
         );
-        *index = value.data;
+        *index = value.data.word;
     } else {
         interpreter
             .control
@@ -95,7 +95,7 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             interpreter,
             gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
         );
-        *index = value.data;
+        *index = value.data.word;
     } else {
         interpreter
             .control

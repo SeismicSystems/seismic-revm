@@ -5,6 +5,7 @@ use super::{
 use database::State;
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use inspector::{inspectors::TracerEip3155, InspectCommitEvm};
+use primitives::FlaggedStorage;
 use revm::{
     bytecode::Bytecode,
     context::{block::BlockEnv, cfg::CfgEnv},
@@ -24,7 +25,6 @@ use seismic_revm::{
     SeismicHaltReason, SeismicSpecId,
 };
 use serde_json::json;
-use state::FlaggedStorage;
 use statetest_types::{SpecName, Test, TestSuite};
 
 use std::{

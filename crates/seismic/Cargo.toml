@@ -56,7 +56,8 @@ std = [
 	"alloy-sol-types/std",
 	"once_cell/std",
 	"sha2/std",
-	"serde_json/std"
+	"serde_json/std",
+	"secp256k1/std",
 ]
 hashbrown = ["revm/hashbrown"]
 serde = [

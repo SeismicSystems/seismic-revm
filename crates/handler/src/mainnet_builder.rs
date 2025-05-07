@@ -79,8 +79,8 @@ mod test {
     use context::Context;
     use context_interface::{transaction::Authorization, TransactionType};
     use database::{BenchmarkDB, EEADDRESS, FFADDRESS};
+    use primitives::FlaggedStorage;
     use primitives::{hardfork::SpecId, TxKind, U256};
-    use state::FlaggedStorage;
 
     #[test]
     fn sanity_eip7702_tx() {
@@ -115,7 +115,7 @@ mod test {
         assert_eq!(auth_acc.info.nonce, 1);
         assert_eq!(
             auth_acc.storage.get(&U256::from(1)).unwrap().present_value,
-            FlaggedStorage::new_from_value(U256::from(1))
+            FlaggedStorage::new_from_word(U256::from(1))
         );
     }
 }

@@ -85,7 +85,8 @@ where
             .journal()
             .sload(TOKEN, account_balance_slot)
             .map(|v| v.data)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .word;
 
         if account_balance < balance_check && !context.cfg().is_balance_check_disabled() {
             return Err(InvalidTransaction::LackOfFundForMaxFee {

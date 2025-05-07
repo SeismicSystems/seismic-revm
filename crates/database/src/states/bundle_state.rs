@@ -6,8 +6,9 @@ use super::{
 };
 use bytecode::Bytecode;
 use core::{mem, ops::RangeInclusive};
+use primitives::FlaggedStorage;
 use primitives::{hash_map::Entry, Address, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
-use state::{AccountInfo, FlaggedStorage};
+use state::AccountInfo;
 use std::{
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
@@ -620,7 +621,7 @@ impl BundleState {
                 // If storage was destroyed that means that storage was wiped.
                 // In that case we need to check if present storage value is different then ZERO.
                 // TODO(Seismic): do we need to check visibility here?
-                let destroyed_and_not_zero = was_destroyed && !slot.present_value.value.is_zero();
+                let destroyed_and_not_zero = was_destroyed && !slot.present_value.word.is_zero();
 
                 // If account is not destroyed check if original values was changed,
                 // so we can update it.

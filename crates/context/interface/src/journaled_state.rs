@@ -1,6 +1,7 @@
 use crate::context::{SStoreResult, SelfDestructResult};
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
+use primitives::FlaggedStorage;
 use primitives::{hardfork::SpecId, Address, Bytes, HashSet, Log, B256, U256};
 use state::{
     bytecode::{EOF_MAGIC_BYTES, EOF_MAGIC_HASH},
@@ -29,7 +30,7 @@ pub trait JournalTr {
         &mut self,
         address: Address,
         key: U256,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
+    ) -> Result<StateLoad<FlaggedStorage>, <Self::Database as Database>::Error>;
 
     /// Returns the private storage value from Journal state.
     ///
@@ -38,7 +39,7 @@ pub trait JournalTr {
         &mut self,
         address: Address,
         key: U256,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
+    ) -> Result<StateLoad<FlaggedStorage>, <Self::Database as Database>::Error>;
 
     /// Stores the storage value in Journal state.
     fn sstore(
@@ -145,7 +146,7 @@ pub trait JournalTr {
             code.original_bytes()
         };
 
-        Ok(StateLoad::new(code, a.is_cold, false))
+        Ok(StateLoad::new(code, a.is_cold))
     }
 
     /// Gets code hash of account.
@@ -158,7 +159,7 @@ pub trait JournalTr {
     ) -> Result<StateLoad<B256>, <Self::Database as Database>::Error> {
         let acc = self.load_account_code(address)?;
         if acc.is_empty() {
-            return Ok(StateLoad::new(B256::ZERO, acc.is_cold, false));
+            return Ok(StateLoad::new(B256::ZERO, acc.is_cold));
         }
         // SAFETY: Safe to unwrap as load_code will insert code if it is empty.
         let code = acc.info.code.as_ref().unwrap();
@@ -169,7 +170,7 @@ pub trait JournalTr {
             acc.info.code_hash
         };
 
-        Ok(StateLoad::new(hash, acc.is_cold, false))
+        Ok(StateLoad::new(hash, acc.is_cold))
     }
 
     /// Called at the end of the transaction to clean all residue data from journal.
@@ -224,8 +225,6 @@ pub struct StateLoad<T> {
     pub data: T,
     /// Is account is cold loaded
     pub is_cold: bool,
-    /// True if slot was tagged as private.
-    pub is_private: bool,
 }
 
 impl<T> Deref for StateLoad<T> {
@@ -244,12 +243,8 @@ impl<T> DerefMut for StateLoad<T> {
 
 impl<T> StateLoad<T> {
     /// Returns a new [`StateLoad`] with the given data and cold load status.
-    pub fn new(data: T, is_cold: bool, is_private: bool) -> Self {
-        Self {
-            data,
-            is_cold,
-            is_private,
-        }
+    pub fn new(data: T, is_cold: bool) -> Self {
+        Self { data, is_cold }
     }
 
     /// Maps the data of the [`StateLoad`] to a new value.
@@ -259,7 +254,7 @@ impl<T> StateLoad<T> {
     where
         F: FnOnce(T) -> B,
     {
-        StateLoad::new(f(self.data), self.is_cold, self.is_private)
+        StateLoad::new(f(self.data), self.is_cold)
     }
 }
 

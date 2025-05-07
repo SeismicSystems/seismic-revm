@@ -15,8 +15,9 @@ use revm::{
     },
     database::{AlloyDB, BlockId, CacheDB},
     database_interface::WrapDatabaseAsync,
+    primitives::FlaggedStorage,
     primitives::{address, hardfork::SpecId, keccak256, Address, TxKind, KECCAK_EMPTY, U256},
-    state::{AccountInfo, FlaggedStorage},
+    state::AccountInfo,
     Context, Database, MainBuilder, MainContext,
 };
 
@@ -52,7 +53,7 @@ async fn main() -> Result<()> {
         .insert_account_storage(
             TOKEN,
             balance_slot,
-            FlaggedStorage::new_from_value(hundred_tokens * U256::from(2)),
+            FlaggedStorage::new_from_word(hundred_tokens * U256::from(2)),
         )
         .unwrap();
     cache_db.insert_account_info(
@@ -65,14 +66,14 @@ async fn main() -> Result<()> {
         },
     );
 
-    let balance_before = balance_of(account, &mut cache_db).unwrap().value;
+    let balance_before = balance_of(account, &mut cache_db).unwrap().word;
     println!("Balance before: {balance_before}");
 
     // Transfer 100 tokens from account to account_to
     // Magic happens here with custom handlers
     transfer(account, account_to, hundred_tokens, &mut cache_db)?;
 
-    let balance_after = balance_of(account, &mut cache_db)?.value;
+    let balance_after = balance_of(account, &mut cache_db)?.word;
     println!("Balance after: {balance_after}");
 
     Ok(())
@@ -90,7 +91,11 @@ where
     ERROR: From<InvalidTransaction> + From<InvalidHeader> + From<<CTX::Db as Database>::Error>,
 {
     let sender_balance_slot = erc_address_storage(sender);
-    let sender_balance = context.journal().sload(TOKEN, sender_balance_slot)?.data;
+    let sender_balance = context
+        .journal()
+        .sload(TOKEN, sender_balance_slot)?
+        .data
+        .word;
 
     if sender_balance < amount {
         return Err(ERROR::from(
@@ -105,7 +110,11 @@ where
 
     // Add the amount to the recipient's balance
     let recipient_balance_slot = erc_address_storage(recipient);
-    let recipient_balance = context.journal().sload(TOKEN, recipient_balance_slot)?.data;
+    let recipient_balance = context
+        .journal()
+        .sload(TOKEN, recipient_balance_slot)?
+        .data
+        .word;
 
     let recipient_new_balance = recipient_balance.saturating_add(amount);
     context

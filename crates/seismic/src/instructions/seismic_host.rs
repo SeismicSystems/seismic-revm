@@ -3,7 +3,7 @@ use revm::{
     context_interface::{context::ContextError, journaled_state::AccountLoad, Database},
     database::EmptyDB,
     interpreter::{host::DummyHost, Host, SStoreResult, SelfDestructResult, StateLoad},
-    primitives::{Address, Bytes, Log, B256, U256},
+    primitives::{Address, Bytes, FlaggedStorage, Log, B256, U256},
 };
 
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
@@ -145,11 +145,11 @@ impl Host for SeismicDummyHost {
         self.dummy_host.sstore(address, key, value)
     }
 
-    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
+    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<FlaggedStorage>> {
         self.dummy_host.sload(address, key)
     }
 
-    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
+    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<FlaggedStorage>> {
         None
     }
 
