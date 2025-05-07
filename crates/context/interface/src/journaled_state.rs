@@ -1,6 +1,7 @@
 use crate::context::{SStoreResult, SelfDestructResult};
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
+use primitives::FlaggedStorage;
 use primitives::{hardfork::SpecId, Address, Bytes, HashSet, Log, B256, U256};
 use state::{
     bytecode::{EOF_MAGIC_BYTES, EOF_MAGIC_HASH},
@@ -29,10 +30,27 @@ pub trait JournalTr {
         &mut self,
         address: Address,
         key: U256,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
+    ) -> Result<StateLoad<FlaggedStorage>, <Self::Database as Database>::Error>;
+
+    /// Returns the private storage value from Journal state.
+    ///
+    /// Loads the storage from database if not found in Journal state.
+    fn cload(
+        &mut self,
+        address: Address,
+        key: U256,
+    ) -> Result<StateLoad<FlaggedStorage>, <Self::Database as Database>::Error>;
 
     /// Stores the storage value in Journal state.
     fn sstore(
+        &mut self,
+        address: Address,
+        key: U256,
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
+
+    /// Stores the storage value in Journal state.
+    fn cstore(
         &mut self,
         address: Address,
         key: U256,

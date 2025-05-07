@@ -3,6 +3,7 @@
 use auto_impl::auto_impl;
 use core::ops::Deref;
 use revm::{
+    primitives::FlaggedStorage,
     primitives::{Address, B256, U256},
     state::{AccountInfo, Bytecode},
 };
@@ -18,8 +19,8 @@ pub trait State {
     /// Gets account code by its hash.
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
-    /// Gets storage value of address at index.
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error>;
+    /// Get storage value of address at index.
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
 }
 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
@@ -32,8 +33,8 @@ pub trait StateRef {
     /// Gets account code by its hash.
     fn code_by_hash(&self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
-    /// Gets storage value of address at index.
-    fn storage(&self, address: Address, index: U256) -> Result<U256, Self::Error>;
+    /// Get storage value of address at index.
+    fn storage(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
 }
 
 impl<T> State for &T
@@ -50,7 +51,7 @@ where
         StateRef::code_by_hash(*self, code_hash)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         StateRef::storage(*self, address, index)
     }
 }
@@ -69,7 +70,7 @@ where
         self.deref().code_by_hash(code_hash)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
         self.deref().storage(address, index)
     }
 }

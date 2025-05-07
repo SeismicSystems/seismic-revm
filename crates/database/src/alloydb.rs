@@ -6,6 +6,7 @@ use alloy_provider::{
 use alloy_transport::TransportError;
 use core::error::Error;
 use database_interface::{async_db::DatabaseAsyncRef, DBErrorMarker};
+use primitives::FlaggedStorage;
 use primitives::{Address, B256, U256};
 use state::{AccountInfo, Bytecode};
 use std::fmt::Display;
@@ -99,12 +100,17 @@ impl<N: Network, P: Provider<N>> DatabaseAsyncRef for AlloyDB<N, P> {
         // This is not needed, as the code is already loaded with basic_ref
     }
 
-    async fn storage_async_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    async fn storage_async_ref(
+        &self,
+        address: Address,
+        index: U256,
+    ) -> Result<FlaggedStorage, Self::Error> {
         Ok(self
             .provider
             .get_storage_at(address, index)
             .block_id(self.block_number)
-            .await?)
+            .await?
+            .into())
     }
 }
 

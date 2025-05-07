@@ -23,7 +23,7 @@ all = "warn"
 
 [dependencies]
 # revm
-primitives.workspace = true
+primitives = { workspace = true, features = ["arbitrary"] }
 bytecode.workspace = true
 
 # misc

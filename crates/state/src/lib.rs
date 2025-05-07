@@ -14,6 +14,7 @@ pub use types::{EvmState, EvmStorage, TransientStorage};
 use bitflags::bitflags;
 use core::hash::Hash;
 use primitives::hardfork::SpecId;
+use primitives::FlaggedStorage;
 use primitives::{HashMap, U256};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -174,17 +175,17 @@ impl Default for AccountStatus {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EvmStorageSlot {
-    /// Original value of the storage slot
-    pub original_value: U256,
-    /// Present value of the storage slot
-    pub present_value: U256,
-    /// Represents if the storage slot is cold
+    /// Original value of the storage slot.
+    pub original_value: FlaggedStorage,
+    /// Present value of the storage slot.
+    pub present_value: FlaggedStorage,
+    /// Represents if the storage slot is cold.
     pub is_cold: bool,
 }
 
 impl EvmStorageSlot {
     /// Creates a new _unchanged_ `EvmStorageSlot` for the given value.
-    pub fn new(original: U256) -> Self {
+    pub fn new(original: FlaggedStorage) -> Self {
         Self {
             original_value: original,
             present_value: original,
@@ -193,7 +194,7 @@ impl EvmStorageSlot {
     }
 
     /// Creates a new _changed_ `EvmStorageSlot`.
-    pub fn new_changed(original_value: U256, present_value: U256) -> Self {
+    pub fn new_changed(original_value: FlaggedStorage, present_value: FlaggedStorage) -> Self {
         Self {
             original_value,
             present_value,
@@ -206,12 +207,12 @@ impl EvmStorageSlot {
     }
 
     /// Returns the original value of the storage slot.
-    pub fn original_value(&self) -> U256 {
+    pub fn original_value(&self) -> FlaggedStorage {
         self.original_value
     }
 
     /// Returns the current value of the storage slot.
-    pub fn present_value(&self) -> U256 {
+    pub fn present_value(&self) -> FlaggedStorage {
         self.present_value
     }
 

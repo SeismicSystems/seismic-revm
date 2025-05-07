@@ -79,6 +79,7 @@ mod test {
     use context::Context;
     use context_interface::{transaction::Authorization, TransactionType};
     use database::{BenchmarkDB, EEADDRESS, FFADDRESS};
+    use primitives::FlaggedStorage;
     use primitives::{hardfork::SpecId, TxKind, U256};
 
     #[test]
@@ -114,7 +115,7 @@ mod test {
         assert_eq!(auth_acc.info.nonce, 1);
         assert_eq!(
             auth_acc.storage.get(&U256::from(1)).unwrap().present_value,
-            U256::from(1)
+            FlaggedStorage::new_from_word(U256::from(1))
         );
     }
 }

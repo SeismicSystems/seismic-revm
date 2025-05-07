@@ -186,7 +186,7 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(
         interpreter,
         gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
     );
-    *index = value.data;
+    *index = value.data.word;
 }
 
 pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(

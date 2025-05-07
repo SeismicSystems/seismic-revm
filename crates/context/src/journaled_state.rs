@@ -11,6 +11,7 @@ use context_interface::{
 };
 use core::mem;
 use database_interface::Database;
+use primitives::FlaggedStorage;
 use primitives::{
     hardfork::{SpecId, SpecId::*},
     hash_map::Entry,
@@ -89,12 +90,29 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self.database
     }
 
+    fn cload(
+        &mut self,
+        address: Address,
+        key: U256,
+    ) -> Result<StateLoad<FlaggedStorage>, <Self::Database as Database>::Error> {
+        self.load(address, key)
+    }
+
     fn sload(
         &mut self,
         address: Address,
         key: U256,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        self.sload(address, key)
+    ) -> Result<StateLoad<FlaggedStorage>, <Self::Database as Database>::Error> {
+        self.load(address, key)
+    }
+
+    fn cstore(
+        &mut self,
+        address: Address,
+        key: U256,
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
+        self.store(address, key, value, true)
     }
 
     fn sstore(
@@ -103,7 +121,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         key: U256,
         value: U256,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
-        self.sstore(address, key, value)
+        self.store(address, key, value, false)
     }
 
     fn tload(&mut self, address: Address, key: U256) -> U256 {
@@ -725,13 +743,12 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         Ok(load)
     }
 
-    /// Loads storage slot.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the account is not present in the state.
     #[inline]
-    pub fn sload(&mut self, address: Address, key: U256) -> Result<StateLoad<U256>, DB::Error> {
+    pub fn load(
+        &mut self,
+        address: Address,
+        key: U256,
+    ) -> Result<StateLoad<FlaggedStorage>, DB::Error> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx we can assume that storage is empty.
@@ -745,7 +762,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
             Entry::Vacant(vac) => {
                 // if storage was cleared, we don't need to ping db.
                 let value = if is_newly_created {
-                    U256::ZERO
+                    FlaggedStorage::ZERO.set_visibility(false)
                 } else {
                     self.database.storage(address, key)?
                 };
@@ -773,11 +790,12 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
     ///
     /// **Note**: Account should already be present in our state.
     #[inline]
-    pub fn sstore(
+    pub fn store(
         &mut self,
         address: Address,
         key: U256,
         new: U256,
+        is_private: bool,
     ) -> Result<StateLoad<SStoreResult>, DB::Error> {
         // assume that acc exists and load the slot.
         let present = self.sload(address, key)?;
@@ -787,12 +805,12 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         let slot = acc.storage.get_mut(&key).unwrap();
 
         // new value is same as present, we don't need to do anything
-        if present.data == new {
+        if present.data == FlaggedStorage::new(new, is_private) {
             return Ok(StateLoad::new(
                 SStoreResult {
                     original_value: slot.original_value(),
-                    present_value: present.data,
-                    new_value: new,
+                    present_value: present.data.set_visibility(present.is_private),
+                    new_value: FlaggedStorage::new_from_word(new).set_visibility(is_private),
                 },
                 present.is_cold,
             ));
@@ -801,14 +819,19 @@ impl<DB: Database, ENTRY: JournalEntryTr> Journal<DB, ENTRY> {
         self.journal
             .last_mut()
             .unwrap()
-            .push(ENTRY::storage_changed(address, key, present.data));
+            .push(ENTRY::storage_changed(
+                address,
+                key,
+                present.data.set_visibility(present.is_private),
+            ));
+
         // insert value into present state.
-        slot.present_value = new;
+        slot.present_value = FlaggedStorage::new_from_word(new).set_visibility(is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value(),
-                present_value: present.data,
-                new_value: new,
+                present_value: present.data.set_visibility(present.is_private),
+                new_value: FlaggedStorage::new_from_word(new).set_visibility(is_private),
             },
             present.is_cold,
         ))
