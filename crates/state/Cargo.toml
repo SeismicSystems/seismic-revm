@@ -23,7 +23,7 @@ all = "warn"
 
 [dependencies]
 # revm
-primitives.workspace = true
+primitives = { workspace = true, features = ["arbitrary"] }
 bytecode.workspace = true
 
 # misc
@@ -31,6 +31,10 @@ bitflags.workspace = true
 
 # Optional
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
+
+# Seismic
+proptest = "1.4"
+proptest-derive = "0.5"
 
 [features]
 default = ["std"]
