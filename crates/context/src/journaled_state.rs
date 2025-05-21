@@ -16,7 +16,8 @@ use primitives::{
     hash_map::Entry,
     Address, HashMap, HashSet, Log, B256, KECCAK_EMPTY, U256,
 };
-use state::{Account, EvmState, EvmStorageSlot, FlaggedStorage, TransientStorage};
+use state::{Account, EvmState, EvmStorageSlot, TransientStorage};
+use primitives::alloy_primitives::FlaggedStorage;
 use std::{vec, vec::Vec};
 
 /// A journal of state changes internal to the EVM

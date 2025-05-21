@@ -1,7 +1,8 @@
 use core::convert::Infallible;
 use database_interface::{Database, DatabaseCommit, DatabaseRef, EmptyDB};
 use primitives::{address, hash_map::Entry, Address, HashMap, Log, B256, KECCAK_EMPTY, U256};
-use state::{Account, AccountInfo, Bytecode, FlaggedStorage};
+use state::{Account, AccountInfo, Bytecode};
+use primitives::alloy_primitives::FlaggedStorage;
 use std::vec::Vec;
 
 /// A [Database] implementation that stores all state changes in memory.

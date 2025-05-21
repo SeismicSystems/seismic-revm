@@ -80,7 +80,7 @@ mod test {
     use context_interface::{transaction::Authorization, TransactionType};
     use database::{BenchmarkDB, EEADDRESS, FFADDRESS};
     use primitives::{hardfork::SpecId, TxKind, U256};
-    use state::FlaggedStorage;
+    use primitives::alloy_primitives::FlaggedStorage;
 
     #[test]
     fn sanity_eip7702_tx() {

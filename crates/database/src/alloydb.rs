@@ -7,7 +7,8 @@ use alloy_transport::TransportError;
 use core::error::Error;
 use database_interface::{async_db::DatabaseAsyncRef, DBErrorMarker};
 use primitives::{Address, B256, U256};
-use state::{AccountInfo, Bytecode, FlaggedStorage};
+use state::{AccountInfo, Bytecode};
+use primitives::alloy_primitives::FlaggedStorage;
 use std::fmt::Display;
 
 #[derive(Debug)]

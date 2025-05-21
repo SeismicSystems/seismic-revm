@@ -3,7 +3,8 @@ use core::future::Future;
 use crate::{DBErrorMarker, Database, DatabaseRef};
 use core::error::Error;
 use primitives::{Address, B256, U256};
-use state::{AccountInfo, Bytecode, FlaggedStorage};
+use state::{AccountInfo, Bytecode};
+use primitives::alloy_primitives::FlaggedStorage;
 use tokio::runtime::{Handle, Runtime};
 
 /// The async EVM database interface

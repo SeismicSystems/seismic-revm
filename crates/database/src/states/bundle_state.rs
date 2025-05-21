@@ -7,7 +7,8 @@ use super::{
 use bytecode::Bytecode;
 use core::{mem, ops::RangeInclusive};
 use primitives::{hash_map::Entry, Address, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
-use state::{AccountInfo, FlaggedStorage};
+use state::{AccountInfo};
+use primitives::alloy_primitives::FlaggedStorage;
 use std::{
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
