@@ -59,4 +59,4 @@ jobs:
         with:
           shared-key: "test-cache"
       - name: cargo test
-        run: cargo test
+        run: cargo test --workspace

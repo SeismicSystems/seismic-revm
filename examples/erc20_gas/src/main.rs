@@ -15,8 +15,8 @@ use revm::{
     },
     database::{AlloyDB, BlockId, CacheDB},
     database_interface::WrapDatabaseAsync,
-    primitives::{address, hardfork::SpecId, keccak256, Address, TxKind, KECCAK_EMPTY, U256},
-    state::{AccountInfo, FlaggedStorage},
+    primitives::{address, hardfork::SpecId, keccak256, Address, TxKind, KECCAK_EMPTY, U256, FlaggedStorage},
+    state::{AccountInfo},
     Context, Database, MainBuilder, MainContext,
 };
 
