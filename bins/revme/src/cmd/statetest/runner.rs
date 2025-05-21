@@ -15,7 +15,8 @@ use revm::{
     },
     database_interface::EmptyDB,
     primitives::{
-        eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes, TxKind, B256, FlaggedStorage
+        eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes,
+        FlaggedStorage, TxKind, B256,
     },
     Context, ExecuteCommitEvm,
 };
