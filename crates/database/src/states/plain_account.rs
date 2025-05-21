@@ -1,6 +1,6 @@
+use primitives::alloy_primitives::FlaggedStorage;
 use primitives::{HashMap, U256};
 use state::{AccountInfo, EvmStorageSlot};
-use primitives::alloy_primitives::FlaggedStorage;
 
 // Plain account of StateDatabase.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
