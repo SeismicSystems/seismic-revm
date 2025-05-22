@@ -9,7 +9,7 @@ pub use bytecode;
 pub use account_info::AccountInfo;
 pub use bytecode::Bytecode;
 pub use primitives;
-use primitives::alloy_primitives::FlaggedStorage;
+pub use primitives::alloy_primitives::FlaggedStorage;
 pub use types::{EvmState, EvmStorage, TransientStorage};
 
 use bitflags::bitflags;

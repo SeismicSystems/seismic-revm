@@ -123,7 +123,7 @@ mod tests {
     use revm::precompile::u64_to_address;
     use revm::primitives::{Address, Bytes, TxKind, B256, U256};
     use revm::{ExecuteCommitEvm, ExecuteEvm, Journal};
-    use seismic_enclave::get_sample_schnorrkel_keypair;
+    use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
 
     // === Fixture data ===
 
@@ -299,7 +299,7 @@ mod tests {
 
         // check root rng state is reset post execution
         let expected_root_rng_state = (
-            get_sample_schnorrkel_keypair().public.to_bytes(),
+            get_unsecure_sample_schnorrkel_keypair().public.to_bytes(),
             true,
             true,
             0 as u64,
