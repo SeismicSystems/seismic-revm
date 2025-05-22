@@ -4315,7 +4315,8 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=f2c0757#f2c0757cf12208049a758f797f263912b00cf842"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "038ecbb935f63d62ba9590c54f185bb35f1086580566ac4332fc3840c4b585bd"
 dependencies = [
  "aes-gcm",
  "anyhow",
