@@ -52,6 +52,7 @@ impl Precompiles {
     /// Returns the precompiles for the given spec.
     pub fn new(spec: PrecompileSpecId) -> &'static Self {
         match spec {
+            PrecompileSpecId::MERCURY => Self::mercury(),
             PrecompileSpecId::HOMESTEAD => Self::homestead(),
             PrecompileSpecId::BYZANTIUM => Self::byzantium(),
             PrecompileSpecId::ISTANBUL => Self::istanbul(),
@@ -60,6 +61,12 @@ impl Precompiles {
             PrecompileSpecId::PRAGUE => Self::prague(),
             PrecompileSpecId::LATEST => Self::latest(),
         }
+    }
+
+    pub fn mercury() -> &'static Self {
+        // NOTE: uncertain about this, but Christian thinks our precompiles
+        //       are not registered here; they're nailed in deeper into the EVM
+        Self::latest()
     }
 
     /// Returns precompiles for Homestead spec.
@@ -308,6 +315,7 @@ pub enum PrecompileSpecId {
     BERLIN,
     CANCUN,
     PRAGUE,
+    MERCURY,
     LATEST,
 }
 
@@ -322,6 +330,7 @@ impl PrecompileSpecId {
     pub const fn from_spec_id(spec_id: primitives::hardfork::SpecId) -> Self {
         use primitives::hardfork::SpecId::*;
         match spec_id {
+            MERCURY => Self::MERCURY,
             FRONTIER | FRONTIER_THAWING | HOMESTEAD | DAO_FORK | TANGERINE | SPURIOUS_DRAGON => {
                 Self::HOMESTEAD
             }
