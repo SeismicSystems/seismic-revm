@@ -5,7 +5,7 @@ use crate::{
         InputsTr, InterpreterTypes, LegacyBytecode, LoopControl, MemoryTr, ReturnData, RuntimeFlag,
         StackTr,
     },
-    Host, InstructionResult,
+    CallInput, Host, InstructionResult,
 };
 use core::ptr;
 use primitives::{B256, KECCAK_EMPTY, U256};
@@ -90,12 +90,28 @@ pub fn calldataload<WIRE: InterpreterTypes, H: Host + ?Sized>(
     let input_len = input.len();
     if offset < input_len {
         let count = 32.min(input_len - offset);
+
         // SAFETY: `count` is bounded by the calldata length.
         // This is `word[..count].copy_from_slice(input[offset..offset + count])`, written using
         // raw pointers as apparently the compiler cannot optimize the slice version, and using
         // `get_unchecked` twice is uglier.
-        debug_assert!(count <= 32 && offset + count <= input_len);
-        unsafe { ptr::copy_nonoverlapping(input.as_ptr().add(offset), word.as_mut_ptr(), count) };
+        match interpreter.input.input() {
+            CallInput::Bytes(bytes) => {
+                unsafe {
+                    ptr::copy_nonoverlapping(bytes.as_ptr().add(offset), word.as_mut_ptr(), count)
+                };
+            }
+            CallInput::SharedBuffer(range) => {
+                let input_slice = interpreter.memory.global_slice(range.clone());
+                unsafe {
+                    ptr::copy_nonoverlapping(
+                        input_slice.as_ptr().add(offset),
+                        word.as_mut_ptr(),
+                        count,
+                    )
+                };
+            }
+        }
     }
     *offset_ptr = word.into();
 }
@@ -127,10 +143,18 @@ pub fn calldatacopy<WIRE: InterpreterTypes, H: Host + ?Sized>(
     };
 
     let data_offset = as_usize_saturated!(data_offset);
-    // Note: This can't panic because we resized memory to fit.
-    interpreter
-        .memory
-        .set_data(memory_offset, data_offset, len, interpreter.input.input());
+    match interpreter.input.input() {
+        CallInput::Bytes(bytes) => {
+            interpreter
+                .memory
+                .set_data(memory_offset, data_offset, len, bytes.as_ref());
+        }
+        CallInput::SharedBuffer(range) => {
+            interpreter
+                .memory
+                .set_data_from_global(memory_offset, data_offset, len, range.clone());
+        }
+    }
 }
 
 /// EIP-211: New opcodes: RETURNDATASIZE and RETURNDATACOPY
@@ -234,165 +258,177 @@ pub fn memory_resize(
     Some(memory_offset)
 }
 
-// TODO : Tests
-/*
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{table::make_instruction_table, DummyHost, Gas, InstructionResult};
-    use bytecode::opcode::{RETURNDATACOPY, RETURNDATALOAD};
-    use bytecode::Bytecode;
-    use primitives::bytes;
-    use primitives::hardfork::{PragueSpec, SpecId};
-    use context_interface::DefaultEthereumWiring;
+    use crate::{host::DummyHost, instruction_table, InstructionResult};
+    use bytecode::{opcode::RETURNDATACOPY, opcode::RETURNDATALOAD, Bytecode};
+    use primitives::{bytes, Bytes};
 
     #[test]
     fn returndataload() {
-        let table = make_instruction_table::<Interpreter, DummyHost<DefaultEthereumWiring>>();
-        let mut host = DummyHost::default();
+        let bytecode = Bytecode::new_raw(Bytes::from(&[
+            RETURNDATALOAD,
+            RETURNDATALOAD,
+            RETURNDATALOAD,
+            RETURNDATALOAD,
+        ]));
+        let mut interpreter = Interpreter::default().with_bytecode(bytecode);
 
-        let mut interp = Interpreter::new_bytecode(Bytecode::LegacyRaw(
-            [
-                RETURNDATALOAD,
-                RETURNDATALOAD,
-                RETURNDATALOAD,
-                RETURNDATALOAD,
-            ]
-            .into(),
+        let table = instruction_table();
+        let mut host = DummyHost;
+        interpreter.runtime_flag.is_eof = true;
+
+        let _ = interpreter.stack.push(U256::from(0));
+        interpreter.return_data.set_buffer(bytes!(
+            "000000000000000400000000000000030000000000000002000000000000000100"
         ));
-        interp.is_eof = true;
-        interp.spec_id = SpecId::PRAGUE;
-        interp.gas = Gas::new(10000);
-
-        interp.stack.push(U256::from(0)).unwrap();
-        interp.return_data_buffer =
-            bytes!("000000000000000400000000000000030000000000000002000000000000000100");
-        interp.step(&table, &mut host);
+        interpreter.step(&table, &mut host);
         assert_eq!(
-            interp.stack.data(),
+            interpreter.stack.data(),
             &vec![U256::from_limbs([0x01, 0x02, 0x03, 0x04])]
         );
 
-        let _ = interp.stack.pop();
-        let _ = interp.stack.push(U256::from(1));
+        let _ = interpreter.stack.pop();
+        let _ = interpreter.stack.push(U256::from(1));
 
-        interp.step(&table, &mut host);
-        assert_eq!(interp.instruction_result, InstructionResult::Continue);
+        interpreter.step(&table, &mut host);
         assert_eq!(
-            interp.stack.data(),
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
+        );
+        assert_eq!(
+            interpreter.stack.data(),
             &vec![U256::from_limbs([0x0100, 0x0200, 0x0300, 0x0400])]
         );
 
-        let _ = interp.stack.pop();
-        let _ = interp.stack.push(U256::from(32));
-        interp.step(&table, &mut host);
-        assert_eq!(interp.instruction_result, InstructionResult::Continue);
+        let _ = interpreter.stack.pop();
+        let _ = interpreter.stack.push(U256::from(32));
+        interpreter.step(&table, &mut host);
         assert_eq!(
-            interp.stack.data(),
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
+        );
+        assert_eq!(
+            interpreter.stack.data(),
             &vec![U256::from_limbs([0x00, 0x00, 0x00, 0x00])]
         );
 
         // Offset right at the boundary of the return data buffer size
-        let _ = interp.stack.pop();
-        let _ = interp
+        let _ = interpreter.stack.pop();
+        let _ = interpreter
             .stack
-            .push(U256::from(interp.return_data_buffer.len()));
-        interp.step(&table, &mut host);
-        assert_eq!(interp.instruction_result, InstructionResult::Continue);
+            .push(U256::from(interpreter.return_data.buffer().len()));
+        interpreter.step(&table, &mut host);
         assert_eq!(
-            interp.stack.data(),
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
+        );
+        assert_eq!(
+            interpreter.stack.data(),
             &vec![U256::from_limbs([0x00, 0x00, 0x00, 0x00])]
         );
     }
 
     #[test]
     fn returndatacopy() {
-        let table = make_instruction_table::<Interpreter, _>();
-        let mut host = DummyHost::<DefaultEthereumWiring>::default();
+        let bytecode = Bytecode::new_raw(Bytes::from(&[
+            RETURNDATACOPY,
+            RETURNDATACOPY,
+            RETURNDATACOPY,
+            RETURNDATACOPY,
+            RETURNDATACOPY,
+            RETURNDATACOPY,
+        ]));
+        let mut interpreter = Interpreter::default().with_bytecode(bytecode);
 
-        let mut interp = Interpreter::new_bytecode(Bytecode::LegacyRaw(
-            [
-                RETURNDATACOPY,
-                RETURNDATACOPY,
-                RETURNDATACOPY,
-                RETURNDATACOPY,
-                RETURNDATACOPY,
-                RETURNDATACOPY,
-            ]
-            .into(),
+        let table = instruction_table();
+        let mut host = DummyHost;
+        interpreter.runtime_flag.is_eof = true;
+
+        interpreter.return_data.set_buffer(bytes!(
+            "000000000000000400000000000000030000000000000002000000000000000100"
         ));
-        interp.is_eof = true;
-        interp.spec_id = SpecId::PRAGUE;
-        interp.gas = Gas::new(10000);
-
-        interp.return_data_buffer =
-            bytes!("000000000000000400000000000000030000000000000002000000000000000100");
-        interp.shared_memory.resize(256);
+        interpreter.memory.resize(256);
 
         // Copying within bounds
-        interp.stack.push(U256::from(32)).unwrap();
-        interp.stack.push(U256::from(0)).unwrap();
-        interp.stack.push(U256::from(0)).unwrap();
-        interp.step(&table, &mut host);
-        assert_eq!(interp.instruction_result, InstructionResult::Continue);
+        let _ = interpreter.stack.push(U256::from(32));
+        let _ = interpreter.stack.push(U256::from(0));
+        let _ = interpreter.stack.push(U256::from(0));
+        interpreter.step(&table, &mut host);
         assert_eq!(
-            interp.shared_memory.slice(0, 32),
-            &interp.return_data_buffer[0..32]
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
+        );
+        assert_eq!(
+            *interpreter.memory.slice(0..32),
+            interpreter.return_data.buffer()[0..32]
         );
 
         // Copying with partial out-of-bounds (should zero pad)
-        interp.stack.push(U256::from(64)).unwrap();
-        interp.stack.push(U256::from(16)).unwrap();
-        interp.stack.push(U256::from(64)).unwrap();
-        interp.step(&table, &mut host);
-        assert_eq!(interp.instruction_result, InstructionResult::Continue);
+        let _ = interpreter.stack.push(U256::from(64));
+        let _ = interpreter.stack.push(U256::from(16));
+        let _ = interpreter.stack.push(U256::from(64));
+        interpreter.step(&table, &mut host);
         assert_eq!(
-            interp.shared_memory.slice(64, 16),
-            &interp.return_data_buffer[16..32]
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
         );
-        assert_eq!(&interp.shared_memory.slice(80, 48), &[0u8; 48]);
+        assert_eq!(
+            *interpreter.memory.slice(64..80),
+            interpreter.return_data.buffer()[16..32]
+        );
+        assert_eq!(*interpreter.memory.slice(80..128), [0u8; 48]);
 
         // Completely out-of-bounds (should be all zeros)
-        interp.stack.push(U256::from(32)).unwrap();
-        interp.stack.push(U256::from(96)).unwrap();
-        interp.stack.push(U256::from(128)).unwrap();
-        interp.step(&table, &mut host);
-        assert_eq!(interp.instruction_result, InstructionResult::Continue);
-        assert_eq!(&interp.shared_memory.slice(128, 32), &[0u8; 32]);
+        let _ = interpreter.stack.push(U256::from(32));
+        let _ = interpreter.stack.push(U256::from(96));
+        let _ = interpreter.stack.push(U256::from(128));
+        interpreter.step(&table, &mut host);
+        assert_eq!(
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
+        );
+        assert_eq!(*interpreter.memory.slice(128..160), [0u8; 32]);
 
         // Large offset
-        interp.stack.push(U256::from(32)).unwrap();
-        interp.stack.push(U256::MAX).unwrap();
-        interp.stack.push(U256::from(0)).unwrap();
-        interp.step(&table, &mut host);
-        assert_eq!(interp.instruction_result, InstructionResult::Continue);
-        assert_eq!(&interp.shared_memory.slice(0, 32), &[0u8; 32]);
+        let _ = interpreter.stack.push(U256::from(32));
+        let _ = interpreter.stack.push(U256::MAX);
+        let _ = interpreter.stack.push(U256::from(0));
+        interpreter.step(&table, &mut host);
+        assert_eq!(
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
+        );
+        assert_eq!(*interpreter.memory.slice(0..32), [0u8; 32]);
 
         // Offset just before the boundary of the return data buffer size
-        interp.stack.push(U256::from(32)).unwrap();
-        interp
+        let _ = interpreter.stack.push(U256::from(32));
+        let _ = interpreter
             .stack
-            .push(U256::from(interp.return_data_buffer.len() - 32))
-            .unwrap();
-        interp.stack.push(U256::from(0)).unwrap();
-        interp.step(&table, &mut host);
-        assert_eq!(interp.instruction_result, InstructionResult::Continue);
+            .push(U256::from(interpreter.return_data.buffer().len() - 32));
+        let _ = interpreter.stack.push(U256::from(0));
+        interpreter.step(&table, &mut host);
         assert_eq!(
-            interp.shared_memory.slice(0, 32),
-            &interp.return_data_buffer[interp.return_data_buffer.len() - 32..]
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
+        );
+        assert_eq!(
+            *interpreter.memory.slice(0..32),
+            interpreter.return_data.buffer()[interpreter.return_data.buffer().len() - 32..]
         );
 
         // Offset right at the boundary of the return data buffer size
-        interp.stack.push(U256::from(32)).unwrap();
-        interp
+        let _ = interpreter.stack.push(U256::from(32));
+        let _ = interpreter
             .stack
-            .push(U256::from(interp.return_data_buffer.len()))
-            .unwrap();
-        interp.stack.push(U256::from(0)).unwrap();
-        interp.step(&table, &mut host);
-        assert_eq!(interp.instruction_result, InstructionResult::Continue);
-        assert_eq!(&interp.shared_memory.slice(0, 32), &[0u8; 32]);
+            .push(U256::from(interpreter.return_data.buffer().len()));
+        let _ = interpreter.stack.push(U256::from(0));
+        interpreter.step(&table, &mut host);
+        assert_eq!(
+            interpreter.control.instruction_result,
+            InstructionResult::Continue
+        );
+        assert_eq!(*interpreter.memory.slice(0..32), [0u8; 32]);
     }
 }
-
-*/

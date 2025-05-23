@@ -9,7 +9,6 @@
 extern crate alloc as std;
 
 pub mod blake2;
-#[cfg(feature = "blst")]
 pub mod bls12_381;
 pub mod bls12_381_const;
 pub mod bls12_381_utils;
@@ -26,9 +25,30 @@ pub mod secp256r1;
 pub mod utilities;
 
 pub use interface::*;
+
+// silence arkworks lint as bn impl will be used as default if both are enabled.
+cfg_if::cfg_if! {
+    if #[cfg(feature = "bn")]{
+        use ark_bn254 as _;
+        use ark_ff as _;
+        use ark_ec as _;
+        use ark_serialize as _;
+    }
+}
+
 #[cfg(all(feature = "c-kzg", feature = "kzg-rs"))]
 // silence kzg-rs lint as c-kzg will be used as default if both are enabled.
 use kzg_rs as _;
+
+// silence arkworks-bls12-381 lint as blst will be used as default if both are enabled.
+cfg_if::cfg_if! {
+    if #[cfg(feature = "blst")]{
+        use ark_bls12_381 as _;
+        use ark_ff as _;
+        use ark_ec as _;
+        use ark_serialize as _;
+    }
+}
 
 use cfg_if::cfg_if;
 use core::hash::Hash;
@@ -36,10 +56,12 @@ use once_cell::race::OnceBox;
 use primitives::{hardfork::SpecId, Address, HashMap, HashSet};
 use std::{boxed::Box, vec::Vec};
 
+/// Calculate the linear cost of a precompile.
 pub fn calc_linear_cost_u32(len: usize, base: u64, word: u64) -> u64 {
     (len as u64).div_ceil(32) * word + base
 }
 
+/// Precompiles contain map of precompile addresses to functions and HashSet of precompile addresses.
 #[derive(Clone, Default, Debug)]
 pub struct Precompiles {
     /// Precompiles
@@ -59,7 +81,6 @@ impl Precompiles {
             PrecompileSpecId::BERLIN => Self::berlin(),
             PrecompileSpecId::CANCUN => Self::cancun(),
             PrecompileSpecId::PRAGUE => Self::prague(),
-            PrecompileSpecId::LATEST => Self::latest(),
         }
     }
 
@@ -95,13 +116,13 @@ impl Precompiles {
         INSTANCE.get_or_init(|| {
             let mut precompiles = Self::homestead().clone();
             precompiles.extend([
+                // EIP-198: Big integer modular exponentiation.
+                modexp::BYZANTIUM,
                 // EIP-196: Precompiled contracts for addition and scalar multiplication on the elliptic curve alt_bn128.
                 // EIP-197: Precompiled contracts for optimal ate pairing check on the elliptic curve alt_bn128.
                 bn128::add::BYZANTIUM,
                 bn128::mul::BYZANTIUM,
                 bn128::pair::BYZANTIUM,
-                // EIP-198: Big integer modular exponentiation.
-                modexp::BYZANTIUM,
             ]);
             Box::new(precompiles)
         })
@@ -169,16 +190,7 @@ impl Precompiles {
         static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
         INSTANCE.get_or_init(|| {
             let mut precompiles = Self::cancun().clone();
-
-            cfg_if! {
-                  if #[cfg(feature = "blst")] {  // if blst is enabled
-                      let bls = bls12_381::precompiles();
-                  } else {
-                      let bls = bls12_381_utils:: bls12_381_precompiles_not_supported();
-                  }
-            }
-            precompiles.extend(bls);
-
+            precompiles.extend(bls12_381::precompiles());
             Box::new(precompiles)
         })
     }
@@ -278,6 +290,7 @@ impl Precompiles {
     }
 }
 
+/// Precompile with address and function.
 #[derive(Clone, Debug)]
 pub struct PrecompileWithAddress(pub Address, pub PrecompileFn);
 
@@ -307,16 +320,38 @@ impl PrecompileWithAddress {
     }
 }
 
+/// Ethereum hardfork spec ids. Represents the specs where precompiles had a change.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub enum PrecompileSpecId {
+    /// Frontier spec.
     HOMESTEAD,
+    /// Byzantium spec introduced
+    /// * [EIP-198](https://eips.ethereum.org/EIPS/eip-198) a EIP-198: Big integer modular exponentiation (at 0x05 address).
+    /// * [EIP-196](https://eips.ethereum.org/EIPS/eip-196) a bn_add (at 0x06 address) and bn_mul (at 0x07 address) precompile
+    /// * [EIP-197](https://eips.ethereum.org/EIPS/eip-197) a bn_pair (at 0x08 address) precompile
     BYZANTIUM,
+    /// Istanbul spec introduced
+    /// * [`EIP-152: Add BLAKE2 compression function`](https://eips.ethereum.org/EIPS/eip-152) `F` precompile (at 0x09 address).
+    /// * [`EIP-1108: Reduce alt_bn128 precompile gas costs`](https://eips.ethereum.org/EIPS/eip-1108). It reduced the
+    ///   gas cost of the bn_add, bn_mul, and bn_pair precompiles.
     ISTANBUL,
+    /// Berlin spec made a change to:
+    /// * [`EIP-2565: ModExp Gas Cost`](https://eips.ethereum.org/EIPS/eip-2565). It changed the gas cost of the modexp precompile.
     BERLIN,
+    /// Cancun spec added
+    /// * [`EIP-4844: Shard Blob Transactions`](https://eips.ethereum.org/EIPS/eip-4844). It added the KZG point evaluation precompile (at 0x0A address).
     CANCUN,
+    /// Prague spec added bls precompiles [`EIP-2537: Precompile for BLS12-381 curve operations`](https://eips.ethereum.org/EIPS/eip-2537).
+    /// * `BLS12_G1ADD` at address 0x0b
+    /// * `BLS12_G1MSM` at address 0x0c
+    /// * `BLS12_G2ADD` at address 0x0d
+    /// * `BLS12_G2MSM` at address 0x0e
+    /// * `BLS12_PAIRING_CHECK` at address 0x0f
+    /// * `BLS12_MAP_FP_TO_G1` at address 0x10
+    /// * `BLS12_MAP_FP2_TO_G2` at address 0x11
     PRAGUE,
+    /// Seismic's fork of the EVM.
     MERCURY,
-    LATEST,
 }
 
 impl From<SpecId> for PrecompileSpecId {
@@ -339,7 +374,6 @@ impl PrecompileSpecId {
             BERLIN | LONDON | ARROW_GLACIER | GRAY_GLACIER | MERGE | SHANGHAI => Self::BERLIN,
             CANCUN => Self::CANCUN,
             PRAGUE | OSAKA => Self::PRAGUE,
-            LATEST => Self::LATEST,
         }
     }
 }

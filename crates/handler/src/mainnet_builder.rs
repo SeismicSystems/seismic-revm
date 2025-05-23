@@ -1,5 +1,5 @@
 use crate::{instructions::EthInstructions, EthPrecompiles};
-use context::{BlockEnv, Cfg, CfgEnv, Context, Evm, EvmData, Journal, TxEnv};
+use context::{BlockEnv, Cfg, CfgEnv, Context, Evm, Journal, TxEnv};
 use context_interface::{Block, Database, JournalTr, Transaction};
 use database_interface::EmptyDB;
 use interpreter::interpreter::EthInterpreter;
@@ -31,10 +31,8 @@ where
 
     fn build_mainnet(self) -> MainnetEvm<Self::Context> {
         Evm {
-            data: EvmData {
-                ctx: self,
-                inspector: (),
-            },
+            ctx: self,
+            inspector: (),
             instruction: EthInstructions::default(),
             precompiles: EthPrecompiles::default(),
         }
@@ -45,10 +43,8 @@ where
         inspector: INSP,
     ) -> MainnetEvm<Self::Context, INSP> {
         Evm {
-            data: EvmData {
-                ctx: self,
-                inspector,
-            },
+            ctx: self,
+            inspector,
             instruction: EthInstructions::default(),
             precompiles: EthPrecompiles::default(),
         }
@@ -62,7 +58,7 @@ pub trait MainContext {
 
 impl MainContext for Context<BlockEnv, TxEnv, CfgEnv, EmptyDB, Journal<EmptyDB>, ()> {
     fn mainnet() -> Self {
-        Context::new(EmptyDB::new(), SpecId::LATEST)
+        Context::new(EmptyDB::new(), SpecId::default())
     }
 }
 
@@ -70,7 +66,7 @@ impl MainContext for Context<BlockEnv, TxEnv, CfgEnv, EmptyDB, Journal<EmptyDB>,
 mod test {
     use crate::ExecuteEvm;
     use crate::{MainBuilder, MainContext};
-    use alloy_signer::SignerSync;
+    use alloy_signer::{Either, SignerSync};
     use alloy_signer_local::PrivateKeySigner;
     use bytecode::{
         opcode::{PUSH1, SSTORE},
@@ -101,7 +97,7 @@ mod test {
             .modify_tx_chained(|tx| {
                 tx.tx_type = TransactionType::Eip7702.into();
                 tx.gas_limit = 100_000;
-                tx.authorization_list = vec![auth];
+                tx.authorization_list = vec![Either::Left(auth)];
                 tx.caller = EEADDRESS;
                 tx.kind = TxKind::Call(signer.address());
             });
