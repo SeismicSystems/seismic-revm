@@ -1,9 +1,6 @@
 use super::hkdf_derive_sym_key::EXPAND_FIXED_COST;
-use revm::{
-    precompile::{
-        u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
-    },
-    primitives::Bytes,
+use revm::precompile::{
+    u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
 };
 
 use seismic_enclave::{derive_aes_key, ecdh::SharedSecret, PublicKey, SecretKey};
@@ -68,7 +65,7 @@ const DERIVE_SYM_KEY_COST: u64 = SHARED_SECRET_COST + EXPAND_FIXED_COST;
 /// overestimate in comparison to `ECRecover` and simpler HKDF ops.*  
 ///
 /// If `gas_limit < DERIVE_SYM_KEY_COST`, we revert with `OutOfGas`.
-pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+pub fn derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
     if DERIVE_SYM_KEY_COST > gas_limit {
         return Err(PrecompileError::OutOfGas.into());
     }
@@ -104,7 +101,7 @@ pub fn derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
 mod tests {
     use super::*;
     use revm::precompile::PrecompileError;
-    use revm::primitives::hex;
+    use revm::primitives::{hex, Bytes};
 
     /// 1) Tests normal usage with valid 65-byte input,
     ///    ensuring we get a 32-byte output and don't exceed gas.

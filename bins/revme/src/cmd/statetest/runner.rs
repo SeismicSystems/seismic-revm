@@ -359,10 +359,10 @@ pub fn execute_test_suite(
                         panic!("Invalid transaction type without expected exception");
                     }
                 };
-                tx.tx_type = tx_type as u8;
+                tx.base.tx_type = tx_type as u8;
 
-                tx.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
-                tx.data = unit
+                tx.base.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
+                tx.base.data = unit
                     .transaction
                     .data
                     .get(test.indexes.data)
@@ -383,7 +383,7 @@ pub fn execute_test_suite(
                 // TODO(EOF)
                 //tx.initcodes = unit.transaction.initcodes.clone().unwrap_or_default();
 
-                tx.authorization_list = unit
+                tx.base.authorization_list = unit
                     .transaction
                     .authorization_list
                     .clone()
@@ -410,18 +410,6 @@ pub fn execute_test_suite(
                     .with_bundle_update()
                     .build();
 
-                let evm_context = Context::mainnet()
-                    .with_block(&block)
-                    .with_tx(&tx)
-                    .with_cfg(&cfg)
-                    .with_db(&mut state);
-                let mut evm_context = Context::seismic()
-                    .with_block(&block)
-                    .with_tx(&tx)
-                    .with_cfg(&cfg)
-                    .with_db(&mut state)
-                    .build_seismic();
-
                 // Do the deed
                 let timer = Instant::now();
                 let (db, exec_result) = if trace {
@@ -434,12 +422,17 @@ pub fn execute_test_suite(
                             TracerEip3155::buffered(stderr()).without_summary(),
                         );
                     let res = evm.inspect_replay_commit();
-                    let db = evm.ctx.journaled_state.database;
+                    let db = evm.0.ctx.journaled_state.database;
                     (db, res)
                 } else {
-                    let mut evm = evm_context.build_mainnet();
+                    let mut evm = Context::seismic()
+                        .with_block(&block)
+                        .with_tx(&tx)
+                        .with_cfg(&cfg)
+                        .with_db(&mut state)
+                        .build_seismic();
                     let res = evm.replay_commit();
-                    let db = evm.ctx.journaled_state.database;
+                    let db = evm.0.ctx.journaled_state.database;
                     (db, res)
                 };
                 *elapsed.lock().unwrap() += timer.elapsed();
@@ -497,11 +490,7 @@ pub fn execute_test_suite(
                 println!("\nState before: {cache_state:#?}");
                 println!(
                     "\nState after: {:#?}",
-<<<<<<< HEAD
-                    evm.0.data.ctx.journaled_state.database.cache
-=======
-                    evm.ctx.journaled_state.database.cache
->>>>>>> 37925695f4941de9654554ccea32c2d71cfc578c
+                    evm.0.ctx.journaled_state.database.cache
                 );
                 println!("\nSpecification: {:?}", cfg.spec);
                 println!("\nTx: {tx:#?}");

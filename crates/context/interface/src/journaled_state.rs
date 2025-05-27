@@ -1,7 +1,7 @@
 use crate::context::{SStoreResult, SelfDestructResult};
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
-use primitives::{hardfork::SpecId, Address, Bytes, HashSet, Log, B256, U256};
+use primitives::{hardfork::SpecId, Address, Bytes, HashSet, Log, StorageKey, B256, U256};
 use state::{
     bytecode::{EOF_MAGIC_BYTES, EOF_MAGIC_HASH},
     Account, Bytecode,
@@ -29,7 +29,7 @@ pub trait JournalTr {
     fn sload(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
 
     /// Returns the private storage value from Journal state.
@@ -38,14 +38,14 @@ pub trait JournalTr {
     fn cload(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
 
     /// Stores the storage value in Journal state.
     fn sstore(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
         value: U256,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
 
@@ -53,15 +53,15 @@ pub trait JournalTr {
     fn cstore(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
         value: U256,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
 
     /// Loads transient storage value.
-    fn tload(&mut self, address: Address, key: U256) -> U256;
+    fn tload(&mut self, address: Address, key: StorageKey) -> U256;
 
     /// Stores transient storage value.
-    fn tstore(&mut self, address: Address, key: U256, value: U256);
+    fn tstore(&mut self, address: Address, key: StorageKey, value: U256);
 
     /// Logs the log in Journal state.
     fn log(&mut self, log: Log);

@@ -3,8 +3,8 @@ use crate::{
     precompiles::SeismicPrecompiles,
 };
 use revm::{
-    context::{ContextSetters, Evm, EvmData},
-    handler::{instructions::InstructionProvider, EvmTr},
+    context::{ContextSetters, Evm},
+    handler::{instructions::InstructionProvider, EvmTr, PrecompileProvider},
     inspector::{InspectorEvmTr, JournalExt},
     interpreter::{interpreter::EthInterpreter, Interpreter, InterpreterAction, InterpreterTypes},
     Inspector,
@@ -22,7 +22,8 @@ impl<CTX: SeismicContextTr, INSP>
 {
     pub fn new(ctx: CTX, inspector: INSP) -> Self {
         Self(Evm {
-            data: EvmData { ctx, inspector },
+            ctx,
+            inspector,
             instruction: SeismicInstructions::new_mainnet(),
             precompiles: SeismicPrecompiles::<CTX>::default(),
         })
@@ -37,15 +38,16 @@ where
         InterpreterTypes: InterpreterTypes<Output = InterpreterAction>,
     >,
     INSP: Inspector<CTX, I::InterpreterTypes>,
+    P: PrecompileProvider<CTX>,
 {
     type Inspector = INSP;
 
     fn inspector(&mut self) -> &mut Self::Inspector {
-        &mut self.0.data.inspector
+        &mut self.0.inspector
     }
 
     fn ctx_inspector(&mut self) -> (&mut Self::Context, &mut Self::Inspector) {
-        (&mut self.0.data.ctx, &mut self.0.data.inspector)
+        (&mut self.0.ctx, &mut self.0.inspector)
     }
 
     fn run_inspect_interpreter(
@@ -66,6 +68,7 @@ where
         Context = CTX,
         InterpreterTypes: InterpreterTypes<Output = InterpreterAction>,
     >,
+    P: PrecompileProvider<CTX>,
 {
     type Context = CTX;
     type Instructions = I;
@@ -78,25 +81,25 @@ where
         >,
     ) -> <<Self::Instructions as InstructionProvider>::InterpreterTypes as InterpreterTypes>::Output
     {
-        let context = &mut self.0.data.ctx;
+        let context = &mut self.0.ctx;
         let instructions = &mut self.0.instruction;
         interpreter.run_plain(instructions.instruction_table(), context)
     }
 
     fn ctx(&mut self) -> &mut Self::Context {
-        &mut self.0.data.ctx
+        &mut self.0.ctx
     }
 
     fn ctx_ref(&self) -> &Self::Context {
-        &self.0.data.ctx
+        &self.0.ctx
     }
 
     fn ctx_instructions(&mut self) -> (&mut Self::Context, &mut Self::Instructions) {
-        (&mut self.0.data.ctx, &mut self.0.instruction)
+        (&mut self.0.ctx, &mut self.0.instruction)
     }
 
     fn ctx_precompiles(&mut self) -> (&mut Self::Context, &mut Self::Precompiles) {
-        (&mut self.0.data.ctx, &mut self.0.precompiles)
+        (&mut self.0.ctx, &mut self.0.precompiles)
     }
 }
 
@@ -116,7 +119,7 @@ mod tests {
     use anyhow::bail;
     use rand_core::RngCore;
     use revm::context::result::{ExecutionResult, Output, ResultAndState};
-    use revm::context::{BlockEnv, CfgEnv, Context, ContextTr, TxEnv};
+    use revm::context::{BlockEnv, CfgEnv, Context, ContextTr, JournalTr, TxEnv};
     use revm::database::{EmptyDB, InMemoryDB, BENCH_CALLER};
     use revm::interpreter::gas::calculate_initial_tx_gas;
     use revm::interpreter::InitialAndFloorGas;
@@ -225,7 +228,6 @@ mod tests {
         let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
         let mut evm = call_ctx.build_seismic();
-
         let account = evm.ctx().journal().load_account(BENCH_CALLER).unwrap();
         account.data.info.balance = U256::from(balance);
 

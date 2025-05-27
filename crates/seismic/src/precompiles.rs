@@ -28,9 +28,9 @@ pub use stateful_precompile::StatefulPrecompiles;
 use crate::{api::exec::SeismicContextTr, SeismicSpecId};
 use once_cell::race::OnceBox;
 use revm::{
-    context::Cfg,
+    context::{Cfg, LocalContextTr},
     handler::{EthPrecompiles, PrecompileProvider},
-    interpreter::{Gas, InstructionResult, InterpreterResult},
+    interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
     precompile::{secp256r1, PrecompileError, Precompiles},
     primitives::{Address, Bytes},
 };
@@ -49,6 +49,7 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
         Self {
             inner: EthPrecompiles {
                 precompiles: precompiles.0,
+                spec: <CTX::Cfg as Cfg>::Spec::MERCURY.into(),
             },
             stateful_precompiles: precompiles.1,
         }
@@ -95,8 +96,9 @@ where
     type Output = InterpreterResult;
 
     #[inline]
-    fn set_spec(&mut self, spec: <CTX::Cfg as Cfg>::Spec) {
+    fn set_spec(&mut self, spec: <CTX::Cfg as Cfg>::Spec) -> bool {
         *self = Self::new_with_spec(spec);
+        true
     }
 
     #[inline]
@@ -104,7 +106,8 @@ where
         &mut self,
         context: &mut CTX,
         address: &Address,
-        bytes: &Bytes,
+        inputs: &InputsImpl,
+        is_static: bool,
         gas_limit: u64,
     ) -> Result<Option<Self::Output>, String> {
         if let Some(precompile) = self.stateful_precompiles.get(address) {
@@ -114,10 +117,24 @@ where
                 output: Bytes::new(),
             };
 
-            match (*precompile)(context, bytes, gas_limit) {
+            // Extract the bytes first, creating owned data to avoid lifetime issues
+            let bytes = match &inputs.input {
+                CallInput::SharedBuffer(range) => {
+                    // Get the slice and immediately convert to owned Bytes
+                    if let Some(slice) = context.local().shared_memory_buffer_slice(range.clone()) {
+                        Bytes::from(slice.to_vec())
+                    } else {
+                        Bytes::new()
+                    }
+                }
+                CallInput::Bytes(bytes) => bytes.clone(),
+            };
+
+            // Now call the precompile with the owned bytes
+            match (*precompile)(context, &bytes, gas_limit) {
                 Ok(output) => {
                     let underflow = result.gas.record_cost(output.gas_used);
-                    assert!(underflow, "Gas underflow is not possible");
+                    assert!(underflow, "Gas underflow should not occur");
                     result.result = InstructionResult::Return;
                     result.output = output.bytes;
                 }
@@ -134,7 +151,8 @@ where
             Ok(Some(result))
         } else {
             // Fall back to standard precompiles
-            self.inner.run(context, address, bytes, gas_limit)
+            self.inner
+                .run(context, address, inputs, is_static, gas_limit)
         }
     }
 
@@ -210,11 +228,14 @@ mod tests {
         let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
         let mut input_data = bytes_requested.to_be_bytes().to_vec();
         input_data.extend(personalization);
-        let input = Bytes::from(input_data);
+        let input = InputsImpl {
+            input: CallInput::Bytes(Bytes::from(input_data)),
+            ..Default::default()
+        };
 
         let gas_limit = 10000;
 
-        let result = precompiles.run(&mut context, &rng_address, &input, gas_limit);
+        let result = precompiles.run(&mut context, &rng_address, &input, false, gas_limit);
 
         assert!(
             result.is_ok(),
@@ -242,7 +263,7 @@ mod tests {
             gas_used
         );
 
-        let result2 = precompiles.run(&mut context, &rng_address, &input, gas_limit);
+        let result2 = precompiles.run(&mut context, &rng_address, &input, false, gas_limit);
         assert!(result2.is_ok(), "Second RNG call should succeed");
 
         let interpreter_result2 = result2

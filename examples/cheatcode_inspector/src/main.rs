@@ -60,6 +60,23 @@ impl JournalTr for Backend {
     type Database = InMemoryDB;
     type FinalOutput = JournalOutput;
 
+    fn cload(
+        &mut self,
+        address: Address,
+        key: U256,
+    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+        self.journaled_state.cload(address, key)
+    }
+
+    fn cstore(
+        &mut self,
+        address: Address,
+        key: U256,
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
+        self.journaled_state.cstore(address, key, value)
+    }
+
     fn new(database: InMemoryDB) -> Self {
         Self::new(SpecId::default(), database)
     }

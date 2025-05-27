@@ -15,7 +15,7 @@ use context_interface::{
 };
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
-use primitives::{hardfork::SpecId, Address, HashSet, Log, B256, U256};
+use primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, B256, U256};
 use state::{Account, EvmState};
 use std::vec::Vec;
 
@@ -113,10 +113,27 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self.database
     }
 
+    fn cload(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+        self.inner.cload(&mut self.database, address, key)
+    }
+
+    fn cstore(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
+        self.inner.cstore(&mut self.database, address, key, value)
+    }
+
     fn sload(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
         self.inner.sload(&mut self.database, address, key)
     }
@@ -124,17 +141,17 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
     fn sstore(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
         value: U256,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
         self.inner.sstore(&mut self.database, address, key, value)
     }
 
-    fn tload(&mut self, address: Address, key: U256) -> U256 {
+    fn tload(&mut self, address: Address, key: StorageKey) -> U256 {
         self.inner.tload(address, key)
     }
 
-    fn tstore(&mut self, address: Address, key: U256, value: U256) {
+    fn tstore(&mut self, address: Address, key: StorageKey, value: U256) {
         self.inner.tstore(address, key, value)
     }
 
@@ -174,7 +191,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
     fn warm_account_and_storage(
         &mut self,
         address: Address,
-        storage_keys: impl IntoIterator<Item = U256>,
+        storage_keys: impl IntoIterator<Item = StorageKey>,
     ) -> Result<(), <Self::Database as Database>::Error> {
         self.inner
             .initial_account_load(&mut self.database, address, storage_keys)?;

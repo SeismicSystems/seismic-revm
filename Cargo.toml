@@ -61,7 +61,7 @@ handler = { path = "crates/handler", package = "revm-handler", version = "4.1.0"
 # alloy 
 alloy-eip2930 = { version = "0.2.0", default-features = false }
 alloy-eip7702 = { version = "0.6.0", default-features = false }
-alloy-primitives = { version = "1.0", default-features = false }
+alloy-primitives = { version = "1.0", default-features = false, features = ["seismic"] }
 
 # alloy in examples, revme or feature flagged.
 alloy-rlp = { version = "0.3", default-features = false }
@@ -173,5 +173,5 @@ inherits = "test"
 opt-level = 3
 
 [patch.crates-io]
-alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "feb9801" }
+alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "ab2208a" }
 seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "452a394"}

@@ -84,9 +84,10 @@ impl Precompiles {
         }
     }
 
+    /// Returns precompiles for Mercury spec.
+    /// NOTE: uncertain about this, but Christian thinks our precompiles
+    ///       are not registered here; they're nailed in deeper into the EVM
     pub fn mercury() -> &'static Self {
-        // NOTE: uncertain about this, but Christian thinks our precompiles
-        //       are not registered here; they're nailed in deeper into the EVM
         Self::latest()
     }
 

@@ -157,7 +157,7 @@ mod tests {
             state[&HISTORY_STORAGE_ADDRESS]
                 .storage
                 .get(&U256::from(0))
-                .map(|slot| slot.present_value)
+                .map(|slot| slot.present_value.value)
                 .unwrap_or_default(),
             U256::from_be_bytes(block_hash.0),
             "State is not updated {state:?}"

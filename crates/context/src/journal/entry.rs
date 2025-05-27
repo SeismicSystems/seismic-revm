@@ -4,9 +4,9 @@
 //!
 //! They are created when there is change to the state from loading (making it warm), changes to the balance,
 //! or removal of the storage slot. Check [`JournalEntryTr`] for more details.
+use primitives::alloy_primitives::FlaggedStorage;
 use primitives::{Address, KECCAK_EMPTY, PRECOMPILE3, U256};
 use state::{EvmState, TransientStorage};
-use primitives::alloy_primitives::FlaggedStorage;
 
 /// Trait for tracking and reverting state changes in the EVM.
 /// Journal entry contains information about state changes that can be reverted.
@@ -144,6 +144,7 @@ pub enum JournalEntry {
         address: Address,
         /// Key of storage slot that is changed.
         key: U256,
+        /// Previous value of storage slot.
         had_value: FlaggedStorage,
     },
     /// Entry used to track storage warming introduced by EIP-2929.

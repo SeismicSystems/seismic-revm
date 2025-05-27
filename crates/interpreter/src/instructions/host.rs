@@ -186,7 +186,7 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(
         interpreter,
         gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
     );
-    *index = value.data;
+    *index = value.data.into();
 }
 
 pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
@@ -197,7 +197,8 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
 
     popn!([index, value], interpreter);
 
-    let Some(state_load) = host.sstore(interpreter.input.target_address(), index, value) else {
+    let Some(state_load) = host.sstore(interpreter.input.target_address(), index, value.into())
+    else {
         interpreter
             .control
             .set_instruction_result(InstructionResult::FatalExternalError);

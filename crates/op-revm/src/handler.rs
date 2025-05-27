@@ -716,16 +716,16 @@ mod tests {
         let l1_block_contract = db.load_account(L1_BLOCK_CONTRACT).unwrap();
         l1_block_contract
             .storage
-            .insert(L1_BASE_FEE_SLOT, L1_BASE_FEE);
+            .insert(L1_BASE_FEE_SLOT, L1_BASE_FEE.into());
         l1_block_contract
             .storage
-            .insert(ECOTONE_L1_BLOB_BASE_FEE_SLOT, L1_BLOB_BASE_FEE);
+            .insert(ECOTONE_L1_BLOB_BASE_FEE_SLOT, L1_BLOB_BASE_FEE.into());
         l1_block_contract
             .storage
-            .insert(ECOTONE_L1_FEE_SCALARS_SLOT, L1_FEE_SCALARS);
+            .insert(ECOTONE_L1_FEE_SCALARS_SLOT, L1_FEE_SCALARS.into());
         l1_block_contract
             .storage
-            .insert(OPERATOR_FEE_SCALARS_SLOT, OPERATOR_FEE);
+            .insert(OPERATOR_FEE_SCALARS_SLOT, OPERATOR_FEE.into());
         db.insert_account_info(
             Address::ZERO,
             AccountInfo {
