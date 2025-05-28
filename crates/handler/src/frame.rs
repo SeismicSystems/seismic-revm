@@ -778,6 +778,7 @@ pub fn return_create<JOURNAL: JournalTr>(
         // creation fails (i.e. goes out-of-gas) rather than leaving an empty contract.
         if spec_id.is_enabled_in(HOMESTEAD) {
             journal.checkpoint_revert(checkpoint);
+            println!("OutOfGas in return_create");
             interpreter_result.result = InstructionResult::OutOfGas;
             return;
         } else {
@@ -825,6 +826,7 @@ pub fn return_eofcreate<JOURNAL: JournalTr>(
     let gas_for_code = interpreter_result.output.len() as u64 * gas::CODEDEPOSIT;
     if !interpreter_result.gas.record_cost(gas_for_code) {
         journal.checkpoint_revert(checkpoint);
+        println!("OutOfGas in return_eofcreate");
         interpreter_result.result = InstructionResult::OutOfGas;
         return;
     }

@@ -650,7 +650,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             self.journal.push(ENTRY::storage_warmed(address, key));
         }
 
-        Ok(StateLoad::new(value.into(), is_cold, false))
+        Ok(StateLoad::new(value.value, is_cold, value.is_private))
     }
 
     /// Stores public storage value
@@ -705,10 +705,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             FlaggedStorage::new(present.data, is_private),
         ));
         // insert value into present state.
-        slot.present_value = FlaggedStorage {
-            value: new,
-            is_private,
-        };
+        slot.present_value = FlaggedStorage::new(new, is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value(),
