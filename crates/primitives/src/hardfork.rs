@@ -30,6 +30,7 @@ pub enum SpecId {
     SHANGHAI,         // Shanghai               17034870 (Timestamp: 1681338455)
     CANCUN,           // Cancun                 19426587 (Timestamp: 1710338135)
     PRAGUE,           // Prague                 TBD
+    MERCURY,          // Mercury                TBD
     OSAKA,            // Osaka                  TBD
     #[default]
     LATEST = u8::MAX,
@@ -51,6 +52,7 @@ impl SpecId {
 
 /// String identifiers for hardforks.
 pub mod name {
+    pub const MERCURY: &str = "Mercury";
     pub const FRONTIER: &str = "Frontier";
     pub const FRONTIER_THAWING: &str = "Frontier Thawing";
     pub const HOMESTEAD: &str = "Homestead";
@@ -81,6 +83,7 @@ impl FromStr for SpecId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            name::MERCURY => Ok(Self::MERCURY),
             name::FRONTIER => Ok(Self::FRONTIER),
             name::FRONTIER_THAWING => Ok(Self::FRONTIER_THAWING),
             name::HOMESTEAD => Ok(Self::HOMESTEAD),
@@ -110,6 +113,7 @@ impl FromStr for SpecId {
 impl From<SpecId> for &'static str {
     fn from(spec_id: SpecId) -> Self {
         match spec_id {
+            SpecId::MERCURY => name::MERCURY,
             SpecId::FRONTIER => name::FRONTIER,
             SpecId::FRONTIER_THAWING => name::FRONTIER_THAWING,
             SpecId::HOMESTEAD => name::HOMESTEAD,

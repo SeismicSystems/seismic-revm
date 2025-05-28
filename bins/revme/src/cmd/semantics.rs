@@ -107,7 +107,7 @@ impl Cmd {
                 .parent()
                 .ok_or(Errors::PathNotExists)?;
             let semantic_tests_path =
-                parent_dir.join("seismic-solidity-new/test/libsolidity/semanticTests/");
+                parent_dir.join("seismic-solidity/test/libsolidity/semanticTests/");
             find_test_files(&semantic_tests_path)
         }
     }

@@ -1,7 +1,7 @@
 pub use crate::journaled_state::StateLoad;
 use crate::{Block, Cfg, Database, JournalTr, Transaction};
 use auto_impl::auto_impl;
-use state::FlaggedStorage;
+use primitives::FlaggedStorage;
 use std::string::String;
 
 /// Trait that defines the context of the EVM execution.

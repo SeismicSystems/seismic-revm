@@ -32,7 +32,7 @@ bitflags.workspace = true
 # Optional
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 
-# Seismic
+[dev-dependencies]
 proptest = "1.4"
 proptest-derive = "0.5"
 

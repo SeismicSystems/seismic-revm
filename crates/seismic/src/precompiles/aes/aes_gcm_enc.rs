@@ -66,7 +66,7 @@ pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let aes_key = parse_aes_key(&input[0..32])?;
 
     validate_nonce_length(&input[32..44])?;
-    let nonce = (input[32..44]).to_vec();
+    let nonce: [u8; 12] = input[32..44].try_into().expect("must be 12 bytes");
 
     let plaintext = &input[44..];
     let cost = calculate_cost(plaintext.len());

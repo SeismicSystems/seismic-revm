@@ -15,7 +15,8 @@ use revm::{
     },
     database_interface::EmptyDB,
     primitives::{
-        eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes, TxKind, B256,
+        eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes,
+        FlaggedStorage, TxKind, B256,
     },
     Context, ExecuteCommitEvm,
 };
@@ -24,7 +25,6 @@ use seismic_revm::{
     SeismicHaltReason, SeismicSpecId,
 };
 use serde_json::json;
-use state::FlaggedStorage;
 use statetest_types::{SpecName, Test, TestSuite};
 
 use std::{

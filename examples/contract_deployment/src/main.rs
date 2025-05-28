@@ -9,8 +9,7 @@ use revm::{
     database::CacheDB,
     database_interface::EmptyDB,
     handler::EvmTr,
-    primitives::{hex, Bytes, TxKind, U256},
-    state::FlaggedStorage,
+    primitives::{hex, Bytes, FlaggedStorage, TxKind, U256},
     ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext,
 };
 
