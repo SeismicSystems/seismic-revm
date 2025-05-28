@@ -94,6 +94,27 @@ impl fmt::Display for EVMVersion {
 }
 
 impl EVMVersion {
+
+    fn parse_version_token(tok: &str) -> (&str, &str) {
+        let tok = tok.trim();
+        for op in ["<=", "<", ">=", ">", "="] {
+            if let Some(rest) = tok.strip_prefix(op) {
+                return (op, rest.trim());
+            }
+        }
+        ("=", tok)
+    }
+
+    fn apply_cmp(op: &str, ver: Self) -> Option<Self> {
+        match op {
+            "<" => ver.previous().and_then(Self::from_str),
+            "<=" | "=" => Some(ver),
+            ">" => ver.next().and_then(Self::from_str),
+            ">=" => Some(ver),
+            _ => None,
+        }
+    }
+
     pub(crate) fn extract(content: &str) -> Option<Self> {
         let header = content.split("// ====").nth(1)?;
 
