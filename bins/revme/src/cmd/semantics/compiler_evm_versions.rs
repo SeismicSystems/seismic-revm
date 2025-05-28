@@ -15,6 +15,7 @@ pub(crate) enum EVMVersion {
     Paris,
     Shangain,
     Cancun,
+    Osaka,
     Mercury,
 }
 
@@ -32,6 +33,7 @@ impl EVMVersion {
             "paris" => Some(Self::Paris),
             "shanghai" => Some(Self::Shangain),
             "cancun" => Some(Self::Cancun),
+            "osaka" => Some(Self::Osaka),
             "mercury" => Some(Self::Mercury),
             _ => None,
         }
@@ -39,6 +41,7 @@ impl EVMVersion {
 
     pub(crate) fn previous(&self) -> Option<&'static str> {
         match self {
+            EVMVersion::Osaka => Some("mercury"),
             EVMVersion::Mercury => Some("cancun"),
             EVMVersion::Cancun => Some("shanghai"),
             EVMVersion::Shangain => Some("paris"),
@@ -64,7 +67,8 @@ impl EVMVersion {
             EVMVersion::Paris => Some("shanghai"),
             EVMVersion::Shangain => Some("cancun"),
             EVMVersion::Cancun => Some("mercury"),
-            EVMVersion::Mercury => None,
+            EVMVersion::Mercury => Some("osaka"),
+            EVMVersion::Osaka => None,
         }
     }
 }
@@ -82,6 +86,7 @@ impl fmt::Display for EVMVersion {
             EVMVersion::Paris => "paris",
             EVMVersion::Shangain => "shanghai",
             EVMVersion::Cancun => "cancun",
+            EVMVersion::Osaka => "osaka",
             EVMVersion::Mercury => "mercury",
         };
         write!(f, "{}", version_str)
@@ -141,6 +146,7 @@ impl EVMVersion {
             EVMVersion::Paris => SpecId::MERGE,
             EVMVersion::Shangain => SpecId::SHANGHAI,
             EVMVersion::Cancun => SpecId::CANCUN,
+            EVMVersion::Osaka => SpecId::OSAKA,
             EVMVersion::Mercury => {
                 panic!("Mercury cannot be converted to a mainnet SpecId. Use to_seismic_spec_id() instead.")
             }
