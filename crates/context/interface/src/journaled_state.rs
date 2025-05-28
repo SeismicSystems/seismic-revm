@@ -1,12 +1,13 @@
 use crate::context::{SStoreResult, SelfDestructResult};
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
-use primitives::{hardfork::SpecId, Address, Bytes, HashSet, Log, B256, U256};
+use primitives::{hardfork::SpecId, Address, Bytes, HashSet, Log, StorageKey, B256, U256};
 use state::{
     bytecode::{EOF_MAGIC_BYTES, EOF_MAGIC_HASH},
     Account, Bytecode,
 };
 
+/// Trait that contains database and journal of all changes that were made to the state.
 pub trait JournalTr {
     type Database: Database;
     type FinalOutput;
@@ -28,7 +29,7 @@ pub trait JournalTr {
     fn sload(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
 
     /// Returns the private storage value from Journal state.
@@ -37,14 +38,14 @@ pub trait JournalTr {
     fn cload(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
 
     /// Stores the storage value in Journal state.
     fn sstore(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
         value: U256,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
 
@@ -52,15 +53,15 @@ pub trait JournalTr {
     fn cstore(
         &mut self,
         address: Address,
-        key: U256,
+        key: StorageKey,
         value: U256,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
 
     /// Loads transient storage value.
-    fn tload(&mut self, address: Address, key: U256) -> U256;
+    fn tload(&mut self, address: Address, key: StorageKey) -> U256;
 
     /// Stores transient storage value.
-    fn tstore(&mut self, address: Address, key: U256, value: U256);
+    fn tstore(&mut self, address: Address, key: StorageKey, value: U256);
 
     /// Logs the log in Journal state.
     fn log(&mut self, log: Log);
@@ -72,44 +73,55 @@ pub trait JournalTr {
         target: Address,
     ) -> Result<StateLoad<SelfDestructResult>, <Self::Database as Database>::Error>;
 
+    /// Warms the account and storage.
     fn warm_account_and_storage(
         &mut self,
         address: Address,
-        storage_keys: impl IntoIterator<Item = U256>,
+        storage_keys: impl IntoIterator<Item = StorageKey>,
     ) -> Result<(), <Self::Database as Database>::Error>;
 
+    /// Warms the account.
     fn warm_account(&mut self, address: Address);
 
+    /// Warms the precompiles.
     fn warm_precompiles(&mut self, addresses: HashSet<Address>);
 
+    /// Returns the addresses of the precompiles.
     fn precompile_addresses(&self) -> &HashSet<Address>;
 
+    /// Sets the spec id.
     fn set_spec_id(&mut self, spec_id: SpecId);
 
+    /// Touches the account.
     fn touch_account(&mut self, address: Address);
 
+    /// Transfers the balance from one account to another.
     fn transfer(
         &mut self,
-        from: &Address,
-        to: &Address,
+        from: Address,
+        to: Address,
         balance: U256,
     ) -> Result<Option<TransferError>, <Self::Database as Database>::Error>;
 
+    /// Increments the nonce of the account.
     fn inc_account_nonce(
         &mut self,
         address: Address,
     ) -> Result<Option<u64>, <Self::Database as Database>::Error>;
 
+    /// Loads the account.
     fn load_account(
         &mut self,
         address: Address,
     ) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error>;
 
+    /// Loads the account code.
     fn load_account_code(
         &mut self,
         address: Address,
     ) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error>;
 
+    /// Loads the account delegated.
     fn load_account_delegated(
         &mut self,
         address: Address,
@@ -175,12 +187,17 @@ pub trait JournalTr {
     /// Called at the end of the transaction to clean all residue data from journal.
     fn clear(&mut self);
 
+    /// Creates a checkpoint of the current state. State can be revert to this point
+    /// if needed.
     fn checkpoint(&mut self) -> JournalCheckpoint;
 
+    /// Commits the changes made since the last checkpoint.
     fn checkpoint_commit(&mut self);
 
+    /// Reverts the changes made since the last checkpoint.
     fn checkpoint_revert(&mut self, checkpoint: JournalCheckpoint);
 
+    /// Creates a checkpoint of the account creation.
     fn create_account_checkpoint(
         &mut self,
         caller: Address,
@@ -189,6 +206,7 @@ pub trait JournalTr {
         spec_id: SpecId,
     ) -> Result<JournalCheckpoint, TransferError>;
 
+    /// Returns the depth of the journal.
     fn depth(&self) -> usize;
 
     /// Does cleanup and returns modified state.

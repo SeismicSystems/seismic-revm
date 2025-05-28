@@ -1,9 +1,6 @@
-use revm::{
-    precompile::{
-        calc_linear_cost_u32, u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult,
-        PrecompileWithAddress,
-    },
-    primitives::Bytes,
+use revm::precompile::{
+    calc_linear_cost_u32, u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult,
+    PrecompileWithAddress,
 };
 
 use hkdf::Hkdf;
@@ -95,7 +92,7 @@ const APPLICATION_INFO_BYTES: &[u8] = b"seismic_hkdf_105";
 /// - Returns `OutOfGas` if the total cost exceeds the available `gas_limit`.
 /// - Returns `HKDF expansion error` if anything goes wrong in the internal HKDF call
 ///   (rare in practice).
-pub fn hkdf_derive_symmetric_key(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+pub fn hkdf_derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
     let extract_cost = calc_hmac_sha256_cost(input.len());
     let total_cost = extract_cost + EXPAND_FIXED_COST;
 

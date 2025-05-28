@@ -1,14 +1,21 @@
+//! Constants specifying the precompile addresses for each precompile in EIP-2537
+
 use crate::u64_to_address;
 use primitives::Address;
 
-// Constants specifying the precompile addresses for each precompile
-// in EIP-2537
+/// G1 add precompile address
 pub const G1_ADD_ADDRESS: Address = u64_to_address(0x0b);
+/// G1 msm precompile address
 pub const G1_MSM_ADDRESS: Address = u64_to_address(0x0c);
+/// G2 add precompile address
 pub const G2_ADD_ADDRESS: Address = u64_to_address(0x0d);
+/// G2 msm precompile address
 pub const G2_MSM_ADDRESS: Address = u64_to_address(0x0e);
+/// Pairing precompile address
 pub const PAIRING_ADDRESS: Address = u64_to_address(0x0f);
+/// Map fp to g1 precompile address
 pub const MAP_FP_TO_G1_ADDRESS: Address = u64_to_address(0x10);
+/// Map fp2 to g2 precompile address
 pub const MAP_FP2_TO_G2_ADDRESS: Address = u64_to_address(0x11);
 
 /// G1_ADD_BASE_GAS_FEE specifies the amount of gas needed
@@ -120,11 +127,10 @@ pub const PADDED_FP2_LENGTH: usize = 2 * PADDED_FP_LENGTH;
 /// This is an element in the scalar field of BLS12-381.
 ///
 /// Note: Since it is already 32 byte aligned, there is no padded version of this constant.
-/// TODO: Maybe change all _LENGTH to _LENGTH_BYTES and then NBITS to _LENGTH_BITS
 pub const SCALAR_LENGTH: usize = 32;
-/// NBITS specifies the number of bits needed to represent an Fr element.
+/// SCALAR_LENGTH_BITS specifies the number of bits needed to represent an Fr element.
 /// This is an element in the scalar field of BLS12-381.
-pub const NBITS: usize = 256;
+pub const SCALAR_LENGTH_BITS: usize = SCALAR_LENGTH * 8;
 
 /// G1_ADD_INPUT_LENGTH specifies the number of bytes that the input to G1ADD
 /// must use.
@@ -164,13 +170,6 @@ pub const PAIRING_INPUT_LENGTH: usize = PADDED_G1_LENGTH + PADDED_G2_LENGTH;
 ///
 /// Note: This should be equal to PADDED_FP_LENGTH - FP_LENGTH.
 pub const FP_PAD_BY: usize = 16;
-
-// Big-endian non-Montgomery form.
-pub const MODULUS_REPR: [u8; 48] = [
-    0x1a, 0x01, 0x11, 0xea, 0x39, 0x7f, 0xe6, 0x9a, 0x4b, 0x1b, 0xa7, 0xb6, 0x43, 0x4b, 0xac, 0xd7,
-    0x64, 0x77, 0x4b, 0x84, 0xf3, 0x85, 0x12, 0xbf, 0x67, 0x30, 0xd2, 0xa0, 0xf6, 0xb0, 0xf6, 0x24,
-    0x1e, 0xab, 0xff, 0xfe, 0xb1, 0x53, 0xff, 0xff, 0xb9, 0xfe, 0xff, 0xff, 0xff, 0xff, 0xaa, 0xab,
-];
 
 #[test]
 fn check_discount_table_invariant_holds() {

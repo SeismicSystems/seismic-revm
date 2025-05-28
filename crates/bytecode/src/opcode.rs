@@ -206,7 +206,7 @@ impl OpCode {
 /// Information about opcode, such as name, and stack inputs and outputs
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OpCodeInfo {
-    /// Invariant: `(name_ptr, name_len)` is a [`&'static str`][str]
+    /// Invariant: `(name_ptr, name_len)` is a [`&'static str`][str].
     ///
     /// It is a shorted variant of [`str`] as
     /// the name length is always less than 256 characters.
@@ -228,6 +228,10 @@ pub struct OpCodeInfo {
     /// If the opcode stops execution. aka STOP, RETURN, ..
     terminating: bool,
 }
+
+// SAFETY: The `NonNull` is just a `&'static str`.
+unsafe impl Send for OpCodeInfo {}
+unsafe impl Sync for OpCodeInfo {}
 
 impl fmt::Debug for OpCodeInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -262,7 +266,6 @@ impl OpCodeInfo {
     pub const fn name(&self) -> &'static str {
         // SAFETY: `self.name_*` can only be initialized with a valid `&'static str`.
         unsafe {
-            // TODO : Use `str::from_raw_parts` when it's stable.
             let slice = std::slice::from_raw_parts(self.name_ptr.as_ptr(), self.name_len as usize);
             core::str::from_utf8_unchecked(slice)
         }
@@ -356,7 +359,7 @@ macro_rules! opcodes {
         )*}
 
         /// Maps each opcode to its info.
-        pub const OPCODE_INFO: [Option<OpCodeInfo>; 256] = {
+        pub static OPCODE_INFO: [Option<OpCodeInfo>; 256] = {
             let mut map = [None; 256];
             let mut prev: u8 = 0;
             $(
@@ -647,7 +650,7 @@ opcodes! {
     // 0xEA
     // 0xEB
     0xEC => EOFCREATE      => stack_io(4, 1), immediate_size(1);
-    // 0xED
+    0xED => TXCREATE       => stack_io(5, 1);
     0xEE => RETURNCONTRACT => stack_io(2, 0), immediate_size(1), terminating;
     // 0xEF
     0xF0 => CREATE       => stack_io(3, 1), not_eof;
@@ -765,8 +768,8 @@ mod tests {
                 eof_opcode_num += 1;
             }
         }
-        assert_eq!(opcode_num, 168);
-        assert_eq!(eof_opcode_num, 152);
+        assert_eq!(opcode_num, 169);
+        assert_eq!(eof_opcode_num, 153);
     }
 
     #[test]

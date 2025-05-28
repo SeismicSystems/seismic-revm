@@ -1,5 +1,9 @@
+use std::sync::Arc;
+
 use bytecode::Eof;
 use primitives::{Address, Bytes, U256};
+
+use super::CallInput;
 
 /// EOF create can be called from two places:
 /// * EOFCREATE opcode
@@ -18,8 +22,8 @@ pub enum EOFCreateKind {
         initdata: Bytes,
     },
     Opcode {
-        initcode: Eof,
-        input: Bytes,
+        initcode: Arc<Eof>,
+        input: CallInput,
         created_address: Address,
     },
 }
@@ -39,8 +43,8 @@ impl EOFCreateKind {
 impl Default for EOFCreateKind {
     fn default() -> Self {
         EOFCreateKind::Opcode {
-            initcode: Eof::default(),
-            input: Bytes::default(),
+            initcode: Arc::new(Eof::default()),
+            input: CallInput::Bytes(Bytes::default()),
             created_address: Address::default(),
         }
     }
@@ -81,14 +85,14 @@ impl EOFCreateInputs {
         value: U256,
         eof_init_code: Eof,
         gas_limit: u64,
-        input: Bytes,
+        input: CallInput,
     ) -> EOFCreateInputs {
         EOFCreateInputs::new(
             caller,
             value,
             gas_limit,
             EOFCreateKind::Opcode {
-                initcode: eof_init_code,
+                initcode: Arc::new(eof_init_code),
                 input,
                 created_address,
             },

@@ -11,12 +11,14 @@ pub mod block;
 pub mod cfg;
 pub mod context;
 pub mod evm;
-pub mod journaled_state;
+pub mod journal;
+pub mod local;
 pub mod tx;
 
 pub use block::BlockEnv;
 pub use cfg::{Cfg, CfgEnv};
 pub use context::*;
-pub use evm::{Evm, EvmData};
-pub use journaled_state::*;
+pub use evm::Evm;
+pub use journal::*;
+pub use local::LocalContext;
 pub use tx::TxEnv;

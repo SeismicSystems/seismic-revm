@@ -1,12 +1,76 @@
+use context_interface::{ContextTr, LocalContextTr};
 use core::ops::Range;
 use primitives::{Address, Bytes, U256};
+/// Input enum for a call.
+///
+/// As CallInput uses shared memory buffer it can get overridden if not used directly when call happens.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum CallInput {
+    /// The Range points to the SharedMemory buffer. Buffer can be found in [`context_interface::LocalContextTr::shared_memory_buffer_slice`] function.
+    /// And can be accessed with `evm.ctx().local().shared_memory_buffer()`
+    ///
+    /// # Warning
+    ///
+    /// Use it with caution, CallInput shared buffer can be overridden if context from child call is returned so
+    /// recommendation is to fetch buffer at first Inspector call and clone it from [`context_interface::LocalContextTr::shared_memory_buffer_slice`] function.
+    SharedBuffer(Range<usize>),
+    /// Bytes of the call data.
+    Bytes(Bytes),
+}
+
+impl CallInput {
+    /// Returns the length of the call input.
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Bytes(bytes) => bytes.len(),
+            Self::SharedBuffer(range) => range.len(),
+        }
+    }
+
+    /// Returns `true` if the call input is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns the bytes of the call input.
+    ///
+    /// SharedMemory buffer can be shrunked or overwritten if the child call returns the
+    /// shared memory context to its parent, the range in `CallInput::SharedBuffer` can show unexpected data.
+    ///
+    /// # Allocation
+    ///
+    /// If this `CallInput` is a `SharedBuffer`, the slice will be copied
+    /// into a fresh `Bytes` buffer, which can pose a performance penalty.
+    pub fn bytes<CTX>(&self, ctx: &mut CTX) -> Bytes
+    where
+        CTX: ContextTr,
+    {
+        match self {
+            CallInput::Bytes(bytes) => bytes.clone(),
+            CallInput::SharedBuffer(range) => ctx
+                .local()
+                .shared_memory_buffer_slice(range.clone())
+                .map(|b| Bytes::from(b.to_vec()))
+                .unwrap_or_default(),
+        }
+    }
+}
+
+impl Default for CallInput {
+    /// Returns a default `CallInput` with an empty `Bytes`.
+    #[inline]
+    fn default() -> Self {
+        CallInput::Bytes(Bytes::default())
+    }
+}
 
 /// Inputs for a call.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallInputs {
     /// The call data of the call.
-    pub input: Bytes,
+    pub input: CallInput,
     /// The return memory offset where the output of the call is written.
     ///
     /// In EOF, this range is invalid as EOF calls do not write output to memory.
