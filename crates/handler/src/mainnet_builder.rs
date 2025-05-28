@@ -77,7 +77,7 @@ mod test {
     use database::{BenchmarkDB, EEADDRESS, FFADDRESS};
     use primitives::alloy_primitives::FlaggedStorage;
     use primitives::{hardfork::SpecId, TxKind, U256};
-    
+
     #[test]
     fn sanity_eip7702_tx() {
         let signer = PrivateKeySigner::random();

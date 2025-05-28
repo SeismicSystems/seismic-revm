@@ -4,8 +4,8 @@
 //!
 //! They are created when there is change to the state from loading (making it warm), changes to the balance,
 //! or removal of the storage slot. Check [`JournalEntryTr`] for more details.
-use primitives::alloy_primitives::{FlaggedStorage};
-use primitives::{Address, KECCAK_EMPTY, PRECOMPILE3, StorageKey, StorageValue, U256};
+use primitives::alloy_primitives::FlaggedStorage;
+use primitives::{Address, StorageKey, StorageValue, KECCAK_EMPTY, PRECOMPILE3, U256};
 use state::{EvmState, TransientStorage};
 
 /// Trait for tracking and reverting state changes in the EVM.
