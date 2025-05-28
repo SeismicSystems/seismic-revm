@@ -625,23 +625,24 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx we can assume that storage is empty.
         let is_newly_created = account.is_created();
-        let (value, is_cold) = match account.storage.entry(key) {
+        let (value, is_cold, is_private) = match account.storage.entry(key) {
             Entry::Occupied(occ) => {
                 let slot = occ.into_mut();
                 let is_cold = slot.mark_warm();
-                (slot.present_value, is_cold)
+                let is_private = slot.present_value().is_private;
+                (slot.present_value.value, is_cold, is_private)
             }
             Entry::Vacant(vac) => {
                 // if storage was cleared, we don't need to ping db.
                 let value = if is_newly_created {
-                    StorageValue::ZERO
+                    StorageValue::ZERO.set_visibility(false)
                 } else {
                     db.storage(address, key)?
                 };
 
                 vac.insert(EvmStorageSlot::new(value));
 
-                (value, true)
+                (value.value, true, value.is_private)
             }
         };
 
@@ -650,7 +651,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             self.journal.push(ENTRY::storage_warmed(address, key));
         }
 
-        Ok(StateLoad::new(value.value, is_cold, value.is_private))
+        Ok(StateLoad::new(value, is_cold, is_private))
     }
 
     /// Stores public storage value
