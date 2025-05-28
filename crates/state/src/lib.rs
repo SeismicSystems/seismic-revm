@@ -15,7 +15,7 @@ pub use types::{EvmState, EvmStorage, TransientStorage};
 use bitflags::bitflags;
 use core::hash::Hash;
 use primitives::hardfork::SpecId;
-use primitives::{HashMap, U256};
+use primitives::{HashMap, StorageKey};
 
 /// Account type used inside Journal to track changed to state.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -127,7 +127,7 @@ impl Account {
     /// Returns an iterator over the storage slots that have been changed.
     ///
     /// See also [EvmStorageSlot::is_changed].
-    pub fn changed_storage_slots(&self) -> impl Iterator<Item = (&U256, &EvmStorageSlot)> {
+    pub fn changed_storage_slots(&self) -> impl Iterator<Item = (&StorageKey, &EvmStorageSlot)> {
         self.storage.iter().filter(|(_, slot)| slot.is_changed())
     }
 
@@ -140,7 +140,7 @@ impl Account {
     /// Populates storage from an iterator of storage slots and returns self for method chaining.
     pub fn with_storage<I>(mut self, storage_iter: I) -> Self
     where
-        I: Iterator<Item = (U256, EvmStorageSlot)>,
+        I: Iterator<Item = (StorageKey, EvmStorageSlot)>,
     {
         for (key, slot) in storage_iter {
             self.storage.insert(key, slot);
@@ -287,7 +287,7 @@ impl EvmStorageSlot {
 mod tests {
     use super::*;
     use crate::EvmStorageSlot;
-    use primitives::KECCAK_EMPTY;
+    use primitives::{KECCAK_EMPTY, U256};
 
     #[test]
     fn account_is_empty_balance() {

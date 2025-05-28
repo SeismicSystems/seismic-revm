@@ -7,11 +7,11 @@ use context_interface::{
 };
 use core::mem;
 use database_interface::Database;
-use primitives::{alloy_primitives::FlaggedStorage, StorageKey, StorageValue};
+use primitives::alloy_primitives::FlaggedStorage;
 use primitives::{
-    hardfork::{SpecId, SpecId::*},
+    hardfork::SpecId::{self, *},
     hash_map::Entry,
-    Address, HashMap, HashSet, Log, B256, KECCAK_EMPTY, U256,
+    Address, HashMap, HashSet, Log, StorageKey, StorageValue, B256, KECCAK_EMPTY, U256,
 };
 use state::{Account, EvmState, EvmStorageSlot, TransientStorage};
 use std::vec::Vec;
@@ -620,7 +620,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         db: &mut DB,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<U256>, DB::Error> {
+    ) -> Result<StateLoad<StorageValue>, DB::Error> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx we can assume that storage is empty.
@@ -635,7 +635,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             Entry::Vacant(vac) => {
                 // if storage was cleared, we don't need to ping db.
                 let value = if is_newly_created {
-                    StorageValue::ZERO.set_visibility(false)
+                    FlaggedStorage::ZERO.set_visibility(false)
                 } else {
                     db.storage(address, key)?
                 };

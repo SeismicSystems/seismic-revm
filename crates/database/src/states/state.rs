@@ -256,7 +256,7 @@ impl<DB: Database> Database for State<DB> {
         // Account is guaranteed to be loaded.
         // Note that storage from bundle is already loaded with account.
         if let Some(account) = self.cache.accounts.get_mut(&address) {
-            // Account will always be some, but if it is not, U256::ZERO will be returned.
+            // Account will always be some, but if it is not, StorageValue::ZERO will be returned.
             let is_storage_known = account.status.is_storage_known();
             Ok(account
                 .account
@@ -318,7 +318,7 @@ mod tests {
         states::{reverts::AccountInfoRevert, StorageSlot},
         AccountRevert, AccountStatus, BundleAccount, RevertToSlot,
     };
-    use primitives::keccak256;
+    use primitives::{keccak256, StorageKey, U256};
 
     #[test]
     fn block_hash_cache() {
@@ -354,7 +354,11 @@ mod tests {
     fn reverts_preserve_old_values() {
         let mut state = State::builder().with_bundle_update().build();
 
-        let (slot1, slot2, slot3) = (U256::from(1), U256::from(2), U256::from(3));
+        let (slot1, slot2, slot3) = (
+            StorageKey::from(1),
+            StorageKey::from(2),
+            StorageKey::from(3),
+        );
 
         // Non-existing account for testing account state transitions.
         // [LoadedNotExisting] -> [Changed] (nonce: 1, balance: 1) -> [Changed] (nonce: 2) -> [Changed] (nonce: 3)
@@ -411,7 +415,7 @@ mod tests {
                         slot1,
                         StorageSlot::new_changed(
                             *existing_account_initial_storage.get(&slot1).unwrap(),
-                            U256::from(1000).into(),
+                            FlaggedStorage::from(U256::from(1000)),
                         ),
                     )]),
                     storage_was_destroyed: false,
@@ -617,7 +621,7 @@ mod tests {
         };
 
         // Existing account with storage.
-        let (slot1, slot2) = (U256::from(1), U256::from(2));
+        let (slot1, slot2) = (StorageKey::from(1), StorageKey::from(2));
         let existing_account_with_storage_address = Address::from_slice(&[0x3; 20]);
         let existing_account_with_storage_info = AccountInfo {
             nonce: 1,
@@ -745,7 +749,7 @@ mod tests {
             ..Default::default()
         };
 
-        let (slot1, slot2) = (U256::from(1), U256::from(2));
+        let (slot1, slot2) = (StorageKey::from(1), StorageKey::from(2));
 
         // Existing account is destroyed.
         state.apply_transition(Vec::from([(

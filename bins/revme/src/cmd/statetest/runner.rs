@@ -111,6 +111,10 @@ fn skip_test(path: &Path) -> bool {
         | "InitCollision.json"
         | "InitCollisionParis.json"
 
+        // Malformed value.
+        | "ValueOverflow.json"
+        | "ValueOverflowParis.json"
+
         // These tests are passing, but they take a lot of time to execute so we are going to skip them.
         | "Call50000_sha256.json"
         | "static_Call50000_sha256.json"
@@ -321,6 +325,17 @@ pub fn execute_test_suite(
             if spec_name == SpecName::Constantinople {
                 continue;
             }
+
+            cfg.spec = SeismicSpecId::MERCURY;
+
+            /*
+            // set default max blobs number to be 9 for prague
+            if cfg.spec.is_enabled_in(SpecId::PRAGUE) {
+                cfg.set_blob_max_count(9);
+            } else {
+                cfg.set_blob_max_count(6);
+            }
+            */
 
             // EIP-4844
             if let Some(current_excess_blob_gas) = unit.env.current_excess_blob_gas {

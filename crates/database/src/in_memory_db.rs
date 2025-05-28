@@ -397,7 +397,7 @@ pub enum AccountState {
     /// EVM touched this account. For newer hardfork this means it can be cleared/removed from state.
     Touched,
     /// EVM cleared storage of this account, mostly by selfdestruct, we don't ask database for storage slots
-    /// and assume they are U256::ZERO
+    /// and assume they are StorageValue::ZERO
     StorageCleared,
     /// EVM didn't interacted with this account
     #[default]

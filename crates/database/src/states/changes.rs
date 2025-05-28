@@ -1,7 +1,7 @@
 use super::RevertToSlot;
 use bytecode::Bytecode;
 use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{Address, B256, U256};
+use primitives::{Address, StorageKey, B256, U256};
 use state::AccountInfo;
 use std::vec::Vec;
 
@@ -50,7 +50,7 @@ pub struct PlainStorageRevert {
     /// Contains the storage key and old values of that storage
     ///
     /// **Note**: Reverts are **not** sorted.
-    pub storage_revert: Vec<(U256, RevertToSlot)>,
+    pub storage_revert: Vec<(StorageKey, RevertToSlot)>,
 }
 
 /// Plain state reverts are used to easily store reverts into database.
@@ -77,4 +77,4 @@ impl PlainStateReverts {
 }
 
 /// Storage reverts
-pub type StorageRevert = Vec<Vec<(Address, bool, Vec<(U256, RevertToSlot)>)>>;
+pub type StorageRevert = Vec<Vec<(Address, bool, Vec<(StorageKey, RevertToSlot)>)>>;

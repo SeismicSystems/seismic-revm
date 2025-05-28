@@ -4,8 +4,8 @@
 //!
 //! They are created when there is change to the state from loading (making it warm), changes to the balance,
 //! or removal of the storage slot. Check [`JournalEntryTr`] for more details.
-use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{Address, KECCAK_EMPTY, PRECOMPILE3, U256};
+use primitives::alloy_primitives::{FlaggedStorage};
+use primitives::{Address, KECCAK_EMPTY, PRECOMPILE3, StorageKey, StorageValue, U256};
 use state::{EvmState, TransientStorage};
 
 /// Trait for tracking and reverting state changes in the EVM.
@@ -44,11 +44,15 @@ pub trait JournalEntryTr {
 
     /// Creates a journal entry for when a storage slot is accessed and marked as "warm" for gas metering
     /// This is called with SLOAD opcode.
-    fn storage_warmed(address: Address, key: U256) -> Self;
+    fn storage_warmed(address: Address, key: StorageKey) -> Self;
 
     /// Creates a journal entry for when a transient storage slot is modified (EIP-1153)
     /// Records the previous value for reverting
-    fn transient_storage_changed(address: Address, key: U256, had_value: U256) -> Self;
+    fn transient_storage_changed(
+        address: Address,
+        key: StorageKey,
+        had_value: StorageValue,
+    ) -> Self;
 
     /// Creates a journal entry for when an account's code is modified
     fn code_changed(address: Address) -> Self;
@@ -143,7 +147,7 @@ pub enum JournalEntry {
         /// Address of account that had its storage changed.
         address: Address,
         /// Key of storage slot that is changed.
-        key: U256,
+        key: StorageKey,
         /// Previous value of storage slot.
         had_value: FlaggedStorage,
     },
@@ -154,7 +158,7 @@ pub enum JournalEntry {
         /// Address of account that had its storage warmed. By SLOAD or SSTORE opcode.
         address: Address,
         /// Key of storage slot that is warmed.
-        key: U256,
+        key: StorageKey,
     },
     /// It is used to track an EIP-1153 transient storage change.
     /// Action: Transient storage changed.
@@ -163,9 +167,9 @@ pub enum JournalEntry {
         /// Address of account that had its transient storage changed.
         address: Address,
         /// Key of transient storage slot that is changed.
-        key: U256,
+        key: StorageKey,
         /// Previous value of transient storage slot.
-        had_value: U256,
+        had_value: StorageValue,
     },
     /// Code changed
     /// Action: Account code changed
@@ -218,11 +222,15 @@ impl JournalEntryTr for JournalEntry {
         JournalEntry::NonceChange { address }
     }
 
-    fn storage_warmed(address: Address, key: U256) -> Self {
+    fn storage_warmed(address: Address, key: StorageKey) -> Self {
         JournalEntry::StorageWarmed { address, key }
     }
 
-    fn transient_storage_changed(address: Address, key: U256, had_value: U256) -> Self {
+    fn transient_storage_changed(
+        address: Address,
+        key: StorageKey,
+        had_value: StorageValue,
+    ) -> Self {
         JournalEntry::TransientStorageChange {
             address,
             key,
