@@ -53,7 +53,7 @@ const SKIP_FILE: [&str; 22] = [
     "arrays_in_constructors.sol",
     "bytes_in_constructors_packer.sol",
     "block_coinbase.sol",
-    "function_from_base_contract.sol",  
+    "function_from_base_contract.sol",
 ];
 
 pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
@@ -105,6 +105,13 @@ pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
         }
     }
     false
+}
+
+pub(crate) fn needs_eof(content: &str) -> bool {
+    content
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("// bytecodeFormat:"))
+        .map_or(false, |fmt| matches!(fmt.trim(), ">=EOFv1"))
 }
 
 pub(crate) fn extract_functions_from_source(

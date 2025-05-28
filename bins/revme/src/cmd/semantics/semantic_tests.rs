@@ -8,7 +8,7 @@ use revm::primitives::{hex, Address, Bytes};
 use super::{
     compiler_evm_versions::EVMVersion,
     test_cases::TestCase,
-    utils::{extract_compile_via_yul, extract_functions_from_source},
+    utils::{extract_compile_via_yul, extract_functions_from_source, needs_eof},
     Errors,
 };
 
@@ -128,8 +128,10 @@ impl SemanticTests {
 
         let evm_version = EVMVersion::extract(&content);
         let via_ir = extract_compile_via_yul(&content);
+        let eof_mode = needs_eof(&content);
 
-        let mut contract_infos = Self::get_contract_infos(path, evm_version, via_ir, false)?;
+        let mut contract_infos =
+            Self::get_contract_infos(path, evm_version, via_ir, eof_mode, false)?;
 
         let test_cases = TestCase::from_expectations(expectations, &mut contract_infos[..])?;
         Ok(SemanticTests {
@@ -142,26 +144,28 @@ impl SemanticTests {
         path: &str,
         evm_version: Option<EVMVersion>,
         via_ir: bool,
+        eof_mode: bool,
         runtime: bool,
     ) -> Result<String, Errors> {
-        let mut solc_command = Command::new("/usr/local/bin/solc");
+        let mut solc = Command::new("/usr/local/bin/solc");
 
-        if runtime {
-            solc_command.arg("--bin-runtime");
-        } else {
-            solc_command.arg("--bin");
-        }
-        solc_command.arg(path);
+        solc.arg(if runtime { "--bin-runtime" } else { "--bin" })
+            .arg(path);
 
-        if let Some(version) = evm_version {
-            solc_command.arg("--evm-version").arg(version.to_string());
+        if let Some(v) = evm_version {
+            solc.arg("--evm-version").arg(v.to_string());
         }
 
-        if via_ir {
-            solc_command.arg("--via-ir");
+        // via‑IR is required for EOF; keep explicit flag for legacy tests
+        if via_ir || eof_mode {
+            solc.arg("--via-ir");
         }
 
-        let output = solc_command.output().map_err(|e| {
+        if eof_mode {
+            solc.arg("--experimental-eof-version").arg("1");
+        }
+        // ─── invoke ───────────────────────────────────────────────────────────────
+        let output = solc.output().map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 Errors::CompilerNotFound
             } else {
@@ -178,16 +182,17 @@ impl SemanticTests {
             return Err(Errors::CompilationFailed);
         }
 
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     }
 
     fn get_contract_infos(
         path: &str,
         evm_version: Option<EVMVersion>,
         via_ir: bool,
+        eof_mode: bool,
         runtime: bool,
     ) -> Result<Vec<ContractInfo>, Errors> {
-        let stdout_output = Self::compile_solidity(path, evm_version, via_ir, runtime)?;
+        let stdout_output = Self::compile_solidity(path, evm_version, via_ir, eof_mode, runtime)?;
 
         let revm_version = evm_version.unwrap_or(EVMVersion::Mercury);
 

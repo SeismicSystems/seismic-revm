@@ -15,8 +15,8 @@ pub(crate) enum EVMVersion {
     Paris,
     Shangain,
     Cancun,
-    Osaka,
     Mercury,
+    Osaka,
 }
 
 // Not fully exhaustive list of versions, trying to cover all SOLIDITY VERSIONING is the goal here
@@ -33,8 +33,8 @@ impl EVMVersion {
             "paris" => Some(Self::Paris),
             "shanghai" => Some(Self::Shangain),
             "cancun" => Some(Self::Cancun),
-            "osaka" => Some(Self::Osaka),
             "mercury" => Some(Self::Mercury),
+            "osaka" => Some(Self::Osaka),
             _ => None,
         }
     }
@@ -86,15 +86,14 @@ impl fmt::Display for EVMVersion {
             EVMVersion::Paris => "paris",
             EVMVersion::Shangain => "shanghai",
             EVMVersion::Cancun => "cancun",
-            EVMVersion::Osaka => "osaka",
             EVMVersion::Mercury => "mercury",
+            EVMVersion::Osaka => "osaka",
         };
         write!(f, "{}", version_str)
     }
 }
 
 impl EVMVersion {
-
     fn parse_version_token(tok: &str) -> (&str, &str) {
         let tok = tok.trim();
         for op in ["<=", "<", ">=", ">", "="] {
@@ -140,9 +139,7 @@ impl EVMVersion {
 
         None
     }
-}
 
-impl EVMVersion {
     pub fn to_spec_id(&self) -> SpecId {
         match self {
             EVMVersion::Homestead => SpecId::HOMESTEAD,
@@ -155,10 +152,10 @@ impl EVMVersion {
             EVMVersion::Paris => SpecId::MERGE,
             EVMVersion::Shangain => SpecId::SHANGHAI,
             EVMVersion::Cancun => SpecId::CANCUN,
-            EVMVersion::Osaka => SpecId::OSAKA,
             EVMVersion::Mercury => {
                 panic!("Mercury cannot be converted to a mainnet SpecId. Use to_seismic_spec_id() instead.")
             }
+            EVMVersion::Osaka => SpecId::OSAKA,
         }
     }
 
@@ -169,5 +166,30 @@ impl EVMVersion {
                 panic!("Only Mercury can be converted to a SeismicSpecId")
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const HEADER: &str = "// ====\n";
+
+    #[test]
+    fn explicit_version_beats_bytecode_format() {
+        let s = format!("{HEADER}// EVMVersion: >= Osaka\n// bytecodeFormat: legacy\n");
+        assert_eq!(EVMVersion::extract(&s), Some(EVMVersion::Osaka));
+    }
+
+    #[test]
+    fn bytecode_format_legacy() {
+        let s = format!("{HEADER}// bytecodeFormat: legacy\n");
+        assert_eq!(EVMVersion::extract(&s), Some(EVMVersion::Mercury));
+    }
+
+    #[test]
+    fn bytecode_format_eof() {
+        let s = format!("{HEADER}// bytecodeFormat: >=EOFv1\n");
+        assert_eq!(EVMVersion::extract(&s), Some(EVMVersion::Osaka));
     }
 }
