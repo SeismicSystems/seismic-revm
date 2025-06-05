@@ -8,11 +8,10 @@ use revm::{
     handler::{instructions::InstructionProvider, EthPrecompiles, EvmTr, PrecompileProvider},
     inspector::{InspectorEvmTr, JournalExt},
     interpreter::{interpreter::EthInterpreter, Interpreter, InterpreterAction, InterpreterTypes},
-    precompile::{PrecompileWithAddress, Precompiles},
-    primitives::{hash_map::HashMap, Address},
+    precompile::Precompiles,
     Inspector,
 };
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 pub struct SeismicEvm<
     CTX,
@@ -39,6 +38,12 @@ impl<CTX, INSP, I, P> Deref for SeismicEvm<CTX, INSP, I, P> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<CTX, INSP, I, P> DerefMut for SeismicEvm<CTX, INSP, I, P> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
