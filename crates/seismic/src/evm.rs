@@ -1,12 +1,15 @@
 use crate::{
-    api::exec::SeismicContextTr, instructions::instruction_provider::SeismicInstructions,
-    precompiles::SeismicPrecompiles,
+    api::exec::SeismicContextTr,
+    instructions::instruction_provider::SeismicInstructions,
+    precompiles::{mercury_with_extra, SeismicPrecompiles},
 };
 use revm::{
     context::{ContextSetters, Evm},
-    handler::{instructions::InstructionProvider, EvmTr, PrecompileProvider},
+    handler::{instructions::InstructionProvider, EthPrecompiles, EvmTr, PrecompileProvider},
     inspector::{InspectorEvmTr, JournalExt},
     interpreter::{interpreter::EthInterpreter, Interpreter, InterpreterAction, InterpreterTypes},
+    precompile::{PrecompileWithAddress, Precompiles},
+    primitives::{hash_map::HashMap, Address},
     Inspector,
 };
 
@@ -26,6 +29,24 @@ impl<CTX: SeismicContextTr, INSP>
             inspector,
             instruction: SeismicInstructions::new_mainnet(),
             precompiles: SeismicPrecompiles::<CTX>::default(),
+        })
+    }
+}
+
+impl<CTX: SeismicContextTr, I, INSP> SeismicEvm<CTX, INSP, I> {
+    /// Create a new EVM instance with a given context, inspector, instruction set, and precompile provider.
+    pub fn new_with_inspector(
+        ctx: CTX,
+        inspector: INSP,
+        instruction: I,
+        precompiles: &'static Precompiles,
+    ) -> Self {
+        let p = mercury_with_extra::<CTX>(Some(precompiles));
+        Self(Evm {
+            ctx,
+            inspector,
+            instruction,
+            precompiles: SeismicPrecompiles::<CTX>::new(p),
         })
     }
 }

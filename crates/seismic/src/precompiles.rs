@@ -31,7 +31,7 @@ use revm::{
     context::{Cfg, LocalContextTr},
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
-    precompile::{secp256r1, PrecompileError, Precompiles},
+    precompile::{secp256r1, PrecompileError, PrecompileWithAddress, Precompiles},
     primitives::{Address, Bytes},
 };
 use std::boxed::Box;
@@ -39,7 +39,7 @@ use std::string::String;
 
 #[derive(Debug, Clone)]
 pub struct SeismicPrecompiles<CTX: SeismicContextTr> {
-    inner: EthPrecompiles,
+    pub(crate) inner: EthPrecompiles,
     stateful_precompiles: StatefulPrecompiles<CTX>,
 }
 
@@ -65,12 +65,23 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
 }
 
 /// Returns precompiles for MERCURY spec.
-pub fn mercury<CTX: SeismicContextTr>() -> (&'static Precompiles, StatefulPrecompiles<CTX>) {
+pub fn mercury_with_extra<CTX: SeismicContextTr>(
+    extra: Option<&'static Precompiles>,
+) -> (&'static Precompiles, StatefulPrecompiles<CTX>) {
     // Store only the stateless precompiles in the static OnceBox
     static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
 
     let regular_precompiles = INSTANCE.get_or_init(|| {
         let mut precompiles = Precompiles::prague().clone();
+        if let Some(extra) = extra {
+            precompiles.extend(
+                extra
+                    .inner()
+                    .clone()
+                    .into_iter()
+                    .map(|(a, p)| PrecompileWithAddress(a, p)),
+            );
+        }
         precompiles.extend([
             secp256r1::P256VERIFY,
             ecdh_derive_sym_key::ECDH,
@@ -86,6 +97,11 @@ pub fn mercury<CTX: SeismicContextTr>() -> (&'static Precompiles, StatefulPrecom
     let mut stateful_precompiles = StatefulPrecompiles::new();
     stateful_precompiles.extend(rng::precompile::rng_precompile_iter::<CTX>().map(|p| (p.0, p.1)));
     (regular_precompiles, stateful_precompiles)
+}
+
+/// Returns precompiles for MERCURY spec.
+pub fn mercury<CTX: SeismicContextTr>() -> (&'static Precompiles, StatefulPrecompiles<CTX>) {
+    mercury_with_extra::<CTX>(None)
 }
 
 impl<CTX> PrecompileProvider<CTX> for SeismicPrecompiles<CTX>
