@@ -33,6 +33,19 @@ pub struct SeismicTransaction<T: Transaction> {
     pub rng_mode: RngMode,
 }
 
+impl<T: Transaction> std::ops::Deref for SeismicTransaction<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.base
+    }
+}
+
+impl<T: Transaction> std::ops::DerefMut for SeismicTransaction<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.base
+    }
+}
+
 impl<T: Transaction> SeismicTransaction<T> {
     pub fn new(base: T) -> Self {
         Self {

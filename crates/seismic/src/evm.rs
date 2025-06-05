@@ -11,7 +11,6 @@ use revm::{
     precompile::Precompiles,
     Inspector,
 };
-use std::ops::{Deref, DerefMut};
 
 pub struct SeismicEvm<
     CTX,
@@ -33,7 +32,7 @@ impl<CTX: SeismicContextTr, INSP>
     }
 }
 
-impl<CTX, INSP, I, P> Deref for SeismicEvm<CTX, INSP, I, P> {
+impl<CTX, INSP, I, P> std::ops::Deref for SeismicEvm<CTX, INSP, I, P> {
     type Target = Evm<CTX, INSP, I, P>;
 
     fn deref(&self) -> &Self::Target {
@@ -41,7 +40,7 @@ impl<CTX, INSP, I, P> Deref for SeismicEvm<CTX, INSP, I, P> {
     }
 }
 
-impl<CTX, INSP, I, P> DerefMut for SeismicEvm<CTX, INSP, I, P> {
+impl<CTX, INSP, I, P> std::ops::DerefMut for SeismicEvm<CTX, INSP, I, P> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
