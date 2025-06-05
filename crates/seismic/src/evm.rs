@@ -12,6 +12,7 @@ use revm::{
     primitives::{hash_map::HashMap, Address},
     Inspector,
 };
+use std::ops::Deref;
 
 pub struct SeismicEvm<
     CTX,
@@ -30,6 +31,14 @@ impl<CTX: SeismicContextTr, INSP>
             instruction: SeismicInstructions::new_mainnet(),
             precompiles: SeismicPrecompiles::<CTX>::default(),
         })
+    }
+}
+
+impl<CTX, INSP, I, P> Deref for SeismicEvm<CTX, INSP, I, P> {
+    type Target = Evm<CTX, INSP, I, P>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
