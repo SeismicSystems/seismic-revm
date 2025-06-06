@@ -1,8 +1,5 @@
-use revm::{
-    precompile::{
-        u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
-    },
-    primitives::Bytes,
+use revm::precompile::{
+    u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
 };
 
 use super::common::{
@@ -45,7 +42,7 @@ Precompile Logic
 ///
 /// **Gas Model**:
 /// Refer to the encryption file for further discussion.
-pub fn precompile_decrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+pub fn precompile_decrypt(input: &[u8], gas_limit: u64) -> PrecompileResult {
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
 
     let aes_key = parse_aes_key(&input[0..32])?;

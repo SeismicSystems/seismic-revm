@@ -1,4 +1,4 @@
-//! # EIP-7212 secp256r1 Precompile
+//! # RIP-7212 secp256r1 Precompile
 //!
 //! This module implements the [RIP-7212](https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md) precompile for
 //! secp256r1 curve support.
@@ -36,7 +36,7 @@ pub const P256VERIFY: PrecompileWithAddress =
 /// | signed message hash |  r  |  s  | public key x | public key y |
 /// | :-----------------: | :-: | :-: | :----------: | :----------: |
 /// |          32         | 32  | 32  |     32       |      32      |
-pub fn p256_verify(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+pub fn p256_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
     if P256VERIFY_BASE_GAS_FEE > gas_limit {
         return Err(PrecompileError::OutOfGas);
     }

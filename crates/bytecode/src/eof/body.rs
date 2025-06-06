@@ -14,10 +14,21 @@ pub struct EofBody {
     pub code_info: Vec<CodeInfo>,
     /// Index of the last byte of each code section
     pub code_section: Vec<usize>,
+    /// Code byte, it is a concatenation of all code sections.
+    /// Interpreter uses this bytecode to execute the opcodes.
     pub code: Bytes,
+    /// Offset of the code section in the bytecode.
     pub code_offset: usize,
+    /// Container sections
     pub container_section: Vec<Bytes>,
+    /// Data section
     pub data_section: Bytes,
+    /// Indicates if the data section is filled.
+    ///
+    /// Unfilled data section are used in EOFCREATE/TXCREATE to
+    /// append data before deploying that contract to state.
+    ///
+    /// EOF containers that are in state and can be executed are required to have filled data section.
     pub is_data_filled: bool,
 }
 
@@ -50,7 +61,7 @@ impl EofBody {
             container_sizes: self
                 .container_section
                 .iter()
-                .map(|x| x.len() as u16)
+                .map(|x| x.len() as u32)
                 .collect(),
             data_size: self.data_section.len() as u16,
             sum_code_sizes: self.code.len(),
@@ -92,15 +103,17 @@ impl EofBody {
     /// Decodes an EOF container body from the given buffer and header.
     pub fn decode(input: &Bytes, header: &EofHeader) -> Result<Self, EofDecodeError> {
         let header_len = header.size();
-        let partial_body_len =
-            header.sum_code_sizes + header.sum_container_sizes + header.types_size as usize;
-        let full_body_len = partial_body_len + header.data_size as usize;
+        let partial_body_len = header
+            .sum_code_sizes
+            .saturating_add(header.sum_container_sizes)
+            .saturating_add(header.types_size as usize);
+        let full_body_len = partial_body_len.saturating_add(header.data_size as usize);
 
-        if input.len() < header_len + partial_body_len {
+        if input.len() < header_len.saturating_add(partial_body_len) {
             return Err(EofDecodeError::MissingBodyWithoutData);
         }
 
-        if input.len() > header_len + full_body_len {
+        if input.len() > header_len.saturating_add(full_body_len) {
             return Err(EofDecodeError::DanglingData);
         }
 

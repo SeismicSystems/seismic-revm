@@ -9,7 +9,7 @@ use revm::{
     context_interface::result::{ExecutionResult, Output},
     database::{AlloyDB, CacheDB},
     database_interface::WrapDatabaseAsync,
-    primitives::{address, keccak256, Address, Bytes, TxKind, KECCAK_EMPTY, U256},
+    primitives::{address, keccak256, Address, Bytes, StorageKey, TxKind, KECCAK_EMPTY, U256},
     state::AccountInfo,
     Context, ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext,
 };
@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
     let usdc = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
     let usdc_weth_pair = address!("B4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc");
 
-    let weth_balance_slot = U256::from(3);
+    let weth_balance_slot = StorageKey::from(3);
 
     // Give our test account some fake WETH and ETH
     let one_ether = U256::from(1_000_000_000_000_000_000u128);
@@ -113,7 +113,7 @@ fn balance_of(token: Address, address: Address, alloy_db: &mut AlloyCacheDB) -> 
         result => return Err(anyhow!("'balanceOf' execution failed: {result:?}")),
     };
 
-    let balance = <U256>::abi_decode(&value, false)?;
+    let balance = <U256>::abi_decode(&value)?;
 
     Ok(balance)
 }
@@ -157,7 +157,7 @@ async fn get_amount_out(
         result => return Err(anyhow!("'getAmountOut' execution failed: {result:?}")),
     };
 
-    let amount_out = <U256>::abi_decode(&value, false)?;
+    let amount_out = <U256>::abi_decode(&value)?;
 
     Ok(amount_out)
 }
@@ -190,7 +190,7 @@ fn get_reserves(pair_address: Address, cache_db: &mut AlloyCacheDB) -> Result<(U
         result => return Err(anyhow!("'getReserves' execution failed: {result:?}")),
     };
 
-    let (reserve0, reserve1, _) = <(U256, U256, u32)>::abi_decode(&value, false)?;
+    let (reserve0, reserve1, _) = <(U256, U256, u32)>::abi_decode(&value)?;
 
     Ok((reserve0, reserve1))
 }
@@ -267,7 +267,7 @@ fn transfer(
         ExecutionResult::Success {
             output: Output::Call(value),
             ..
-        } => <bool>::abi_decode(&value, false)?,
+        } => <bool>::abi_decode(&value)?,
         result => return Err(anyhow!("'transfer' execution failed: {result:?}")),
     };
 

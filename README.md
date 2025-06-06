@@ -1,6 +1,13 @@
 # Mercury Specification – Seismic’s REVM
 
+<<<<<<< HEAD
 Mercury is an EVM specification built by Seismic. This repository outlines the differences from standard EVM/REVM implementations. It will host our modifications to the EVM, as well as newly introduced features. This document serves as a diff report against REVM and assumes familiarity with both REVM and, more broadly, the EVM.
+=======
+[![CI](https://github.com/bluealloy/revm/actions/workflows/ci.yml/badge.svg)][gh-ci]
+[![License](https://img.shields.io/badge/License-MIT-orange.svg)][mit-license]
+[![crates.io](https://img.shields.io/crates/v/revm.svg)](https://crates.io/crates/revm)
+[![Chat][tg-badge]][tg-url]
+>>>>>>> b287ce025565c6f9206d5959c08acc401c8be5d4
 
 This work stands on the shoulders of giants and would not have been possible without [REVM](https://github.com/bluealloy/revm)’s world-class codebase.
 

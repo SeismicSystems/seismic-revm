@@ -4,7 +4,7 @@ use crate::{
     FrameResult, ItemOrResult,
 };
 use context::result::FromStringError;
-use context::JournalOutput;
+use context::{JournalOutput, LocalContextTr};
 use context_interface::context::ContextError;
 use context_interface::ContextTr;
 use context_interface::{
@@ -65,7 +65,6 @@ pub trait Handler {
         FrameInit = FrameInput,
     >;
     /// The halt reason type included in the output
-    ///  TODO `HaltReason` should be part of the output.
     type HaltReason: HaltReasonTr;
 
     /// The main entry point for transaction execution.
@@ -81,6 +80,29 @@ pub trait Handler {
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
         // Run inner handler and catch all errors to handle cleanup.
         match self.run_without_catch_error(evm) {
+            Ok(output) => Ok(output),
+            Err(e) => self.catch_error(evm, e),
+        }
+    }
+
+    /// Runs the system call.
+    ///
+    /// System call is a special transaction where caller is a [`crate::SYSTEM_ADDRESS`]
+    ///
+    /// It is used to call a system contracts and it skips all the `validation` and `pre-execution` and most of `post-execution` phases.
+    /// For example it will not deduct the caller or reward the beneficiary.
+    #[inline]
+    fn run_system_call(
+        &mut self,
+        evm: &mut Self::Evm,
+    ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
+        // dummy values that are not used.
+        let init_and_floor_gas = InitialAndFloorGas::new(0, 0);
+        // call execution and than output.
+        match self
+            .execution(evm, &init_and_floor_gas)
+            .and_then(|exec_result| self.output(evm, exec_result))
+        {
             Ok(output) => Ok(output),
             Err(e) => self.catch_error(evm, e),
         }
@@ -107,14 +129,11 @@ pub trait Handler {
     ///
     /// Calculates initial and floor gas requirements and verifies they are covered by the gas limit.
     ///
-    /// Loads the caller account and validates transaction fields against state,
-    /// including nonce checks and balance verification for maximum gas costs.
+    /// Validation against state is done later in pre-execution phase in deduct_caller function.
     #[inline]
     fn validate(&self, evm: &mut Self::Evm) -> Result<InitialAndFloorGas, Self::Error> {
         self.validate_env(evm)?;
-        let initial_and_floor_gas = self.validate_initial_tx_gas(evm)?;
-        self.validate_tx_against_state(evm)?;
-        Ok(initial_and_floor_gas)
+        self.validate_initial_tx_gas(evm)
     }
 
     /// Prepares the EVM state for execution.
@@ -127,8 +146,10 @@ pub trait Handler {
     /// Returns the gas refund amount from EIP-7702. Authorizations are applied before execution begins.
     #[inline]
     fn pre_execution(&self, evm: &mut Self::Evm) -> Result<u64, Self::Error> {
+        self.validate_against_state_and_deduct_caller(evm)?;
         self.load_accounts(evm)?;
-        self.deduct_caller(evm)?;
+        // Cache EIP-7873 EOF initcodes and calculate its hash. Does nothing if not Initcode Transaction.
+        self.apply_eip7873_eof_initcodes(evm)?;
         let gas = self.apply_eip7702_auth_list(evm)?;
         Ok(gas)
     }
@@ -208,20 +229,12 @@ pub trait Handler {
         validation::validate_initial_tx_gas(ctx.tx(), ctx.cfg().spec().into()).map_err(From::from)
     }
 
-    /// Loads caller account to access nonce and balance.
-    ///
-    /// Calculates maximum possible transaction fee and verifies caller has sufficient balance.
-    #[inline]
-    fn validate_tx_against_state(&self, evm: &mut Self::Evm) -> Result<(), Self::Error> {
-        validation::validate_tx_against_state(evm.ctx())
-    }
-
     /* PRE EXECUTION */
 
     /// Loads access list and beneficiary account, marking them as warm in the [`context::Journal`].
     #[inline]
     fn load_accounts(&self, evm: &mut Self::Evm) -> Result<(), Self::Error> {
-        pre_execution::load_accounts(evm.ctx())
+        pre_execution::load_accounts(evm)
     }
 
     /// Processes the authorization list, validating authority signatures, nonces and chain IDs.
@@ -233,12 +246,33 @@ pub trait Handler {
         pre_execution::apply_eip7702_auth_list(evm.ctx())
     }
 
+    /// Processes the authorization list, validating authority signatures, nonces and chain IDs.
+    /// Applies valid authorizations to accounts.
+    ///
+    /// Returns the gas refund amount specified by EIP-7702.
+    #[inline]
+    fn apply_eip7873_eof_initcodes(&self, _evm: &mut Self::Evm) -> Result<(), Self::Error> {
+        Ok(())
+        /* TODO(EOF)
+        if evm.ctx().tx().tx_type() != TransactionType::Eip7873 {
+            return Ok(());
+        }
+        let (tx, local) = evm.ctx().tx_local();
+        local.insert_initcodes(&[]);
+        tx.initcodes());
+        Ok(())
+        */
+    }
+
     /// Deducts maximum possible fee and transfer value from caller's balance.
     ///
     /// Unused fees are returned to caller after execution completes.
     #[inline]
-    fn deduct_caller(&self, evm: &mut Self::Evm) -> Result<(), Self::Error> {
-        pre_execution::deduct_caller(evm.ctx()).map_err(From::from)
+    fn validate_against_state_and_deduct_caller(
+        &self,
+        evm: &mut Self::Evm,
+    ) -> Result<(), Self::Error> {
+        pre_execution::validate_against_state_and_deduct_caller(evm.ctx())
     }
 
     /* EXECUTION */
@@ -261,7 +295,7 @@ pub trait Handler {
     /// Processes the result of the initial call and handles returned gas.
     #[inline]
     fn last_frame_result(
-        &self,
+        &mut self,
         evm: &mut Self::Evm,
         frame_result: &mut <Self::Frame as Frame>::FrameResult,
     ) -> Result<(), Self::Error> {
@@ -301,7 +335,7 @@ pub trait Handler {
     #[inline]
     fn frame_init(
         &mut self,
-        frame: &Self::Frame,
+        frame: &mut Self::Frame,
         evm: &mut Self::Evm,
         frame_input: <Self::Frame as Frame>::FrameInit,
     ) -> Result<FrameOrResult<Self::Frame>, Self::Error> {
@@ -440,6 +474,8 @@ pub trait Handler {
 
         let output = post_execution::output(evm.ctx(), result);
 
+        // Clear local context
+        evm.ctx().local().clear();
         // Clear journal
         evm.ctx().journal().clear();
         Ok(output)
@@ -455,6 +491,8 @@ pub trait Handler {
         evm: &mut Self::Evm,
         error: Self::Error,
     ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
+        // clean up local context. Initcode cache needs to be discarded.
+        evm.ctx().local().clear();
         // Clean up journal state if error occurs
         evm.ctx().journal().clear();
         Err(error)
