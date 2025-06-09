@@ -103,7 +103,7 @@ fn skip_test(path: &Path) -> bool {
         | "typeTwoBerlin.json"
 
         // Need to handle Test errors
-        | "transactionIntinsicBug.json"
+        | "transactionIntrinsicBug.json"
 
         // Test check if gas price overflows, we handle this correctly but does not match tests specific exception.
         | "HighGasPrice.json"
