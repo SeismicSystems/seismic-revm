@@ -7,7 +7,7 @@ A curated list of excellent Revm-related resources. Feel free to contribute to t
 - [**Book:** ](https://bluealloy.github.io/revm/) - Comprehensive user documentation for Revm.
 
 #### Audits
-- [**Coomunity driven Audit done by Guido Vranken**](https://rakita.github.io/blog/blog/005-revm-audit/)
+- [**Community driven Audit done by Guido Vranken**](https://rakita.github.io/blog/blog/005-revm-audit/)
 
 #### API Extensions:
 - [**alloy-evm**](https://github.com/alloy-rs/evm) is an abstraction layer on top of revm providing common implementations of EVMs
