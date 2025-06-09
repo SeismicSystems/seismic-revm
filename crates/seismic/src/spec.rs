@@ -48,6 +48,12 @@ impl From<SeismicSpecId> for &'static str {
     }
 }
 
+impl From<SpecId> for SeismicSpecId {
+    fn from(_: SpecId) -> Self {
+        SeismicSpecId::MERCURY
+    }
+}
+
 /// String identifiers for Optimism hardforks
 pub mod name {
     pub const MERCURY: &str = "Mercury";
