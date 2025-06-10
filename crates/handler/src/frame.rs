@@ -825,7 +825,6 @@ pub fn return_eofcreate<JOURNAL: JournalTr>(
     let gas_for_code = interpreter_result.output.len() as u64 * gas::CODEDEPOSIT;
     if !interpreter_result.gas.record_cost(gas_for_code) {
         journal.checkpoint_revert(checkpoint);
-        println!("OutOfGas in return_eofcreate");
         interpreter_result.result = InstructionResult::OutOfGas;
         return;
     }

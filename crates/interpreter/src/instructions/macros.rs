@@ -72,7 +72,6 @@ macro_rules! gas {
     };
     ($interpreter:expr, $gas:expr, $ret:expr) => {
         if !$interpreter.control.gas_mut().record_cost($gas) {
-            println!("OutOfGas in gas!");
             $interpreter
                 .control
                 .set_instruction_result($crate::InstructionResult::OutOfGas);
