@@ -62,6 +62,16 @@ impl<CTX: SeismicContextTr, I, INSP> SeismicEvm<CTX, INSP, I> {
             precompiles: SeismicPrecompiles::<CTX>::new(p),
         })
     }
+
+    pub fn with_precompiles<Pre>(self, precompiles: Pre) -> SeismicEvm<CTX, INSP, I, Pre> {
+        let Evm { ctx, inspector, instruction, .. } = self.0;
+        SeismicEvm(Evm {
+            ctx,
+            inspector,
+            instruction,
+            precompiles,
+        })
+    }
 }
 
 impl<CTX, INSP, I, P> InspectorEvmTr for SeismicEvm<CTX, INSP, I, P>
