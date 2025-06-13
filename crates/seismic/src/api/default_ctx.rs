@@ -6,7 +6,7 @@ use revm::{
 };
 
 /// Type alias for the default context type of the SeismicEvm.
-pub type SeismicContext<DB> = Context<
+pub type SeismicContext<DB = EmptyDB> = Context<
     BlockEnv,
     SeismicTransaction<TxEnv>,
     CfgEnv<SeismicSpecId>,
