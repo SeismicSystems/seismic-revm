@@ -107,6 +107,10 @@ impl Host for SeismicDummyHost {
         self.dummy_host.blob_hash(number)
     }
 
+    fn initcode_by_hash(&mut self, _hash: B256) -> Option<Bytes> {
+        self.dummy_host.initcode_by_hash(_hash)
+    }
+
     fn max_initcode_size(&self) -> usize {
         self.dummy_host.max_initcode_size()
     }

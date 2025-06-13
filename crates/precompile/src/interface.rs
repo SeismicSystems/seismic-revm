@@ -1,3 +1,5 @@
+//! Interface for the precompiles. It contains the precompile result type,
+//! the precompile output type, and the precompile error type.
 use core::fmt;
 use primitives::Bytes;
 use std::string::String;
@@ -23,22 +25,31 @@ impl PrecompileOutput {
     }
 }
 
-pub type PrecompileFn = fn(&Bytes, u64) -> PrecompileResult;
+/// Precompile function type. Takes input and gas limit and returns precompile result.
+pub type PrecompileFn = fn(&[u8], u64) -> PrecompileResult;
 
+/// Precompile error type.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PrecompileError {
     /// out of gas is the main error. Others are here just for completeness
     OutOfGas,
-    // Blake2 errors
+    /// Blake2 errors
     Blake2WrongLength,
+    /// Blake2 wrong final indicator flag
     Blake2WrongFinalIndicatorFlag,
-    // Modexp errors
+    /// Modexp errors
     ModexpExpOverflow,
+    /// Modexp base overflow
     ModexpBaseOverflow,
+    /// Modexp mod overflow
     ModexpModOverflow,
-    // Bn128 errors
+    /// Modexp limit all input sizes.
+    ModexpEip7823LimitSize,
+    /// Bn128 errors
     Bn128FieldPointNotAMember,
+    /// Bn128 affine g failed to create
     Bn128AffineGFailedToCreate,
+    /// Bn128 pair length
     Bn128PairLength,
     // Blob errors
     /// The input length is not exactly 192 bytes
@@ -76,6 +87,7 @@ impl fmt::Display for PrecompileError {
             Self::ModexpExpOverflow => "modexp exp overflow",
             Self::ModexpBaseOverflow => "modexp base overflow",
             Self::ModexpModOverflow => "modexp mod overflow",
+            Self::ModexpEip7823LimitSize => "Modexp limit all input sizes.",
             Self::Bn128FieldPointNotAMember => "field point not a member of bn128 curve",
             Self::Bn128AffineGFailedToCreate => "failed to create affine g point for bn128 curve",
             Self::Bn128PairLength => "bn128 invalid pair length",

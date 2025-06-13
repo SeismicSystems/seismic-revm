@@ -1,8 +1,5 @@
-use revm::{
-    precompile::{
-        u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
-    },
-    primitives::Bytes,
+use revm::precompile::{
+    u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
 };
 
 use super::common::{
@@ -61,7 +58,7 @@ Precompile Logic
 /// If `cost > gas_limit`, we revert with `OutOfGas`.
 ///
 /// We set the final `gas_used` = `cost`.
-pub fn precompile_encrypt(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+pub fn precompile_encrypt(input: &[u8], gas_limit: u64) -> PrecompileResult {
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
     let aes_key = parse_aes_key(&input[0..32])?;
 

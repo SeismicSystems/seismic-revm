@@ -112,7 +112,8 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
 
     popn!([index, value], interpreter);
 
-    let Some(state_load) = host.sstore(interpreter.input.target_address(), index, value) else {
+    let Some(state_load) = host.sstore(interpreter.input.target_address(), index, value.into())
+    else {
         interpreter
             .control
             .set_instruction_result(InstructionResult::FatalExternalError);
@@ -148,14 +149,11 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-
     use crate::instructions::seismic_host::SeismicDummyHost;
 
     use super::*;
     use revm::interpreter::interpreter::{EthInterpreter, ExtBytecode};
-    use revm::interpreter::{InputsImpl, SharedMemory};
+    use revm::interpreter::{CallInput, InputsImpl, SharedMemory};
     use revm::interpreter::{InstructionResult, Interpreter};
     use revm::primitives::hardfork::SpecId;
     use revm::primitives::{Address, Bytes, U256};
@@ -164,13 +162,14 @@ mod tests {
     // Helper to build an interpreter with a given SpecId.
     fn build_interpreter(spec_id: SpecId, bytecode: Bytecode) -> Interpreter<EthInterpreter> {
         let interp = Interpreter::<EthInterpreter>::new(
-            Rc::new(RefCell::new(SharedMemory::new())),
+            SharedMemory::new(),
             ExtBytecode::new(bytecode),
             InputsImpl {
                 target_address: Address::ZERO,
                 caller_address: Address::ZERO,
-                input: Bytes::default(),
+                input: CallInput::Bytes(Bytes::default()),
                 call_value: U256::ZERO,
+                bytecode_address: None,
             },
             false,
             false,

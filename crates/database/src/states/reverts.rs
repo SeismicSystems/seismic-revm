@@ -7,7 +7,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{Address, HashMap, U256};
+use primitives::{Address, HashMap, StorageKey};
 use state::AccountInfo;
 use std::vec::Vec;
 
@@ -144,7 +144,7 @@ impl PartialEq for Reverts {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AccountRevert {
     pub account: AccountInfoRevert,
-    pub storage: HashMap<U256, RevertToSlot>,
+    pub storage: HashMap<StorageKey, RevertToSlot>,
     pub previous_status: AccountStatus,
     pub wipe_storage: bool,
 }
@@ -167,7 +167,7 @@ impl AccountRevert {
     ) -> Self {
         // Take present storage values as the storages that we are going to revert to.
         // As those values got destroyed.
-        let mut previous_storage: HashMap<U256, RevertToSlot> = previous_storage
+        let mut previous_storage: HashMap<StorageKey, RevertToSlot> = previous_storage
             .drain()
             .map(|(key, value)| (key, RevertToSlot::Some(value.present_value)))
             .collect();

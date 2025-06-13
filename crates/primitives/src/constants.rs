@@ -1,3 +1,7 @@
+//! Global constants for the EVM
+//!
+//! Here you can find constants that dont belong to any EIP and are there for the genesis.
+
 use crate::eip170;
 use alloy_primitives::{b256, Address, B256};
 
@@ -21,4 +25,4 @@ pub const CALL_STACK_LIMIT: u64 = 1024;
 
 /// The Keccak-256 hash of the empty string `""`.
 pub const KECCAK_EMPTY: B256 =
-    b256!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");
+    b256!("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470");

@@ -1,7 +1,7 @@
 [package]
 name = "revm-bytecode"
 description = "EVM Bytecodes"
-version = "1.0.0"
+version = "4.0.0"
 authors.workspace = true
 edition.workspace = true
 keywords.workspace = true
@@ -13,13 +13,8 @@ readme.workspace = true
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-[lints.rust]
-unreachable_pub = "warn"
-unused_must_use = "deny"
-rust_2018_idioms = "deny"
-
-[lints.rustdoc]
-all = "warn"
+[lints]
+workspace = true
 
 [dependencies]
 # revm
@@ -27,6 +22,7 @@ primitives.workspace = true
 
 # Jumpmap
 bitvec = { workspace = true, features = ["alloc"] }
+once_cell = { workspace = true, features = ["alloc"] }
 
 # Optional
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
@@ -37,7 +33,7 @@ phf = { workspace = true, features = ["macros"], optional = true }
 
 [features]
 default = ["std", "parse"]
-std = ["serde?/std", "primitives/std", "bitvec/std", "phf?/std"]
+std = ["serde?/std", "primitives/std", "bitvec/std", "once_cell/std", "phf?/std"]
 hashbrown = ["primitives/hashbrown"]
 serde = ["dep:serde", "primitives/serde", "bitvec/serde", "phf?/serde"]
 serde-json = ["serde"]
