@@ -5,7 +5,7 @@ use crate::{
 };
 use revm::{
     context::{ContextSetters, Evm},
-    handler::{instructions::InstructionProvider, EthPrecompiles, EvmTr, PrecompileProvider},
+    handler::{instructions::InstructionProvider, EvmTr, PrecompileProvider},
     inspector::{InspectorEvmTr, JournalExt},
     interpreter::{interpreter::EthInterpreter, Interpreter, InterpreterAction, InterpreterTypes},
     precompile::Precompiles,
