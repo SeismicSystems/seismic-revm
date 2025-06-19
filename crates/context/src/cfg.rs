@@ -149,10 +149,10 @@ impl<SPEC: Into<SpecId> + Copy> Cfg for CfgEnv<SPEC> {
     }
 
     #[inline]
-    fn blob_max_count(&self, spec_id: SpecId) -> u64 {
-        let blob_target_and_max_count = self.blob_target_and_max_count.clone().unwrap();
+    fn blob_max_count(&self, spec_id: SpecId) -> Option<u64> {
+        let blob_target_and_max_count = self.blob_target_and_max_count.clone()?;
 
-        blob_target_and_max_count
+        let count = blob_target_and_max_count
             .iter()
             .rev()
             .find_map(|(id, _, max)| {
@@ -161,7 +161,8 @@ impl<SPEC: Into<SpecId> + Copy> Cfg for CfgEnv<SPEC> {
                 }
                 None
             })
-            .unwrap_or(6)
+            .unwrap_or(6);
+        Some(count)
     }
 
     fn max_code_size(&self) -> usize {
@@ -227,9 +228,9 @@ mod test {
     #[test]
     fn blob_max_and_target_count() {
         let cfg: CfgEnv = Default::default();
-        assert_eq!(cfg.blob_max_count(SpecId::BERLIN), (6));
-        assert_eq!(cfg.blob_max_count(SpecId::CANCUN), (6));
-        assert_eq!(cfg.blob_max_count(SpecId::PRAGUE), (9));
-        assert_eq!(cfg.blob_max_count(SpecId::OSAKA), (9));
+        assert_eq!(cfg.blob_max_count(SpecId::BERLIN), None);
+        assert_eq!(cfg.blob_max_count(SpecId::CANCUN), None);
+        assert_eq!(cfg.blob_max_count(SpecId::PRAGUE), None);
+        assert_eq!(cfg.blob_max_count(SpecId::OSAKA), None);
     }
 }

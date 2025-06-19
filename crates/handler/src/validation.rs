@@ -163,7 +163,7 @@ pub fn validate_tx_env<CTX: ContextTr, Error>(
                 tx.blob_versioned_hashes(),
                 tx.max_fee_per_blob_gas(),
                 context.block().blob_gasprice().unwrap_or_default(),
-                Some(context.cfg().blob_max_count(spec_id)),
+                context.cfg().blob_max_count(spec_id),
             )?;
         }
         TransactionType::Eip7702 => {
