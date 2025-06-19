@@ -4851,7 +4851,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=7a0519c#7a0519c8eea310cb60975dd1c81308cd5fa1646b"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=30a53d5#30a53d53375de3dfa66938793dd739ec1c386a5b"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4880,7 +4880,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave-derive"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=7a0519c#7a0519c8eea310cb60975dd1c81308cd5fa1646b"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=30a53d5#30a53d53375de3dfa66938793dd739ec1c386a5b"
 dependencies = [
  "proc-macro2",
  "quote",

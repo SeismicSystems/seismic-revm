@@ -174,5 +174,6 @@ inherits = "test"
 opt-level = 3
 
 [patch.crates-io]
+seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "30a53d5"}
 alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "eaf81a7" }
-seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "7a0519c"}
+
