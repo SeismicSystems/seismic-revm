@@ -2,7 +2,7 @@
 pub use context_interface::Cfg;
 
 use primitives::{eip170::MAX_CODE_SIZE, hardfork::SpecId};
-use std::{vec::Vec};
+use std::vec::Vec;
 
 /// EVM configuration
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
