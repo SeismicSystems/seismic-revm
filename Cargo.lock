@@ -264,7 +264,7 @@ dependencies = [
 [[package]]
 name = "alloy-primitives"
 version = "1.1.2"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=ab2208a#ab2208a202da1e48363ed3cb57d54a745b3e2a2d"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=eaf81a7#eaf81a72a0ed77a2f28922eb0c2223016c447a27"
 dependencies = [
  "alloy-rlp",
  "arbitrary",
@@ -4851,7 +4851,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=452a394#452a3949335a48295831a2faf63fb0cec82743d3"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=7a0519c#7a0519c8eea310cb60975dd1c81308cd5fa1646b"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4880,7 +4880,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave-derive"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=452a394#452a3949335a48295831a2faf63fb0cec82743d3"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=7a0519c#7a0519c8eea310cb60975dd1c81308cd5fa1646b"
 dependencies = [
  "proc-macro2",
  "quote",
