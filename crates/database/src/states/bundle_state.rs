@@ -6,8 +6,9 @@ use super::{
 };
 use bytecode::Bytecode;
 use core::{mem, ops::RangeInclusive};
+use primitives::{alloy_primitives::FlaggedStorage, StorageKey};
 use primitives::{hash_map::Entry, Address, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
-use state::{AccountInfo, FlaggedStorage};
+use state::AccountInfo;
 use std::{
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
@@ -24,7 +25,7 @@ pub struct BundleBuilder {
     reverts: BTreeSet<(u64, Address)>,
     revert_range: RangeInclusive<u64>,
     revert_account: HashMap<(u64, Address), Option<Option<AccountInfo>>>,
-    revert_storage: HashMap<(u64, Address), Vec<(U256, FlaggedStorage)>>,
+    revert_storage: HashMap<(u64, Address), Vec<(StorageKey, FlaggedStorage)>>,
 
     contracts: HashMap<B256, Bytecode>,
 }
@@ -117,7 +118,7 @@ impl BundleBuilder {
     pub fn state_storage(
         mut self,
         address: Address,
-        storage: HashMap<U256, (FlaggedStorage, FlaggedStorage)>,
+        storage: HashMap<StorageKey, (FlaggedStorage, FlaggedStorage)>,
     ) -> Self {
         self.set_state_storage(address, storage);
         self
@@ -154,7 +155,7 @@ impl BundleBuilder {
         mut self,
         block_number: u64,
         address: Address,
-        storage: Vec<(U256, FlaggedStorage)>,
+        storage: Vec<(StorageKey, FlaggedStorage)>,
     ) -> Self {
         self.set_revert_storage(block_number, address, storage);
         self
@@ -198,7 +199,7 @@ impl BundleBuilder {
     pub fn set_state_storage(
         &mut self,
         address: Address,
-        storage: HashMap<U256, (FlaggedStorage, FlaggedStorage)>,
+        storage: HashMap<StorageKey, (FlaggedStorage, FlaggedStorage)>,
     ) -> &mut Self {
         self.states.insert(address);
         self.state_storage.insert(address, storage);
@@ -228,7 +229,7 @@ impl BundleBuilder {
         &mut self,
         block_number: u64,
         address: Address,
-        storage: Vec<(U256, FlaggedStorage)>,
+        storage: Vec<(StorageKey, FlaggedStorage)>,
     ) -> &mut Self {
         self.reverts.insert((block_number, address));
         self.revert_storage.insert((block_number, address), storage);
@@ -433,7 +434,7 @@ impl BundleState {
                 Address,
                 Option<AccountInfo>,
                 Option<AccountInfo>,
-                HashMap<U256, (FlaggedStorage, FlaggedStorage)>,
+                HashMap<StorageKey, (FlaggedStorage, FlaggedStorage)>,
             ),
         >,
         reverts: impl IntoIterator<
@@ -441,7 +442,7 @@ impl BundleState {
                 Item = (
                     Address,
                     Option<Option<AccountInfo>>,
-                    impl IntoIterator<Item = (U256, FlaggedStorage)>,
+                    impl IntoIterator<Item = (StorageKey, FlaggedStorage)>,
                 ),
             >,
         >,
@@ -871,6 +872,7 @@ impl BundleState {
 mod tests {
     use super::*;
     use crate::{StorageWithOriginalValues, TransitionAccount};
+    use primitives::U256;
 
     #[test]
     fn transition_states() {
@@ -911,12 +913,12 @@ mod tests {
         Address::new([0x61; 20])
     }
 
-    fn slot1() -> U256 {
-        U256::from(5)
+    fn slot1() -> StorageKey {
+        StorageKey::from(5)
     }
 
-    fn slot2() -> U256 {
-        U256::from(7)
+    fn slot2() -> StorageKey {
+        StorageKey::from(7)
     }
 
     /// Tests bundle one.

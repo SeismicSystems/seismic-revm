@@ -2,6 +2,7 @@ use super::{
     merkle_trie::{log_rlp_hash, state_merkle_trie_root},
     utils::recover_address,
 };
+use context::either::Either;
 use database::State;
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use inspector::{inspectors::TracerEip3155, InspectCommitEvm};
@@ -15,7 +16,8 @@ use revm::{
     },
     database_interface::EmptyDB,
     primitives::{
-        eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes, TxKind, B256,
+        eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes,
+        FlaggedStorage, TxKind, B256,
     },
     Context, ExecuteCommitEvm,
 };
@@ -24,7 +26,6 @@ use seismic_revm::{
     SeismicHaltReason, SeismicSpecId,
 };
 use serde_json::json;
-use state::FlaggedStorage;
 use statetest_types::{SpecName, Test, TestSuite};
 
 use std::{
@@ -71,6 +72,10 @@ pub enum TestErrorKind {
     SerdeDeserialize(#[from] serde_json::Error),
     #[error("thread panicked")]
     Panic,
+    #[error("path does not exist")]
+    InvalidPath,
+    #[error("no JSON test files found in path")]
+    NoJsonFiles,
 }
 
 pub fn find_all_json_tests(path: &Path) -> Vec<PathBuf> {
@@ -91,32 +96,8 @@ fn skip_test(path: &Path) -> bool {
 
     matches!(
         name,
-        // Funky test with `bigint 0x00` value in json :) not possible to happen on mainnet and require
-        // custom json parser. https://github.com/ethereum/tests/issues/971
-        |"ValueOverflow.json"| "ValueOverflowParis.json"
-
-        // Precompiles having storage is not possible
-        | "RevertPrecompiledTouch_storage.json"
-        | "RevertPrecompiledTouch.json"
-
-        // `txbyte` is of type 02 and we don't parse tx bytes for this test to fail.
-        | "typeTwoBerlin.json"
-
-        // Need to handle Test errors
-        | "transactionIntinsicBug.json"
-
         // Test check if gas price overflows, we handle this correctly but does not match tests specific exception.
-        | "HighGasPrice.json"
-        | "CREATE_HighNonce.json"
-        | "CREATE_HighNonceMinus1.json"
         | "CreateTransactionHighNonce.json"
-
-        // Skip test where basefee/accesslist/difficulty is present but it shouldn't be supported in
-        // London/Berlin/TheMerge. https://github.com/ethereum/tests/blob/5b7e1ab3ffaf026d99d20b17bb30f533a2c80c8b/GeneralStateTests/stExample/eip1559.json#L130
-        // It is expected to not execute these tests.
-        | "basefeeExample.json"
-        | "eip1559.json"
-        | "mergeTest.json"
 
         // Test with some storage check.
         | "RevertInCreateInInit_Paris.json"
@@ -130,8 +111,11 @@ fn skip_test(path: &Path) -> bool {
         | "InitCollision.json"
         | "InitCollisionParis.json"
 
+        // Malformed value.
+        | "ValueOverflow.json"
+        | "ValueOverflowParis.json"
+
         // These tests are passing, but they take a lot of time to execute so we are going to skip them.
-        | "loopExp.json"
         | "Call50000_sha256.json"
         | "static_Call50000_sha256.json"
         | "loopMul.json"
@@ -342,6 +326,17 @@ pub fn execute_test_suite(
                 continue;
             }
 
+            cfg.spec = SeismicSpecId::MERCURY;
+
+            /*
+            // set default max blobs number to be 9 for prague
+            if cfg.spec.is_enabled_in(SpecId::PRAGUE) {
+                cfg.set_blob_max_count(9);
+            } else {
+                cfg.set_blob_max_count(6);
+            }
+            */
+
             // EIP-4844
             if let Some(current_excess_blob_gas) = unit.env.current_excess_blob_gas {
                 block.set_blob_excess_gas_and_price(
@@ -379,11 +374,9 @@ pub fn execute_test_suite(
                         panic!("Invalid transaction type without expected exception");
                     }
                 };
-
                 tx.base.tx_type = tx_type as u8;
 
                 tx.base.gas_limit = unit.transaction.gas_limit[test.indexes.gas].saturating_to();
-
                 tx.base.data = unit
                     .transaction
                     .data
@@ -402,11 +395,19 @@ pub fn execute_test_suite(
                     .flatten()
                     .unwrap_or_default();
 
+                // TODO(EOF)
+                //tx.initcodes = unit.transaction.initcodes.clone().unwrap_or_default();
+
                 tx.base.authorization_list = unit
                     .transaction
                     .authorization_list
                     .clone()
-                    .map(|auth_list| auth_list.into_iter().map(Into::into).collect::<Vec<_>>())
+                    .map(|auth_list| {
+                        auth_list
+                            .into_iter()
+                            .map(|i| Either::Left(i.into()))
+                            .collect::<Vec<_>>()
+                    })
                     .unwrap_or_default();
 
                 let to = match unit.transaction.to {
@@ -423,15 +424,10 @@ pub fn execute_test_suite(
                     .with_cached_prestate(cache)
                     .with_bundle_update()
                     .build();
-                let mut evm = Context::seismic()
-                    .with_block(&block)
-                    .with_tx(&tx)
-                    .with_cfg(&cfg)
-                    .with_db(&mut state)
-                    .build_seismic();
 
                 // Do the deed
-                let (e, exec_result) = if trace {
+                let timer = Instant::now();
+                let (db, exec_result) = if trace {
                     let mut evm = Context::seismic()
                         .with_block(&block)
                         .with_tx(&tx)
@@ -440,48 +436,34 @@ pub fn execute_test_suite(
                         .build_seismic_with_inspector(
                             TracerEip3155::buffered(stderr()).without_summary(),
                         );
-
-                    let timer = Instant::now();
                     let res = evm.inspect_replay_commit();
-                    *elapsed.lock().unwrap() += timer.elapsed();
-
-                    let spec = cfg.spec();
-                    let db = &mut evm.0.data.ctx.journaled_state.database;
-                    // Dump state and traces if test failed
-                    let output = check_evm_execution(
-                        &test,
-                        unit.out.as_ref(),
-                        &name,
-                        &res,
-                        db,
-                        spec,
-                        print_json_outcome,
-                    );
-                    let Err(e) = output else {
-                        continue;
-                    };
-                    (e, res)
+                    let db = evm.0.ctx.journaled_state.database;
+                    (db, res)
                 } else {
-                    let timer = Instant::now();
+                    let mut evm = Context::seismic()
+                        .with_block(&block)
+                        .with_tx(&tx)
+                        .with_cfg(&cfg)
+                        .with_db(&mut state)
+                        .build_seismic();
                     let res = evm.replay_commit();
-                    *elapsed.lock().unwrap() += timer.elapsed();
-
-                    let spec = cfg.spec();
-                    let db = evm.0.data.ctx.journaled_state.database;
-                    // Dump state and traces if test failed
-                    let output = check_evm_execution(
-                        &test,
-                        unit.out.as_ref(),
-                        &name,
-                        &res,
-                        db,
-                        spec,
-                        print_json_outcome,
-                    );
-                    let Err(e) = output else {
-                        continue;
-                    };
-                    (e, res)
+                    let db = evm.0.ctx.journaled_state.database;
+                    (db, res)
+                };
+                *elapsed.lock().unwrap() += timer.elapsed();
+                let spec = cfg.spec();
+                // Dump state and traces if test failed
+                let output = check_evm_execution(
+                    &test,
+                    unit.out.as_ref(),
+                    &name,
+                    &exec_result,
+                    db,
+                    spec,
+                    print_json_outcome,
+                );
+                let Err(e) = output else {
+                    continue;
                 };
 
                 // Print only once or if we are already in trace mode, just return error
@@ -523,7 +505,7 @@ pub fn execute_test_suite(
                 println!("\nState before: {cache_state:#?}");
                 println!(
                     "\nState after: {:#?}",
-                    evm.0.data.ctx.journaled_state.database.cache
+                    evm.0.ctx.journaled_state.database.cache
                 );
                 println!("\nSpecification: {:?}", cfg.spec);
                 println!("\nTx: {tx:#?}");

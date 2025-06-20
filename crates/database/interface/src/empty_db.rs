@@ -1,8 +1,8 @@
 use crate::{DBErrorMarker, Database, DatabaseRef};
 use core::error::Error;
 use core::{convert::Infallible, fmt, marker::PhantomData};
-use primitives::{keccak256, Address, B256, U256};
-use state::{AccountInfo, Bytecode, FlaggedStorage};
+use primitives::{keccak256, Address, FlaggedStorage, B256, U256};
+use state::{AccountInfo, Bytecode};
 use std::string::ToString;
 
 /// An empty database that always returns default values when queried
@@ -112,21 +112,21 @@ mod tests {
         assert_eq!(
             db.block_hash_ref(0u64),
             Ok(b256!(
-                "044852b2a670ade5407e78fb2863c51de9fcb96542a07186fe3aeda6bb8a116d"
+                "0x044852b2a670ade5407e78fb2863c51de9fcb96542a07186fe3aeda6bb8a116d"
             ))
         );
 
         assert_eq!(
             db.block_hash_ref(1u64),
             Ok(b256!(
-                "c89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6"
+                "0xc89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6"
             ))
         );
 
         assert_eq!(
             db.block_hash_ref(100u64),
             Ok(b256!(
-                "8c18210df0d9514f2d2e5d8ca7c100978219ee80d3968ad850ab5ead208287b3"
+                "0x8c18210df0d9514f2d2e5d8ca7c100978219ee80d3968ad850ab5ead208287b3"
             ))
         );
     }

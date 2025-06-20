@@ -1,7 +1,8 @@
 use core::convert::Infallible;
 use database_interface::{Database, DatabaseCommit, DatabaseRef, EmptyDB};
+use primitives::alloy_primitives::FlaggedStorage;
 use primitives::{address, hash_map::Entry, Address, HashMap, Log, B256, KECCAK_EMPTY, U256};
-use state::{Account, AccountInfo, Bytecode, FlaggedStorage};
+use state::{Account, AccountInfo, Bytecode};
 use std::vec::Vec;
 
 /// A [Database] implementation that stores all state changes in memory.
@@ -396,7 +397,7 @@ pub enum AccountState {
     /// EVM touched this account. For newer hardfork this means it can be cleared/removed from state.
     Touched,
     /// EVM cleared storage of this account, mostly by selfdestruct, we don't ask database for storage slots
-    /// and assume they are U256::ZERO
+    /// and assume they are StorageValue::ZERO
     StorageCleared,
     /// EVM didn't interacted with this account
     #[default]
@@ -424,13 +425,13 @@ impl BenchmarkDB {
 }
 
 /// BYTECODE address
-pub const FFADDRESS: Address = address!("ffffffffffffffffffffffffffffffffffffffff");
+pub const FFADDRESS: Address = address!("0xffffffffffffffffffffffffffffffffffffffff");
 pub const BENCH_TARGET: Address = FFADDRESS;
-pub const BENCH_TARGET_BALANCE: U256 = U256::from_limbs([10000000, 0, 0, 0]);
+pub const BENCH_TARGET_BALANCE: U256 = U256::from_limbs([10_000_000, 0, 0, 0]);
 /// CALLER address
-pub const EEADDRESS: Address = address!("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+pub const EEADDRESS: Address = address!("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
 pub const BENCH_CALLER: Address = EEADDRESS;
-pub const BENCH_CALLER_BALANCE: U256 = U256::from_limbs([10000000, 0, 0, 0]);
+pub const BENCH_CALLER_BALANCE: U256 = U256::from_limbs([10_000_000, 0, 0, 0]);
 
 impl Database for BenchmarkDB {
     type Error = Infallible;

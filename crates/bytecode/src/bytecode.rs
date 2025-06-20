@@ -1,3 +1,10 @@
+//! Module that contains the bytecode enum with all variants supported by Ethereum mainnet.
+//!
+//! Those are:
+//! - Legacy bytecode with jump table analysis. Found in [`LegacyAnalyzedBytecode`]
+//! - EOF ( EMV Object Format) bytecode introduced in Osaka that.
+//! - EIP-7702 bytecode, introduces in Prague and contains address to delegated account.
+
 use crate::{
     eip7702::{Eip7702Bytecode, EIP7702_MAGIC_BYTES},
     BytecodeDecodeError, Eof, JumpTable, LegacyAnalyzedBytecode, LegacyRawBytecode,
@@ -197,6 +204,13 @@ impl Bytecode {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Returns an iterator over the opcodes in this bytecode, skipping immediates.
+    /// This is useful if you want to ignore immediates and just see what opcodes are inside.
+    #[inline]
+    pub fn iter_opcodes(&self) -> crate::BytecodeIterator<'_> {
+        crate::BytecodeIterator::new(self)
     }
 }
 

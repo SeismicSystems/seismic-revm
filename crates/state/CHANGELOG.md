@@ -5,7 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [4.0.0](https://github.com/bluealloy/revm/compare/revm-state-v3.0.1...revm-state-v4.0.0) - 2025-05-07
+
+Dependency bump
+
 ## [Unreleased]
+
+## [3.0.1](https://github.com/bluealloy/revm/compare/revm-state-v3.0.0...revm-state-v3.0.1) - 2025-05-07
+
+Yanked release
+
+### Other
+
+- copy edit The Book ([#2463](https://github.com/bluealloy/revm/pull/2463))
+- cache and use JumpTable::default ([#2439](https://github.com/bluealloy/revm/pull/2439))
+- bump dependency version ([#2431](https://github.com/bluealloy/revm/pull/2431))
+- add AccountInfo setters ([#2429](https://github.com/bluealloy/revm/pull/2429))
+- fixed broken link ([#2421](https://github.com/bluealloy/revm/pull/2421))
+- *(lints)* revm-context lints ([#2404](https://github.com/bluealloy/revm/pull/2404))
+
+## [3.0.0](https://github.com/bluealloy/revm/compare/revm-state-v2.0.0...revm-state-v3.0.0) - 2025-04-09
+
+### Added
+
+- Account helper builder functions ([#2355](https://github.com/bluealloy/revm/pull/2355))
+- support for system calls ([#2350](https://github.com/bluealloy/revm/pull/2350))
+
+### Other
+
+- *(state)* Add AccountInfo builder util methods ([#2357](https://github.com/bluealloy/revm/pull/2357))
+
+## [2.0.0](https://github.com/bluealloy/revm/compare/revm-state-v1.0.0...revm-state-v2.0.0) - 2025-03-28
+
+### Other
+
+- updated the following local packages: revm-primitives, revm-bytecode
 
 ## [1.0.0](https://github.com/bluealloy/revm/compare/revm-state-v1.0.0-alpha.4...revm-state-v1.0.0) - 2025-03-24
 

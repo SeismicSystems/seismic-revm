@@ -4,7 +4,7 @@ on:
   push:
     branches: [ seismic ]
   pull_request:
-    branches: [ seismic ]
+    branches: [ seismic, upstream-merge-reth ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -59,4 +59,16 @@ jobs:
         with:
           shared-key: "test-cache"
       - name: cargo test
-        run: cargo test
+        run: cargo test --workspace
+
+  # TODO: download seismic-solidity and run these in CI too
+  # bin-tests:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - name: cd into revme
+  #       run: cd bins/revme
+  #     - name: Run semantic tests
+  #       run: cargo run -- semantics

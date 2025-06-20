@@ -3,7 +3,7 @@ use primitives::{b256, bytes, Address, Bytes, B256};
 
 /// Hash of EF01 bytes that is used for EXTCODEHASH when called from legacy bytecode.
 pub const EIP7702_MAGIC_HASH: B256 =
-    b256!("eadcdba66a79ab5dce91622d1d75c8cff5cff0b96944c3bf1072cd08ce018329");
+    b256!("0xeadcdba66a79ab5dce91622d1d75c8cff5cff0b96944c3bf1072cd08ce018329");
 
 /// EIP-7702 Version Magic in u16 form
 pub const EIP7702_MAGIC: u16 = 0xEF01;
@@ -21,8 +21,11 @@ pub const EIP7702_VERSION: u8 = 0;
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Eip7702Bytecode {
+    /// Address of the delegated account.
     pub delegated_address: Address,
+    /// Version of the EIP-7702 bytecode. Currently only version 0 is supported.
     pub version: u8,
+    /// Raw bytecode.
     pub raw: Bytes,
 }
 

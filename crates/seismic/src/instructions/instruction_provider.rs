@@ -23,6 +23,12 @@ pub struct SeismicInstructions<WIRE: InterpreterTypes, HOST> {
     pub instruction_table: Box<InstructionTable<WIRE, HOST>>,
 }
 
+impl<WIRE: InterpreterTypes, HOST: SeismicHost> Default for SeismicInstructions<WIRE, HOST> {
+    fn default() -> Self {
+        Self::new_mainnet()
+    }
+}
+
 impl<WIRE, HOST> SeismicInstructions<WIRE, HOST>
 where
     WIRE: InterpreterTypes,

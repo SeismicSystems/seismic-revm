@@ -1,7 +1,8 @@
+//! This module contains [`CfgEnv`] and implements [`Cfg`] trait for it.
 pub use context_interface::Cfg;
 
 use primitives::{eip170::MAX_CODE_SIZE, hardfork::SpecId};
-use std::{vec, vec::Vec};
+use std::vec::Vec;
 
 /// EVM configuration
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -27,7 +28,7 @@ pub struct CfgEnv<SPEC = SpecId> {
     /// Blob target count. EIP-7840 Add blob schedule to EL config files.
     ///
     /// Note : Items must be sorted by `SpecId`.
-    pub blob_target_and_max_count: Vec<(SpecId, u8, u8)>,
+    pub blob_target_and_max_count: Option<Vec<(SpecId, u64, u64)>>,
     /// A hard memory limit in bytes beyond which
     /// [OutOfGasError::Memory][context_interface::result::OutOfGasError::Memory] cannot be resized.
     ///
@@ -75,13 +76,14 @@ impl CfgEnv {
 }
 
 impl<SPEC> CfgEnv<SPEC> {
+    /// Create new `CfgEnv` with default values and specified spec.
     pub fn new_with_spec(spec: SPEC) -> Self {
         Self {
             chain_id: 1,
             limit_contract_code_size: None,
             spec,
             disable_nonce_check: false,
-            blob_target_and_max_count: vec![(SpecId::CANCUN, 3, 6), (SpecId::PRAGUE, 6, 9)],
+            blob_target_and_max_count: None, //vec![(SpecId::CANCUN, 3, 6), (SpecId::PRAGUE, 6, 9)],
             #[cfg(feature = "memory_limit")]
             memory_limit: (1 << 32) - 1,
             #[cfg(feature = "optional_balance_check")]
@@ -95,11 +97,13 @@ impl<SPEC> CfgEnv<SPEC> {
         }
     }
 
+    /// Consumes `self` and returns a new `CfgEnv` with the specified chain ID.
     pub fn with_chain_id(mut self, chain_id: u64) -> Self {
         self.chain_id = chain_id;
         self
     }
 
+    /// Consumes `self` and returns a new `CfgEnv` with the specified spec.
     pub fn with_spec<OSPEC: Into<SpecId>>(self, spec: OSPEC) -> CfgEnv<OSPEC> {
         CfgEnv {
             chain_id: self.chain_id,
@@ -121,9 +125,15 @@ impl<SPEC> CfgEnv<SPEC> {
     }
 
     /// Sets the blob target and max count over hardforks.
-    pub fn set_blob_max_and_target_count(&mut self, mut vec: Vec<(SpecId, u8, u8)>) {
-        vec.sort_by_key(|(id, _, _)| *id);
-        self.blob_target_and_max_count = vec;
+    pub fn with_blob_max_and_target_count(mut self, blob_params: Vec<(SpecId, u64, u64)>) -> Self {
+        self.set_blob_max_and_target_count(blob_params);
+        self
+    }
+
+    /// Sets the blob target and max count over hardforks.
+    pub fn set_blob_max_and_target_count(&mut self, mut blob_params: Vec<(SpecId, u64, u64)>) {
+        blob_params.sort_by_key(|(id, _, _)| *id);
+        self.blob_target_and_max_count = Some(blob_params);
     }
 }
 
@@ -139,8 +149,10 @@ impl<SPEC: Into<SpecId> + Copy> Cfg for CfgEnv<SPEC> {
     }
 
     #[inline]
-    fn blob_max_count(&self, spec_id: SpecId) -> u8 {
-        self.blob_target_and_max_count
+    fn blob_max_count(&self, spec_id: SpecId) -> Option<u64> {
+        let blob_target_and_max_count = self.blob_target_and_max_count.clone()?;
+
+        let count = blob_target_and_max_count
             .iter()
             .rev()
             .find_map(|(id, _, max)| {
@@ -149,7 +161,8 @@ impl<SPEC: Into<SpecId> + Copy> Cfg for CfgEnv<SPEC> {
                 }
                 None
             })
-            .unwrap_or(6)
+            .unwrap_or(6);
+        Some(count)
     }
 
     fn max_code_size(&self) -> usize {
@@ -215,9 +228,9 @@ mod test {
     #[test]
     fn blob_max_and_target_count() {
         let cfg: CfgEnv = Default::default();
-        assert_eq!(cfg.blob_max_count(SpecId::BERLIN), (6));
-        assert_eq!(cfg.blob_max_count(SpecId::CANCUN), (6));
-        assert_eq!(cfg.blob_max_count(SpecId::PRAGUE), (9));
-        assert_eq!(cfg.blob_max_count(SpecId::OSAKA), (9));
+        assert_eq!(cfg.blob_max_count(SpecId::BERLIN), None);
+        assert_eq!(cfg.blob_max_count(SpecId::CANCUN), None);
+        assert_eq!(cfg.blob_max_count(SpecId::PRAGUE), None);
+        assert_eq!(cfg.blob_max_count(SpecId::OSAKA), None);
     }
 }

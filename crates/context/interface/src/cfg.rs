@@ -1,7 +1,7 @@
 use auto_impl::auto_impl;
 use core::fmt::Debug;
 use core::hash::Hash;
-use primitives::{hardfork::SpecId, TxKind, U256};
+use primitives::{hardfork::SpecId, Address, TxKind, U256};
 
 #[auto_impl(&, &mut, Box, Arc)]
 pub trait Cfg {
@@ -15,7 +15,7 @@ pub trait Cfg {
     /// Returns the blob target and max count for the given spec id.
     ///
     /// EIP-7840: Add blob schedule to execution client configuration files
-    fn blob_max_count(&self, spec_id: SpecId) -> u8;
+    fn blob_max_count(&self, spec_id: SpecId) -> Option<u64>;
 
     fn max_code_size(&self) -> usize;
 
@@ -55,4 +55,6 @@ pub enum CreateScheme {
         /// Salt
         salt: U256,
     },
+    /// Custom scheme where we set up the original address
+    Custom { address: Address },
 }
