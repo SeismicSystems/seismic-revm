@@ -433,7 +433,7 @@ pub fn execute_test_suite(
                         .with_tx(&tx)
                         .with_cfg(&cfg)
                         .with_db(&mut state)
-                        .build_seismic_with_inspector(
+                        .build_seismic_evm_with_inspector(
                             TracerEip3155::buffered(stderr()).without_summary(),
                         );
                     let res = evm.inspect_replay_commit();
@@ -494,7 +494,7 @@ pub fn execute_test_suite(
                     .with_block(&block)
                     .with_tx(&tx)
                     .with_cfg(&cfg)
-                    .build_seismic_with_inspector(
+                    .build_seismic_evm_with_inspector(
                         TracerEip3155::buffered(stderr()).without_summary(),
                     );
 

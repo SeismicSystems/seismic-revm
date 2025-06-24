@@ -43,7 +43,7 @@ mod test {
     fn default_run_seismic() {
         let ctx = Context::seismic();
         // convert to seismic context
-        let mut evm = ctx.build_seismic_with_inspector(NoOpInspector {});
+        let mut evm = ctx.build_seismic_evm_with_inspector(NoOpInspector {});
         // execute
         let _ = evm.replay();
         // inspect
