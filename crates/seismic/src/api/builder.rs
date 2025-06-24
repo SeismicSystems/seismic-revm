@@ -22,7 +22,7 @@ pub trait SeismicBuilder: Sized {
     ) -> SeismicEvm<Self::Context, (), SeismicInstructions<EthInterpreter, Self::Context>>;
 
     /// Build seismic with an inspector.
-    fn build_seismic_with_inspector<INSP>(
+    fn build_seismic_evm_with_inspector<INSP>(
         self,
         inspector: INSP,
     ) -> SeismicEvm<Self::Context, INSP, SeismicInstructions<EthInterpreter, Self::Context>>;
@@ -45,7 +45,7 @@ where
         SeismicEvm::new(self, ())
     }
 
-    fn build_seismic_with_inspector<INSP>(
+    fn build_seismic_evm_with_inspector<INSP>(
         self,
         inspector: INSP,
     ) -> SeismicEvm<Self::Context, INSP, SeismicInstructions<EthInterpreter, Self::Context>> {
