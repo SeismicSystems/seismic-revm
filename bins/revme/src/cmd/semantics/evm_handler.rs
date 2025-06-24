@@ -7,7 +7,7 @@ use revm::{
     primitives::{Address, Bytes, FixedBytes, Log, TxKind, U256},
     Context, DatabaseCommit, DatabaseRef, ExecuteEvm, InspectEvm, MainBuilder, MainContext,
 };
-use seismic_revm::{DefaultSeismic, SeismicBuilder};
+use seismic_revm::{DefaultSeismicContext, SeismicBuilder};
 use std::str::FromStr;
 
 use crate::cmd::semantics::{test_cases::TestStep, utils::verify_emitted_events};
@@ -152,7 +152,7 @@ impl EvmExecutor {
                         tx.base.nonce = nonce;
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
-                    .build_seismic();
+                    .build_seismic_evm();
                 evm.replay().map_err(|err| {
                     error!("DEPLOY transaction error: {:?}", err.to_string());
                     Errors::EVMError
@@ -300,7 +300,7 @@ impl EvmExecutor {
                         block.timestamp = self.config.timestamp;
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
-                    .build_seismic();
+                    .build_seismic_evm();
                 evm.replay().map_err(|err| {
                     error!(
                         "EVM transaction error: {:?}, for the file: {:?}",
