@@ -201,7 +201,7 @@ mod tests {
     use super::*;
     use revm::{database::EmptyDB, primitives::hex};
 
-    use crate::{DefaultSeismic, SeismicContext};
+    use crate::{DefaultSeismicContext, SeismicContext};
 
     #[test]
     fn test_cancun_precompiles_in_mercury() {

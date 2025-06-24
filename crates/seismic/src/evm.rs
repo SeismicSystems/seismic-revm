@@ -147,7 +147,7 @@ mod tests {
     use crate::precompiles::rng::precompile::{calculate_fill_cost, calculate_init_cost};
     use crate::transaction::abstraction::SeismicTransaction;
     use crate::{
-        DefaultSeismic, SeismicBuilder, SeismicChain, SeismicContext, SeismicHaltReason,
+        DefaultSeismicContext, SeismicBuilder, SeismicChain, SeismicContext, SeismicHaltReason,
         SeismicSpecId,
     };
     use anyhow::bail;
@@ -191,7 +191,7 @@ mod tests {
             })
             .with_db(InMemoryDB::default());
 
-        let mut evm = ctx.build_seismic();
+        let mut evm = ctx.build_seismic_evm();
         let receipt = evm.replay_commit()?;
         if let ExecutionResult::Success {
             output: Output::Create(_, Some(addr)),
@@ -261,7 +261,7 @@ mod tests {
         let (_, selector) = get_meta_data();
         let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
-        let mut evm = call_ctx.build_seismic();
+        let mut evm = call_ctx.build_seismic_evm();
         let account = evm.ctx().journal().load_account(BENCH_CALLER).unwrap();
         account.data.info.balance = U256::from(balance);
 
@@ -316,7 +316,7 @@ mod tests {
             personalization.clone(),
         );
 
-        let mut evm = ctx.build_seismic();
+        let mut evm = ctx.build_seismic_evm();
         let output = evm.replay().unwrap();
 
         let evm_output = output.result.into_output().unwrap();
