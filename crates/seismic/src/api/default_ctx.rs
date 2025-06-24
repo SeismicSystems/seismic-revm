@@ -16,12 +16,12 @@ pub type SeismicContext<DB> = Context<
 >;
 
 /// Trait that allows for a default context to be created.
-pub trait DefaultSeismic {
+pub trait DefaultSeismicContext {
     /// Create a default context.
     fn seismic() -> SeismicContext<EmptyDB>;
 }
 
-impl DefaultSeismic for SeismicContext<EmptyDB> {
+impl DefaultSeismicContext for SeismicContext<EmptyDB> {
     fn seismic() -> Self {
         Context::mainnet()
             .with_tx(SeismicTransaction::default())

@@ -17,7 +17,7 @@ pub trait SeismicBuilder: Sized {
     type Context: SeismicContextTr;
 
     /// Build seismic.
-    fn build_seismic(
+    fn build_seismic_evm(
         self,
     ) -> SeismicEvm<Self::Context, (), SeismicInstructions<EthInterpreter, Self::Context>>;
 
@@ -39,7 +39,7 @@ where
 {
     type Context = Self;
 
-    fn build_seismic(
+    fn build_seismic_evm(
         self,
     ) -> SeismicEvm<Self::Context, (), SeismicInstructions<EthInterpreter, Self::Context>> {
         SeismicEvm::new(self, ())

@@ -180,7 +180,7 @@ pub(crate) fn validate_input_length(
 #[cfg(test)]
 mod tests {
     use crate::transaction::abstraction::SeismicTransaction;
-    use crate::{DefaultSeismic, SeismicContext};
+    use crate::{DefaultSeismicContext, SeismicContext};
     use std::vec;
 
     use super::*;
