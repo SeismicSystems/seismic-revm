@@ -136,15 +136,22 @@ mod test {
 
         assert_eq!(
             interpreter.stack.data(),
-            &vec![b256!("0500000000000000000000000000000000000000000000000000000000000000").into()]
+            &[U256::try_from(b256!(
+                "0500000000000000000000000000000000000000000000000000000000000000"
+            ))
+            .unwrap()]
         );
+
         interpreter.stack.pop().unwrap();
 
         // DATALOADN (padding)
         interpreter.step(&table, &mut host);
         assert_eq!(
             interpreter.stack.data(),
-            &vec![b256!("0500000000000000000000000000000000000000000000000000000000000000").into()]
+            &[U256::try_from(b256!(
+                "0500000000000000000000000000000000000000000000000000000000000000"
+            ))
+            .unwrap()]
         );
         interpreter.stack.pop().unwrap();
 
