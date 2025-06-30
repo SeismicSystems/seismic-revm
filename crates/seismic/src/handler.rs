@@ -127,7 +127,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{api::default_ctx::SeismicContext, DefaultSeismic, SeismicBuilder};
+    use crate::{api::default_ctx::SeismicContext, DefaultSeismicContext, SeismicBuilder};
     use revm::{
         context::{result::EVMError, Context},
         database_interface::EmptyDB,
@@ -142,7 +142,7 @@ mod tests {
         instruction_result: InstructionResult,
         gas: Gas,
     ) -> Gas {
-        let mut evm = ctx.build_seismic();
+        let mut evm = ctx.build_seismic_evm();
 
         let mut exec_result = FrameResult::Call(CallOutcome::new(
             InterpreterResult {

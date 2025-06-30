@@ -17,7 +17,7 @@ pub mod transaction;
 
 pub use api::{
     builder::SeismicBuilder,
-    default_ctx::{DefaultSeismic, SeismicContext},
+    default_ctx::{DefaultSeismicContext, SeismicContext},
 };
 pub use chain::seismic_chain::SeismicChain;
 pub use evm::SeismicEvm;
