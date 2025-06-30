@@ -153,7 +153,7 @@ mod tests {
             0..0,
         ));
 
-        let handler =
+        let mut handler =
             SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<_, _, _>>::new();
 
         handler

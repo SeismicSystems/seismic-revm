@@ -2,8 +2,9 @@ use super::{
     reverts::AccountInfoRevert, AccountRevert, AccountStatus, RevertToSlot, StorageSlot,
     StorageWithOriginalValues, TransitionAccount,
 };
-use primitives::{HashMap, U256};
-use state::{AccountInfo, FlaggedStorage};
+use primitives::alloy_primitives::FlaggedStorage;
+use primitives::{HashMap, StorageKey, U256};
+use state::AccountInfo;
 
 /// Account information focused on creating of database changesets
 /// and Reverts.
@@ -24,7 +25,7 @@ pub struct BundleAccount {
     /// When extracting changeset we compare if original value is different from present value.
     /// If it is different we add it to changeset.
     ///
-    /// If Account was destroyed we ignore original value and compare present state with U256::ZERO.
+    /// If Account was destroyed we ignore original value and compare present state with StorageValue::ZERO.
     pub storage: StorageWithOriginalValues,
     /// Account status.
     pub status: AccountStatus,
@@ -150,7 +151,7 @@ impl BundleAccount {
             };
 
         let previous_storage_from_update =
-            |updated_storage: &StorageWithOriginalValues| -> HashMap<U256, RevertToSlot> {
+            |updated_storage: &StorageWithOriginalValues| -> HashMap<StorageKey, RevertToSlot> {
                 updated_storage
                     .iter()
                     .filter(|s| s.1.is_changed())

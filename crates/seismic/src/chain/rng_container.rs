@@ -6,7 +6,7 @@ use revm::{
 };
 
 use crate::transaction::abstraction::RngMode;
-use seismic_enclave::get_sample_schnorrkel_keypair;
+use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
 
 use crate::precompiles::rng::{
     domain_sep_rng::{LeafRng, RootRng},
@@ -37,7 +37,7 @@ impl fmt::Debug for RngContainer {
 impl Default for RngContainer {
     fn default() -> Self {
         Self {
-            rng: RootRng::new(get_sample_schnorrkel_keypair()),
+            rng: RootRng::new(get_unsecure_sample_schnorrkel_keypair()),
             leaf_rng: None,
         }
     }

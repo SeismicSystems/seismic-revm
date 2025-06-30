@@ -396,7 +396,7 @@ mod tests {
         // No-op
         run(|stack| {
             stack.push_slice(b"").unwrap();
-            assert_eq!(stack.data, []);
+            assert_eq!(stack.data, Vec::<U256>::new());
         });
 
         // One word

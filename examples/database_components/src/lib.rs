@@ -10,8 +10,8 @@ pub use state::{State, StateRef};
 
 use revm::{
     database_interface::{DBErrorMarker, Database, DatabaseCommit, DatabaseRef},
-    primitives::{Address, HashMap, B256, U256},
-    state::{Account, AccountInfo, Bytecode, FlaggedStorage},
+    primitives::{Address, FlaggedStorage, HashMap, B256, U256},
+    state::{Account, AccountInfo, Bytecode},
 };
 
 #[derive(Debug)]
