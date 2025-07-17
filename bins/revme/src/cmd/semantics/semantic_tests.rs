@@ -108,7 +108,7 @@ pub struct SemanticTests {
 }
 
 impl SemanticTests {
-    pub fn new(path: &str) -> Result<Self, Errors> {
+    pub fn new(path: &str, skip_eof: bool) -> Result<Self, Errors> {
         let content = fs::read_to_string(path)?;
         let parts: Vec<&str> = content.split("// ----").collect();
         if parts.len() != 2 {
@@ -129,6 +129,10 @@ impl SemanticTests {
         let evm_version = EVMVersion::extract(&content);
         let via_ir = extract_compile_via_yul(&content);
         let eof_mode = needs_eof(&content);
+
+        if eof_mode & skip_eof {
+            return Err(Errors::UnhandledTestFormat);
+        }
 
         let mut contract_infos =
             Self::get_contract_infos(path, evm_version, via_ir, eof_mode, false)?;

@@ -1,3 +1,4 @@
+use cargo_metadata::MetadataCommand;
 use evm_handler::{EvmConfig, EvmExecutor};
 use revm::{
     database::{CacheDB, EmptyDB},
@@ -48,6 +49,12 @@ pub struct Cmd {
     /// Will not return on failure.
     #[clap(long, alias = "no-fail-fast")]
     keep_going: bool,
+
+    /// Include tests that need EOF.
+    /// Disabled by default because Mercury does not support it.
+    /// Also, these don't work.
+    #[clap(short, long)]
+    eof: bool,
 }
 
 impl Cmd {
@@ -98,12 +105,10 @@ impl Cmd {
                 Err(Errors::PathNotExists)
             }
         } else {
-            let current_dir = std::env::current_dir()?;
-            let parent_dir = current_dir
-                .parent()
-                .ok_or(Errors::PathNotExists)?
-                .parent()
-                .ok_or(Errors::PathNotExists)?
+            let workspace_root: PathBuf = MetadataCommand::new().exec()
+                .expect("Failed to detect workspace root. Use -p to provide a path to solidity test directory")
+                .workspace_root.into();
+            let parent_dir = workspace_root
                 .parent()
                 .ok_or(Errors::PathNotExists)?;
             let semantic_tests_path =
@@ -116,7 +121,7 @@ impl Cmd {
         info!("test_file: {:?}", test_file);
         let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
 
-        match SemanticTests::new(test_file_path) {
+        match SemanticTests::new(test_file_path, !self.eof) {
             Ok(semantic_tests) => {
                 let evm_version = semantic_tests.contract_infos[0].evm_version;
                 let evm_config = EvmConfig::new(evm_version);
