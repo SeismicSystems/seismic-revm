@@ -108,9 +108,7 @@ impl Cmd {
             let workspace_root: PathBuf = MetadataCommand::new().exec()
                 .expect("Failed to detect workspace root. Use -p to provide a path to solidity test directory")
                 .workspace_root.into();
-            let parent_dir = workspace_root
-                .parent()
-                .ok_or(Errors::PathNotExists)?;
+            let parent_dir = workspace_root.parent().ok_or(Errors::PathNotExists)?;
             let semantic_tests_path =
                 parent_dir.join("seismic-solidity/test/libsolidity/semanticTests/");
             find_test_files(&semantic_tests_path)
