@@ -9,6 +9,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+cargo_metadata.workspace = true
 # revm
 revm = { workspace = true, features = [
     "std",

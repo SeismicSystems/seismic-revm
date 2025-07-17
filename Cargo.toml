@@ -41,7 +41,7 @@ default-members = ["crates/revm"]
 [workspace.dependencies]
 # seismic-enclave
 seismic-enclave = { version = "0.1.0", default-features = false }
-
+cargo_metadata = "0.18"
 
 # revm
 revm = { path = "crates/revm", version = "23.1.0", default-features = false }
