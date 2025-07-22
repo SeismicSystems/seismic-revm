@@ -74,12 +74,10 @@ where
         .data;
 
     if sender_balance < amount {
-        return Err(ERROR::from(
-            InvalidTransaction::LackOfFundForMaxFee {
-                fee: Box::new(amount),
-                balance: Box::new(sender_balance),
-            },
-        ));
+        return Err(ERROR::from(InvalidTransaction::LackOfFundForMaxFee {
+            fee: Box::new(amount),
+            balance: Box::new(sender_balance),
+        }));
     }
     // Subtract the amount from the sender's balance
     let sender_new_balance = sender_balance.saturating_sub(amount);
@@ -185,19 +183,14 @@ mod tests {
     }
 
     #[test]
-    fn test_gas_plus_transfer_success() {
-    }
+    fn test_gas_plus_transfer_success() {}
 
     #[test]
-    fn test_treasury_and_beneficiary_rewards() {
-    }
+    fn test_treasury_and_beneficiary_rewards() {}
 
     #[test]
-    fn test_gas_plus_transfer_over_the_limit() {
-    }
+    fn test_gas_plus_transfer_over_the_limit() {}
 
     #[test]
-    fn test_gas_across_multiple_transactions() {
-    }
-    
+    fn test_gas_across_multiple_transactions() {}
 }
