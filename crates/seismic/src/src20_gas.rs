@@ -344,7 +344,99 @@ mod tests {
 
     /// Test that if gas + transfer is over the limit, the transaction fails
     #[test]
-    fn test_gas_plus_transfer_over_the_limit() {}
+    fn test_gas_plus_transfer_over_the_limit() {
+        // Create a context with the gas contract
+        let mut ctx = SeismicContext::<DefaultSeismicDB>::seismic();
+
+        // Set up test addresses
+        let sender = Address::from([0x01; 20]);
+        let recipient = Address::from([0x02; 20]);
+
+        // Set initial balance that is too low to cover both transfer and gas
+        let sender_initial_balance = U256::from(200000); // 200k balance should cover gas, but not the transfer
+        let sender_balance_slot = gas_caller_key(sender);
+        ctx.db()
+            .insert_account_storage(
+                GAS_SRC20_ADDRESS,
+                sender_balance_slot,
+                FlaggedStorage::new(sender_initial_balance, true),
+            )
+            .unwrap();
+        JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+
+        // Make a transfer tx
+        let transfer_amount = U256::from(190000); // 190k < 200k
+        let gas_price = 1; 
+        let gas_limit = 100000; // 190k + 100k > 200k
+        
+        let call_data = transfer_call_data(recipient, transfer_amount);
+        let tx = ctx.modify_tx_chained(|tx| {
+            tx.base.kind = TxKind::Call(GAS_SRC20_ADDRESS);
+            tx.base.caller = sender;
+            tx.base.data = call_data;
+            tx.base.gas_limit = gas_limit;
+            tx.base.gas_price = gas_price;
+        });
+        
+        let inspector = revm::inspector::NoOpInspector::default();
+        let mut evm = tx.build_seismic_evm_with_inspector(inspector);
+        let result = evm.inspect_replay_commit().unwrap();
+
+        // The transaction should fail due to insufficient funds
+        assert!(
+            matches!(
+                result,
+                revm::context::result::ExecutionResult::Revert { .. }
+            ),
+            "Transaction should fail due to insufficient funds. Result: {:?}",
+            result
+        );
+
+        // Verify that the sender's balance decreased by the gas spent
+        let mut post_tx_ctx = evm.ctx().clone();
+        JournalTr::load_account(post_tx_ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+        let sender_final_balance =
+            gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(&mut post_tx_ctx, sender)
+                .unwrap();
+
+        let gas_spent = match result {
+            revm::context::result::ExecutionResult::Revert { gas_used, .. } => gas_used,
+            _ => unreachable!("Transaction should revert as checked above"),
+        };
+        let expected_gas_cost = U256::from(gas_spent * gas_price as u64);
+
+        assert_eq!(
+            sender_final_balance, sender_initial_balance.saturating_sub(expected_gas_cost),
+            "Sender balance should decrease by gas cost ({} tokens) when transaction fails. Expected: {}, Actual: {}",
+            expected_gas_cost, sender_initial_balance.saturating_sub(expected_gas_cost), sender_final_balance
+        );
+
+        // Verify that the recipient received nothing
+        let recipient_final_balance =
+            gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+                &mut post_tx_ctx,
+                recipient,
+            )
+            .unwrap();
+
+        assert_eq!(
+            recipient_final_balance, U256::ZERO,
+            "Recipient should receive nothing when transaction fails"
+        );
+
+        // Verify that the treasury received the gas fees
+        let treasury_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx_ctx,
+            TREASURY,
+        )
+        .unwrap();
+
+        assert_eq!(
+            treasury_final_balance, U256::from(gas_spent),
+            "Treasury should receive the gas fees ({} tokens) when transaction fails",
+            gas_spent
+        );
+    }
 
     /// Test that state is persisted correctly across multiple transactions
     #[test]
