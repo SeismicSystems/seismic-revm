@@ -135,7 +135,7 @@ impl SemanticTests {
         }
 
         let mut contract_infos =
-            Self::get_contract_infos(test_path, evm_version, via_ir, eof_mode, false, ssolc_path)?;
+            Self::get_contract_infos(test_path, ssolc_path, evm_version, via_ir, eof_mode, false)?;
 
         let test_cases = TestCase::from_expectations(expectations, &mut contract_infos[..])?;
         Ok(SemanticTests {
@@ -146,11 +146,11 @@ impl SemanticTests {
 
     fn compile_solidity(
         path: &str,
+        ssolc_path: &String,
         evm_version: Option<EVMVersion>,
         via_ir: bool,
         eof_mode: bool,
         runtime: bool,
-        ssolc_path: &String,
     ) -> Result<String, Errors> {
         let mut solc = Command::new(ssolc_path);
 
@@ -192,13 +192,14 @@ impl SemanticTests {
 
     fn get_contract_infos(
         path: &str,
+        ssolc_path: &String,
         evm_version: Option<EVMVersion>,
         via_ir: bool,
         eof_mode: bool,
         runtime: bool,
-        ssolc_path: &String,
     ) -> Result<Vec<ContractInfo>, Errors> {
-        let stdout_output = Self::compile_solidity(path, evm_version, via_ir, eof_mode, runtime, ssolc_path)?;
+        let stdout_output =
+            Self::compile_solidity(path, ssolc_path, evm_version, via_ir, eof_mode, runtime)?;
 
         let revm_version = evm_version.unwrap_or(EVMVersion::Mercury);
 
