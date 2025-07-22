@@ -49,6 +49,7 @@ indicatif.workspace = true
 rstest.workspace = true
 alloy-sol-types.workspace = true
 serde_json = { workspace = true, features = ["alloc"] }
+revm = { workspace = true, features = ["secp256r1", "serde-json"] }
 
 [features]
 default = ["std", "c-kzg", "secp256k1", "portable", "blst"]
