@@ -15,7 +15,7 @@ use revm::{
         Frame, FrameResult, Handler, MainnetHandler,
     },
     inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
-    interpreter::{interpreter::EthInterpreter, FrameInput},
+    interpreter::{interpreter::EthInterpreter, FrameInput, InstructionResult},
     primitives::U256,
 };
 
@@ -82,14 +82,16 @@ where
             .effective_balance_spending(basefee, blob_price)
             .expect("effective balance is always smaller than max balance so it can't overflow");
 
-        // Load the SRC20 Gas contract into the journal and mark it as warm,
-        // as the value should almost always update
+        // Load the SRC20 Gas contract into the journal and mark it as touched,
+        // as the value should always update
         // Then validate the caller's balance
         let caller_slot = gas_caller_key(caller);
         context
             .journal()
             .warm_account_and_storage(GAS_SRC20_ADDRESS, [caller_slot])
             .unwrap();
+        context.journal().touch_account(GAS_SRC20_ADDRESS);
+        
         let account_balance = gas_balance_of::<EVM::Context, ERROR>(context, caller)?;
 
         if account_balance < max_balance_spending && !is_balance_check_disabled {
@@ -134,6 +136,7 @@ where
         evm: &mut Self::Evm,
         exec_result: &mut <Self::Frame as Frame>::FrameResult,
     ) -> Result<(), Self::Error> {
+        println!("entered reimburse_caller");
         let context = evm.ctx();
         let basefee = context.block().basefee() as u128;
         let caller = context.tx().caller();

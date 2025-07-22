@@ -206,7 +206,7 @@ mod tests {
         JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
 
         // make a transfer tx
-        let transfer_amount = U256::from(5000);
+        let transfer_amount = U256::from(20000);
         let call_data = transfer_call_data(recipient, transfer_amount);
         let tx = ctx.modify_tx_chained(|tx| {
             tx.base.kind = TxKind::Call(GAS_SRC20_ADDRESS);
@@ -266,7 +266,6 @@ mod tests {
         let sender = Address::from([0x01; 20]);
         let recipient = Address::from([0x02; 20]);
         let beneficiary = Address::from([0x03; 20]); // Block beneficiary (miner/validator)
-        let treasury = TREASURY;
 
         // Set initial balance for sender
         let sender_initial_balance = U256::from(1000000000);
