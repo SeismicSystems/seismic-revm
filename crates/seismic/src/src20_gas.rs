@@ -439,7 +439,272 @@ mod tests {
 
     /// Test that state is persisted correctly across multiple transactions
     #[test]
-    fn test_gas_across_multiple_transactions() {}
+    fn test_gas_across_multiple_transactions() {
+        // Create a context with the gas contract
+        let mut ctx = SeismicContext::<DefaultSeismicDB>::seismic();
+
+        // Set up test addresses
+        let sender = Address::from([0x01; 20]);
+        let recipient1 = Address::from([0x02; 20]);
+        let recipient2 = Address::from([0x03; 20]);
+        let treasury = TREASURY;
+
+        // Set initial balance for sender
+        let sender_initial_balance = U256::from(1000000);
+        let sender_balance_slot = gas_caller_key(sender);
+        ctx.db()
+            .insert_account_storage(
+                GAS_SRC20_ADDRESS,
+                sender_balance_slot,
+                FlaggedStorage::new(sender_initial_balance, true),
+            )
+            .unwrap();
+        JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+
+        // Verify initial state
+        let initial_sender_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut ctx,
+            sender,
+        )
+        .unwrap();
+        assert_eq!(
+            initial_sender_balance, sender_initial_balance,
+            "Initial sender balance should match"
+        );
+
+        // Transaction 1: Successful transfer to recipient1
+        let transfer1_amount = U256::from(200000);
+        let call_data1 = transfer_call_data(recipient1, transfer1_amount);
+        let tx1 = ctx.modify_tx_chained(|tx| {
+            tx.base.kind = TxKind::Call(GAS_SRC20_ADDRESS);
+            tx.base.caller = sender;
+            tx.base.data = call_data1;
+            tx.base.gas_limit = 60000;
+            tx.base.gas_price = 1;
+            tx.base.nonce = 0;
+        });
+        
+        let inspector1 = revm::inspector::NoOpInspector::default();
+        let mut evm1 = tx1.build_seismic_evm_with_inspector(inspector1);
+        let result1 = evm1.inspect_replay_commit().unwrap();
+
+        assert!(
+            matches!(
+                result1,
+                revm::context::result::ExecutionResult::Success { .. }
+            ),
+            "First transaction should succeed. Result: {:?}",
+            result1
+        );
+
+        // Check balances after first transaction
+        let mut post_tx1_ctx = evm1.ctx().clone();
+        JournalTr::load_account(post_tx1_ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+        
+        let recipient1_after_tx1 = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx1_ctx,
+            recipient1,
+        )
+        .unwrap();
+        let treasury_after_tx1 = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx1_ctx,
+            treasury,
+        )
+        .unwrap();
+
+        let gas_used1 = match result1 {
+            revm::context::result::ExecutionResult::Success { gas_used, .. } => gas_used,
+            _ => unreachable!("Transaction should succeed as checked above"),
+        };
+
+        // Verify first transaction results
+        assert_eq!(
+            recipient1_after_tx1, transfer1_amount,
+            "Recipient1 should receive the transfer amount"
+        );
+        assert_eq!(
+            treasury_after_tx1, U256::from(gas_used1),
+            "Treasury should receive gas fees from first transaction"
+        );
+
+        // Transaction 2: Transfer from recipient1 to recipient2 (using the gas they received)
+        let transfer2_amount = U256::from(70000);
+        let call_data2 = transfer_call_data(recipient2, transfer2_amount);
+        let tx2 = post_tx1_ctx.modify_tx_chained(|tx| {
+            tx.base.kind = TxKind::Call(GAS_SRC20_ADDRESS);
+            tx.base.caller = recipient1;
+            tx.base.data = call_data2;
+            tx.base.gas_limit = 60000;
+            tx.base.gas_price = 1;
+            tx.base.nonce = 0;
+        });
+        
+        let inspector2 = revm::inspector::NoOpInspector::default();
+        let mut evm2 = tx2.build_seismic_evm_with_inspector(inspector2);
+        let result2 = evm2.inspect_replay_commit().unwrap();
+
+        assert!(
+            matches!(
+                result2,
+                revm::context::result::ExecutionResult::Success { .. }
+            ),
+            "Second transaction should succeed. Result: {:?}",
+            result2
+        );
+
+        // Check balances after second transaction
+        let mut post_tx2_ctx = evm2.ctx().clone();
+        JournalTr::load_account(post_tx2_ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+        
+        let sender_after_tx2 = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx2_ctx,
+            sender,
+        )
+        .unwrap();
+        let recipient1_after_tx2 = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx2_ctx,
+            recipient1,
+        )
+        .unwrap();
+        let recipient2_after_tx2 = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx2_ctx,
+            recipient2,
+        )
+        .unwrap();
+        let treasury_after_tx2 = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx2_ctx,
+            treasury,
+        )
+        .unwrap();
+
+        let gas_used2 = match result2 {
+            revm::context::result::ExecutionResult::Success { gas_used, .. } => gas_used,
+            _ => unreachable!("Transaction should succeed as checked above"),
+        };
+
+        // Verify second transaction results
+        assert_eq!(
+            recipient2_after_tx2, transfer2_amount,
+            "Recipient2 should receive the transfer amount"
+        );
+        assert_eq!(
+            recipient1_after_tx2, 
+            recipient1_after_tx1.saturating_sub(transfer2_amount).saturating_sub(U256::from(gas_used2)),
+            "Recipient1 should have balance reduced by transfer amount plus gas fees"
+        );
+        assert_eq!(
+            treasury_after_tx2, 
+            treasury_after_tx1.saturating_add(U256::from(gas_used2)),
+            "Treasury should accumulate gas fees from both transactions"
+        );
+
+        // Transaction 3: Failed transaction (insufficient balance)
+        let transfer3_amount = U256::from(100000); // More than recipient1 has
+        let call_data3 = transfer_call_data(recipient2, transfer3_amount);
+        let tx3 = post_tx2_ctx.modify_tx_chained(|tx| {
+            tx.base.kind = TxKind::Call(GAS_SRC20_ADDRESS);
+            tx.base.caller = recipient1;
+            tx.base.data = call_data3;
+            tx.base.gas_limit = 60000;
+            tx.base.gas_price = 1;
+            tx.base.nonce = 1;
+        });
+        
+        let inspector3 = revm::inspector::NoOpInspector::default();
+        let mut evm3 = tx3.build_seismic_evm_with_inspector(inspector3);
+        let result3 = evm3.inspect_replay_commit().unwrap();
+
+        assert!(
+            matches!(
+                result3,
+                revm::context::result::ExecutionResult::Revert { .. }
+            ),
+            "Third transaction should fail due to insufficient funds. Result: {:?}",
+            result3
+        );
+
+        // Check balances after failed transaction
+        let mut post_tx3_ctx = evm3.ctx().clone();
+        JournalTr::load_account(post_tx3_ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+        
+        let recipient1_after_tx3 = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx3_ctx,
+            recipient1,
+        )
+        .unwrap();
+        let recipient2_after_tx3 = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx3_ctx,
+            recipient2,
+        )
+        .unwrap();
+        let treasury_after_tx3 = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx3_ctx,
+            treasury,
+        )
+        .unwrap();
+
+        let gas_used3 = match result3 {
+            revm::context::result::ExecutionResult::Revert { gas_used, .. } => gas_used,
+            _ => unreachable!("Transaction should revert as checked above"),
+        };
+
+        // Verify failed transaction results
+        assert_eq!(
+            recipient2_after_tx3, recipient2_after_tx2,
+            "Recipient2 balance should not change after failed transaction"
+        );
+        assert_eq!(
+            recipient1_after_tx3, 
+            recipient1_after_tx2.saturating_sub(U256::from(gas_used3)),
+            "Recipient1 should lose gas fees even when transaction fails"
+        );
+        assert_eq!(
+            treasury_after_tx3, 
+            treasury_after_tx2.saturating_add(U256::from(gas_used3)),
+            "Treasury should receive gas fees even from failed transaction"
+        );
+
+        // Verify total token conservation across all transactions
+        let total_final_balance = sender_after_tx2 + recipient1_after_tx3 + recipient2_after_tx3 + treasury_after_tx3;
+        assert_eq!(
+            total_final_balance, sender_initial_balance,
+            "Total token balance should be conserved across all transactions. Expected: {}, Actual: {}",
+            sender_initial_balance, total_final_balance
+        );
+
+        // Verify that sender's balance decreased appropriately
+        let expected_sender_final = sender_initial_balance
+            .saturating_sub(transfer1_amount)
+            .saturating_sub(U256::from(gas_used1));
+        assert_eq!(
+            sender_after_tx2, expected_sender_final,
+            "Sender should have paid transfer amount plus gas fees"
+        );
+
+        // Verify that the state changes are properly persisted
+        // This demonstrates that the gas contract state is maintained across transaction boundaries
+        assert!(
+            sender_after_tx2 < sender_initial_balance,
+            "Sender balance should be less than initial after transactions"
+        );
+        assert!(
+            recipient1_after_tx3 > U256::ZERO,
+            "Recipient1 should still have some balance after failed transaction"
+        );
+        assert!(
+            recipient2_after_tx3 > U256::ZERO,
+            "Recipient2 should have received tokens from successful transaction"
+        );
+        assert!(
+            treasury_after_tx3 > U256::ZERO,
+            "Treasury should have accumulated gas fees from all transactions"
+        );
+    }
+
+    #[test]
+    fn test_insufficient_balance_for_gas_limit() {
+        todo!()
+    }
 
     /// Test that if the storage slot is not written, the balance is 0
     #[test]

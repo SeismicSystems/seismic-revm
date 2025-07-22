@@ -15,7 +15,7 @@ use revm::{
         Frame, FrameResult, Handler, MainnetHandler,
     },
     inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
-    interpreter::{interpreter::EthInterpreter, FrameInput, InstructionResult},
+    interpreter::{interpreter::EthInterpreter, FrameInput},
     primitives::U256,
 };
 
@@ -136,7 +136,6 @@ where
         evm: &mut Self::Evm,
         exec_result: &mut <Self::Frame as Frame>::FrameResult,
     ) -> Result<(), Self::Error> {
-        println!("entered reimburse_caller");
         let context = evm.ctx();
         let basefee = context.block().basefee() as u128;
         let caller = context.tx().caller();
