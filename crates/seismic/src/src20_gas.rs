@@ -184,7 +184,7 @@ mod tests {
 
     /// Test good path for a transfer transaction
     #[test]
-    fn test_gas_plus_transfer_success() {
+    fn test_transfer_good_path() {
         // Create a context with the gas contract
         let mut ctx = SeismicContext::<DefaultSeismicDB>::seismic();
 
@@ -206,7 +206,8 @@ mod tests {
         JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
 
         // make a transfer tx
-        let call_data = transfer_call_data(recipient, U256::from(5000));
+        let transfer_amount = U256::from(5000);
+        let call_data = transfer_call_data(recipient, transfer_amount);
         let tx = ctx.modify_tx_chained(|tx| {
             tx.base.kind = TxKind::Call(GAS_SRC20_ADDRESS);
             tx.base.caller = sender;
@@ -245,12 +246,13 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(recipient_final_balance, U256::from(5000));
+        assert_eq!(recipient_final_balance, transfer_amount);
         let total_token = sender_final_balance + recipient_final_balance + treasury_final_balance;
         assert_eq!(
             total_token, sender_initial_balance,
             "Total token should be conserved in a tx"
         );
+        assert!(sender_final_balance < sender_initial_balance - transfer_amount);
     }
 
     /// Test that beneficiary rewards are distributed correctly
