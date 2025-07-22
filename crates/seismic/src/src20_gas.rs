@@ -703,7 +703,68 @@ mod tests {
 
     #[test]
     fn test_insufficient_balance_for_gas_limit() {
-        todo!()
+        // Create a context with the gas contract
+        let mut ctx = SeismicContext::<DefaultSeismicDB>::seismic();
+
+        // Set up test addresses
+        let sender = Address::from([0x01; 20]);
+        let recipient = Address::from([0x02; 20]);
+
+        // Set initial balance that is enough for transfer but not enough for gas limit
+        let transfer_amount = U256::from(50000);
+        let gas_limit = 100000;
+        let gas_price = 1;
+        let max_gas_cost = U256::from(gas_limit * gas_price as u64);
+        let total_required = transfer_amount + max_gas_cost;
+        
+        // Set balance to be less than total required but more than transfer amount
+        let sender_initial_balance = transfer_amount + U256::from(10000); // 60k total, needs 150k
+        
+        let sender_balance_slot = gas_caller_key(sender);
+        ctx.db()
+            .insert_account_storage(
+                GAS_SRC20_ADDRESS,
+                sender_balance_slot,
+                FlaggedStorage::new(sender_initial_balance, true),
+            )
+            .unwrap();
+        JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+
+        // Verify initial state
+        let initial_sender_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut ctx,
+            sender,
+        )
+        .unwrap();
+        assert_eq!(
+            initial_sender_balance, sender_initial_balance,
+            "Initial sender balance should match"
+        );
+        assert!(
+            sender_initial_balance < total_required,
+            "Sender should have insufficient balance for gas limit + transfer"
+        );
+        assert!(
+            sender_initial_balance > transfer_amount,
+            "Sender should have enough balance for transfer alone"
+        );
+
+        // Attempt transaction with insufficient balance for gas limit
+        let call_data = transfer_call_data(recipient, transfer_amount);
+        let tx = ctx.modify_tx_chained(|tx| {
+            tx.base.kind = TxKind::Call(GAS_SRC20_ADDRESS);
+            tx.base.caller = sender;
+            tx.base.data = call_data;
+            tx.base.gas_limit = gas_limit;
+            tx.base.gas_price = gas_price;
+            tx.base.nonce = 0;
+        });
+        
+        let inspector = revm::inspector::NoOpInspector::default();
+        let mut evm = tx.build_seismic_evm_with_inspector(inspector);
+        let result = evm.inspect_replay_commit();
+
+        assert!(result.is_err(), "Transaction should fail due to LackOfFundForMaxFee");
     }
 
     /// Test that if the storage slot is not written, the balance is 0
