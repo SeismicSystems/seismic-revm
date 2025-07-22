@@ -257,7 +257,81 @@ mod tests {
 
     /// Test that beneficiary rewards are distributed correctly
     #[test]
-    fn test_beneficiary_rewards() {}
+    fn test_beneficiary_rewards() {
+        // Create a context with the gas contract
+        let mut ctx = SeismicContext::<DefaultSeismicDB>::seismic();
+
+        // Set up test addresses
+        let sender = Address::from([0x01; 20]);
+        let recipient = Address::from([0x02; 20]);
+        let beneficiary = Address::from([0x03; 20]); // Block beneficiary (miner/validator)
+        let treasury = TREASURY;
+
+        // Set initial balance for sender
+        let sender_initial_balance = U256::from(1000000000);
+        let sender_balance_slot = gas_caller_key(sender);
+        ctx.db()
+            .insert_account_storage(
+                GAS_SRC20_ADDRESS,
+                sender_balance_slot,
+                FlaggedStorage::new(sender_initial_balance, true),
+            )
+            .unwrap();
+        JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+
+        // Set up transaction with specific gas parameters
+        let gas_limit = 100000;
+        let gas_price = 10; 
+        let basefee = 2;
+        
+        let call_data = transfer_call_data(recipient, U256::from(5000));
+        let tx = ctx.modify_tx_chained(|tx| {
+            tx.base.kind = TxKind::Call(GAS_SRC20_ADDRESS);
+            tx.base.caller = sender;
+            tx.base.data = call_data;
+            tx.base.gas_limit = gas_limit;
+            tx.base.gas_price = gas_price;
+        }).modify_block_chained(|block| {
+            block.beneficiary = beneficiary;
+            block.basefee = basefee;
+        });
+        
+        let inspector = revm::inspector::NoOpInspector::default();
+        let mut evm = tx.build_seismic_evm_with_inspector(inspector);
+        let result = evm.inspect_replay_commit().unwrap();
+
+        assert!(
+            matches!(
+                result,
+                revm::context::result::ExecutionResult::Success { .. }
+            ),
+            "Transaction should succeed. Result: {:?}",
+            result
+        );
+
+        // Check the balances in the resulting evm context
+        let mut post_tx_ctx = evm.ctx().clone();
+        JournalTr::load_account(post_tx_ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+        
+        let beneficiary_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx_ctx,
+            beneficiary,
+        )
+        .unwrap();
+
+        // Verify that the beneficiary received rewards
+        assert!(
+            beneficiary_final_balance > U256::ZERO,
+            "Beneficiary should receive gas rewards"
+        );
+
+        // // Verify that the beneficiary rewards are correct
+        // // The beneficiary should receive rewards based on gas spent * (gas_price - basefee)
+        // assert!(
+        //     beneficiary_final_balance > U256::ZERO && beneficiary_final_balance < sender_initial_balance,
+        //     "Beneficiary rewards should be positive and less than sender's initial balance"
+        // );
+    }
 
     /// Test that if gas + transfer is over the limit, the transaction fails
     #[test]
