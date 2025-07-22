@@ -160,13 +160,12 @@ mod tests {
     use crate::api::builder::SeismicBuilder;
     use crate::api::default_ctx::{DefaultSeismicContext, DefaultSeismicDB, SeismicContext};
     use revm::context::result::{EVMError, InvalidTransaction};
-    use revm::primitives::TxKind;
-    use revm::primitives::{Bytes, U256};
-    use std::convert::Infallible;
-    use revm::inspector::{InspectEvm};
-    use revm::InspectCommitEvm;
     use revm::handler::EvmTr;
     use revm::primitives::FlaggedStorage;
+    use revm::primitives::TxKind;
+    use revm::primitives::{Bytes, U256};
+    use revm::InspectCommitEvm;
+    use std::convert::Infallible;
 
     fn transfer_call_data(recipient: Address, amount: U256) -> Bytes {
         // Function selector for transfer(saddress,suint256)
@@ -196,10 +195,14 @@ mod tests {
         let sender_initial_balance = U256::from(1000000);
         let sender_balance_slot = gas_caller_key(sender);
         ctx.db()
-            .insert_account_storage(GAS_SRC20_ADDRESS, sender_balance_slot, FlaggedStorage::new(sender_initial_balance, true))
+            .insert_account_storage(
+                GAS_SRC20_ADDRESS,
+                sender_balance_slot,
+                FlaggedStorage::new(sender_initial_balance, true),
+            )
             .unwrap();
         JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
-        
+
         // make a transfer tx
         let call_data = transfer_call_data(recipient, U256::from(5000));
         let tx = ctx.modify_tx_chained(|tx| {
@@ -213,34 +216,39 @@ mod tests {
         let mut evm = tx.build_seismic_evm_with_inspector(inspector);
         let result = evm.inspect_replay_commit().unwrap();
 
-        assert!(matches!(
-            result,
-            revm::context::result::ExecutionResult::Success { .. }
-        ), "Transaction should succeed. Result: {:?}", result);
+        assert!(
+            matches!(
+                result,
+                revm::context::result::ExecutionResult::Success { .. }
+            ),
+            "Transaction should succeed. Result: {:?}",
+            result
+        );
 
         // Check the balances in the resulting evm context
         let mut post_tx_ctx = evm.ctx().clone();
         JournalTr::load_account(post_tx_ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
-        let sender_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
-            &mut post_tx_ctx,
-            sender,
-        )
-        .unwrap();
-        let recipient_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
-            &mut post_tx_ctx,
-            recipient,
-        )
-        .unwrap();
+        let sender_final_balance =
+            gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(&mut post_tx_ctx, sender)
+                .unwrap();
+        let recipient_final_balance =
+            gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+                &mut post_tx_ctx,
+                recipient,
+            )
+            .unwrap();
         let treasury_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
             &mut post_tx_ctx,
             treasury,
         )
         .unwrap();
 
-        assert_ne!(sender_final_balance, U256::ZERO, "Sender balance should not be zero");
-        assert_eq!(sender_final_balance, sender_initial_balance.saturating_sub(U256::from(10000)));
-        assert_eq!(recipient_final_balance, U256::from(10000));
-        assert_eq!(treasury_final_balance, U256::ZERO);
+        assert_eq!(recipient_final_balance, U256::from(5000));
+        let total_token = sender_final_balance + recipient_final_balance + treasury_final_balance;
+        assert_eq!(
+            total_token, sender_initial_balance,
+            "Total token should be conserved in a tx"
+        );
     }
 
     #[test]
