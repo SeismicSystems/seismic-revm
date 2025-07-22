@@ -246,13 +246,14 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(recipient_final_balance, transfer_amount);
+        assert_eq!(recipient_final_balance, transfer_amount, "recipient did not receive the transfer amount");
         let total_token = sender_final_balance + recipient_final_balance + treasury_final_balance;
         assert_eq!(
             total_token, sender_initial_balance,
             "Total token should be conserved in a tx"
         );
-        assert!(sender_final_balance < sender_initial_balance - transfer_amount);
+        assert!(sender_final_balance < sender_initial_balance - transfer_amount, "sender should have paid more than just the transfer amount due to gas");
+        assert_eq!(treasury_final_balance, U256::from(result.gas_used()), "treasury should have received the gas fees");
     }
 
     /// Test that beneficiary rewards are distributed correctly
@@ -318,19 +319,27 @@ mod tests {
             beneficiary,
         )
         .unwrap();
-
+    
         // Verify that the beneficiary received rewards
         assert!(
             beneficiary_final_balance > U256::ZERO,
             "Beneficiary should receive gas rewards"
         );
 
-        // // Verify that the beneficiary rewards are correct
-        // // The beneficiary should receive rewards based on gas spent * (gas_price - basefee)
-        // assert!(
-        //     beneficiary_final_balance > U256::ZERO && beneficiary_final_balance < sender_initial_balance,
-        //     "Beneficiary rewards should be positive and less than sender's initial balance"
-        // );
+        // Calculate the exact expected beneficiary rewards
+        let gas_spent = result.gas_used();
+        let gas_refunded = match result {
+            revm::context::result::ExecutionResult::Success { gas_used: _, gas_refunded, .. } => gas_refunded,
+            _ => unreachable!("Transaction should succeed as checked above"),
+        };
+        let coinbase_gas_price = gas_price.saturating_sub(basefee as u128);
+        let expected_reward = coinbase_gas_price.saturating_mul((gas_spent - gas_refunded as u64) as u128);
+        
+        assert_eq!(
+            beneficiary_final_balance, U256::from(expected_reward),
+            "Beneficiary should receive exactly {} tokens as gas rewards (gas_spent: {}, coinbase_gas_price: {})",
+            expected_reward, gas_spent, coinbase_gas_price
+        );
     }
 
     /// Test that if gas + transfer is over the limit, the transaction fails
