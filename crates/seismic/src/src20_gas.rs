@@ -167,6 +167,7 @@ mod tests {
     use revm::InspectCommitEvm;
     use std::convert::Infallible;
 
+    /// Helper function to create the call data for a transfer transaction
     fn transfer_call_data(recipient: Address, amount: U256) -> Bytes {
         // Function selector for transfer(saddress,suint256)
         let selector = bytes!("0x8cdb7b34");
@@ -181,6 +182,7 @@ mod tests {
         data.into()
     }
 
+    /// Test good path for a transfer transaction
     #[test]
     fn test_gas_plus_transfer_success() {
         // Create a context with the gas contract
@@ -251,15 +253,19 @@ mod tests {
         );
     }
 
+    /// Test that beneficiary rewards are distributed correctly
     #[test]
-    fn test_treasury_and_beneficiary_rewards() {}
+    fn test_beneficiary_rewards() {}
 
+    /// Test that if gas + transfer is over the limit, the transaction fails
     #[test]
     fn test_gas_plus_transfer_over_the_limit() {}
 
+    /// Test that state is persisted correctly across multiple transactions
     #[test]
     fn test_gas_across_multiple_transactions() {}
 
+    /// Test that if the storage slot is not written, the balance is 0
     #[test]
     fn test_gas_balance_of_unwritten_storage_returns_zero() {
         // Create a context with the gas contract
