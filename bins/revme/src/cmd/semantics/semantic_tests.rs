@@ -108,8 +108,8 @@ pub struct SemanticTests {
 }
 
 impl SemanticTests {
-    pub fn new(path: &str, skip_eof: bool) -> Result<Self, Errors> {
-        let content = fs::read_to_string(path)?;
+    pub fn new(test_path: &str, ssolc_path: &String, skip_eof: bool) -> Result<Self, Errors> {
+        let content = fs::read_to_string(test_path)?;
         let parts: Vec<&str> = content.split("// ----").collect();
         if parts.len() != 2 {
             return Err(Errors::InvalidTestFormat);
@@ -135,7 +135,7 @@ impl SemanticTests {
         }
 
         let mut contract_infos =
-            Self::get_contract_infos(path, evm_version, via_ir, eof_mode, false)?;
+            Self::get_contract_infos(test_path, ssolc_path, evm_version, via_ir, eof_mode, false)?;
 
         let test_cases = TestCase::from_expectations(expectations, &mut contract_infos[..])?;
         Ok(SemanticTests {
@@ -146,12 +146,13 @@ impl SemanticTests {
 
     fn compile_solidity(
         path: &str,
+        ssolc_path: &String,
         evm_version: Option<EVMVersion>,
         via_ir: bool,
         eof_mode: bool,
         runtime: bool,
     ) -> Result<String, Errors> {
-        let mut solc = Command::new("/usr/local/bin/solc");
+        let mut solc = Command::new(ssolc_path);
 
         solc.arg(if runtime { "--bin-runtime" } else { "--bin" })
             .arg(path);
@@ -191,12 +192,14 @@ impl SemanticTests {
 
     fn get_contract_infos(
         path: &str,
+        ssolc_path: &String,
         evm_version: Option<EVMVersion>,
         via_ir: bool,
         eof_mode: bool,
         runtime: bool,
     ) -> Result<Vec<ContractInfo>, Errors> {
-        let stdout_output = Self::compile_solidity(path, evm_version, via_ir, eof_mode, runtime)?;
+        let stdout_output =
+            Self::compile_solidity(path, ssolc_path, evm_version, via_ir, eof_mode, runtime)?;
 
         let revm_version = evm_version.unwrap_or(EVMVersion::Mercury);
 

@@ -31,8 +31,12 @@ use utils::find_test_files;
 pub struct Cmd {
     /// Path to a Solidity file or directory containing Solidity files. If no file is provided,
     /// it will default to the Solidity semantic tests directory.
-    #[clap(long)]
-    path: Option<PathBuf>,
+    #[clap(short = 't', long, alias = "tests")]
+    tests_path: Option<PathBuf>,
+
+    /// Path to seismic-solidity executable
+    #[clap(short = 's', long, alias = "ssolc", default_value_t = String::from("/usr/local/bin/solc"))]
+    ssolc_path: String,
 
     /// Print the trace.
     #[clap(long)]
@@ -43,7 +47,7 @@ pub struct Cmd {
     verbose: u8,
 
     /// Run tests in a single thread.
-    #[clap(short = 's', long)]
+    #[clap(short = 'i', long)]
     single_thread: bool,
 
     /// Will not return on failure.
@@ -96,7 +100,7 @@ impl Cmd {
     }
 
     fn find_test_files(&self) -> Result<Vec<PathBuf>, Errors> {
-        if let Some(ref path) = self.path {
+        if let Some(ref path) = self.tests_path {
             if path.is_file() {
                 Ok(vec![path.clone()])
             } else if path.is_dir() {
@@ -119,7 +123,7 @@ impl Cmd {
         info!("test_file: {:?}", test_file);
         let test_file_path = test_file.to_str().ok_or(Errors::InvalidTestFormat)?;
 
-        match SemanticTests::new(test_file_path, !self.eof) {
+        match SemanticTests::new(test_file_path, &self.ssolc_path, !self.eof) {
             Ok(semantic_tests) => {
                 let evm_version = semantic_tests.contract_infos[0].evm_version;
                 let evm_config = EvmConfig::new(evm_version);
