@@ -1,7 +1,7 @@
 //! This module contains the logic for the GAS_SRC20 token contract.
 //! Seismic uses a custom ERC20 token contract to handle gas fees
 
-use alloy_sol_types::{SolValue};
+use alloy_sol_types::SolValue;
 use anyhow::Result;
 use revm::{
     bytecode::Bytecode,
@@ -157,49 +157,27 @@ pub fn gas_contract_account_info() -> revm::state::AccountInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::builder::SeismicBuilder;
     use crate::api::default_ctx::{DefaultSeismicContext, DefaultSeismicDB, SeismicContext};
     use revm::context::result::{EVMError, InvalidTransaction};
-    use std::convert::Infallible;
-    use crate::api::builder::SeismicBuilder;
-    use revm::{
-        primitives::{Bytes, U256},
-    };
     use revm::primitives::TxKind;
-    use alloy_sol_types::{sol, SolCall};
-
-    use revm::{
-        inspector::{InspectEvm, inspectors::TracerEip3155},
-    };
-
+    use revm::primitives::{Bytes, U256};
+    use std::convert::Infallible;
+    use revm::inspector::{InspectEvm};
+    use revm::handler::EvmTr;
 
     fn transfer_call_data(recipient: Address, amount: U256) -> Bytes {
-        sol! {
-            function transfer(address to, uint256 amount) external returns (bool);
-        }
+        // Function selector for transfer(saddress,suint256)
+        let selector = bytes!("0x8cdb7b34");
 
-        let encoded = transferCall { to: recipient, amount }.abi_encode();
-        encoded.into()
-    }
+        // ABI encode just the arguments (not including selector)
+        let encoded_args = (recipient, amount).abi_encode();
 
-    #[test]
-    fn test_gas_balance_of_unwritten_storage_returns_zero() {
-        // Create a context with the gas contract
-        let mut ctx = SeismicContext::<DefaultSeismicDB>::seismic();
+        // Concatenate selector and encoded args
+        let mut data = selector.to_vec();
+        data.extend_from_slice(&encoded_args);
 
-        // Try to get balance for an address that has never had any balance set
-        // This should return 0 even though the storage slot has never been written to
-        let test_address = Address::from([0x42; 20]);
-
-        // This should return 0, not panic
-        JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
-        let balance =
-            gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(&mut ctx, test_address)
-                .unwrap();
-        assert_eq!(
-            balance,
-            U256::ZERO,
-            "Balance should be zero for unwritten storage slot"
-        );
+        data.into()
     }
 
     #[test]
@@ -232,52 +210,66 @@ mod tests {
             tx.base.gas_price = 1;
         });
 
-        
-        let inspector = TracerEip3155::new_stdout();
+        let inspector = revm::inspector::NoOpInspector::default(); // use revm::inspector::inspectors::TracerEip3155::new_stdout() for more detailed output
         let mut evm = tx.build_seismic_evm_with_inspector(inspector);
         let result = evm.inspect_replay().unwrap();
 
-        todo!("todo: check the result");
-        
-        // assert!(matches!(
-        //     result.result,
-        //     revm::context::result::ExecutionResult::Success { .. }
-        // ), "Transaction should succeed. Result: {:?}", result);
+        assert!(matches!(
+            result.result,
+            revm::context::result::ExecutionResult::Success { .. }
+        ), "Transaction should succeed. Result: {:?}", result.result);
 
-        // // Check that resulting balances - need to use the context from the EVM
-        // let mut ctx = evm.ctx().clone();
-        // let sender_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
-        //     &mut ctx,
-        //     sender,
-        // )
-        // .unwrap();
-        // let recipient_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
-        //     &mut ctx,
-        //     recipient,
-        // )
-        // .unwrap();
-        // let treasury_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
-        //     &mut ctx,
-        //     treasury,
-        // )
-        // .unwrap();
+        // Check that resulting balances - need to use the context from the EVM
+        let mut ctx = evm.ctx().clone();
+        JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+        let sender_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut ctx,
+            sender,
+        )
+        .unwrap();
+        let recipient_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut ctx,
+            recipient,
+        )
+        .unwrap();
+        let treasury_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut ctx,
+            treasury,
+        )
+        .unwrap();
 
-        // // assert_eq!(sender_final_balance, sender_initial_balance.saturating_sub(U256::from(10000)));
-        // assert_eq!(recipient_final_balance, U256::from(10000));
-        // assert_eq!(treasury_final_balance, U256::ZERO);
+        // assert_eq!(sender_final_balance, sender_initial_balance.saturating_sub(U256::from(10000)));
+        assert_eq!(recipient_final_balance, U256::from(10000));
+        assert_eq!(treasury_final_balance, U256::ZERO);
     }
 
     #[test]
-    fn test_treasury_and_beneficiary_rewards() {
-    }
+    fn test_treasury_and_beneficiary_rewards() {}
 
     #[test]
-    fn test_gas_plus_transfer_over_the_limit() {
-
-    }
+    fn test_gas_plus_transfer_over_the_limit() {}
 
     #[test]
-    fn test_gas_across_multiple_transactions() {
+    fn test_gas_across_multiple_transactions() {}
 
+    #[test]
+    fn test_gas_balance_of_unwritten_storage_returns_zero() {
+        // Create a context with the gas contract
+        let mut ctx = SeismicContext::<DefaultSeismicDB>::seismic();
+
+        // Try to get balance for an address that has never had any balance set
+        // This should return 0 even though the storage slot has never been written to
+        let test_address = Address::from([0x42; 20]);
+
+        // This should return 0, not panic
+        JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+        let balance =
+            gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(&mut ctx, test_address)
+                .unwrap();
+        assert_eq!(
+            balance,
+            U256::ZERO,
+            "Balance should be zero for unwritten storage slot"
+        );
     }
 }
