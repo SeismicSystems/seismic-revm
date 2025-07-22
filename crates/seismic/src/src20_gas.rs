@@ -75,7 +75,10 @@ where
 
     if sender_balance < amount {
         return Err(ERROR::from(
-            InvalidTransaction::MaxFeePerBlobGasNotSupported, // TODO: this error seems wrong
+            InvalidTransaction::LackOfFundForMaxFee {
+                fee: Box::new(amount),
+                balance: Box::new(sender_balance),
+            },
         ));
     }
     // Subtract the amount from the sender's balance
