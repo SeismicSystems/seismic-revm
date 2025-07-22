@@ -180,11 +180,10 @@ pub(crate) fn validate_input_length(
 #[cfg(test)]
 mod tests {
     use crate::transaction::abstraction::SeismicTransaction;
-    use crate::{DefaultSeismicContext, SeismicContext};
+    use crate::{DefaultSeismicContext, DefaultSeismicDB, SeismicContext};
     use std::vec;
 
     use super::*;
-    use revm::database::EmptyDB;
     use revm::precompile::PrecompileError;
     use revm::primitives::{Bytes, B256};
     use revm::Context;
@@ -195,8 +194,8 @@ mod tests {
     ) -> (
         u64,
         Bytes,
-        SeismicContext<EmptyDB>,
-        StatefulPrecompileWithAddress<SeismicContext<EmptyDB>>,
+        SeismicContext<DefaultSeismicDB>,
+        StatefulPrecompileWithAddress<SeismicContext<DefaultSeismicDB>>,
     ) {
         let gas_limit = 6000;
 
@@ -215,7 +214,7 @@ mod tests {
         let context = Context::seismic().with_tx(tx);
 
         // Get precompile function
-        let precompile = rng_precompile::<SeismicContext<EmptyDB>>;
+        let precompile = rng_precompile::<SeismicContext<DefaultSeismicDB>>;
 
         (gas_limit, input, context, precompile())
     }

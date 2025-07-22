@@ -147,20 +147,27 @@ mod tests {
     use crate::precompiles::rng::precompile::{calculate_fill_cost, calculate_init_cost};
     use crate::transaction::abstraction::SeismicTransaction;
     use crate::{
-        DefaultSeismicContext, SeismicBuilder, SeismicChain, SeismicContext, SeismicHaltReason,
-        SeismicSpecId,
+        DefaultSeismicContext, DefaultSeismicDB, SeismicBuilder, SeismicChain, SeismicContext,
+        SeismicHaltReason, SeismicSpecId,
     };
     use anyhow::bail;
     use rand_core::RngCore;
-    use revm::context::result::{ExecutionResult, Output, ResultAndState};
+    use revm::context::result::{
+        EVMError, ExecutionResult, InvalidTransaction, Output, ResultAndState,
+    };
     use revm::context::{BlockEnv, CfgEnv, Context, ContextTr, JournalTr, TxEnv};
-    use revm::database::{EmptyDB, InMemoryDB, BENCH_CALLER};
+    use revm::database::{BENCH_CALLER, BENCH_CALLER_BALANCE};
     use revm::interpreter::gas::calculate_initial_tx_gas;
     use revm::interpreter::InitialAndFloorGas;
     use revm::precompile::u64_to_address;
     use revm::primitives::{Address, Bytes, TxKind, B256, U256};
     use revm::{ExecuteCommitEvm, ExecuteEvm, Journal};
     use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
+    use std::convert::Infallible;
+
+    use crate::src20_gas::{
+        gas_set_balance, map_storage, GAS_SRC20_ADDRESS, GAS_SRC20_BALANCE_SLOT,
+    };
 
     // === Fixture data ===
 
@@ -180,16 +187,30 @@ mod tests {
         (bytecode, selector)
     }
 
+    fn setup_ctx() -> SeismicContext<DefaultSeismicDB> {
+        let mut ctx = Context::seismic();
+
+        // set the bench caller balance to have gas
+        JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+        gas_set_balance::<SeismicContext<DefaultSeismicDB>, EVMError<Infallible, InvalidTransaction>>(
+            &mut ctx,
+            BENCH_CALLER,
+            BENCH_CALLER_BALANCE,
+        )
+        .unwrap();
+
+        ctx
+    }
+
     // === Test helpers ===
 
-    fn deploy_contract() -> anyhow::Result<(SeismicContext<InMemoryDB>, Address)> {
+    fn deploy_contract() -> anyhow::Result<(SeismicContext<DefaultSeismicDB>, Address)> {
+        let ctx = setup_ctx();
         let (bytecode, _) = get_meta_data();
-        let ctx = Context::seismic()
-            .modify_tx_chained(|tx| {
-                tx.base.kind = TxKind::Create;
-                tx.base.data = bytecode.clone();
-            })
-            .with_db(InMemoryDB::default());
+        let ctx = ctx.modify_tx_chained(|tx| {
+            tx.base.kind = TxKind::Create;
+            tx.base.data = bytecode.clone();
+        });
 
         let mut evm = ctx.build_seismic_evm();
         let receipt = evm.replay_commit()?;
@@ -205,12 +226,12 @@ mod tests {
     }
 
     fn prepare_call(
-        ctx: SeismicContext<InMemoryDB>,
+        ctx: SeismicContext<DefaultSeismicDB>,
         contract: Address,
         selector: Bytes,
         gas_limit: u64,
         gas_price: u64,
-    ) -> SeismicContext<InMemoryDB> {
+    ) -> SeismicContext<DefaultSeismicDB> {
         let mut ctx = ctx;
 
         ctx.modify_tx(|tx| {
@@ -240,11 +261,17 @@ mod tests {
         ));
 
         let expected = U256::from(starting_balance - gas_limit * gas_price);
-        assert_eq!(
-            result.state.get(&BENCH_CALLER).unwrap().info.balance,
-            expected,
-            "Caller balance after gas"
-        );
+        let actual = result
+            .state
+            .get(&GAS_SRC20_ADDRESS)
+            .unwrap()
+            .storage
+            .get(&map_storage(BENCH_CALLER, GAS_SRC20_BALANCE_SLOT))
+            .unwrap()
+            .present_value
+            .value;
+
+        assert_eq!(actual, expected, "Caller balance after gas");
 
         let final_nonce = result.state.get(&BENCH_CALLER).unwrap().info.nonce;
         assert_eq!(final_nonce, 1, "Caller nonce incremented by 1");
@@ -262,16 +289,19 @@ mod tests {
         let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
         let mut evm = call_ctx.build_seismic_evm();
-        let account = evm.ctx().journal().load_account(BENCH_CALLER).unwrap();
-        account.data.info.balance = U256::from(balance);
+        JournalTr::load_account(evm.ctx().journal(), GAS_SRC20_ADDRESS).unwrap();
+        gas_set_balance::<
+            SeismicContext<DefaultSeismicDB>,
+            EVMError<Infallible, InvalidTransaction>,
+        >(evm.ctx(), BENCH_CALLER, U256::from(balance))?;
 
         let result = evm.replay()?;
-
         assert_cload_error(&result, balance, gas_limit, gas_price);
         Ok(())
     }
 
-    fn rng_test_tx(
+    fn rng_test_ctx(
+        base_ctx: SeismicContext<DefaultSeismicDB>,
         spec: SeismicSpecId,
         bytes_requested: u32,
         personalization: Vec<u8>,
@@ -279,8 +309,8 @@ mod tests {
         BlockEnv,
         SeismicTransaction<TxEnv>,
         CfgEnv<SeismicSpecId>,
-        EmptyDB,
-        Journal<EmptyDB>,
+        DefaultSeismicDB,
+        Journal<DefaultSeismicDB>,
         SeismicChain,
     > {
         let mut input_data = bytes_requested.to_be_bytes().to_vec();
@@ -294,7 +324,7 @@ mod tests {
             + calculate_init_cost(personalization.len())
             + calculate_fill_cost(bytes_requested as usize);
 
-        Context::seismic()
+        base_ctx
             .modify_tx_chained(|tx| {
                 tx.base.kind = TxKind::Call(u64_to_address(rng::precompile::RNG_ADDRESS));
                 tx.base.data = input;
@@ -310,7 +340,9 @@ mod tests {
         let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
 
         // Get EVM output
-        let ctx = rng_test_tx(
+        let base_ctx = setup_ctx();
+        let ctx = rng_test_ctx(
+            base_ctx,
             SeismicSpecId::MERCURY,
             bytes_requested,
             personalization.clone(),

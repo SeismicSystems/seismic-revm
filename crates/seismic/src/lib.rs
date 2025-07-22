@@ -13,11 +13,12 @@ pub mod instructions;
 pub mod precompiles;
 pub mod result;
 pub mod spec;
+pub mod src20_gas;
 pub mod transaction;
 
 pub use api::{
     builder::SeismicBuilder,
-    default_ctx::{DefaultSeismicContext, SeismicContext},
+    default_ctx::{DefaultSeismicContext, DefaultSeismicDB, SeismicContext},
 };
 pub use chain::seismic_chain::SeismicChain;
 pub use evm::SeismicEvm;

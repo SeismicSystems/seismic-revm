@@ -40,6 +40,8 @@ hkdf = { version = "0.12", default-features = false }
 seismic-enclave = { workspace = true, default-features = false}
 sha2 = { workspace = true } 
 secp256k1 = { workspace = true }
+alloy-sol-types = { workspace = true }
+anyhow = { workspace = true }
 
 [dev-dependencies]
 anyhow.workspace = true

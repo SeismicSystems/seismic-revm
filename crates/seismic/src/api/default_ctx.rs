@@ -1,7 +1,10 @@
+use crate::src20_gas::gas_contract_account_info;
+use crate::src20_gas::GAS_SRC20_ADDRESS;
 use crate::{transaction::abstraction::SeismicTransaction, SeismicChain, SeismicSpecId};
+use revm::context::ContextTr;
+use revm::database::InMemoryDB;
 use revm::{
     context::{BlockEnv, CfgEnv, TxEnv},
-    database_interface::EmptyDB,
     Context, Journal, MainContext,
 };
 
@@ -15,18 +18,28 @@ pub type SeismicContext<DB> = Context<
     SeismicChain,
 >;
 
+pub type DefaultSeismicDB = InMemoryDB;
+
 /// Trait that allows for a default context to be created.
 pub trait DefaultSeismicContext {
     /// Create a default context.
-    fn seismic() -> SeismicContext<EmptyDB>;
+    fn seismic() -> SeismicContext<DefaultSeismicDB>;
 }
 
-impl DefaultSeismicContext for SeismicContext<EmptyDB> {
+impl DefaultSeismicContext for SeismicContext<DefaultSeismicDB> {
     fn seismic() -> Self {
-        Context::mainnet()
+        let mut ctx = Context::mainnet()
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
             .with_chain(SeismicChain::default())
+            .with_db(DefaultSeismicDB::default());
+
+        // Set up the seismic gas contract
+        let gas_contract_info = gas_contract_account_info();
+        ctx.db()
+            .insert_account_info(GAS_SRC20_ADDRESS, gas_contract_info);
+
+        ctx
     }
 }
 

@@ -201,7 +201,7 @@ mod tests {
     use super::*;
     use revm::{database::EmptyDB, primitives::hex};
 
-    use crate::{DefaultSeismicContext, SeismicContext};
+    use crate::{DefaultSeismicContext, DefaultSeismicDB, SeismicContext};
 
     #[test]
     fn test_cancun_precompiles_in_mercury() {
@@ -216,11 +216,12 @@ mod tests {
 
     #[test]
     fn test_default_precompiles_is_latest() {
-        let latest =
-            SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::default())
-                .inner
-                .precompiles;
-        let default = SeismicPrecompiles::<SeismicContext<EmptyDB>>::default()
+        let latest = SeismicPrecompiles::<SeismicContext<DefaultSeismicDB>>::new_with_spec(
+            SeismicSpecId::default(),
+        )
+        .inner
+        .precompiles;
+        let default = SeismicPrecompiles::<SeismicContext<DefaultSeismicDB>>::default()
             .inner
             .precompiles;
         assert_eq!(latest.len(), default.len());
@@ -231,9 +232,10 @@ mod tests {
 
     #[test]
     fn test_seismic_precompiles_rng() {
-        let mut precompiles =
-            SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
-        let mut context = SeismicContext::<EmptyDB>::seismic();
+        let mut precompiles = SeismicPrecompiles::<SeismicContext<DefaultSeismicDB>>::new_with_spec(
+            SeismicSpecId::MERCURY,
+        );
+        let mut context = SeismicContext::<DefaultSeismicDB>::seismic();
         let rng_address = *precompiles
             .stateful_precompiles
             .addresses()

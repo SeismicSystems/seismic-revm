@@ -1,16 +1,22 @@
 //!Handler related to Seismic chain
+use crate::src20_gas::{
+    gas_balance_of, gas_caller_key, gas_set_balance, gas_token_operation, GAS_SRC20_ADDRESS,
+    TREASURY,
+};
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
 use revm::{
     context::{
         result::{ExecutionResult, InvalidTransaction, ResultAndState},
         ContextTr, JournalTr, Transaction,
     },
-    context_interface::{context::ContextError, result::FromStringError},
+    context_interface::{context::ContextError, result::FromStringError, Block, Cfg},
     handler::{
-        handler::EvmTrError, post_execution, EvmTr, Frame, FrameResult, Handler, MainnetHandler,
+        handler::EvmTrError, post_execution, pre_execution::validate_account_nonce_and_code, EvmTr,
+        Frame, FrameResult, Handler, MainnetHandler,
     },
     inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
     interpreter::{interpreter::EthInterpreter, FrameInput},
+    primitives::U256,
 };
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
@@ -43,6 +49,143 @@ where
     type Error = ERROR;
     type Frame = FRAME;
     type HaltReason = SeismicHaltReason;
+
+    /// Validates the transaction against the state and deducts gas from the caller
+    fn validate_against_state_and_deduct_caller(&self, evm: &mut Self::Evm) -> Result<(), ERROR> {
+        let context = evm.ctx();
+        let basefee = context.block().basefee() as u128;
+        let blob_price = context.block().blob_gasprice().unwrap_or_default();
+        let is_balance_check_disabled = context.cfg().is_balance_check_disabled();
+        let is_eip3607_disabled = context.cfg().is_eip3607_disabled();
+        let is_nonce_check_disabled = context.cfg().is_nonce_check_disabled();
+        let caller = context.tx().caller();
+        let value = context.tx().value();
+
+        let (tx, journal) = context.tx_journal();
+
+        // Load caller's account.
+        let caller_account = journal.load_account_code(tx.caller())?.data;
+
+        validate_account_nonce_and_code(
+            &mut caller_account.info,
+            tx.nonce(),
+            tx.kind().is_call(),
+            is_eip3607_disabled,
+            is_nonce_check_disabled,
+        )?;
+
+        // Touch account so we know it is changed.
+        caller_account.mark_touch();
+
+        let max_balance_spending = tx.max_balance_spending()?;
+        let effective_balance_spending = tx
+            .effective_balance_spending(basefee, blob_price)
+            .expect("effective balance is always smaller than max balance so it can't overflow");
+
+        // Load the SRC20 Gas contract into the journal and mark it as warm,
+        // as the value should almost always update
+        // Then validate the caller's balance
+        let caller_slot = gas_caller_key(caller);
+        context
+            .journal()
+            .warm_account_and_storage(GAS_SRC20_ADDRESS, [caller_slot])
+            .unwrap();
+        let account_balance = gas_balance_of::<EVM::Context, ERROR>(context, caller)?;
+
+        if account_balance < max_balance_spending && !is_balance_check_disabled {
+            return Err(InvalidTransaction::LackOfFundForMaxFee {
+                fee: Box::new(max_balance_spending),
+                balance: Box::new(account_balance),
+            }
+            .into());
+        };
+
+        // Check if account has enough balance for `gas_limit * max_fee`` and value transfer.
+        // Transfer will be done inside `*_inner` functions.
+        if is_balance_check_disabled {
+            // TODO: adjust with GAS_SRC20_CONVERATION_RATIO?
+            let temp_caller_balance =
+                gas_balance_of::<EVM::Context, ERROR>(context, caller)?.max(max_balance_spending);
+            gas_set_balance::<EVM::Context, ERROR>(context, caller, temp_caller_balance)?;
+        } else if max_balance_spending > account_balance {
+            return Err(InvalidTransaction::LackOfFundForMaxFee {
+                fee: Box::new(max_balance_spending),
+                balance: Box::new(account_balance),
+            }
+            .into());
+        } else {
+            // subtracting max balance spending with value that is going to be deducted later in the call.
+            let gas_balance_spending = effective_balance_spending - value;
+
+            gas_token_operation::<EVM::Context, ERROR>(
+                context,
+                caller,
+                TREASURY,
+                gas_balance_spending,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Reimburses the caller for unused gas
+    fn reimburse_caller(
+        &self,
+        evm: &mut Self::Evm,
+        exec_result: &mut <Self::Frame as Frame>::FrameResult,
+    ) -> Result<(), Self::Error> {
+        let context = evm.ctx();
+        let basefee = context.block().basefee() as u128;
+        let caller = context.tx().caller();
+        let effective_gas_price = context.tx().effective_gas_price(basefee);
+        let gas = exec_result.gas();
+
+        let reimbursement =
+            effective_gas_price.saturating_mul((gas.remaining() + gas.refunded() as u64) as u128);
+        gas_token_operation::<EVM::Context, ERROR>(
+            context,
+            TREASURY,
+            caller,
+            U256::from(reimbursement),
+        )?;
+
+        Ok(())
+    }
+
+    /// Rewards the beneficiary (miner/validator) with gas fees
+    fn reward_beneficiary(
+        &self,
+        evm: &mut Self::Evm,
+        exec_result: &mut <Self::Frame as Frame>::FrameResult,
+    ) -> Result<(), Self::Error> {
+        let context = evm.ctx();
+        let tx = context.tx();
+        let beneficiary = context.block().beneficiary();
+        let basefee = context.block().basefee() as u128;
+        let effective_gas_price = tx.effective_gas_price(basefee);
+        let gas = exec_result.gas();
+
+        let coinbase_gas_price = if context
+            .cfg()
+            .spec()
+            .is_enabled_in(revm::primitives::hardfork::SpecId::LONDON.into())
+        {
+            effective_gas_price.saturating_sub(basefee)
+        } else {
+            effective_gas_price
+        };
+
+        let reward =
+            coinbase_gas_price.saturating_mul((gas.spent() - gas.refunded() as u64) as u128);
+        gas_token_operation::<EVM::Context, ERROR>(
+            context,
+            TREASURY,
+            beneficiary,
+            U256::from(reward),
+        )?;
+
+        Ok(())
+    }
 
     /// Processes the final execution output.
     ///
@@ -127,10 +270,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{api::default_ctx::SeismicContext, DefaultSeismicContext, SeismicBuilder};
+    use crate::{
+        api::default_ctx::{DefaultSeismicContext, DefaultSeismicDB, SeismicContext},
+        SeismicBuilder,
+    };
     use revm::{
         context::{result::EVMError, Context},
-        database_interface::EmptyDB,
         handler::EthFrame,
         interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
         primitives::Bytes,
@@ -138,7 +283,7 @@ mod tests {
 
     /// Creates frame result.
     fn call_last_frame_return(
-        ctx: SeismicContext<EmptyDB>,
+        ctx: SeismicContext<DefaultSeismicDB>,
         instruction_result: InstructionResult,
         gas: Gas,
     ) -> Gas {
