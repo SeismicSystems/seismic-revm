@@ -127,4 +127,4 @@ jobs:
         with:
           shared-key: "semantic-test-cache"
       - name: Run semantic tests
-        run: RUST_BACKTRACE=1 cargo run -p revme -- semantics -e --keep-going -s /usr/local/bin/ssolc -t "$SEISMIC_SOLIDITY_PATH/test/libsolidity/semanticTests"
+        run: RUST_BACKTRACE=1 cargo run -p revme -- semantics --keep-going -s /usr/local/bin/ssolc -t "$SEISMIC_SOLIDITY_PATH/test/libsolidity/semanticTests"
