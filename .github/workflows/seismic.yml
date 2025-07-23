@@ -130,5 +130,8 @@ jobs:
           
           echo "Installation complete! ssolc installed at $SSOLC_BIN"
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "semantic-test-cache"
       - name: Run semantic tests
         run: cargo run -p revme -- semantics -s /usr/local/bin/ssolc -t "$SEISMIC_SOLIDITY_PATH/test/libsolidity/semanticTests"
