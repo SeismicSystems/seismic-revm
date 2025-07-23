@@ -68,6 +68,7 @@ impl Cmd {
         self.setup_logging();
         let start_time = Instant::now();
         let test_files = self.find_test_files()?;
+        let n_files = test_files.len();
 
         let failures = match self.single_thread {
             true => {
@@ -91,7 +92,7 @@ impl Cmd {
         let duration = start_time.elapsed();
         info!("Execution time: {:?}", duration);
         if failures.len() == 0 {
-            info!("All tests passed ✅");
+            info!("All tests passed across {} files ✅", n_files);
             return Ok(());
         }
         let total_failures: usize = failures
@@ -100,9 +101,10 @@ impl Cmd {
             .sum();
 
         error!(
-            "❌ {} test(s) failed across {} file(s):\n",
+            "❌ {} test(s) failed across {}/{} file(s):\n",
             total_failures,
-            failures.len()
+            failures.len(),
+            n_files,
         );
         let test_parent = self.tests_parent_folder()?;
         for (test_file, file_failures) in failures {
