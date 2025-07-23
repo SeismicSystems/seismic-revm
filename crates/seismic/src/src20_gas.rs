@@ -163,7 +163,7 @@ mod tests {
     use revm::handler::EvmTr;
     use revm::primitives::FlaggedStorage;
     use revm::primitives::TxKind;
-    use revm::primitives::{Bytes, U256};
+    use revm::primitives::{Bytes, U256, b256, B256};
     use revm::InspectCommitEvm;
     use std::convert::Infallible;
 
@@ -787,5 +787,16 @@ mod tests {
             U256::ZERO,
             "Balance should be zero for unwritten storage slot"
         );
+    }
+
+    #[test]
+    fn test_map_storage() {
+        let alice = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+        let storage_slot = map_storage(alice, 0);
+        let storage_slot_b256: B256 = storage_slot.into();
+
+        let expected_key: B256 = b256!("0x723077b8a1b173adc35e5f0e7e3662fd1208212cb629f9c128551ea7168da722");
+
+        assert_eq!(storage_slot_b256, expected_key);
     }
 }
