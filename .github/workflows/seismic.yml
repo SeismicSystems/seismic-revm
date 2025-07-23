@@ -61,14 +61,67 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
-  # TODO: download seismic-solidity and run these in CI too
-  # bin-tests:
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 30
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: dtolnay/rust-toolchain@stable
-  #     - name: cd into revme
-  #       run: cd bins/revme
-  #     - name: Run semantic tests
-  #       run: cargo run -- semantics
+  semantic-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install latest ssolc release
+        run: |
+          echo "Starting ssolc installation..."
+          
+          # Set variables for Linux x86_64
+          OS_TYPE="linux"
+          ARCH_TYPE="x86_64"
+          INSTALL_DIR="/usr/local/bin"
+          TARGET_NAME="ssolc-${OS_TYPE}-${ARCH_TYPE}.tar.gz"
+          SSOLC_BIN="${INSTALL_DIR}/ssolc"
+          
+          # Create temporary directory
+          TEMP_DIR=$(mktemp -d)
+          
+          # Download the release
+          echo "Fetching latest release information..."
+          GITHUB_API_URL="https://api.github.com/repos/SeismicSystems/seismic-solidity/releases/latest"
+          ASSET_ID=$(curl -s "$GITHUB_API_URL" | \
+              jq -r --arg name "$TARGET_NAME" '.assets[] | select(.name == $name) | .id')
+          
+          if [[ -z "$ASSET_ID" ]]; then
+            echo "Error: Asset $TARGET_NAME not found in the latest release."
+            exit 1
+          fi
+          
+          echo "Downloading $TARGET_NAME..."
+          DOWNLOAD_PATH="$TEMP_DIR/$TARGET_NAME"
+          curl -L -H "Accept: application/octet-stream" \
+               -o "$DOWNLOAD_PATH" \
+               "https://api.github.com/repos/SeismicSystems/seismic-solidity/releases/assets/$ASSET_ID"
+          
+          # Extract and install
+          echo "Extracting archive..."
+          mkdir -p "$TEMP_DIR/extract"
+          
+          if ! file "$DOWNLOAD_PATH" | grep -q 'gzip compressed data'; then
+            echo "Error: Invalid gzip archive"
+            exit 1
+          fi
+          tar -xzf "$DOWNLOAD_PATH" -C "$TEMP_DIR/extract"
+          BINARY_PATH="$TEMP_DIR/extract/solc/solc"
+          
+          if [[ ! -f "$BINARY_PATH" ]]; then
+            echo "Error: Binary not found in extracted archive"
+            exit 1
+          fi
+          
+          # Install the binary
+          echo "Installing binary to $SSOLC_BIN..."
+          sudo mv "$BINARY_PATH" "$SSOLC_BIN"
+          sudo chmod +x "$SSOLC_BIN"
+          
+          # Cleanup
+          rm -rf "$TEMP_DIR"
+          
+          echo "Installation complete! ssolc installed at $SSOLC_BIN"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run semantic tests
+        run: cargo run -p revme -- semantics --ssolc-path /usr/local/bin/ssolc
