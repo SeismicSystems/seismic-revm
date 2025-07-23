@@ -92,7 +92,7 @@ impl Cmd {
         let duration = start_time.elapsed();
         info!("Execution time: {:?}", duration);
         if failures.len() == 0 {
-            info!("All tests passed across {} files ✅", n_files);
+            println!("All tests passed across {} files ✅", n_files);
             return Ok(());
         }
         let total_failures: usize = failures
@@ -100,7 +100,7 @@ impl Cmd {
             .map(|(_, file_failures)| file_failures.len())
             .sum();
 
-        error!(
+        println!(
             "❌ {} test(s) failed across {}/{} file(s):\n",
             total_failures,
             failures.len(),
