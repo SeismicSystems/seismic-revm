@@ -1,4 +1,8 @@
 use std::io::Error as IoError;
+
+use primitives::Bytes;
+
+use crate::cmd::semantics::test_cases::TestCase;
 #[derive(Debug, thiserror::Error)]
 pub enum Errors {
     #[error("The specified path does not exist")]
@@ -13,8 +17,8 @@ pub enum Errors {
     BalanceMismatch,
     #[error("Storage Mismatch")]
     StorageMismatch,
-    #[error("EVM Error")]
-    EVMError,
+    #[error("EVM Error: {0}")]
+    EVMError(String),
     #[error(transparent)]
     Io(#[from] IoError),
     #[error("Invalid Test Format")]
@@ -33,4 +37,12 @@ pub enum Errors {
     CompilationFailed,
     #[error("Compiler Not Found, Download Solc")]
     CompilerNotFound,
+    #[error("Unexpected output. Received {0:0x}, Expected {1:0x}")]
+    UnexpectedOutput(Bytes, Bytes),
+}
+
+impl Into<Vec<(Errors, Option<TestCase>)>> for Errors {
+    fn into(self) -> Vec<(Errors, Option<TestCase>)> {
+        vec![(self, None)]
+    }
 }
