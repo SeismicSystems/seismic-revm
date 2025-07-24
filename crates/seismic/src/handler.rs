@@ -91,7 +91,7 @@ where
             .warm_account_and_storage(GAS_SRC20_ADDRESS, [caller_slot])
             .unwrap();
         context.journal().touch_account(GAS_SRC20_ADDRESS);
-        
+
         let account_balance = gas_balance_of::<EVM::Context, ERROR>(context, caller)?;
 
         if account_balance < max_balance_spending && !is_balance_check_disabled {
