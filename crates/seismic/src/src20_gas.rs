@@ -205,7 +205,7 @@ mod tests {
             .unwrap();
         JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
 
-        // make a transfer tx
+        // make a transfer contract call
         let transfer_amount = U256::from(20000);
         let call_data = transfer_call_data(recipient, transfer_amount);
         let tx = ctx.modify_tx_chained(|tx| {
@@ -765,6 +765,77 @@ mod tests {
         let result = evm.inspect_replay_commit();
 
         assert!(result.is_err(), "Transaction should fail due to LackOfFundForMaxFee");
+    }
+
+    #[test]
+    fn test_transfer_with_value_reverts_with_out_of_funds() {
+        // Create a context with the gas contract
+        let mut ctx = SeismicContext::<DefaultSeismicDB>::seismic();
+
+        // Set up test addresses
+        let sender = Address::from([0x01; 20]);
+        let recipient = Address::from([0x02; 20]);
+        let treasury = TREASURY;
+
+        // Set initial balance
+        let sender_initial_balance = U256::from(1000000);
+        let sender_balance_slot = gas_caller_key(sender);
+        ctx.db()
+            .insert_account_storage(
+                GAS_SRC20_ADDRESS,
+                sender_balance_slot,
+                FlaggedStorage::new(sender_initial_balance, true),
+            )
+            .unwrap();
+        JournalTr::load_account(ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+
+        // make a tx with native tokenvalue
+        let transfer_amount = U256::from(20000);
+        let tx = ctx.modify_tx_chained(|tx| {
+            tx.base.kind = TxKind::Call(recipient);
+            tx.base.caller = sender;
+            tx.base.value = transfer_amount;
+            tx.base.gas_limit = 100000;
+            tx.base.gas_price = 1;
+        });
+        let inspector = revm::inspector::NoOpInspector::default(); // use revm::inspector::inspectors::TracerEip3155::new_stdout() for more detailed output
+        let mut evm = tx.build_seismic_evm_with_inspector(inspector);
+        let result = evm.inspect_replay_commit().unwrap();
+
+        assert!(
+            matches!(
+                result,
+                revm::context::result::ExecutionResult::Halt { .. }
+            ),
+            "Transaction should fail. Result: {:?}",
+            result
+        );
+
+        // Check the balances in the resulting evm context
+        let mut post_tx_ctx = evm.ctx().clone();
+        JournalTr::load_account(post_tx_ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
+        let sender_final_balance =
+            gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(&mut post_tx_ctx, sender)
+                .unwrap();
+        let recipient_final_balance =
+            gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+                &mut post_tx_ctx,
+                recipient,
+            )
+            .unwrap();
+        let treasury_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx_ctx,
+            treasury,
+        )
+        .unwrap();
+
+        assert_eq!(recipient_final_balance, U256::ZERO, "recipient should not have received any tokens");
+        let total_token = sender_final_balance + recipient_final_balance + treasury_final_balance;
+        assert_eq!(
+            total_token, sender_initial_balance,
+            "Total token should be conserved in a tx"
+        );
+        assert_eq!(sender_initial_balance, sender_final_balance + treasury_final_balance, "only movement of funds should be gas spent from sender to treasury");
     }
 
     /// Test that if the storage slot is not written, the balance is 0
