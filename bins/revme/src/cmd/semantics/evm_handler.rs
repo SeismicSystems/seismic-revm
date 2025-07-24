@@ -140,8 +140,7 @@ impl EvmExecutor {
                         TracerEip3155::new_stdout().without_summary(),
                     );
                 evm.inspect_replay().map_err(|err| {
-                    error!("DEPLOY transaction error: {:?}", err.to_string());
-                    Errors::EVMError
+                    Errors::EVMError(format!("DEPLOY transaction error: {:?}", err.to_string()))
                 })?
             } else {
                 let mut evm = Context::seismic()
@@ -156,8 +155,7 @@ impl EvmExecutor {
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
                     .build_seismic_evm();
                 evm.replay().map_err(|err| {
-                    error!("DEPLOY transaction error: {:?}", err.to_string());
-                    Errors::EVMError
+                    Errors::EVMError(format!("DEPLOY transaction error: {:?}", err.to_string()))
                 })?
             }
         } else {
@@ -174,8 +172,7 @@ impl EvmExecutor {
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
                 evm.inspect_replay().map_err(|err| {
-                    error!("DEPLOY transaction error: {:?}", err.to_string());
-                    Errors::EVMError
+                    Errors::EVMError(format!("DEPLOY transaction error: {:?}", err.to_string()))
                 })?
             } else {
                 let mut evm = Context::mainnet()
@@ -190,8 +187,7 @@ impl EvmExecutor {
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet();
                 evm.replay().map_err(|err| {
-                    error!("DEPLOY transaction error: {:?}", err.to_string());
-                    Errors::EVMError
+                    Errors::EVMError(format!("DEPLOY transaction error: {:?}", err.to_string()))
                 })?
             };
             mainnet_to_seismic(raw)
@@ -201,24 +197,29 @@ impl EvmExecutor {
             ExecutionResult::Success { output, logs, .. } => match output {
                 Output::Create(_, Some(addr)) => (addr, logs),
                 Output::Create(_, None) => {
-                    error!(
+                    return Err(Errors::EVMError(format!(
                         "EVM deploy transaction error, no address returned: {:?}",
                         output
-                    );
-                    return Err(Errors::EVMError);
+                    )));
                 }
                 _ => {
-                    error!("EVM deploy transaction fatal error: {:?}", output);
-                    return Err(Errors::EVMError);
+                    return Err(Errors::EVMError(format!(
+                        "EVM deploy transaction fatal error: {:?}",
+                        output
+                    )));
                 }
             },
             ExecutionResult::Revert { output, .. } => {
-                error!("EVM deploy transaction error: {:?}", output.to_string());
-                return Err(Errors::EVMError);
+                return Err(Errors::EVMError(format!(
+                    "EVM deploy transaction error: {:?}",
+                    output.to_string()
+                )));
             }
             ExecutionResult::Halt { reason, .. } => {
-                error!("Execution halted during deployment: {:?}", reason);
-                return Err(Errors::EVMError);
+                return Err(Errors::EVMError(format!(
+                    "Execution halted during deployment: {:?}",
+                    reason
+                )));
             }
         };
 
@@ -271,12 +272,11 @@ impl EvmExecutor {
                         std::io::stdout(),
                     )));
                 evm.inspect_replay().map_err(|err| {
-                    error!(
+                    Errors::EVMError(format!(
                         "EVM transaction error: {:?}, for the file: {:?}",
                         err.to_string(),
                         test_file
-                    );
-                    Errors::EVMError
+                    ))
                 })?
             } else {
                 let mut evm = Context::seismic()
@@ -306,12 +306,11 @@ impl EvmExecutor {
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
                     .build_seismic_evm();
                 evm.replay().map_err(|err| {
-                    error!(
+                    Errors::EVMError(format!(
                         "EVM transaction error: {:?}, for the file: {:?}",
                         err.to_string(),
                         test_file
-                    );
-                    Errors::EVMError
+                    ))
                 })?
             }
         } else {
@@ -344,12 +343,11 @@ impl EvmExecutor {
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
                 evm.inspect_replay().map_err(|err| {
-                    error!(
+                    Errors::EVMError(format!(
                         "EVM transaction error: {:?}, for the file: {:?}",
                         err.to_string(),
                         test_file
-                    );
-                    Errors::EVMError
+                    ))
                 })?
             } else {
                 let mut evm = Context::mainnet()
@@ -380,12 +378,11 @@ impl EvmExecutor {
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet();
                 evm.replay().map_err(|err| {
-                    error!(
+                    Errors::EVMError(format!(
                         "EVM transaction error: {:?}, for the file: {:?}",
                         err.to_string(),
                         test_file
-                    );
-                    Errors::EVMError
+                    ))
                 })?
             };
             mainnet_to_seismic(raw)
@@ -396,18 +393,26 @@ impl EvmExecutor {
                 if expected_outputs.is_success() {
                     match output {
                         Output::Call(out) => {
-                            assert_eq!(out, expected_outputs.output);
+                            if out != expected_outputs.output {
+                                return Err(Errors::UnexpectedOutput(
+                                    out,
+                                    expected_outputs.output.clone(),
+                                ));
+                            }
                         }
-                        _ => return Err(Errors::EVMError),
+                        _ => {
+                            return Err(Errors::EVMError(
+                                "Expected call output, received create".into(),
+                            ))
+                        }
                     }
                     logs
                 } else {
-                    error!(
+                    return Err(Errors::EVMError(format!(
                         "An error was expected from the testCase, yet the test passed with output: {:?}, for file: {:?}",
                         output,
                         test_file
-                    );
-                    return Err(Errors::EVMError);
+                    )));
                 }
             }
             ExecutionResult::Revert { output, .. } => {
@@ -419,16 +424,20 @@ impl EvmExecutor {
                         output.to_string(),
                         test_file
                     );
-                    assert_eq!(output, expected_outputs.output);
-                    vec![]
+                    return Err(Errors::UnexpectedOutput(
+                        output,
+                        expected_outputs.output.clone(),
+                    ));
                 }
             }
             ExecutionResult::Halt { reason, .. } => {
                 if !expected_outputs.is_success() {
                     return Ok(vec![]);
                 } else {
-                    error!("Execution halted: {:?} for file {:?}", reason, test_file);
-                    return Err(Errors::EVMError);
+                    return Err(Errors::EVMError(format!(
+                        "Execution halted: {:?} for file {:?}",
+                        reason, test_file
+                    )));
                 }
             }
         };
