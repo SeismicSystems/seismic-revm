@@ -250,7 +250,8 @@ mod tests {
             recipient_final_balance, transfer_amount,
             "recipient did not receive the transfer amount"
         );
-        let total_token = sender_final_balance + recipient_final_balance + treasury_final_balance;
+        let beneficiary_reward = U256::ZERO; // We do not set up the block beneficiary for this test
+        let total_token = sender_final_balance + recipient_final_balance + treasury_final_balance + beneficiary_reward;
         assert_eq!(
             total_token, sender_initial_balance,
             "Total token should be conserved in a tx"
@@ -325,6 +326,22 @@ mod tests {
         let mut post_tx_ctx = evm.ctx().clone();
         JournalTr::load_account(post_tx_ctx.journal(), GAS_SRC20_ADDRESS).unwrap();
 
+        let sender_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx_ctx,
+            sender,
+        )
+        .unwrap();
+        let recipient_final_balance =
+        gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx_ctx,
+            recipient,
+        )
+        .unwrap();
+        let treasury_final_balance = gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
+            &mut post_tx_ctx,
+            TREASURY,
+        )
+        .unwrap();
         let beneficiary_final_balance =
             gas_balance_of::<_, EVMError<Infallible, InvalidTransaction>>(
                 &mut post_tx_ctx,
@@ -356,6 +373,11 @@ mod tests {
             beneficiary_final_balance, U256::from(expected_reward),
             "Beneficiary should receive exactly {} tokens as gas rewards (gas_spent: {}, coinbase_gas_price: {})",
             expected_reward, gas_spent, coinbase_gas_price
+        );
+        let total_token = sender_final_balance + recipient_final_balance + treasury_final_balance + beneficiary_final_balance;
+        assert_eq!(
+            total_token, sender_initial_balance,
+            "Total token should be conserved in a tx"
         );
     }
 
