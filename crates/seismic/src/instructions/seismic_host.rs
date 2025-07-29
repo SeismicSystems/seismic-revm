@@ -139,7 +139,7 @@ impl Host for SeismicDummyHost {
     ) -> Option<StateLoad<SStoreResult>> {
         None
     }
-    
+
     fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<StorageValue>> {
         None
     }

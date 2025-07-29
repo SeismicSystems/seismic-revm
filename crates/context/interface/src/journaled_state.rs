@@ -1,7 +1,9 @@
 use crate::context::{SStoreResult, SelfDestructResult};
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
-use primitives::{hardfork::SpecId, Address, Bytes, HashSet, Log, StorageKey, StorageValue, B256, U256};
+use primitives::{
+    hardfork::SpecId, Address, Bytes, HashSet, Log, StorageKey, StorageValue, B256, U256,
+};
 use state::{
     bytecode::{EOF_MAGIC_BYTES, EOF_MAGIC_HASH},
     Account, Bytecode,

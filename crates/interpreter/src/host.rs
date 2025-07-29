@@ -239,7 +239,10 @@ impl<CTX: ContextTr> Host for CTX {
 
     fn cload_value(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
         match self.cload(address, key) {
-            Some(StateLoad { data, is_cold }) => Some(StateLoad { data: data.into(), is_cold }),
+            Some(StateLoad { data, is_cold }) => Some(StateLoad {
+                data: data.into(),
+                is_cold,
+            }),
             None => None,
         }
     }
@@ -256,7 +259,10 @@ impl<CTX: ContextTr> Host for CTX {
 
     fn sload_value(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
         match self.sload(address, key) {
-            Some(StateLoad { data, is_cold }) => Some(StateLoad { data: data.into(), is_cold }),
+            Some(StateLoad { data, is_cold }) => Some(StateLoad {
+                data: data.into(),
+                is_cold,
+            }),
             None => None,
         }
     }
