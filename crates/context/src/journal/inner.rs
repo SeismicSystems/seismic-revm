@@ -688,11 +688,12 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         let slot = acc.storage.get_mut(&key).unwrap();
 
         // new value is same as present, we don't need to do anything
-        if present.data == new {
+        let present_value = FlaggedStorage::new(present.data, present.is_private);
+        if present_value == FlaggedStorage::new(new, is_private) {
             return Ok(StateLoad::new(
                 SStoreResult {
                     original_value: slot.original_value(),
-                    present_value: FlaggedStorage::new(present.data, is_private),
+                    present_value,
                     new_value: FlaggedStorage::new(new, is_private),
                 },
                 present.is_cold,
@@ -700,17 +701,14 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             ));
         }
 
-        self.journal.push(ENTRY::storage_changed(
-            address,
-            key,
-            FlaggedStorage::new(present.data, is_private),
-        ));
+        self.journal
+            .push(ENTRY::storage_changed(address, key, present_value));
         // insert value into present state.
         slot.present_value = FlaggedStorage::new(new, is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value(),
-                present_value: FlaggedStorage::new(present.data, is_private),
+                present_value,
                 new_value: FlaggedStorage::new(new, is_private),
             },
             present.is_cold,

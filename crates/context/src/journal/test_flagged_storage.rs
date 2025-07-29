@@ -658,7 +658,6 @@ fn test_database_privacy_flag_preservation() {
 
 /// Test mixed private/public storage reverts to ensure privacy flags are handled correctly
 #[test]
-#[should_panic] // TODO: remove this when we fix
 fn test_mixed_storage_revert() {
     let mut db = InMemoryDB::default();
     let address = Address::from_slice(&[0x2; 20]);
@@ -830,7 +829,6 @@ fn test_mixed_storage_revert() {
 
 /// Test private storage behavior during simple revert scenarios
 #[test]
-#[should_panic] // TODO: remove this when we fix
 fn test_private_storage_simple_revert() {
     _test_storage_simple_revert(true);
 }
@@ -843,7 +841,6 @@ fn test_public_storage_simple_revert() {
 
 /// Test account creation with private storage followed by revert using proper high-level APIs
 #[test]
-#[should_panic] // TODO: remove this when we fix
 fn test_account_creation_private_storage_revert() {
     _test_account_creation_storage_revert(true);
 }
@@ -856,7 +853,6 @@ fn test_account_creation_public_storage_revert() {
 
 /// Test nested checkpoint reverts with private storage
 #[test]
-#[should_panic] // TODO: remove this when we fix
 fn test_nested_checkpoint_private_storage_reverts() {
     _test_nested_checkpoint_storage_reverts(true);
 }
