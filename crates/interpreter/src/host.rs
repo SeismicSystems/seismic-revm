@@ -81,10 +81,14 @@ pub trait Host {
         value: U256,
     ) -> Option<StateLoad<SStoreResult>>;
 
-    /// Sload, calls `ContextTr::journal().sload(address, key)`
-    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
     /// Cload, calls `ContextTr::journal().cload(address, key)`
-    fn cload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
+    fn cload(&mut self, address: Address, key: U256) -> Option<StateLoad<StorageValue>>;
+    /// Cload, except returns the value only
+    fn cload_value(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
+    /// Sload, calls `ContextTr::journal().sload(address, key)`
+    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<StorageValue>>;
+    /// Sload, calls `ContextTr::journal().sload(address, key)`
+    fn sload_value(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>>;
     /// Tstore, calls `ContextTr::journal().tstore(address, key, value)`
     fn tstore(&mut self, address: Address, key: StorageKey, value: StorageValue);
     /// Tload, calls `ContextTr::journal().tload(address, key)`
@@ -224,7 +228,7 @@ impl<CTX: ContextTr> Host for CTX {
     }
 
     /// Get (private) storage value of `address` at `index` and if the account is cold
-    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
+    fn cload(&mut self, address: Address, index: U256) -> Option<StateLoad<StorageValue>> {
         self.journal()
             .cload(address, index)
             .map_err(|e| {
@@ -233,14 +237,28 @@ impl<CTX: ContextTr> Host for CTX {
             .ok()
     }
 
+    fn cload_value(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
+        match self.cload(address, key) {
+            Some(StateLoad { data, is_cold }) => Some(StateLoad { data: data.into(), is_cold }),
+            None => None,
+        }
+    }
+
     /// Gets storage value of `address` at `index` and if the account is cold.
-    fn sload(&mut self, address: Address, index: StorageKey) -> Option<StateLoad<U256>> {
+    fn sload(&mut self, address: Address, index: StorageKey) -> Option<StateLoad<StorageValue>> {
         self.journal()
             .sload(address, index)
             .map_err(|e| {
                 *self.error() = Err(e.into());
             })
             .ok()
+    }
+
+    fn sload_value(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
+        match self.sload(address, key) {
+            Some(StateLoad { data, is_cold }) => Some(StateLoad { data: data.into(), is_cold }),
+            None => None,
+        }
     }
 
     /// Sets storage value of account address at index.
@@ -399,11 +417,19 @@ impl Host for DummyHost {
         None
     }
 
-    fn sload(&mut self, _address: Address, _key: StorageKey) -> Option<StateLoad<U256>> {
+    fn sload(&mut self, _address: Address, _key: StorageKey) -> Option<StateLoad<StorageValue>> {
         None
     }
 
-    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
+    fn sload_value(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
+        None
+    }
+
+    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<StorageValue>> {
+        None
+    }
+
+    fn cload_value(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
         None
     }
 

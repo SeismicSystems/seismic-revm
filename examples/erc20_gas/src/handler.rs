@@ -78,7 +78,7 @@ where
         let account_balance = context
             .journal()
             .sload(TOKEN, account_balance_slot)
-            .map(|v| v.data)
+            .map(|v| v.data.value)
             .unwrap_or_default();
 
         if account_balance < max_balance_spending && !is_balance_check_disabled {

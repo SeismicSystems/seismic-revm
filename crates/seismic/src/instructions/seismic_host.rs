@@ -4,7 +4,6 @@ use revm::{
     database::EmptyDB,
     interpreter::{host::DummyHost, Host, SStoreResult, SelfDestructResult, StateLoad},
     primitives::{Address, Bytes, Log, StorageValue, B256, U256},
-    state::FlaggedStorage,
 };
 
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
@@ -140,21 +139,29 @@ impl Host for SeismicDummyHost {
     ) -> Option<StateLoad<SStoreResult>> {
         None
     }
+    
+    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<StorageValue>> {
+        None
+    }
+
+    fn cload_value(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
+        None
+    }
 
     fn sstore(
         &mut self,
         address: Address,
         key: U256,
-        value: FlaggedStorage,
+        value: StorageValue,
     ) -> Option<StateLoad<SStoreResult>> {
         self.dummy_host.sstore(address, key, value)
     }
 
-    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
+    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<StorageValue>> {
         self.dummy_host.sload(address, key)
     }
 
-    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
+    fn sload_value(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
         None
     }
 

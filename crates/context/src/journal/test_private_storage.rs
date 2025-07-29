@@ -4,7 +4,6 @@ use database::InMemoryDB;
 use database_interface::Database;
 use primitives::{hardfork::SpecId, Address, FlaggedStorage, U256};
 use state::{Account, AccountInfo, AccountStatus, EvmStorage};
-use std::collections::HashMap;
 
 /// Test that demonstrates the database correctly preserves privacy flags
 #[test]

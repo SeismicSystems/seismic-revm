@@ -9,7 +9,7 @@ use revm::{
     database::CacheDB,
     database_interface::EmptyDB,
     handler::EvmTr,
-    primitives::{hex, Bytes, FlaggedStorage, StorageValue, TxKind},
+    primitives::{hex, Bytes, FlaggedStorage, StorageValue, TxKind, U256},
     ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext,
 };
 
@@ -80,7 +80,7 @@ fn main() -> anyhow::Result<()> {
         .get(&address)
         .ok_or_else(|| anyhow!("Contract not found"))?
         .storage
-        .get::<StorageValue>(&Default::default())
+        .get::<U256>(&Default::default())
     else {
         bail!("Failed to write storage in the init code: {result:#?}");
     };

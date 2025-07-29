@@ -64,7 +64,7 @@ impl JournalTr for Backend {
         &mut self,
         address: Address,
         key: U256,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+    ) -> Result<StateLoad<StorageValue>, <Self::Database as Database>::Error> {
         self.journaled_state.cload(address, key)
     }
 
@@ -93,7 +93,7 @@ impl JournalTr for Backend {
         &mut self,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+    ) -> Result<StateLoad<StorageValue>, <Self::Database as Database>::Error> {
         self.journaled_state.sload(address, key)
     }
 

@@ -92,7 +92,7 @@ where
     ERROR: From<InvalidTransaction> + From<InvalidHeader> + From<<CTX::Db as Database>::Error>,
 {
     let sender_balance_slot = erc_address_storage(sender);
-    let sender_balance = context.journal().sload(TOKEN, sender_balance_slot)?.data;
+    let sender_balance = context.journal().sload(TOKEN, sender_balance_slot)?.data.value;
 
     if sender_balance < amount {
         return Err(ERROR::from(
@@ -107,7 +107,7 @@ where
 
     // Add the amount to the recipient's balance
     let recipient_balance_slot = erc_address_storage(recipient);
-    let recipient_balance = context.journal().sload(TOKEN, recipient_balance_slot)?.data;
+    let recipient_balance = context.journal().sload(TOKEN, recipient_balance_slot)?.data.value;
 
     let recipient_new_balance = recipient_balance.saturating_add(amount);
     context

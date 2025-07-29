@@ -15,7 +15,7 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     popn_top!([], index, interpreter);
 
     if let Some(value) = host.cload(interpreter.input.target_address(), *index) {
-        if !value.is_private && !value.data.is_zero() {
+        if !value.data.is_private && !value.data.is_zero() {
             interpreter
                 .control
                 .set_instruction_result(InstructionResult::FatalExternalError);
@@ -26,7 +26,7 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             interpreter,
             gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
         );
-        *index = value.data;
+        *index = value.data.into();
     } else {
         interpreter
             .control
@@ -84,7 +84,7 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     popn_top!([], index, interpreter);
 
     if let Some(value) = host.sload(interpreter.input.target_address(), *index) {
-        if value.is_private {
+        if value.data.is_private {
             interpreter
                 .control
                 .set_instruction_result(InstructionResult::FatalExternalError);
@@ -95,7 +95,7 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             interpreter,
             gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
         );
-        *index = value.data;
+        *index = value.data.into();
     } else {
         interpreter
             .control

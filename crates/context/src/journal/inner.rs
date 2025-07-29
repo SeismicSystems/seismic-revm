@@ -71,12 +71,8 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         db: &mut DB,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<U256>, DB::Error> {
-        let StateLoad { data, is_cold } = self.sload(db, address, key)?;
-        Ok(StateLoad {
-            data: data.into(),
-            is_cold,
-        })
+    ) -> Result<StateLoad<StorageValue>, DB::Error> {
+        self.sload(db, address, key)
     }
 
     /// Stores the private storage value in Journal state.

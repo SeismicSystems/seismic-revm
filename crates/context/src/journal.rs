@@ -4,8 +4,9 @@
 //! and inner submodule contains [`JournalInner`] struct that contains state.
 pub mod entry;
 pub mod inner;
+
 #[cfg(test)]
-mod test_semi_deterministic;
+mod test_private_storage;
 
 pub use entry::{JournalEntry, JournalEntryTr};
 pub use inner::JournalInner;
@@ -17,7 +18,7 @@ use context_interface::{
 };
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
-use primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, B256, U256};
+use primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, StorageValue, B256, U256};
 use state::{Account, EvmState};
 use std::vec::Vec;
 
@@ -119,7 +120,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+    ) -> Result<StateLoad<StorageValue>, <Self::Database as Database>::Error> {
         self.inner.cload(&mut self.database, address, key)
     }
 
@@ -136,12 +137,8 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        let StateLoad { data, is_cold } = self.inner.sload(&mut self.database, address, key)?;
-        Ok(StateLoad {
-            data: data.into(),
-            is_cold,
-        })
+    ) -> Result<StateLoad<StorageValue>, <Self::Database as Database>::Error> {
+        self.inner.sload(&mut self.database, address, key)
     }
 
     fn sstore(
