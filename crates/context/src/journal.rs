@@ -5,7 +5,7 @@
 pub mod entry;
 pub mod inner;
 #[cfg(test)]
-mod test_private_storage;
+mod test_flagged_storage;
 
 pub use entry::{JournalEntry, JournalEntryTr};
 pub use inner::JournalInner;
