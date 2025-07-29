@@ -4,6 +4,8 @@
 //! and inner submodule contains [`JournalInner`] struct that contains state.
 pub mod entry;
 pub mod inner;
+#[cfg(test)]
+mod test_private_storage;
 
 pub use entry::{JournalEntry, JournalEntryTr};
 pub use inner::JournalInner;
