@@ -72,7 +72,11 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         address: Address,
         key: StorageKey,
     ) -> Result<StateLoad<U256>, DB::Error> {
-        self.sload(db, address, key)
+        let StateLoad { data, is_cold } = self.sload(db, address, key)?;
+        Ok(StateLoad {
+            data: data.into(),
+            is_cold,
+        })
     }
 
     /// Stores the private storage value in Journal state.
@@ -462,7 +466,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 previously_destroyed,
             },
             is_cold,
-            is_private: false,
         })
     }
 
@@ -527,7 +530,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 is_empty,
             },
             account.is_cold,
-            false,
         );
 
         // load delegate code if account is EIP-7702
@@ -570,7 +572,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 StateLoad {
                     data: account,
                     is_cold,
-                    is_private: false,
                 }
             }
             Entry::Vacant(vac) => {
@@ -586,7 +587,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 StateLoad {
                     data: vac.insert(account),
                     is_cold,
-                    is_private: false,
                 }
             }
         };
@@ -625,12 +625,11 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx we can assume that storage is empty.
         let is_newly_created = account.is_created();
-        let (value, is_cold, is_private) = match account.storage.entry(key) {
+        let (value, is_cold) = match account.storage.entry(key) {
             Entry::Occupied(occ) => {
                 let slot = occ.into_mut();
                 let is_cold = slot.mark_warm();
-                let is_private = slot.present_value().is_private;
-                (slot.present_value.value, is_cold, is_private)
+                (slot.present_value, is_cold)
             }
             Entry::Vacant(vac) => {
                 // if storage was cleared, we don't need to ping db.
@@ -642,7 +641,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
 
                 vac.insert(EvmStorageSlot::new(value));
 
-                (value.value, true, value.is_private)
+                (value, true)
             }
         };
 
@@ -651,7 +650,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             self.journal.push(ENTRY::storage_warmed(address, key));
         }
 
-        Ok(StateLoad::new(value, is_cold, is_private))
+        Ok(StateLoad::new(value, is_cold))
     }
 
     /// Stores public storage value
@@ -688,33 +687,28 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         let slot = acc.storage.get_mut(&key).unwrap();
 
         // new value is same as present, we don't need to do anything
-        if present.data == new {
+        if present.data == FlaggedStorage::new(new, is_private) {
             return Ok(StateLoad::new(
                 SStoreResult {
                     original_value: slot.original_value(),
-                    present_value: FlaggedStorage::new(present.data, is_private),
+                    present_value: present.data,
                     new_value: FlaggedStorage::new(new, is_private),
                 },
                 present.is_cold,
-                is_private,
             ));
         }
 
-        self.journal.push(ENTRY::storage_changed(
-            address,
-            key,
-            FlaggedStorage::new(present.data, is_private),
-        ));
+        self.journal
+            .push(ENTRY::storage_changed(address, key, present.data));
         // insert value into present state.
         slot.present_value = FlaggedStorage::new(new, is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value(),
-                present_value: FlaggedStorage::new(present.data, is_private),
+                present_value: present.data,
                 new_value: FlaggedStorage::new(new, is_private),
             },
             present.is_cold,
-            is_private,
         ))
     }
 
@@ -727,6 +721,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             .get(&(address, key))
             .copied()
             .unwrap_or_default()
+            .into()
     }
 
     /// Store transient storage tied to the account.
@@ -746,11 +741,11 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             // insert values
             let previous_value = self
                 .transient_storage
-                .insert((address, key), new)
+                .insert((address, key), new.into())
                 .unwrap_or_default();
 
             // check if previous value is same
-            if previous_value != new {
+            if previous_value != new.into() {
                 // if it is different, insert previous values inside journal.
                 Some(previous_value)
             } else {

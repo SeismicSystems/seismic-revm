@@ -234,7 +234,7 @@ impl<CTX: ContextTr> Host for CTX {
     }
 
     /// Gets storage value of `address` at `index` and if the account is cold.
-    fn sload(&mut self, address: Address, index: StorageKey) -> Option<StateLoad<StorageValue>> {
+    fn sload(&mut self, address: Address, index: StorageKey) -> Option<StateLoad<U256>> {
         self.journal()
             .sload(address, index)
             .map_err(|e| {
@@ -253,7 +253,7 @@ impl<CTX: ContextTr> Host for CTX {
         value: StorageValue,
     ) -> Option<StateLoad<SStoreResult>> {
         self.journal()
-            .sstore(address, index, value)
+            .sstore(address, index, value.into())
             .map_err(|e| {
                 *self.error() = Err(e.into());
             })
@@ -279,12 +279,12 @@ impl<CTX: ContextTr> Host for CTX {
 
     /// Gets the transient storage value of `address` at `index`.
     fn tload(&mut self, address: Address, index: StorageKey) -> StorageValue {
-        self.journal().tload(address, index)
+        self.journal().tload(address, index).into()
     }
 
     /// Sets the transient storage value of `address` at `index`.
     fn tstore(&mut self, address: Address, index: StorageKey, value: StorageValue) {
-        self.journal().tstore(address, index, value)
+        self.journal().tstore(address, index, value.into())
     }
 
     /// Emits a log owned by `address` with given `LogData`.
@@ -399,7 +399,7 @@ impl Host for DummyHost {
         None
     }
 
-    fn sload(&mut self, _address: Address, _key: StorageKey) -> Option<StateLoad<StorageValue>> {
+    fn sload(&mut self, _address: Address, _key: StorageKey) -> Option<StateLoad<U256>> {
         None
     }
 
@@ -407,7 +407,7 @@ impl Host for DummyHost {
         None
     }
 
-    fn tstore(&mut self, _address: Address, _key: U256, _value: U256) {}
+    fn tstore(&mut self, _address: Address, _key: U256, _value: StorageValue) {}
 
     fn tload(&mut self, _address: Address, _key: StorageKey) -> StorageValue {
         StorageValue::ZERO

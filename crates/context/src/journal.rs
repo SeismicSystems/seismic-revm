@@ -4,6 +4,8 @@
 //! and inner submodule contains [`JournalInner`] struct that contains state.
 pub mod entry;
 pub mod inner;
+#[cfg(test)]
+mod test_semi_deterministic;
 
 pub use entry::{JournalEntry, JournalEntryTr};
 pub use inner::JournalInner;
@@ -135,7 +137,11 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         address: Address,
         key: StorageKey,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        self.inner.sload(&mut self.database, address, key)
+        let StateLoad { data, is_cold } = self.inner.sload(&mut self.database, address, key)?;
+        Ok(StateLoad {
+            data: data.into(),
+            is_cold,
+        })
     }
 
     fn sstore(

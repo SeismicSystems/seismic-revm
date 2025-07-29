@@ -28,4 +28,4 @@ pub use alloy_primitives::{
 /// type alias for storage keys
 pub type StorageKey = U256;
 /// type alias for storage values
-pub type StorageValue = U256;
+pub type StorageValue = FlaggedStorage;

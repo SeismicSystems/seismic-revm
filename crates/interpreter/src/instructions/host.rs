@@ -244,7 +244,7 @@ pub fn tstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
 
     popn!([index, value], interpreter);
 
-    host.tstore(interpreter.input.target_address(), index, value);
+    host.tstore(interpreter.input.target_address(), index, value.into());
 }
 
 /// EIP-1153: Transient storage opcodes
@@ -258,7 +258,8 @@ pub fn tload<WIRE: InterpreterTypes, H: Host + ?Sized>(
 
     popn_top!([], index, interpreter);
 
-    *index = host.tload(interpreter.input.target_address(), *index);
+    let value = host.tload(interpreter.input.target_address(), *index);
+    *index = value.into();
 }
 
 pub fn log<const N: usize, H: Host + ?Sized>(

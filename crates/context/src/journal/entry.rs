@@ -4,7 +4,6 @@
 //!
 //! They are created when there is change to the state from loading (making it warm), changes to the balance,
 //! or removal of the storage slot. Check [`JournalEntryTr`] for more details.
-use primitives::alloy_primitives::FlaggedStorage;
 use primitives::{Address, StorageKey, StorageValue, KECCAK_EMPTY, PRECOMPILE3, U256};
 use state::{EvmState, TransientStorage};
 
@@ -40,7 +39,7 @@ pub trait JournalEntryTr {
 
     /// Creates a journal entry for when a storage slot is modified
     /// Records the previous value for reverting
-    fn storage_changed(address: Address, key: U256, had_value: FlaggedStorage) -> Self;
+    fn storage_changed(address: Address, key: U256, had_value: StorageValue) -> Self;
 
     /// Creates a journal entry for when a storage slot is accessed and marked as "warm" for gas metering
     /// This is called with SLOAD opcode.
@@ -149,7 +148,7 @@ pub enum JournalEntry {
         /// Key of storage slot that is changed.
         key: StorageKey,
         /// Previous value of storage slot.
-        had_value: FlaggedStorage,
+        had_value: StorageValue,
     },
     /// Entry used to track storage warming introduced by EIP-2929.
     /// Action: Storage warmed
@@ -210,7 +209,7 @@ impl JournalEntryTr for JournalEntry {
         JournalEntry::AccountCreated { address }
     }
 
-    fn storage_changed(address: Address, key: U256, had_value: FlaggedStorage) -> Self {
+    fn storage_changed(address: Address, key: U256, had_value: StorageValue) -> Self {
         JournalEntry::StorageChanged {
             address,
             key,
