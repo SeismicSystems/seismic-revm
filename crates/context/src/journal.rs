@@ -4,6 +4,8 @@
 //! and inner submodule contains [`JournalInner`] struct that contains state.
 pub mod entry;
 pub mod inner;
+#[cfg(test)]
+mod test_flagged_storage;
 
 #[cfg(test)]
 mod test_flagged_storage;
