@@ -637,7 +637,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 let value = if is_newly_created {
                     match db.storage(address, key) {
                         Err(_) => {
-                            tracing::warn!("Newly created account errors on storage lookup, default public 0");
+                            println!("Newly created account errors on storage lookup, default public 0");
                             FlaggedStorage::ZERO.set_visibility(false)
                         }
                         Ok(v) => v,
