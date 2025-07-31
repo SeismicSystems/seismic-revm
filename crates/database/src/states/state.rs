@@ -506,6 +506,7 @@ mod tests {
                         previous_status: AccountStatus::LoadedNotExisting,
                         storage: HashMap::from_iter([(
                             slot1,
+                            // maybe here?
                             RevertToSlot::Some(FlaggedStorage::ZERO)
                         )]),
                         wipe_storage: false,

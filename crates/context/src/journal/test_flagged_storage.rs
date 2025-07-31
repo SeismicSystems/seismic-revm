@@ -357,7 +357,7 @@ fn _test_nested_checkpoint_storage_reverts(shielded: bool) {
     let mut journal = setup_journal_with_account(address, AccountStatus::Loaded);
 
     let storage_type = if shielded { "private" } else { "public" };
-    let operation_name = if shielded { "CSTORE" } else { "SSTORE" };
+    let operation_name: &'static str = if shielded { "CSTORE" } else { "SSTORE" };
 
     // Verify initial state
     verify_storage_state(
@@ -861,4 +861,110 @@ fn test_nested_checkpoint_private_storage_reverts() {
 #[test]
 fn test_nested_checkpoint_public_storage_reverts() {
     _test_nested_checkpoint_storage_reverts(false);
+}
+
+#[test]
+fn test_private_zero_revert() {
+    let shielded = true;
+    let mut db = InMemoryDB::default();
+    let caller_address = Address::from_slice(&[0x1; 20]);
+    let created_address = Address::from_slice(&[0x3; 20]);
+    let storage_key = U256::from(1);
+
+    let mut journal = JournalInner::<JournalEntry>::new();
+    journal.spec = SpecId::MERCURY;
+
+    let storage_type = if shielded { "private" } else { "public" };
+    let operation_name = if shielded { "CSTORE" } else { "SSTORE" };
+
+    // Setup caller account with sufficient balance
+    journal.load_account(&mut db, caller_address).unwrap();
+    let caller_account = journal.state.get_mut(&caller_address).unwrap();
+    caller_account.info.balance = U256::from(10000);
+
+    // Load target account (initially non-existing)
+    journal.load_account(&mut db, created_address).unwrap();
+
+    // Use proper high-level API to create account with journal entries
+    let checkpoint = journal
+        .create_account_checkpoint(
+            caller_address,
+            created_address,
+            U256::from(1000), // Transfer 1000 from caller to created account
+            SpecId::MERCURY,
+        )
+        .unwrap();
+
+    // Verify account was properly created
+    verify_account_status(
+        &journal,
+        created_address,
+        true,
+        "After create_account_checkpoint",
+    );
+    let created_account = journal.state.get(&created_address).unwrap();
+    assert_eq!(
+        created_account.info.balance,
+        U256::from(1000),
+        "Created account must have transferred balance"
+    );
+
+    // Store data in the newly created account
+    let store_result = store_value(
+        shielded,
+        &mut journal,
+        &mut db,
+        created_address,
+        storage_key,
+        U256::from(0),
+    );
+    assert_eq!(
+        store_result.is_private, shielded,
+        "{} in new account must mark storage as {}",
+        operation_name, storage_type
+    );
+
+    // Verify storage exists with correct value and privacy
+    let read_result = load_value(
+        shielded,
+        &mut journal,
+        &mut db,
+        created_address,
+        storage_key,
+    );
+    assert_eq!(
+        read_result.data,
+        U256::from(0),
+        "Storage must contain the stored value"
+    );
+    assert_eq!(
+        read_result.is_private, shielded,
+        "Storage must be marked {} after {}",
+        storage_type, operation_name
+    );
+
+    let set_private_checkpoint = journal.checkpoint();
+
+    // Store data in the newly created account
+    let _store_revert_result = store_value(
+        shielded,
+        &mut journal,
+        &mut db,
+        created_address,
+        storage_key,
+        U256::from(0),
+    );
+    // let set_private_revert_checkpoint = journal.checkpoint();
+
+    journal.checkpoint_revert(set_private_checkpoint);
+
+    let read_revert_result = load_value(
+        shielded,
+        &mut journal,
+        &mut db,
+        created_address,
+        storage_key,
+    );
+    assert_eq!(read_revert_result, read_result);
+    println!("Same read result: {:?}", read_result);
 }
