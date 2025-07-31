@@ -620,7 +620,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         db: &mut DB,
         address: Address,
         key: StorageKey,
-        defauly_privacy: bool,
+        default_privacy: bool,
     ) -> Result<StateLoad<StorageValue>, DB::Error> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
@@ -635,8 +635,9 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             }
             Entry::Vacant(vac) => {
                 // if storage was cleared, we don't need to ping db.
+                println!("Address {:#?} has vacant entry for {:#?}. Defaulting to {}", &address, key, default_privacy);
                 let value = if is_newly_created {
-                    FlaggedStorage::ZERO.set_visibility(defauly_privacy)
+                    FlaggedStorage::ZERO.set_visibility(default_privacy)
                 } else {
                     db.storage(address, key)?
                 };
