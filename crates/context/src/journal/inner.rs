@@ -631,6 +631,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 let slot = occ.into_mut();
                 let is_cold = slot.mark_warm();
                 let is_private = slot.present_value().is_private;
+                println!("Address {:#?} has occupied entry for {:#?}: Slot present = {:#?}", address, key, slot.present_value());
                 (slot.present_value.value, is_cold, is_private)
             }
             Entry::Vacant(vac) => {
