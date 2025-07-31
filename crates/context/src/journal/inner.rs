@@ -636,11 +636,13 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             }
             Entry::Vacant(vac) => {
                 // if storage was cleared, we don't need to ping db.
-                println!("Address {:#?} has vacant entry for {:#?}. Defaulting to {}", &address, key, default_privacy);
                 let value = if is_newly_created {
+                    println!("Address {:#?} (newly created) has vacant entry for {:#?}. Defaulting to {}", &address, key, default_privacy);
                     FlaggedStorage::ZERO.set_visibility(default_privacy)
                 } else {
-                    db.storage(address, key)?
+                    let v = db.storage(address, key)?;
+                    println!("Address {:#?} (NOT newly created) has vacant entry for {:#?}: {:#?}", &address, key, v);
+                    v
                 };
 
                 vac.insert(EvmStorageSlot::new(value));
