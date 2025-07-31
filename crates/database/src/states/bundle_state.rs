@@ -620,8 +620,8 @@ impl BundleState {
             for (key, slot) in account.storage.iter().map(|(k, v)| (*k, *v)) {
                 // If storage was destroyed that means that storage was wiped.
                 // In that case we need to check if present storage value is different then ZERO.
-                // TODO(Seismic): do we need to check visibility here?
-                let destroyed_and_not_zero = was_destroyed && !slot.present_value.value.is_zero();
+                // NOTE: (Seismic) Should compare on zero + public, not just zero
+                let destroyed_and_not_zero = was_destroyed && !slot.present_value.is_zero();
 
                 // If account is not destroyed check if original values was changed,
                 // so we can update it.
