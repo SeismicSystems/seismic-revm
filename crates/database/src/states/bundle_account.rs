@@ -102,7 +102,8 @@ impl BundleAccount {
                 } else {
                     // Set all storage to zero but preserve original values.
                     self.storage.iter_mut().for_each(|(_, v)| {
-                        v.present_value = FlaggedStorage::ZERO;
+                        v.present_value =
+                            FlaggedStorage::ZERO.set_visibility(v.present_value.is_private);
                     });
                     return false;
                 }
