@@ -631,17 +631,14 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 let slot = occ.into_mut();
                 let is_cold = slot.mark_warm();
                 let is_private = slot.present_value().is_private;
-                println!("Address {:#?} has occupied entry for {:#?}: Slot present = {:#?}", address, key, slot.present_value());
                 (slot.present_value.value, is_cold, is_private)
             }
             Entry::Vacant(vac) => {
                 // if storage was cleared, we don't need to ping db.
                 let value = if is_newly_created {
-                    println!("Address {:#?} (newly created) has vacant entry for {:#?}. Defaulting to {}", &address, key, default_privacy);
                     FlaggedStorage::ZERO.set_visibility(default_privacy)
                 } else {
                     let v = db.storage(address, key)?;
-                    println!("Address {:#?} (NOT newly created) has vacant entry for {:#?}: {:#?}", &address, key, v);
                     v
                 };
 
