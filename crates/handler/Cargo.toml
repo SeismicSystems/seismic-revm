@@ -46,6 +46,9 @@ alloy-provider.workspace = true
 alloy-signer.workspace = true
 alloy-signer-local.workspace = true
 
+# seismic
+tracing = { version = "0.1.0", default-features = false }
+
 [features]
 default = ["std"]
 std = [

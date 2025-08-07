@@ -184,6 +184,7 @@ pub fn apply_eip7702_auth_list<
 >(
     context: &mut CTX,
 ) -> Result<u64, ERROR> {
+    tracing::debug!("entered revm apply_eip7702_auth_list");
     let tx = context.tx();
     // Return if there is no auth list.
     if tx.tx_type() != TransactionType::Eip7702 {
@@ -195,6 +196,7 @@ pub fn apply_eip7702_auth_list<
 
     let mut refunded_accounts = 0;
     for authorization in tx.authorization_list() {
+        tracing::debug!("Verifying authorization");
         // 1. Verify the chain id is either 0 or the chain's current ID.
         let auth_chain_id = authorization.chain_id();
         if !auth_chain_id.is_zero() && auth_chain_id != U256::from(chain_id) {
@@ -237,6 +239,7 @@ pub fn apply_eip7702_auth_list<
         // 8. Set the code of `authority` to be `0xef0100 || address`. This is a delegation designation.
         //  * As a special case, if `address` is `0x0000000000000000000000000000000000000000` do not write the designation.
         //    Clear the accounts code and reset the account's code hash to the empty hash `0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470`.
+        tracing::debug!("Setting code of authority");
         let address = authorization.address();
         let (bytecode, hash) = if address.is_zero() {
             (Bytecode::default(), KECCAK_EMPTY)
