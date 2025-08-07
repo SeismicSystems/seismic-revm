@@ -18,8 +18,6 @@ use primitives::{eip7702, hardfork::SpecId, KECCAK_EMPTY, U256};
 use state::AccountInfo;
 use std::boxed::Box;
 
-use tracing::debug;
-
 pub fn load_accounts<
     EVM: EvmTr<Precompiles: PrecompileProvider<EVM::Context>>,
     ERROR: From<<<EVM::Context as ContextTr>::Db as Database>::Error>,
@@ -186,7 +184,6 @@ pub fn apply_eip7702_auth_list<
 >(
     context: &mut CTX,
 ) -> Result<u64, ERROR> {
-    tracing::debug!("entered revm apply_eip7702_auth_list");
     let tx = context.tx();
     // Return if there is no auth list.
     if tx.tx_type() != TransactionType::Eip7702 {
@@ -198,28 +195,36 @@ pub fn apply_eip7702_auth_list<
 
     let mut refunded_accounts = 0;
     for authorization in tx.authorization_list() {
-        tracing::debug!("Verifying authorization");
+        tracing::debug!("revm Verifying authorization");
+        tracing::debug!("revm Verifying chain id");
         // 1. Verify the chain id is either 0 or the chain's current ID.
         let auth_chain_id = authorization.chain_id();
         if !auth_chain_id.is_zero() && auth_chain_id != U256::from(chain_id) {
             continue;
         }
-
+        tracing::debug!("revm chain id check passed");
+        tracing::debug!("revm Verifying nonce");
         // 2. Verify the `nonce` is less than `2**64 - 1`.
         if authorization.nonce() == u64::MAX {
             continue;
         }
+        tracing::debug!("revm nonce check passed");
+        tracing::debug!("revm recover authority");
 
         // recover authority and authorized addresses.
         // 3. `authority = ecrecover(keccak(MAGIC || rlp([chain_id, address, nonce])), y_parity, r, s]`
         let Some(authority) = authorization.authority() else {
             continue;
         };
+        tracing::debug!("revm recover authority passed");
+        tracing::debug!("revm warm authority account");
 
         // warm authority account and check nonce.
         // 4. Add `authority` to `accessed_addresses` (as defined in [EIP-2929](./eip-2929.md).)
         let mut authority_acc = journal.load_account_code(authority)?;
 
+        tracing::debug!("revm warm authority account passed");
+        tracing::debug!("revm Verifying code of authority");
         // 5. Verify the code of `authority` is either empty or already delegated.
         if let Some(bytecode) = &authority_acc.info.code {
             // if it is not empty and it is not eip7702
@@ -227,16 +232,23 @@ pub fn apply_eip7702_auth_list<
                 continue;
             }
         }
+        tracing::debug!("revm code of authority check passed");
+        tracing::debug!("revm Verifying nonce of authority");
 
         // 6. Verify the nonce of `authority` is equal to `nonce`. In case `authority` does not exist in the trie, verify that `nonce` is equal to `0`.
         if authorization.nonce() != authority_acc.info.nonce {
             continue;
         }
 
+        tracing::debug!("revm nonce of authority check passed");
+        tracing::debug!("revm Add PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST to the global refund counter");
+
         // 7. Add `PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST` gas to the global refund counter if `authority` exists in the trie.
         if !authority_acc.is_empty() {
             refunded_accounts += 1;
         }
+        tracing::debug!("revm Add PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST to the global refund counter passed");
+        tracing::debug!("revm Set code of authority");
 
         // 8. Set the code of `authority` to be `0xef0100 || address`. This is a delegation designation.
         //  * As a special case, if `address` is `0x0000000000000000000000000000000000000000` do not write the designation.
