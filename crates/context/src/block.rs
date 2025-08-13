@@ -14,6 +14,7 @@ pub struct BlockEnv {
     pub beneficiary: Address,
 
     /// The timestamp of the block in seconds since the UNIX epoch
+    /// Modification: timestamp of block will be in milliseconds since the UNIX epoch
     pub timestamp: u64,
     /// The gas limit of the block
     pub gas_limit: u64,

@@ -80,6 +80,7 @@ pub const fn instruction_table<WIRE: InterpreterTypes, H: Host + ?Sized>(
     table[BLOCKHASH as usize] = host::blockhash;
     table[COINBASE as usize] = block_info::coinbase;
     table[TIMESTAMP as usize] = block_info::timestamp;
+    table[TIMESTAMPMS as usize] = block_info::timestamp_milliseconds;
     table[NUMBER as usize] = block_info::block_number;
     table[DIFFICULTY as usize] = block_info::difficulty;
     table[GASLIMIT as usize] = block_info::gaslimit;

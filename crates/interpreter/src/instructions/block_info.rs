@@ -29,6 +29,17 @@ pub fn timestamp<WIRE: InterpreterTypes, H: Host + ?Sized>(
     host: &mut H,
 ) {
     gas!(interpreter, gas::BASE);
+    // push!(interpreter, host.timestamp());
+    // Convert milliseconds to seconds for EVM compatibility
+    let timestamp_seconds = host.timestamp() / U256::from(1000);
+    push!(interpreter, timestamp_seconds);
+}
+
+pub fn timestamp_milliseconds<WIRE: InterpreterTypes, H: Host + ?Sized>(
+    interpreter: &mut Interpreter<WIRE>,
+    host: &mut H,
+) {
+    gas!(interpreter, gas::BASE);
     push!(interpreter, host.timestamp());
 }
 

@@ -484,6 +484,10 @@ opcodes! {
     0x48 => BASEFEE      => stack_io(0, 1);
     0x49 => BLOBHASH     => stack_io(1, 1);
     0x4A => BLOBBASEFEE  => stack_io(0, 1);
+
+    // Modification: Added TIMESTAMPMS opcode
+    0x4B => TIMESTAMPMS => stack_io(0, 1);
+
     // 0x4B
     // 0x4C
     // 0x4D
@@ -768,8 +772,8 @@ mod tests {
                 eof_opcode_num += 1;
             }
         }
-        assert_eq!(opcode_num, 169);
-        assert_eq!(eof_opcode_num, 153);
+        assert_eq!(opcode_num, 170);
+        assert_eq!(eof_opcode_num, 154);
     }
 
     #[test]
