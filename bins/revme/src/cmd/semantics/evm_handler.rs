@@ -73,7 +73,7 @@ impl EvmConfig {
         let block_basefee = 7_u64;
         let gas_priority_fee = Some(gas_price - block_basefee as u128);
         let block_number = 1_u64;
-        let timestamp = 15_u64;
+        let timestamp = 15000_u64; // 15 seconds in milliseconds
         let env_contract_address =
             Address::from_hex("0xc06afe3a8444fc0004668591e8306bfb9968e79e").unwrap();
         let caller = Address::from_str("0x1212121212121212121212121212120000000012").unwrap();
