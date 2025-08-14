@@ -241,7 +241,9 @@ impl Cmd {
                     evm_executor.config.block_number =
                         evm_executor.config.block_number.wrapping_add(1);
 
-                    evm_executor.config.timestamp = evm_executor.config.timestamp.wrapping_add(15);
+                    // Modification: timestamp of block will be in milliseconds since the UNIX epoch
+                    evm_executor.config.timestamp = evm_executor.config.timestamp.wrapping_add(15000);
+                    // evm_executor.config.timestamp = evm_executor.config.timestamp.wrapping_add(15);
                 }
                 failures
             }
