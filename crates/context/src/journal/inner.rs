@@ -72,7 +72,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         address: Address,
         key: StorageKey,
     ) -> Result<StateLoad<U256>, DB::Error> {
-        self.sload(db, address, key)
+        self.load_inner(db, address, key, true)
     }
 
     /// Stores the private storage value in Journal state.
@@ -615,11 +615,12 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     ///
     /// Panics if the account is not present in the state.
     #[inline]
-    pub fn sload<DB: Database>(
+    fn load_inner<DB: Database>(
         &mut self,
         db: &mut DB,
         address: Address,
         key: StorageKey,
+        default_privacy: bool,
     ) -> Result<StateLoad<StorageValue>, DB::Error> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
@@ -635,9 +636,10 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             Entry::Vacant(vac) => {
                 // if storage was cleared, we don't need to ping db.
                 let value = if is_newly_created {
-                    FlaggedStorage::ZERO.set_visibility(false)
+                    FlaggedStorage::ZERO.set_visibility(default_privacy)
                 } else {
-                    db.storage(address, key)?
+                    let v = db.storage(address, key)?;
+                    v
                 };
 
                 vac.insert(EvmStorageSlot::new(value));
@@ -652,6 +654,16 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         }
 
         Ok(StateLoad::new(value, is_cold, is_private))
+    }
+
+    /// Loads public storage slot
+    pub fn sload<DB: Database>(
+        &mut self,
+        db: &mut DB,
+        address: Address,
+        key: StorageKey,
+    ) -> Result<StateLoad<StorageValue>, DB::Error> {
+        self.load_inner(db, address, key, false)
     }
 
     /// Stores public storage value
