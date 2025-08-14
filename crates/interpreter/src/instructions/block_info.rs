@@ -29,14 +29,14 @@ pub fn timestamp<WIRE: InterpreterTypes, H: Host + ?Sized>(
     host: &mut H,
 ) {
     gas!(interpreter, gas::BASE);
-    #[cfg(not(feature = "timestamp_in_seconds"))]
+    #[cfg(not(feature = "timestamp-in-seconds"))]
     {
         // Host returns milliseconds, convert to seconds for EVM compatibility
         let timestamp_seconds = host.timestamp() / U256::from(1000);
         push!(interpreter, timestamp_seconds);
     }
 
-    #[cfg(feature = "timestamp_in_seconds")]
+    #[cfg(feature = "timestamp-in-seconds")]
     {
         // Host returns seconds, use as is
         push!(interpreter, host.timestamp());
@@ -49,14 +49,14 @@ pub fn timestamp_milliseconds<WIRE: InterpreterTypes, H: Host + ?Sized>(
 ) {
     gas!(interpreter, gas::BASE);
 
-    #[cfg(feature = "timestamp_in_seconds")]
+    #[cfg(feature = "timestamp-in-seconds")]
     {
         // Host returns seconds, convert to milliseconds for reth compatibility
         let timestamp_ms = host.timestamp() * U256::from(1000);
         push!(interpreter, timestamp_ms);
     }
 
-    #[cfg(not(feature = "timestamp_in_seconds"))]
+    #[cfg(not(feature = "timestamp-in-seconds"))]
     {
         // Host returns milliseconds, use as is
         push!(interpreter, host.timestamp());
