@@ -18,6 +18,8 @@ use primitives::{eip7702, hardfork::SpecId, KECCAK_EMPTY, U256};
 use state::AccountInfo;
 use std::boxed::Box;
 
+use primitives::TxKind;
+
 pub fn load_accounts<
     EVM: EvmTr<Precompiles: PrecompileProvider<EVM::Context>>,
     ERROR: From<<<EVM::Context as ContextTr>::Db as Database>::Error>,
@@ -133,13 +135,19 @@ pub fn validate_against_state_and_deduct_caller<
 
     let (tx, journal) = context.tx_journal();
 
+    // Seismic 7702 change: 
+    // if you would bump the nonce for the caller, bump the nonce for the To account as well
+    let bump_nonce = tx.kind().is_call();
+    if let TxKind::Call(to) = tx.kind() {
+        journal.inc_account_nonce(to)?;
+    }
+
     // Load caller's account.
     let caller_account = journal.load_account_code(tx.caller())?.data;
-
     validate_account_nonce_and_code(
         &mut caller_account.info,
         tx.nonce(),
-        tx.kind().is_call(),
+        bump_nonce,
         is_eip3607_disabled,
         is_nonce_check_disabled,
     )?;
