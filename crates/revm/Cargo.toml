@@ -81,7 +81,6 @@ dev = [
 	"optional_no_base_fee",
 ]
 memory_limit = ["context/memory_limit", "interpreter/memory_limit"]
-timestamp-in-seconds = ["interpreter/timestamp-in-seconds"]
 optional_balance_check = ["context/optional_balance_check"]
 optional_block_gas_limit = ["context/optional_block_gas_limit"]
 optional_eip3607 = ["context/optional_eip3607"]
@@ -101,3 +100,5 @@ bn = ["precompile/bn"]
 # Compile in portable mode, without ISA extensions.
 # Binary can be executed on all systems.
 portable = ["precompile/portable"]
+
+timestamp-in-seconds = ["interpreter/timestamp-in-seconds"]
