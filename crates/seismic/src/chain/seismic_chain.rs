@@ -74,9 +74,13 @@ impl SeismicChain {
             (RngMode::Execution, Some(live_key)) => Some(live_key.clone()),
             _ => None,
         };
-        
-        self.rng_container
-            .process_rng_with_key(pers, requested_output_len, kernel_mode, tx_hash, rng_key)
-    }
 
+        self.rng_container.process_rng_with_key(
+            pers,
+            requested_output_len,
+            kernel_mode,
+            tx_hash,
+            rng_key,
+        )
+    }
 }

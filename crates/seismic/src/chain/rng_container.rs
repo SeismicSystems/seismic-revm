@@ -97,7 +97,7 @@ impl RngContainer {
             // Note: live_key is only provided for RngMode::Execution
             let live_rng = RootRng::new(key);
             live_rng.append_tx(tx_hash);
-            
+
             let mut leaf_rng = live_rng.fork(pers);
             let mut rng_bytes = vec![0u8; requested_output_len];
             leaf_rng.fill_bytes(&mut rng_bytes);
