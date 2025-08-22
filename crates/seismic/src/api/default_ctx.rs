@@ -19,6 +19,8 @@ pub type SeismicContext<DB> = Context<
 pub trait DefaultSeismicContext {
     /// Create a default context.
     fn seismic() -> SeismicContext<EmptyDB>;
+    /// Create a context with a specific RNG keypair.
+    fn seismic_with_rng_key(rng_keypair: schnorrkel::Keypair) -> SeismicContext<EmptyDB>;
 }
 
 impl DefaultSeismicContext for SeismicContext<EmptyDB> {
@@ -27,6 +29,13 @@ impl DefaultSeismicContext for SeismicContext<EmptyDB> {
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
             .with_chain(SeismicChain::default())
+    }
+
+    fn seismic_with_rng_key(rng_keypair: schnorrkel::Keypair) -> Self {
+        Context::mainnet()
+            .with_tx(SeismicTransaction::default())
+            .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
+            .with_chain(SeismicChain::with_live_rng_key(Some(rng_keypair)))
     }
 }
 
