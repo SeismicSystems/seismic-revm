@@ -508,7 +508,7 @@ mod tests {
             },
         );
 
-        let (key, value) = (U256::from(123), FlaggedStorage::from(U256::from(456)));
+        let (key, value) = (U256::from(123), state::FlaggedStorage::from(U256::from(456)));
         let mut new_state = CacheDB::new(init_state);
         new_state
             .insert_account_storage(account, key, value)
@@ -531,8 +531,8 @@ mod tests {
             },
         );
 
-        let (key0, value0) = (U256::from(123), FlaggedStorage::from(U256::from(456)));
-        let (key1, value1) = (U256::from(789), FlaggedStorage::from(U256::from(999)));
+        let (key0, value0) = (U256::from(123), state::FlaggedStorage::from(U256::from(456)));
+        let (key1, value1) = (U256::from(789), state::FlaggedStorage::from(U256::from(999)));
         init_state
             .insert_account_storage(account, key0, value0)
             .unwrap();
@@ -543,7 +543,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
-        assert_eq!(new_state.storage(account, key0), Ok(FlaggedStorage::ZERO));
+        assert_eq!(new_state.storage(account, key0), Ok(state::FlaggedStorage::ZERO));
         assert_eq!(new_state.storage(account, key1), Ok(value1));
     }
 
@@ -592,7 +592,7 @@ mod tests {
 
         let (key, value) = (
             U256::from(123),
-            FlaggedStorage::from(U256::from(456)).mark_private(),
+            state::FlaggedStorage::from(U256::from(456)).mark_private(),
         );
         let mut new_state = CacheDB::new(init_state);
         new_state
@@ -618,11 +618,11 @@ mod tests {
 
         let (key0, value0) = (
             U256::from(123),
-            FlaggedStorage::from(U256::from(456)).mark_private(),
+            state::FlaggedStorage::from(U256::from(456)).mark_private(),
         );
         let (key1, value1) = (
             U256::from(789),
-            FlaggedStorage::from(U256::from(999)).mark_private(),
+            state::FlaggedStorage::from(U256::from(999)).mark_private(),
         );
         init_state
             .insert_account_storage(account, key0, value0)
@@ -634,7 +634,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
-        assert_eq!(new_state.storage(account, key0), Ok(FlaggedStorage::ZERO));
+        assert_eq!(new_state.storage(account, key0), Ok(state::FlaggedStorage::ZERO));
         assert_eq!(new_state.storage(account, key1), Ok(value1));
     }
 }
