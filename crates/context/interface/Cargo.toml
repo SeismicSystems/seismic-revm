@@ -1,25 +1,21 @@
 [package]
 name = "revm-context-interface"
 description = "Revm context interface crates"
-version = "4.1.0"
+version = "10.1.0"
 authors.workspace = true
 edition.workspace = true
 keywords.workspace = true
 license.workspace = true
 repository.workspace = true
 readme.workspace = true
+rust-version.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-[lints.rust]
-unreachable_pub = "warn"
-unused_must_use = "deny"
-rust_2018_idioms = "deny"
-
-[lints.rustdoc]
-all = "warn"
+[lints]
+workspace = true
 
 [dependencies]
 # revm
@@ -34,10 +30,7 @@ auto_impl.workspace = true
 either.workspace = true
 
 # Optional
-serde = { version = "1.0", default-features = false, features = [
-	"derive",
-	"rc",
-], optional = true }
+serde = { workspace = true, optional = true }
 
 [features]
 default = ["std"]
@@ -59,4 +52,6 @@ serde = [
 	"database-interface/serde",
 	"either/serde",
 ]
+
+# Deprecated, please use `serde` feature instead.
 serde-json = ["serde"]

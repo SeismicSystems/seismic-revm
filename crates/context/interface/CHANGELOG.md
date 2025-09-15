@@ -7,6 +7,115 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.1.0](https://github.com/bluealloy/revm/compare/revm-context-interface-v10.0.1...revm-context-interface-v10.1.0) - 2025-08-23
+
+### Added
+
+- add generic state to ResultAndState ([#2897](https://github.com/bluealloy/revm/pull/2897))
+
+## [10.0.1](https://github.com/bluealloy/revm/compare/revm-context-interface-v10.0.0...revm-context-interface-v10.0.1) - 2025-08-12
+
+### Other
+
+- Aggregate changes from PRs #2866, #2867, and #2874 ([#2876](https://github.com/bluealloy/revm/pull/2876))
+- make ci happy ([#2863](https://github.com/bluealloy/revm/pull/2863))
+
+## [10.0.0](https://github.com/bluealloy/revm/compare/revm-context-interface-v9.0.0...revm-context-interface-v10.0.0) - 2025-08-06
+
+### Added
+
+- short address for journal cold/warm check ([#2849](https://github.com/bluealloy/revm/pull/2849))
+
+### Fixed
+
+- correct various typos in documentation and comments ([#2855](https://github.com/bluealloy/revm/pull/2855))
+- swapped comments for db and db_mut methods in JournalTr trait ([#2774](https://github.com/bluealloy/revm/pull/2774))
+
+### Other
+
+- rm redundant lifetime constraints ([#2850](https://github.com/bluealloy/revm/pull/2850))
+- update README.md ([#2842](https://github.com/bluealloy/revm/pull/2842))
+- add rust-version and note about MSRV ([#2789](https://github.com/bluealloy/revm/pull/2789))
+
+## [9.0.0](https://github.com/bluealloy/revm/compare/revm-context-interface-v8.0.1...revm-context-interface-v9.0.0) - 2025-07-23
+
+### Fixed
+
+- fully deprecate serde-json ([#2767](https://github.com/bluealloy/revm/pull/2767))
+
+### Other
+
+- un-Box frames ([#2761](https://github.com/bluealloy/revm/pull/2761))
+- discard generic host implementation ([#2738](https://github.com/bluealloy/revm/pull/2738))
+
+## [8.0.1](https://github.com/bluealloy/revm/compare/revm-context-interface-v8.0.0...revm-context-interface-v8.0.1) - 2025-07-03
+
+### Other
+
+- updated the following local packages: revm-state, revm-database-interface
+
+## [8.0.0](https://github.com/bluealloy/revm/compare/revm-context-interface-v7.0.1...revm-context-interface-v8.0.0) - 2025-06-30
+
+### Added
+
+- implement `Transaction` for `Either` ([#2662](https://github.com/bluealloy/revm/pull/2662))
+- optional_eip3541 ([#2661](https://github.com/bluealloy/revm/pull/2661))
+
+### Other
+
+- fix copy-pasted inner doc comments ([#2663](https://github.com/bluealloy/revm/pull/2663))
+
+## [7.0.1](https://github.com/bluealloy/revm/compare/revm-context-interface-v7.0.0...revm-context-interface-v7.0.1) - 2025-06-20
+
+### Fixed
+
+- call stack_frame.clear() at end ([#2656](https://github.com/bluealloy/revm/pull/2656))
+
+## [7.0.0](https://github.com/bluealloy/revm/compare/revm-context-interface-v6.0.0...revm-context-interface-v7.0.0) - 2025-06-19
+
+### Added
+
+- remove EOF ([#2644](https://github.com/bluealloy/revm/pull/2644))
+- configurable contract size limit ([#2611](https://github.com/bluealloy/revm/pull/2611)) ([#2642](https://github.com/bluealloy/revm/pull/2642))
+- *(precompile)* rug/gmp-based modexp ([#2596](https://github.com/bluealloy/revm/pull/2596))
+- change blob_max_count to max_blobs_per_tx ([#2608](https://github.com/bluealloy/revm/pull/2608))
+- add optional priority fee check configuration ([#2588](https://github.com/bluealloy/revm/pull/2588))
+
+### Other
+
+- re-use frame allocation ([#2636](https://github.com/bluealloy/revm/pull/2636))
+- store coinbase address separately to avoid cloning warm addresses in the common case ([#2634](https://github.com/bluealloy/revm/pull/2634))
+- rename `transact` methods ([#2616](https://github.com/bluealloy/revm/pull/2616))
+
+## [6.0.0](https://github.com/bluealloy/revm/compare/revm-context-interface-v5.0.0...revm-context-interface-v6.0.0) - 2025-06-06
+
+### Added
+
+- *(Osaka)* EIP-7825 tx limit cap ([#2575](https://github.com/bluealloy/revm/pull/2575))
+- Config blob basefee fraction ([#2551](https://github.com/bluealloy/revm/pull/2551))
+- expand timestamp/block_number to u256 ([#2546](https://github.com/bluealloy/revm/pull/2546))
+- transact multi tx ([#2517](https://github.com/bluealloy/revm/pull/2517))
+
+### Other
+
+- support functions for eip7918 ([#2579](https://github.com/bluealloy/revm/pull/2579))
+- *(docs)* add lints to database-interface and op-revm crates ([#2568](https://github.com/bluealloy/revm/pull/2568))
+- *(docs)* context crate lints ([#2565](https://github.com/bluealloy/revm/pull/2565))
+- ContextTr rm *_ref, and add *_mut fn ([#2560](https://github.com/bluealloy/revm/pull/2560))
+- *(cfg)* add tx_chain_id_check fields. Optimize effective gas cost calc ([#2557](https://github.com/bluealloy/revm/pull/2557))
+
+## [5.0.0](https://github.com/bluealloy/revm/compare/revm-context-interface-v4.1.0...revm-context-interface-v5.0.0) - 2025-05-22
+
+### Added
+
+- make blob max number optional ([#2532](https://github.com/bluealloy/revm/pull/2532))
+
+### Other
+
+- add TxEnvBuilder::build_fill ([#2536](https://github.com/bluealloy/revm/pull/2536))
+- make crates.io version badge clickable ([#2526](https://github.com/bluealloy/revm/pull/2526))
+- Storage Types Alias ([#2461](https://github.com/bluealloy/revm/pull/2461))
+
 ## [4.1.0](https://github.com/bluealloy/revm/compare/revm-context-interface-v4.0.0...revm-context-interface-v4.1.0) - 2025-05-07
 
 Dependency bump

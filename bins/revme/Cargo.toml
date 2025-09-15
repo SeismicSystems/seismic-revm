@@ -1,24 +1,18 @@
 [package]
 name = "revme"
 description = "Rust Ethereum Virtual Machine Executable"
-version = "5.0.0"
+version = "7.2.2"
 authors.workspace = true
 edition.workspace = true
 keywords.workspace = true
 license.workspace = true
 repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 cargo_metadata.workspace = true
 # revm
-revm = { workspace = true, features = [
-    "std",
-    "hashbrown",
-    "c-kzg",
-    "blst",
-    "serde-json",
-    "hashbrown",
-] }
+revm = { workspace = true, features = ["std", "hashbrown", "c-kzg", "blst"] }
 primitives.workspace = true
 database.workspace = true
 database-interface.workspace = true
@@ -26,7 +20,7 @@ state.workspace = true
 bytecode = { workspace = true, features = ["std", "parse"] }
 context.workspace = true
 context-interface.workspace = true
-inspector = { workspace = true, features = ["std", "serde-json"] }
+inspector = { workspace = true, features = ["std", "tracer"] }
 statetest-types.workspace = true
 criterion.workspace = true
 
@@ -48,10 +42,11 @@ thiserror.workspace = true
 triehash.workspace = true
 walkdir.workspace = true
 k256 = { workspace = true, features = ["ecdsa"] }
-log = "0.4"
-env_logger = "0.9"
-rayon = "1.5"
-regex = "1.11.1"
+csv = "1.1.6"
+
+[features]
+# Optionally enable gmp because it doesn't work on i686 github actions runners
+gmp = ["revm/gmp"]
 
 [[bench]]
 name = "evm"

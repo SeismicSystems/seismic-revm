@@ -1,18 +1,28 @@
+use super::{Immediates, Jumps, LegacyBytecode};
+use crate::{interpreter_types::LoopControl, InterpreterAction};
+use bytecode::{utils::read_u16, Bytecode};
 use core::ops::Deref;
-
-use bytecode::{eof::CodeInfo, utils::read_u16, Bytecode};
-use primitives::{Bytes, B256};
-
-use super::{EofCodeInfo, EofContainer, EofData, Immediates, Jumps, LegacyBytecode};
+use primitives::B256;
 
 #[cfg(feature = "serde")]
 mod serde;
 
+/// Extended bytecode structure that wraps base bytecode with additional execution metadata.
 #[derive(Debug)]
 pub struct ExtBytecode {
-    base: Bytecode,
-    bytecode_hash: Option<B256>,
+    /// The current instruction pointer.
     instruction_pointer: *const u8,
+    /// Whether the execution should continue.
+    continue_execution: bool,
+    /// Bytecode Keccak-256 hash.
+    /// This is `None` if it hasn't been calculated yet.
+    /// Since it's not necessary for execution, it's not calculated by default.
+    bytecode_hash: Option<B256>,
+    /// Actions that the EVM should do. It contains return value of the Interpreter or inputs for `CALL` or `CREATE` instructions.
+    /// For `RETURN` or `REVERT` instructions it contains the result of the instruction.
+    pub action: Option<InterpreterAction>,
+    /// The base bytecode.
+    base: Bytecode,
 }
 
 impl Deref for ExtBytecode {
@@ -23,37 +33,105 @@ impl Deref for ExtBytecode {
     }
 }
 
+impl Default for ExtBytecode {
+    #[inline]
+    fn default() -> Self {
+        Self::new(Bytecode::default())
+    }
+}
+
 impl ExtBytecode {
     /// Create new extended bytecode and set the instruction pointer to the start of the bytecode.
+    ///
+    /// The bytecode hash will not be calculated.
+    #[inline]
     pub fn new(base: Bytecode) -> Self {
-        let instruction_pointer = base.bytecode_ptr();
-        Self {
-            base,
-            instruction_pointer,
-            bytecode_hash: None,
-        }
+        Self::new_with_optional_hash(base, None)
     }
 
     /// Creates new `ExtBytecode` with the given hash.
+    #[inline]
     pub fn new_with_hash(base: Bytecode, hash: B256) -> Self {
+        Self::new_with_optional_hash(base, Some(hash))
+    }
+
+    /// Creates new `ExtBytecode` with the given hash.
+    #[inline]
+    pub fn new_with_optional_hash(base: Bytecode, hash: Option<B256>) -> Self {
         let instruction_pointer = base.bytecode_ptr();
         Self {
             base,
             instruction_pointer,
-            bytecode_hash: Some(hash),
+            bytecode_hash: hash,
+            action: None,
+            continue_execution: true,
         }
     }
 
     /// Regenerates the bytecode hash.
+    #[inline]
+    #[deprecated(note = "use `get_or_calculate_hash` or `calculate_hash` instead")]
+    #[doc(hidden)]
     pub fn regenerate_hash(&mut self) -> B256 {
+        self.calculate_hash()
+    }
+
+    /// Re-calculates the bytecode hash.
+    ///
+    /// Prefer [`get_or_calculate_hash`](Self::get_or_calculate_hash) if you just need to get the hash.
+    #[inline]
+    pub fn calculate_hash(&mut self) -> B256 {
         let hash = self.base.hash_slow();
         self.bytecode_hash = Some(hash);
         hash
     }
 
     /// Returns the bytecode hash.
+    #[inline]
     pub fn hash(&mut self) -> Option<B256> {
         self.bytecode_hash
+    }
+
+    /// Returns the bytecode hash or calculates it if it is not set.
+    #[inline]
+    pub fn get_or_calculate_hash(&mut self) -> B256 {
+        *self.bytecode_hash.get_or_insert_with(
+            #[cold]
+            || self.base.hash_slow(),
+        )
+    }
+}
+
+impl LoopControl for ExtBytecode {
+    #[inline]
+    fn is_not_end(&self) -> bool {
+        self.continue_execution
+    }
+
+    #[inline]
+    fn reset_action(&mut self) {
+        self.continue_execution = true;
+    }
+
+    #[inline]
+    fn set_action(&mut self, action: InterpreterAction) {
+        debug_assert_eq!(
+            !self.continue_execution,
+            self.action.is_some(),
+            "has_set_action out of sync"
+        );
+        debug_assert!(
+            self.continue_execution,
+            "action already set;\nold: {:#?}\nnew: {:#?}",
+            self.action, action,
+        );
+        self.continue_execution = false;
+        self.action = Some(action);
+    }
+
+    #[inline]
+    fn action(&mut self) -> &mut Option<InterpreterAction> {
+        &mut self.action
     }
 }
 
@@ -121,50 +199,12 @@ impl Immediates for ExtBytecode {
     }
 }
 
-impl EofCodeInfo for ExtBytecode {
-    fn code_info(&self, idx: usize) -> Option<&CodeInfo> {
-        self.base.eof().and_then(|eof| eof.body.code_info.get(idx))
-    }
-
-    fn code_section_pc(&self, idx: usize) -> Option<usize> {
-        self.base
-            .eof()
-            .and_then(|eof| eof.body.eof_code_section_start(idx))
-    }
-}
-
-impl EofData for ExtBytecode {
-    fn data(&self) -> &[u8] {
-        self.base.eof().expect("eof").data()
-    }
-
-    fn data_slice(&self, offset: usize, len: usize) -> &[u8] {
-        self.base.eof().expect("eof").data_slice(offset, len)
-    }
-
-    fn data_size(&self) -> usize {
-        self.base.eof().expect("eof").header.data_size as usize
-    }
-}
-
-impl EofContainer for ExtBytecode {
-    fn eof_container(&self, index: usize) -> Option<&Bytes> {
-        self.base
-            .eof()
-            .and_then(|eof| eof.body.container_section.get(index))
-    }
-}
-
 impl LegacyBytecode for ExtBytecode {
     fn bytecode_len(&self) -> usize {
-        // Inform the optimizer that the bytecode cannot be EOF to remove a bounds check.
-        assume!(!self.base.is_eof());
         self.base.len()
     }
 
     fn bytecode_slice(&self) -> &[u8] {
-        // Inform the optimizer that the bytecode cannot be EOF to remove a bounds check.
-        assume!(!self.base.is_eof());
         self.base.original_byte_slice()
     }
 }

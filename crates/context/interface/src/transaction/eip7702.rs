@@ -1,3 +1,4 @@
+//! EIP-7702 Account Abstraction transaction interface.
 use auto_impl::auto_impl;
 use primitives::{Address, U256};
 
@@ -15,7 +16,7 @@ pub trait AuthorizationTr {
     /// signature s-value should be less than SECP256K1N_HALF.
     fn authority(&self) -> Option<Address>;
 
-    /// Returns authorization the chain id.
+    /// Returns the chain id from the authorization.
     fn chain_id(&self) -> U256;
 
     /// Returns the nonce.

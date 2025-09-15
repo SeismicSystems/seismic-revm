@@ -19,7 +19,9 @@ use state::AccountInfo;
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BundleAccount {
+    /// Current account information.
     pub info: Option<AccountInfo>,
+    /// Original account information before modifications.
     pub original_info: Option<AccountInfo>,
     /// Contains both original and present state.
     /// When extracting changeset we compare if original value is different from present value.
@@ -117,7 +119,7 @@ impl BundleAccount {
                     // if storage is not present set original value as current value.
                     self.storage
                         .entry(key)
-                        .or_insert(StorageSlot::new(value))
+                        .or_insert_with(|| StorageSlot::new(value))
                         .present_value = value;
                 }
                 RevertToSlot::Destroyed => {
@@ -231,7 +233,7 @@ impl BundleAccount {
             }
             AccountStatus::Destroyed => {
                 // Clear this storage and move it to the Revert.
-                let this_storage = self.storage.drain().collect();
+                let this_storage = core::mem::take(&mut self.storage);
                 let ret = match self.status {
                     AccountStatus::InMemoryChange | AccountStatus::Changed | AccountStatus::Loaded | AccountStatus::LoadedEmptyEIP161 => {
                         Some(AccountRevert::new_selfdestructed(self.status, info_revert, this_storage))
@@ -355,7 +357,7 @@ impl BundleAccount {
                                 // Destroyed again will set empty account.
                                 AccountStatus::DestroyedChanged,
                                 AccountInfoRevert::RevertTo(self.info.clone().unwrap_or_default()),
-                                self.storage.drain().collect(),
+                                core::mem::take(&mut self.storage),
                                 HashMap::default(),
                             ))
                         }
