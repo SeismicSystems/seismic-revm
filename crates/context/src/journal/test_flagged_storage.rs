@@ -17,6 +17,7 @@ fn create_test_account(status: AccountStatus) -> Account {
             balance: U256::from(1000),
             ..Default::default()
         },
+        transaction_id: 0,
         status,
         storage: EvmStorage::new(),
     }
@@ -43,7 +44,7 @@ fn verify_storage_state(
     expected_private: bool,
     context: &str,
 ) {
-    let result = journal.sload(db, address, key).unwrap();
+    let result = journal.sload(db, address, key, false).unwrap();
     assert_eq!(
         result.data, expected_value,
         "{}: Storage value mismatch. Expected {}, got {}",
@@ -66,9 +67,9 @@ fn store_value(
     value: U256,
 ) -> context_interface::context::StateLoad<context_interface::context::SStoreResult> {
     if shielded {
-        journal.cstore(db, address, key, value).unwrap()
+        journal.cstore(db, address, key, value, false).unwrap()
     } else {
-        journal.sstore(db, address, key, value).unwrap()
+        journal.sstore(db, address, key, value, false).unwrap()
     }
 }
 
@@ -81,9 +82,9 @@ fn load_value(
     key: U256,
 ) -> context_interface::context::StateLoad<U256> {
     if shielded {
-        journal.cload(db, address, key).unwrap()
+        journal.cload(db, address, key, false).unwrap()
     } else {
-        journal.sload(db, address, key).unwrap()
+        journal.sload(db, address, key, false).unwrap()
     }
 }
 
@@ -133,7 +134,7 @@ fn _test_storage_simple_revert(shielded: bool) {
     let address = Address::from_slice(&[0x1; 20]);
     let storage_key = U256::from(1);
 
-    let mut journal = setup_journal_with_account(address, AccountStatus::Loaded);
+    let mut journal = setup_journal_with_account(address, AccountStatus::Created);
 
     // Verify initial state - should be empty
     verify_storage_state(
@@ -354,7 +355,7 @@ fn _test_nested_checkpoint_storage_reverts(shielded: bool) {
     let key1 = U256::from(1);
     let key2 = U256::from(2);
 
-    let mut journal = setup_journal_with_account(address, AccountStatus::Loaded);
+    let mut journal = setup_journal_with_account(address, AccountStatus::Created);
 
     let storage_type = if shielded { "private" } else { "public" };
     let operation_name = if shielded { "CSTORE" } else { "SSTORE" };
@@ -664,7 +665,7 @@ fn test_mixed_storage_revert() {
     let private_key = U256::from(1);
     let public_key = U256::from(2);
 
-    let mut journal = setup_journal_with_account(address, AccountStatus::Loaded);
+    let mut journal = setup_journal_with_account(address, AccountStatus::Created);
 
     // Verify initial state for both keys
     verify_storage_state(

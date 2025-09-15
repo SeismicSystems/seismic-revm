@@ -65,8 +65,9 @@ impl JournalTr for Backend {
         &mut self,
         address: Address,
         key: U256,
+        skip_cold_load: bool,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        self.journaled_state.cload(address, key)
+        self.journaled_state.cload(address, key, skip_cold_load)
     }
 
     fn cstore(

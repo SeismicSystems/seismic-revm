@@ -49,6 +49,7 @@ pub trait JournalTr {
         &mut self,
         address: Address,
         key: StorageKey,
+        _skip_cold_load: bool,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
         self.sload_skip_cold_load(address, key, false)
             .map_err(JournalLoadError::unwrap_db_error)
