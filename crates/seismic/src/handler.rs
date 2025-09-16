@@ -7,7 +7,7 @@ use revm::{
     },
     context_interface::{context::ContextError, result::FromStringError},
     handler::{
-        handler::EvmTrError, post_execution, EvmTr, Frame, FrameResult, Handler, MainnetHandler,
+        handler::EvmTrError, post_execution, EthFrame, EvmTr, FrameResult, FrameTr, Handler, MainnetHandler
     },
     inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
     interpreter::{interpreter::EthInterpreter, FrameInput},
@@ -37,11 +37,10 @@ impl<EVM, ERROR, FRAME> Handler for SeismicHandler<EVM, ERROR, FRAME>
 where
     EVM: EvmTr<Context: SeismicContextTr>,
     ERROR: EvmTrError<EVM> + From<InvalidTransaction> + FromStringError,
-    FRAME: Frame<Evm = EVM, Error = ERROR, FrameResult = FrameResult, FrameInit = FrameInput>,
+    FRAME: FrameTr<FrameResult = FrameResult, FrameInit = FrameInput>,
 {
     type Evm = EVM;
     type Error = ERROR;
-    type Frame = FRAME;
     type HaltReason = SeismicHaltReason;
 
     /// Processes the final execution output.
@@ -99,7 +98,7 @@ where
         &self,
         evm: &mut Self::Evm,
         error: Self::Error,
-    ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
+    ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
         // Clean up journal state if error occurs
         evm.ctx().journal().clear();
         evm.ctx().chain().reset_rng();
@@ -108,17 +107,10 @@ where
 }
 
 // Fix for the first error: Simplify the InspectorHandler implementation with proper bounds
-impl<EVM, ERROR, FRAME> InspectorHandler for SeismicHandler<EVM, ERROR, FRAME>
+impl<EVM, ERROR> InspectorHandler for SeismicHandler<EVM, ERROR, EthFrame<EthInterpreter>>
 where
     EVM: InspectorEvmTr<Context: SeismicContextTr>,
     ERROR: EvmTrError<EVM> + From<InvalidTransaction> + FromStringError,
-    FRAME: InspectorFrame<
-        Evm = EVM,
-        Error = ERROR,
-        FrameResult = FrameResult,
-        FrameInit = FrameInput,
-        IT = EthInterpreter,
-    >,
     EVM::Inspector: Inspector<EVM::Context, EthInterpreter>,
 {
     type IT = EthInterpreter;
@@ -154,7 +146,7 @@ mod tests {
         ));
 
         let mut handler =
-            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<_, _, _>>::new();
+            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
 
         handler
             .last_frame_result(&mut evm, &mut exec_result)

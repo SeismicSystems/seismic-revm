@@ -4,12 +4,7 @@ use crate::{
     precompiles::{mercury_with_extra, SeismicPrecompiles},
 };
 use revm::{
-    context::{ContextSetters, Evm},
-    handler::{instructions::InstructionProvider, EvmTr, PrecompileProvider},
-    inspector::{InspectorEvmTr, JournalExt},
-    interpreter::{interpreter::EthInterpreter, Interpreter, InterpreterAction, InterpreterTypes},
-    precompile::Precompiles,
-    Inspector,
+    context::{ContextError, ContextSetters, Evm, FrameStack}, handler::{instructions::InstructionProvider, EthFrame, EvmTr, FrameInitOrResult, FrameTr, ItemOrResult, PrecompileProvider}, inspector::{InspectorEvmTr, JournalExt}, interpreter::{interpreter::EthInterpreter, Interpreter, InterpreterAction, InterpreterTypes}, precompile::Precompiles, Database, Inspector
 };
 
 pub struct SeismicEvm<
@@ -17,7 +12,8 @@ pub struct SeismicEvm<
     INSP,
     I = SeismicInstructions<EthInterpreter, CTX>,
     P = SeismicPrecompiles<CTX>,
->(pub Evm<CTX, INSP, I, P>);
+    F = EthFrame<EthInterpreter>,
+>(pub Evm<CTX, INSP, I, P, F>);
 
 impl<CTX: SeismicContextTr, INSP>
     SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, SeismicPrecompiles<CTX>>
@@ -28,12 +24,13 @@ impl<CTX: SeismicContextTr, INSP>
             inspector,
             instruction: SeismicInstructions::new_mainnet(),
             precompiles: SeismicPrecompiles::<CTX>::default(),
+            frame_stack: FrameStack::new(),
         })
     }
 }
 
-impl<CTX, INSP, I, P> std::ops::Deref for SeismicEvm<CTX, INSP, I, P> {
-    type Target = Evm<CTX, INSP, I, P>;
+impl<CTX, INSP, I, P, F> std::ops::Deref for SeismicEvm<CTX, INSP, I, P, F> {
+    type Target = Evm<CTX, INSP, I, P, F>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -60,6 +57,7 @@ impl<CTX: SeismicContextTr, I, INSP> SeismicEvm<CTX, INSP, I> {
             inspector,
             instruction,
             precompiles: SeismicPrecompiles::<CTX>::new(p),
+            frame_stack: FrameStack::new(),
         })
     }
 }
@@ -84,14 +82,30 @@ where
         (&mut self.0.ctx, &mut self.0.inspector)
     }
 
-    fn run_inspect_interpreter(
+    fn ctx_inspector_frame(
         &mut self,
-        interpreter: &mut Interpreter<
-            <Self::Instructions as InstructionProvider>::InterpreterTypes,
-        >,
-    ) -> <<Self::Instructions as InstructionProvider>::InterpreterTypes as InterpreterTypes>::Output
-    {
-        self.0.run_inspect_interpreter(interpreter)
+    ) -> (&mut Self::Context, &mut Self::Inspector, &mut Self::Frame) {
+        (
+            &mut self.0.ctx,
+            &mut self.0.inspector,
+            self.0.frame_stack.get(),
+        )
+    }
+
+    fn ctx_inspector_frame_instructions(
+        &mut self,
+    ) -> (
+        &mut Self::Context,
+        &mut Self::Inspector,
+        &mut Self::Frame,
+        &mut Self::Instructions,
+    ) {
+        (
+            &mut self.0.ctx,
+            &mut self.0.inspector,
+            self.0.frame_stack.get(),
+            &mut self.0.instruction,
+        )
     }
 }
 
@@ -107,18 +121,7 @@ where
     type Context = CTX;
     type Instructions = I;
     type Precompiles = P;
-
-    fn run_interpreter(
-        &mut self,
-        interpreter: &mut Interpreter<
-            <Self::Instructions as InstructionProvider>::InterpreterTypes,
-        >,
-    ) -> <<Self::Instructions as InstructionProvider>::InterpreterTypes as InterpreterTypes>::Output
-    {
-        let context = &mut self.0.ctx;
-        let instructions = &mut self.0.instruction;
-        interpreter.run_plain(instructions.instruction_table(), context)
-    }
+    type Frame = EthFrame<EthInterpreter>;
 
     fn ctx(&mut self) -> &mut Self::Context {
         &mut self.0.ctx
@@ -134,6 +137,41 @@ where
 
     fn ctx_precompiles(&mut self) -> (&mut Self::Context, &mut Self::Precompiles) {
         (&mut self.0.ctx, &mut self.0.precompiles)
+    }
+
+    fn frame_stack(&mut self) -> &mut FrameStack<Self::Frame> {
+        &mut self.0.frame_stack
+    }
+
+    fn frame_init(
+        &mut self,
+        frame_input: <Self::Frame as FrameTr>::FrameInit,
+    ) -> Result<
+        ItemOrResult<&mut Self::Frame, <Self::Frame as FrameTr>::FrameResult>,
+        ContextError<<<Self::Context as SeismicContextTr>::Db as Database>::Error>,
+    > {
+        self.0.frame_init(frame_input)
+    }
+
+    fn frame_run(
+        &mut self,
+    ) -> Result<
+        FrameInitOrResult<Self::Frame>,
+        ContextError<<<Self::Context as SeismicContextTr>::Db as Database>::Error>,
+    > {
+        self.0.frame_run()
+    }
+
+    #[doc = " Returns the result of the frame to the caller. Frame is popped from the frame stack."]
+    #[doc = " Consumes the frame result or returns it if there is more frames to run."]
+    fn frame_return_result(
+        &mut self,
+        result: <Self::Frame as FrameTr>::FrameResult,
+    ) -> Result<
+        Option<<Self::Frame as FrameTr>::FrameResult>,
+        ContextError<<<Self::Context as SeismicContextTr>::Db as Database>::Error>,
+    > {
+        self.0.frame_return_result(result)
     }
 }
 

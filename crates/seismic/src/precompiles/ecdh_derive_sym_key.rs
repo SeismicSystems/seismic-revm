@@ -1,6 +1,6 @@
 use super::hkdf_derive_sym_key::EXPAND_FIXED_COST;
 use revm::precompile::{
-    u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+    u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult
 };
 
 use seismic_enclave::{derive_aes_key, ecdh::SharedSecret, PublicKey, SecretKey};
@@ -9,12 +9,12 @@ use seismic_enclave::{derive_aes_key, ecdh::SharedSecret, PublicKey, SecretKey};
 pub const ECDH_ADDRESS: u64 = 101;
 
 /// Returns the ecdh precompile with its address.
-pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
+pub fn precompiles() -> impl Iterator<Item = Precompile> {
     [ECDH].into_iter()
 }
 
-pub const ECDH: PrecompileWithAddress =
-    PrecompileWithAddress(u64_to_address(ECDH_ADDRESS), derive_symmetric_key);
+pub const ECDH: Precompile =
+    Precompile::from((PrecompileId::custom("ECDH"), u64_to_address(ECDH_ADDRESS), derive_symmetric_key));
 
 /// Expected input layout:
 /// - 32 bytes: secp256k1 secret key

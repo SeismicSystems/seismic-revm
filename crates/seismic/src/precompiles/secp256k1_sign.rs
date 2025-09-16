@@ -1,5 +1,5 @@
 use revm::precompile::{
-    u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+    u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult
 };
 
 use secp256k1::Secp256k1;
@@ -11,13 +11,14 @@ Precompile Wiring
 pub const SECP256K1_SIGN_ADDRESS: u64 = 105;
 
 /// Returns the ecdh precompile with its address.
-pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
+pub fn precompiles() -> impl Iterator<Item = Precompile> {
     [SECP256K1_SIGN].into_iter()
 }
 
-pub const SECP256K1_SIGN: PrecompileWithAddress = PrecompileWithAddress(
+pub const SECP256K1_SIGN: Precompile = Precompile::new(
+    PrecompileId::Custom("Secp256K1_sign"),
     u64_to_address(SECP256K1_SIGN_ADDRESS),
-    secp256k1_sign_ecdsa_recoverable,
+    secp256k1_sign_ecdsa_recoverable
 );
 
 const BASE_GAS: u64 = 3000;
@@ -45,14 +46,13 @@ pub fn secp256k1_sign_ecdsa_recoverable(input: &[u8], gas_limit: u64) -> Precomp
     }
     let key_bytes: [u8; 32] = input[0..32].try_into().unwrap();
     let digest_bytes: [u8; 32] = input[32..64].try_into().unwrap();
-    let secret_key = secp256k1::SecretKey::from_slice(&key_bytes)
+    let secret_key = secp256k1::SecretKey::from_byte_array(key_bytes)
         .map_err(|e| PrecompileError::Other(format!("Invalid secret key: {e}")))?;
-    let message = secp256k1::Message::from_digest_slice(&digest_bytes)
-        .map_err(|e| PrecompileError::Other(format!("Invalid message: {e}")))?;
+    let message = secp256k1::Message::from_digest(digest_bytes);
 
     // sign
     let secp = Secp256k1::new();
-    let sig = secp.sign_ecdsa_recoverable(&message, &secret_key);
+    let sig = secp.sign_ecdsa_recoverable(message, &secret_key);
 
     // serialize the output
     let (recid, sig) = sig.serialize_compact();

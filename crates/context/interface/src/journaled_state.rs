@@ -80,7 +80,7 @@ pub trait JournalTr {
         &mut self,
         address: Address,
         key: StorageKey,
-        value: U256,
+        value: StorageValue,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
         self.sstore_skip_cold_load(address, key, value, false)
             .map_err(JournalLoadError::unwrap_db_error)

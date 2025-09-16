@@ -96,6 +96,16 @@ pub trait Host {
         self.sstore_skip_cold_load(address, key, value, false).ok()
     }
 
+    /// Cstore, for storing shielded state
+    fn cstore(
+        &mut self,
+        _address: Address,
+        _key: StorageKey,
+        _value: StorageValue,
+    ) -> Option<StateLoad<SStoreResult>> {
+        None
+    }
+
     /// Sload with optional fetch from database. Return none if the value is cold or if there is db error.
     fn sload_skip_cold_load(
         &mut self,
@@ -107,6 +117,11 @@ pub trait Host {
     /// Sload, calls `ContextTr::journal_mut().sload(address, key)`
     fn sload(&mut self, address: Address, key: StorageKey) -> Option<StateLoad<StorageValue>> {
         self.sload_skip_cold_load(address, key, false).ok()
+    }
+
+    /// Cload, for loading shielded state
+    fn cload(&mut self, _address: Address, _key: StorageKey) -> Option<StateLoad<U256>> {
+        None
     }
 
     /// Tstore, calls `ContextTr::journal_mut().tstore(address, key, value)`

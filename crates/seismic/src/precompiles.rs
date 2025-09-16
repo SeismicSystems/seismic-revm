@@ -30,8 +30,8 @@ use once_cell::race::OnceBox;
 use revm::{
     context::{Cfg, LocalContextTr},
     handler::{EthPrecompiles, PrecompileProvider},
-    interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
-    precompile::{secp256r1, PrecompileError, PrecompileWithAddress, Precompiles},
+    interpreter::{CallInput, CallInputs, Gas, InputsImpl, InstructionResult, InterpreterResult},
+    precompile::{secp256r1, Precompile, PrecompileError, Precompiles},
     primitives::{Address, Bytes},
 };
 use std::boxed::Box;
@@ -79,7 +79,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
                     .inner()
                     .clone()
                     .into_iter()
-                    .map(|(a, p)| PrecompileWithAddress(a, p)),
+                    .map(|(a, p)| Precompile(a, p)),
             );
         }
         precompiles.extend([
@@ -121,15 +121,12 @@ where
     fn run(
         &mut self,
         context: &mut CTX,
-        address: &Address,
-        inputs: &InputsImpl,
-        is_static: bool,
-        gas_limit: u64,
+        inputs: &CallInputs,
     ) -> Result<Option<Self::Output>, String> {
         if let Some(precompile) = self.stateful_precompiles.get(address) {
             let mut result = InterpreterResult {
                 result: InstructionResult::Return,
-                gas: Gas::new(gas_limit),
+                gas: Gas::new(inputs.gas_limit),
                 output: Bytes::new(),
             };
 
@@ -147,7 +144,7 @@ where
             };
 
             // Now call the precompile with the owned bytes
-            match (*precompile)(context, &bytes, gas_limit) {
+            match (*precompile)(context, &bytes, inputs.gas_limit) {
                 Ok(output) => {
                     let underflow = result.gas.record_cost(output.gas_used);
                     assert!(underflow, "Gas underflow should not occur");
@@ -168,7 +165,7 @@ where
         } else {
             // Fall back to standard precompiles
             self.inner
-                .run(context, address, inputs, is_static, gas_limit)
+                .run(context, inputs)
         }
     }
 
