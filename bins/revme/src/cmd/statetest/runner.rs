@@ -439,12 +439,12 @@ fn execute_single_test(ctx: TestExecutionContext) -> Result<(), TestErrorKind> {
         let mut evm = evm_context
             .build_seismic_evm_with_inspector(TracerEip3155::buffered(stderr()).without_summary());
         let res = evm.inspect_tx_commit(ctx.tx);
-        let db = evm.ctx.journaled_state.database;
+        let db = evm.0.ctx.journaled_state.database;
         (db, res)
     } else {
         let mut evm = evm_context.build_seismic_evm();
         let res = evm.transact_commit(ctx.tx);
-        let db = evm.ctx.journaled_state.database;
+        let db = evm.0.ctx.journaled_state.database;
         (db, res)
     };
     *ctx.elapsed.lock().unwrap() += timer.elapsed();
