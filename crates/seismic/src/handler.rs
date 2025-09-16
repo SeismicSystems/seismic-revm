@@ -2,15 +2,16 @@
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
 use revm::{
     context::{
-        result::{ExecutionResult, InvalidTransaction, ResultAndState},
+        result::{ExecutionResult, InvalidTransaction},
         ContextTr, JournalTr, Transaction,
     },
     context_interface::{context::ContextError, result::FromStringError},
     handler::{
-        handler::EvmTrError, post_execution, EthFrame, EvmTr, FrameResult, FrameTr, Handler, MainnetHandler
+        handler::EvmTrError, post_execution, EthFrame, EvmTr, FrameResult, FrameTr, Handler,
+        MainnetHandler,
     },
-    inspector::{Inspector, InspectorEvmTr, InspectorFrame, InspectorHandler},
-    interpreter::{interpreter::EthInterpreter, FrameInput},
+    inspector::{Inspector, InspectorEvmTr, InspectorHandler},
+    interpreter::{interpreter::EthInterpreter, interpreter_action::FrameInit},
 };
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
@@ -35,9 +36,9 @@ impl<EVM, ERROR, FRAME> Default for SeismicHandler<EVM, ERROR, FRAME> {
 
 impl<EVM, ERROR, FRAME> Handler for SeismicHandler<EVM, ERROR, FRAME>
 where
-    EVM: EvmTr<Context: SeismicContextTr>,
+    EVM: EvmTr<Context: SeismicContextTr, Frame = FRAME>,
     ERROR: EvmTrError<EVM> + From<InvalidTransaction> + FromStringError,
-    FRAME: FrameTr<FrameResult = FrameResult, FrameInit = FrameInput>,
+    FRAME: FrameTr<FrameResult = FrameResult, FrameInit = FrameInit>,
 {
     type Evm = EVM;
     type Error = ERROR;
@@ -53,27 +54,23 @@ where
     /// We leverage context_error to bubble up our instruction set specific errors! We also clear
     /// the rng state on returns that won't go through catch_error.
     #[inline]
-    fn output(
-        &self,
+    fn execution_result(
+        &mut self,
         evm: &mut Self::Evm,
-        result: <Self::Frame as Frame>::FrameResult,
-    ) -> Result<ResultAndState<Self::HaltReason>, Self::Error> {
+        result: <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
+    ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
         match core::mem::replace(evm.ctx().error(), Ok(())) {
             Err(ContextError::Db(e)) => Err(e.into()),
             Err(ContextError::Custom(e)) => {
                 if let Some(seismic_reason) =
                     SeismicHaltReason::try_from_error_string(&e.to_string())
                 {
-                    let state = evm.ctx().journal().finalize().state;
-                    evm.ctx().journal().clear();
-                    evm.ctx().chain().reset_rng();
+                    evm.ctx().journal_mut().clear();
+                    evm.ctx().chain_mut().reset_rng();
 
-                    return Ok(ResultAndState {
-                        result: ExecutionResult::Halt {
-                            reason: seismic_reason,
-                            gas_used: evm.ctx().tx().gas_limit(),
-                        },
-                        state,
+                    return Ok(ExecutionResult::Halt {
+                        reason: seismic_reason,
+                        gas_used: evm.ctx().tx().gas_limit(),
                     });
                 }
 
@@ -81,8 +78,8 @@ where
             }
             Ok(_) => {
                 let output = post_execution::output(evm.ctx(), result);
-                evm.ctx().journal().clear();
-                evm.ctx().chain().reset_rng();
+                evm.ctx().journal_mut().clear();
+                evm.ctx().chain_mut().reset_rng();
                 Ok(output)
             }
         }
@@ -100,8 +97,8 @@ where
         error: Self::Error,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
         // Clean up journal state if error occurs
-        evm.ctx().journal().clear();
-        evm.ctx().chain().reset_rng();
+        evm.ctx().journal_mut().clear();
+        evm.ctx().chain_mut().reset_rng();
         Err(error)
     }
 }

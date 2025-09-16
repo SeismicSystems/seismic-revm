@@ -1,7 +1,6 @@
 use revm::precompile::{
-    PrecompileId,
-    calc_linear_cost_u32, u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult,
-    Precompile,
+    calc_linear_cost_u32, u64_to_address, Precompile, PrecompileError, PrecompileId,
+    PrecompileOutput, PrecompileResult,
 };
 
 use hkdf::Hkdf;
@@ -18,8 +17,11 @@ pub fn precompiles() -> impl Iterator<Item = Precompile> {
     [HKDF].into_iter()
 }
 
-pub const HKDF: Precompile =
-    Precompile::new(PrecompileId::Custom(std::borrow::Cow::Borrowed("HKDF")), u64_to_address(HKDF_ADDRESS), hkdf_derive_symmetric_key);
+pub const HKDF: Precompile = Precompile::new(
+    PrecompileId::Custom(std::borrow::Cow::Borrowed("HKDF")),
+    u64_to_address(HKDF_ADDRESS),
+    hkdf_derive_symmetric_key,
+);
 
 /* --------------------------------------------------------------------------
  Cost Constants

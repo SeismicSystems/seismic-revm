@@ -74,13 +74,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
     let regular_precompiles = INSTANCE.get_or_init(|| {
         let mut precompiles = Precompiles::prague().clone();
         if let Some(extra) = extra {
-            precompiles.extend(
-                extra
-                    .inner()
-                    .clone()
-                    .into_iter()
-                    .map(|(_, p)| p),
-            );
+            precompiles.extend(extra.inner().clone().into_iter().map(|(_, p)| p));
         }
         precompiles.extend([
             secp256r1::P256VERIFY,
@@ -164,8 +158,7 @@ where
             Ok(Some(result))
         } else {
             // Fall back to standard precompiles
-            self.inner
-                .run(context, inputs)
+            self.inner.run(context, inputs)
         }
     }
 
@@ -196,7 +189,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use revm::{database::EmptyDB, interpreter::{CallScheme, CallValue}, primitives::{hex, U256}, Context};
+    use revm::{
+        database::EmptyDB,
+        interpreter::{CallScheme, CallValue},
+        primitives::{hex, U256},
+        Context,
+    };
 
     use crate::{DefaultSeismicContext, SeismicContext};
 
@@ -236,7 +234,7 @@ mod tests {
             return_memory_offset: 0..0,
             scheme: CallScheme::Call,
             caller: Address::ZERO,
-            value: CallValue::Apparent(U256::ZERO)
+            value: CallValue::Apparent(U256::ZERO),
         }
     }
 

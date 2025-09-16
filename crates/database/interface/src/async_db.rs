@@ -1,10 +1,10 @@
 //! Async database interface.
 use crate::{DBErrorMarker, Database, DatabaseRef};
 use core::{error::Error, future::Future};
+use primitives::alloy_primitives::FlaggedStorage;
 use primitives::{Address, StorageKey, StorageValue, B256};
 use state::{AccountInfo, Bytecode};
 use tokio::runtime::{Handle, Runtime};
-use primitives::alloy_primitives::FlaggedStorage;
 
 /// The async EVM database interface
 ///
@@ -134,7 +134,11 @@ impl<T: DatabaseAsync> Database for WrapDatabaseAsync<T> {
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: StorageKey) -> Result<FlaggedStorage, Self::Error> {
+    fn storage(
+        &mut self,
+        address: Address,
+        index: StorageKey,
+    ) -> Result<FlaggedStorage, Self::Error> {
         self.rt.block_on(self.db.storage_async(address, index))
     }
 
@@ -158,7 +162,11 @@ impl<T: DatabaseAsyncRef> DatabaseRef for WrapDatabaseAsync<T> {
     }
 
     #[inline]
-    fn storage_ref(&self, address: Address, index: StorageKey) -> Result<FlaggedStorage, Self::Error> {
+    fn storage_ref(
+        &self,
+        address: Address,
+        index: StorageKey,
+    ) -> Result<FlaggedStorage, Self::Error> {
         self.rt.block_on(self.db.storage_async_ref(address, index))
     }
 

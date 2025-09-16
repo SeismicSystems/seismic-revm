@@ -4,16 +4,25 @@ use crate::{
     SeismicChain, SeismicHaltReason, SeismicSpecId,
 };
 use revm::{
-    context::{result::{ExecResultAndState, InvalidTransaction}, ContextSetters}, context_interface::{
-        result::{EVMError, ExecutionResult, ResultAndState},
+    context::{
+        result::{ExecResultAndState, InvalidTransaction},
+        ContextSetters,
+    },
+    context_interface::{
+        result::{EVMError, ExecutionResult},
         Cfg, ContextTr, Database, JournalTr,
-    }, handler::{EthFrame, EvmTr, Handler, PrecompileProvider}, inspector::{InspectCommitEvm, InspectEvm, Inspector, InspectorHandler, JournalExt}, interpreter::{interpreter::EthInterpreter, InterpreterResult}, state::EvmState, DatabaseCommit, ExecuteCommitEvm, ExecuteEvm
+    },
+    handler::{EthFrame, Handler, PrecompileProvider},
+    inspector::{InspectCommitEvm, InspectEvm, Inspector, InspectorHandler, JournalExt},
+    interpreter::{interpreter::EthInterpreter, InterpreterResult},
+    state::EvmState,
+    DatabaseCommit, ExecuteCommitEvm, ExecuteEvm,
 };
 
 // Type alias for Seismic context
 pub trait SeismicContextTr:
     ContextTr<
-    Journal: JournalTr,
+    Journal: JournalTr<State = EvmState>,
     Tx: SeismicTxTr,
     Cfg: Cfg<Spec = SeismicSpecId>,
     Chain = SeismicChain,
@@ -23,7 +32,7 @@ pub trait SeismicContextTr:
 
 impl<T> SeismicContextTr for T where
     T: ContextTr<
-        Journal: JournalTr,
+        Journal: JournalTr<State = EvmState>,
         Tx: SeismicTxTr,
         Cfg: Cfg<Spec = SeismicSpecId>,
         Chain = SeismicChain,
@@ -60,9 +69,14 @@ where
         self.0.ctx.journal_mut().finalize()
     }
 
-    fn replay(&mut self) -> Result<ExecResultAndState<Self::ExecutionResult, Self::State>, Self::Error> {
-        let mut h = SeismicHandler::<_, _, EthFrame<_, _, _>>::new();
-        h.run(self)
+    fn replay(
+        &mut self,
+    ) -> Result<ExecResultAndState<Self::ExecutionResult, Self::State>, Self::Error> {
+        let mut h = SeismicHandler::<_, _, EthFrame<EthInterpreter>>::new();
+        h.run(self).map(|result| {
+            let state = self.finalize();
+            ExecResultAndState::new(result, state)
+        })
     }
 }
 
@@ -103,4 +117,5 @@ where
     CTX: SeismicContextTr<Journal: JournalExt, Db: DatabaseCommit> + ContextSetters,
     INSP: Inspector<CTX, EthInterpreter>,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
-{}
+{
+}

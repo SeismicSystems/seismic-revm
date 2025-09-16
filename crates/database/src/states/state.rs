@@ -253,7 +253,11 @@ impl<DB: Database> Database for State<DB> {
         res
     }
 
-    fn storage(&mut self, address: Address, index: StorageKey) -> Result<state::FlaggedStorage, Self::Error> {
+    fn storage(
+        &mut self,
+        address: Address,
+        index: StorageKey,
+    ) -> Result<state::FlaggedStorage, Self::Error> {
         // Account is guaranteed to be loaded.
         // Note that storage from bundle is already loaded with account.
         if let Some(account) = self.cache.accounts.get_mut(&address) {
@@ -450,8 +454,14 @@ mod tests {
             ..Default::default()
         };
         let existing_account_initial_storage = HashMap::<U256, state::FlaggedStorage>::from_iter([
-            (slot1, state::FlaggedStorage::new_from_value(U256::from(100))), // 0x01 => 100
-            (slot2, state::FlaggedStorage::new_from_value(U256::from(100))), // 0x02 => 200
+            (
+                slot1,
+                state::FlaggedStorage::new_from_value(U256::from(100)),
+            ), // 0x01 => 100
+            (
+                slot2,
+                state::FlaggedStorage::new_from_value(U256::from(100)),
+            ), // 0x02 => 200
         ]);
         let existing_account_changed_info = AccountInfo {
             nonce: 2,

@@ -1,5 +1,5 @@
 use revm::precompile::{
-    u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult
+    u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult,
 };
 
 use secp256k1::Secp256k1;
@@ -18,7 +18,7 @@ pub fn precompiles() -> impl Iterator<Item = Precompile> {
 pub const SECP256K1_SIGN: Precompile = Precompile::new(
     PrecompileId::Custom(std::borrow::Cow::Borrowed("Secp256K1_sign")),
     u64_to_address(SECP256K1_SIGN_ADDRESS),
-    secp256k1_sign_ecdsa_recoverable
+    secp256k1_sign_ecdsa_recoverable,
 );
 
 const BASE_GAS: u64 = 3000;

@@ -3,7 +3,7 @@ use revm::{
     context_interface::{context::ContextError, journaled_state::AccountLoad, Database},
     database::EmptyDB,
     interpreter::{host::DummyHost, Host, SStoreResult, SelfDestructResult, StateLoad},
-    primitives::{Address, Bytes, Log, StorageKey, StorageValue, B256, U256}, state::FlaggedStorage,
+    primitives::{Address, Bytes, Log, StorageKey, StorageValue, B256, U256},
 };
 
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};

@@ -347,7 +347,6 @@ pub fn execute_test_suite(
             } else {
                 cfg.set_max_blobs_per_tx(6);
             }
-            */
 
             // Setup block environment for this spec
             let block = unit.block_env(&cfg);

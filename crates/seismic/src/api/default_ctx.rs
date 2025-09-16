@@ -56,6 +56,7 @@ mod test {
         // execute
         let _ = evm.replay();
         // inspect
-        let _ = evm.inspect_replay();
+        // TODO: needs a tx
+        // let _ = evm.inspect();
     }
 }

@@ -4,7 +4,15 @@ use crate::{
     precompiles::{mercury_with_extra, SeismicPrecompiles},
 };
 use revm::{
-    context::{ContextError, ContextSetters, Evm, FrameStack}, handler::{instructions::InstructionProvider, EthFrame, EvmTr, FrameInitOrResult, FrameTr, ItemOrResult, PrecompileProvider}, inspector::{InspectorEvmTr, JournalExt}, interpreter::{interpreter::EthInterpreter, Interpreter, InterpreterAction, InterpreterTypes}, precompile::Precompiles, Database, Inspector
+    context::{ContextError, ContextSetters, ContextTr, Evm, FrameStack},
+    handler::{
+        instructions::InstructionProvider, EthFrame, EvmTr, FrameInitOrResult, FrameTr,
+        ItemOrResult, PrecompileProvider,
+    },
+    inspector::{InspectorEvmTr, JournalExt},
+    interpreter::{interpreter::EthInterpreter, InterpreterResult},
+    precompile::Precompiles,
+    Database, Inspector,
 };
 
 pub struct SeismicEvm<
@@ -65,12 +73,9 @@ impl<CTX: SeismicContextTr, I, INSP> SeismicEvm<CTX, INSP, I> {
 impl<CTX, INSP, I, P> InspectorEvmTr for SeismicEvm<CTX, INSP, I, P>
 where
     CTX: SeismicContextTr<Journal: JournalExt> + ContextSetters,
-    I: InstructionProvider<
-        Context = CTX,
-        InterpreterTypes: InterpreterTypes<Output = InterpreterAction>,
-    >,
+    I: InstructionProvider<Context = CTX, InterpreterTypes = EthInterpreter>,
+    P: PrecompileProvider<CTX, Output = InterpreterResult>,
     INSP: Inspector<CTX, I::InterpreterTypes>,
-    P: PrecompileProvider<CTX>,
 {
     type Inspector = INSP;
 
@@ -111,12 +116,9 @@ where
 
 impl<CTX, INSP, I, P> EvmTr for SeismicEvm<CTX, INSP, I, P>
 where
-    CTX: SeismicContextTr,
-    I: InstructionProvider<
-        Context = CTX,
-        InterpreterTypes: InterpreterTypes<Output = InterpreterAction>,
-    >,
-    P: PrecompileProvider<CTX>,
+    CTX: ContextTr,
+    I: InstructionProvider<Context = CTX, InterpreterTypes = EthInterpreter>,
+    P: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
     type Context = CTX;
     type Instructions = I;
@@ -148,7 +150,7 @@ where
         frame_input: <Self::Frame as FrameTr>::FrameInit,
     ) -> Result<
         ItemOrResult<&mut Self::Frame, <Self::Frame as FrameTr>::FrameResult>,
-        ContextError<<<Self::Context as SeismicContextTr>::Db as Database>::Error>,
+        ContextError<<<Self::Context as ContextTr>::Db as Database>::Error>,
     > {
         self.0.frame_init(frame_input)
     }
@@ -157,7 +159,7 @@ where
         &mut self,
     ) -> Result<
         FrameInitOrResult<Self::Frame>,
-        ContextError<<<Self::Context as SeismicContextTr>::Db as Database>::Error>,
+        ContextError<<<Self::Context as ContextTr>::Db as Database>::Error>,
     > {
         self.0.frame_run()
     }
@@ -169,7 +171,7 @@ where
         result: <Self::Frame as FrameTr>::FrameResult,
     ) -> Result<
         Option<<Self::Frame as FrameTr>::FrameResult>,
-        ContextError<<<Self::Context as SeismicContextTr>::Db as Database>::Error>,
+        ContextError<<<Self::Context as ContextTr>::Db as Database>::Error>,
     > {
         self.0.frame_return_result(result)
     }
@@ -300,7 +302,7 @@ mod tests {
         let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
         let mut evm = call_ctx.build_seismic_evm();
-        let account = evm.ctx().journal().load_account(BENCH_CALLER).unwrap();
+        let account = evm.ctx().journal_mut().load_account(BENCH_CALLER).unwrap();
         account.data.info.balance = U256::from(balance);
 
         let result = evm.replay()?;

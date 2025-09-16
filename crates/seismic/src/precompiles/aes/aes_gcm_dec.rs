@@ -1,5 +1,5 @@
 use revm::precompile::{
-    u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult
+    u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult,
 };
 
 use super::common::{
@@ -19,8 +19,11 @@ pub fn precompiles() -> impl Iterator<Item = Precompile> {
     [AES_GCM_DEC].into_iter()
 }
 
-pub const AES_GCM_DEC: Precompile =
-    Precompile::new(PrecompileId::Custom(std::borrow::Cow::Borrowed("AES-GCM Decrypt")), u64_to_address(AES_GCM_DEC_ADDRESS), precompile_decrypt);
+pub const AES_GCM_DEC: Precompile = Precompile::new(
+    PrecompileId::Custom(std::borrow::Cow::Borrowed("AES-GCM Decrypt")),
+    u64_to_address(AES_GCM_DEC_ADDRESS),
+    precompile_decrypt,
+);
 
 /// Minimal input size for AES-GCM (32-byte key + 12-byte nonce + 16-byte tag).
 pub const MIN_INPUT_LENGTH: usize = 60;

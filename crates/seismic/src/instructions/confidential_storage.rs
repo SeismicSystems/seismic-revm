@@ -1,20 +1,27 @@
 use crate::{check, SeismicHaltReason, SeismicHost};
 use revm::interpreter::{
-    gas::{self, CALL_STIPEND}, interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr}, popn, popn_top, require_non_staticcall, Host, Instruction, InstructionContext, InstructionResult, Interpreter
+    gas::{self, CALL_STIPEND},
+    interpreter_types::{InputsTr, InterpreterTypes, RuntimeFlag, StackTr},
+    popn, popn_top, require_non_staticcall, Host, Instruction, InstructionContext,
+    InstructionResult, _count,
 };
 use revm::primitives::hardfork::SpecId::*;
 
 pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
-    context: InstructionContext<'_, H, WIRE>
+    context: InstructionContext<'_, H, WIRE>,
 ) {
     check!(context.interpreter, MERCURY);
     popn_top!([], index, context.interpreter);
 
-    if let Some(value) = context.host.cload(context.interpreter.input.target_address(), *index) {
+    if let Some(value) = context
+        .host
+        .cload(context.interpreter.input.target_address(), *index)
+    {
         if !value.is_private && !value.data.is_zero() {
-            context.interpreter
-                .halt_fatal();
-            context.host.set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
+            context.interpreter.halt_fatal();
+            context
+                .host
+                .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
             return;
         }
         // gas!(
@@ -23,30 +30,35 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
         // );
         *index = value.data;
     } else {
-        context.interpreter
-            .halt_fatal();
+        context.interpreter.halt_fatal();
         return;
     }
 }
 
-pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
-    context: InstructionContext<'_, H, WIRE>
-) {
+pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
     check!(context.interpreter, MERCURY);
     require_non_staticcall!(context.interpreter);
     popn!([index, value], context.interpreter);
 
-    let Some(state_load) = context.host.cstore(context.interpreter.input.target_address(), index, value) else {
-        context.interpreter
-            .halt_fatal();
+    let Some(state_load) =
+        context
+            .host
+            .cstore(context.interpreter.input.target_address(), index, value)
+    else {
+        context.interpreter.halt_fatal();
         return;
     };
 
     // EIP-1706 Disable SSTORE with gasleft lower than call stipend
-    if context.interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL)
+    if context
+        .interpreter
+        .runtime_flag
+        .spec_id()
+        .is_enabled_in(ISTANBUL)
         && context.interpreter.gas.remaining() <= CALL_STIPEND
     {
-        context.interpreter
+        context
+            .interpreter
             .halt(InstructionResult::ReentrancySentryOOG);
         return;
     }
@@ -59,24 +71,26 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
     //     )
     // );
 
-    context.interpreter
-        .gas
-        .record_refund(gas::sstore_refund(
-            context.interpreter.runtime_flag.spec_id(),
-            &state_load.data,
-        ));
+    context.interpreter.gas.record_refund(gas::sstore_refund(
+        context.interpreter.runtime_flag.spec_id(),
+        &state_load.data,
+    ));
 }
 
 pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
-    context: InstructionContext<'_, H, WIRE>
+    context: InstructionContext<'_, H, WIRE>,
 ) {
     popn_top!([], index, context.interpreter);
 
-    if let Some(value) = context.host.sload(context.interpreter.input.target_address(), *index) {
+    if let Some(value) = context
+        .host
+        .sload(context.interpreter.input.target_address(), *index)
+    {
         if value.is_private {
-            context.interpreter
-                .halt_fatal();
-            context.host.set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+            context.interpreter.halt_fatal();
+            context
+                .host
+                .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
             return;
         }
         // gas!(
@@ -90,24 +104,31 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     }
 }
 
-pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
-    context: InstructionContext<'_, H, WIRE>
-) {
+pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
     require_non_staticcall!(context.interpreter);
 
     popn!([index, value], context.interpreter);
 
-    let Some(state_load) = context.host.sstore(context.interpreter.input.target_address(), index, value.into())
-    else {
+    let Some(state_load) = context.host.sstore(
+        context.interpreter.input.target_address(),
+        index,
+        value.into(),
+    ) else {
         context.interpreter.halt_fatal();
         return;
     };
 
     // EIP-1706 Disable SSTORE with gasleft lower than call stipend
-    if context.interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL)
+    if context
+        .interpreter
+        .runtime_flag
+        .spec_id()
+        .is_enabled_in(ISTANBUL)
         && context.interpreter.gas.remaining() <= CALL_STIPEND
     {
-        context.interpreter.halt(InstructionResult::ReentrancySentryOOG);
+        context
+            .interpreter
+            .halt(InstructionResult::ReentrancySentryOOG);
         return;
     }
     // gas!(
@@ -119,28 +140,30 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
     //     )
     // );
 
-    context.interpreter
-        .gas
-        .record_refund(gas::sstore_refund(
-            context.interpreter.runtime_flag.spec_id(),
-            &state_load.data,
-        ));
+    context.interpreter.gas.record_refund(gas::sstore_refund(
+        context.interpreter.runtime_flag.spec_id(),
+        &state_load.data,
+    ));
 }
 
 // NOTE: static_gas is 0 for these, because gas is dynamic
-pub fn cload_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H> {    
+pub fn cload_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H>
+{
     Instruction::new(cload, 0)
 }
 
-pub fn cstore_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H> {
+pub fn cstore_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H>
+{
     Instruction::new(cstore, 0)
 }
 
-pub fn seismic_sload_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H> {
+pub fn seismic_sload_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
+) -> Instruction<WIRE, H> {
     Instruction::new(sload, 0)
 }
 
-pub fn seismic_sstore_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H> {
+pub fn seismic_sstore_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
+) -> Instruction<WIRE, H> {
     Instruction::new(sstore, 0)
 }
 
@@ -150,6 +173,7 @@ mod tests {
 
     use super::*;
     use revm::interpreter::interpreter::{EthInterpreter, ExtBytecode};
+    use revm::interpreter::interpreter_types::LoopControl;
     use revm::interpreter::{CallInput, InputsImpl, SharedMemory};
     use revm::interpreter::{InstructionResult, Interpreter};
     use revm::primitives::hardfork::SpecId;

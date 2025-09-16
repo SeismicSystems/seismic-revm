@@ -3,9 +3,7 @@ use database_interface::{
     Database, DatabaseCommit, DatabaseRef, EmptyDB, BENCH_CALLER, BENCH_CALLER_BALANCE,
     BENCH_TARGET, BENCH_TARGET_BALANCE,
 };
-use primitives::{
-    hash_map::Entry, Address, HashMap, Log, B256, KECCAK_EMPTY, U256,
-};
+use primitives::{hash_map::Entry, Address, HashMap, Log, B256, KECCAK_EMPTY, U256};
 use state::{Account, AccountInfo, Bytecode};
 use std::vec::Vec;
 
@@ -260,7 +258,11 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
     /// Get the value in an account's storage slot.
     ///
     /// It is assumed that account is already loaded.
-    fn storage(&mut self, address: Address, index: U256) -> Result<state::FlaggedStorage, Self::Error> {
+    fn storage(
+        &mut self,
+        address: Address,
+        index: U256,
+    ) -> Result<state::FlaggedStorage, Self::Error> {
         match self.cache.accounts.entry(address) {
             Entry::Occupied(mut acc_entry) => {
                 let acc_entry = acc_entry.get_mut();
@@ -326,7 +328,11 @@ impl<ExtDB: DatabaseRef> DatabaseRef for CacheDB<ExtDB> {
         }
     }
 
-    fn storage_ref(&self, address: Address, index: U256) -> Result<state::FlaggedStorage, Self::Error> {
+    fn storage_ref(
+        &self,
+        address: Address,
+        index: U256,
+    ) -> Result<state::FlaggedStorage, Self::Error> {
         match self.cache.accounts.get(&address) {
             Some(acc_entry) => match acc_entry.storage.get(&index) {
                 Some(entry) => Ok(*entry),
@@ -479,7 +485,11 @@ impl Database for BenchmarkDB {
     }
 
     /// Get storage value of address at index.
-    fn storage(&mut self, _address: Address, _index: U256) -> Result<state::FlaggedStorage, Self::Error> {
+    fn storage(
+        &mut self,
+        _address: Address,
+        _index: U256,
+    ) -> Result<state::FlaggedStorage, Self::Error> {
         Ok(state::FlaggedStorage::default())
     }
 
@@ -508,7 +518,10 @@ mod tests {
             },
         );
 
-        let (key, value) = (U256::from(123), state::FlaggedStorage::from(U256::from(456)));
+        let (key, value) = (
+            U256::from(123),
+            state::FlaggedStorage::from(U256::from(456)),
+        );
         let mut new_state = CacheDB::new(init_state);
         new_state
             .insert_account_storage(account, key, value)
@@ -531,8 +544,14 @@ mod tests {
             },
         );
 
-        let (key0, value0) = (U256::from(123), state::FlaggedStorage::from(U256::from(456)));
-        let (key1, value1) = (U256::from(789), state::FlaggedStorage::from(U256::from(999)));
+        let (key0, value0) = (
+            U256::from(123),
+            state::FlaggedStorage::from(U256::from(456)),
+        );
+        let (key1, value1) = (
+            U256::from(789),
+            state::FlaggedStorage::from(U256::from(999)),
+        );
         init_state
             .insert_account_storage(account, key0, value0)
             .unwrap();
@@ -543,7 +562,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
-        assert_eq!(new_state.storage(account, key0), Ok(state::FlaggedStorage::ZERO));
+        assert_eq!(
+            new_state.storage(account, key0),
+            Ok(state::FlaggedStorage::ZERO)
+        );
         assert_eq!(new_state.storage(account, key1), Ok(value1));
     }
 
@@ -634,7 +656,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
-        assert_eq!(new_state.storage(account, key0), Ok(state::FlaggedStorage::ZERO));
+        assert_eq!(
+            new_state.storage(account, key0),
+            Ok(state::FlaggedStorage::ZERO)
+        );
         assert_eq!(new_state.storage(account, key1), Ok(value1));
     }
 }
