@@ -277,7 +277,7 @@ mod tests {
                 reason: SeismicHaltReason::InvalidPublicStorageAccess,
                 ..
             }
-        ));
+        ), "Received result: {:?}", result.result);
 
         let expected = U256::from(starting_balance - gas_limit * gas_price);
         assert_eq!(
