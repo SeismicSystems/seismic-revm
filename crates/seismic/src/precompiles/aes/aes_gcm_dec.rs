@@ -20,7 +20,7 @@ pub fn precompiles() -> impl Iterator<Item = Precompile> {
 }
 
 pub const AES_GCM_DEC: Precompile =
-    Precompile::from((PrecompileId::custom("AES-GCM Decrypt"), u64_to_address(AES_GCM_DEC_ADDRESS), precompile_decrypt));
+    Precompile::new(PrecompileId::Custom(std::borrow::Cow::Borrowed("AES-GCM Decrypt")), u64_to_address(AES_GCM_DEC_ADDRESS), precompile_decrypt);
 
 /// Minimal input size for AES-GCM (32-byte key + 12-byte nonce + 16-byte tag).
 pub const MIN_INPUT_LENGTH: usize = 60;

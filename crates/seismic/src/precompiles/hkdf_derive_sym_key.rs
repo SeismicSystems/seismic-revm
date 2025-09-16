@@ -19,7 +19,7 @@ pub fn precompiles() -> impl Iterator<Item = Precompile> {
 }
 
 pub const HKDF: Precompile =
-    Precompile::from((PrecompileId::custom("HKDF"), u64_to_address(HKDF_ADDRESS), hkdf_derive_symmetric_key));
+    Precompile::new(PrecompileId::Custom(std::borrow::Cow::Borrowed("HKDF")), u64_to_address(HKDF_ADDRESS), hkdf_derive_symmetric_key);
 
 /* --------------------------------------------------------------------------
  Cost Constants

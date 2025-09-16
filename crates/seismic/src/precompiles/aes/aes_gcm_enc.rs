@@ -21,7 +21,7 @@ pub fn precompiles() -> impl Iterator<Item = Precompile> {
 }
 
 pub const AES_GCM_ENC: Precompile =
-    Precompile::from((PrecompileId::custom("AES-GCM Encryption"), u64_to_address(AES_GCM_ENC_ADDRESS), precompile_encrypt));
+    Precompile::new(PrecompileId::Custom(std::borrow::Cow::Borrowed("AES-GCM Encryption")), u64_to_address(AES_GCM_ENC_ADDRESS), precompile_encrypt);
 
 /// Minimal input size:
 /// - 32 bytes for the AES key,

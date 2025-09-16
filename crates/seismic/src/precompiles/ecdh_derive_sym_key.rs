@@ -14,7 +14,7 @@ pub fn precompiles() -> impl Iterator<Item = Precompile> {
 }
 
 pub const ECDH: Precompile =
-    Precompile::from((PrecompileId::custom("ECDH"), u64_to_address(ECDH_ADDRESS), derive_symmetric_key));
+    Precompile::new(PrecompileId::Custom(std::borrow::Cow::Borrowed("ECDH")), u64_to_address(ECDH_ADDRESS), derive_symmetric_key);
 
 /// Expected input layout:
 /// - 32 bytes: secp256k1 secret key

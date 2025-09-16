@@ -16,7 +16,7 @@ pub fn precompiles() -> impl Iterator<Item = Precompile> {
 }
 
 pub const SECP256K1_SIGN: Precompile = Precompile::new(
-    PrecompileId::Custom("Secp256K1_sign"),
+    PrecompileId::Custom(std::borrow::Cow::Borrowed("Secp256K1_sign")),
     u64_to_address(SECP256K1_SIGN_ADDRESS),
     secp256k1_sign_ecdsa_recoverable
 );
@@ -77,7 +77,7 @@ mod tests {
         let full_message = "1234567890abcdef1234567890abcdef";
         let message: [u8; 32] = keccak256(full_message.as_bytes()).into();
         let sk_bytes: [u8; 32] = [0x1; 32];
-        let sk = secp256k1::SecretKey::from_slice(&sk_bytes).unwrap();
+        let sk = secp256k1::SecretKey::from_byte_array(sk_bytes).unwrap();
 
         let mut input = sk_bytes.to_vec();
         input.extend_from_slice(&message);
@@ -92,7 +92,7 @@ mod tests {
             secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::signing_only(), &sk);
         assert!(secp
             .verify_ecdsa(
-                &Message::from_digest_slice(&message).unwrap(),
+                Message::from_digest(message),
                 &Signature::from_compact(&sig).unwrap(),
                 &pk
             )
@@ -108,7 +108,7 @@ mod tests {
         let full_message = "1234567890abcdef1234567890abcdef";
         let message: [u8; 32] = keccak256(full_message.as_bytes()).into();
         let sk_bytes: [u8; 32] = [0x1; 32];
-        let sk = secp256k1::SecretKey::from_slice(&sk_bytes).unwrap();
+        let sk = secp256k1::SecretKey::from_byte_array(sk_bytes).unwrap();
 
         let pk: secp256k1::PublicKey =
             secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::signing_only(), &sk);
