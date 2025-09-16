@@ -2,7 +2,7 @@
 use crate::{DBErrorMarker, Database, DatabaseRef};
 use core::{error::Error, future::Future};
 use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{Address, StorageKey, StorageValue, B256};
+use primitives::{Address, StorageKey, B256};
 use state::{AccountInfo, Bytecode};
 use tokio::runtime::{Handle, Runtime};
 

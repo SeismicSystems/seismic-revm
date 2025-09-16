@@ -96,6 +96,7 @@ impl TestUnit {
     /// # Returns
     ///
     /// A configured [`BlockEnv`] ready for execution
+    #[allow(unused_variables)]
     pub fn block_env(&self, cfg: &CfgEnv<SeismicSpecId>) -> BlockEnv {
         let mut block = BlockEnv {
             number: self.env.current_number,

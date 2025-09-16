@@ -418,6 +418,7 @@ pub fn execute_test_suite(
 
 fn execute_single_test(ctx: TestExecutionContext) -> Result<(), TestErrorKind> {
     // Prepare state
+    #[allow(unused_mut)]
     let mut cache = ctx.cache_state.clone();
     /*
     cache.set_state_clear_flag(ctx.cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
@@ -467,6 +468,7 @@ fn debug_failed_test(ctx: DebugContext) {
     println!("\nTraces:");
 
     // Re-run with tracing
+    #[allow(unused_mut)]
     let mut cache = ctx.cache_state.clone();
     /*
     cache.set_state_clear_flag(ctx.cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
