@@ -8,7 +8,7 @@ use revm::{
 };
 use std::boxed::Box;
 
-use crate::SeismicHost;
+use crate::{instructions::confidential_storage::{cload_instruction, cstore_instruction, seismic_cstore_instruction, seismic_sload_instruction, seismic_sstore_instruction}, SeismicHost};
 
 use super::confidential_storage::{
     cload, cstore, sload as seismic_sload, sstore as seismic_sstore,
@@ -38,10 +38,11 @@ where
     pub fn new_mainnet() -> Self {
         let mut table = instruction_table::<WIRE, HOST>();
 
-        table[CLOAD as usize] = cload;
-        table[CSTORE as usize] = cstore;
-        table[SLOAD as usize] = seismic_sload;
-        table[SSTORE as usize] = seismic_sstore;
+        // NOTE: static_gas is 0 because gas is dynamic for these
+        table[CLOAD as usize] = cload_instruction();
+        table[CSTORE as usize] = cstore_instruction();
+        table[SLOAD as usize] = seismic_sload_instruction();
+        table[SSTORE as usize] = seismic_sstore_instruction();
 
         Self {
             instruction_table: Box::new(table),
@@ -84,7 +85,7 @@ mod tests {
     };
     use revm::interpreter::{
         instructions::control,
-        interpreter::{EthInterpreter, Interpreter},
+        interpreter::{EthInterpreter, Interpreter}, InstructionContext,
     };
     use std::mem;
 
@@ -109,7 +110,7 @@ mod tests {
         let table = seismic_instructions.instruction_table();
 
         // Get the standard unknown instruction for comparison
-        let unknown_instruction = control::unknown::<EthInterpreter, SeismicDummyHost>;
+        let unknown_instruction = Instruction::new(control::unknown::<EthInterpreter, SeismicDummyHost>, 0);
 
         // Verify CLOAD is not the unknown instruction
         assert!(
@@ -125,25 +126,25 @@ mod tests {
 
         // Verify CLOAD is our cload
         assert!(
-            instructions_equal(table[CLOAD as usize], cload),
+            instructions_equal(table[CLOAD as usize], cload_instruction()),
             "CLOAD (0xB0) should be our cload handler"
         );
 
         // Verify CSTORE is our cstore
         assert!(
-            instructions_equal(table[CSTORE as usize], cstore),
+            instructions_equal(table[CSTORE as usize], cstore_instruction()),
             "CSTORE (0xB1) should be our cstore handler"
         );
 
         // Verify SSTORE is our SSTORE
         assert!(
-            instructions_equal(table[SSTORE as usize], seismic_sstore),
+            instructions_equal(table[SSTORE as usize], seismic_sstore_instruction()),
             "CLOAD (0xB0) should be our cload handler"
         );
 
         // Verify SLOAD is our SLOAD
         assert!(
-            instructions_equal(table[SLOAD as usize], seismic_sload),
+            instructions_equal(table[SLOAD as usize], seismic_sload_instruction()),
             "CLOAD (0xB0) should be our cload handler"
         );
     }
@@ -155,24 +156,26 @@ mod tests {
             SeismicInstructions::<EthInterpreter, SeismicDummyHost>::new_mainnet();
 
         // Create an alternative handler
-        fn alternative_handler<W, H>(_: &mut Interpreter<W>, _: &mut H)
+        fn alternative_handler<W, H>(_: InstructionContext<'_, H, W>)
         where
             W: InterpreterTypes,
             H: Host,
         {
         }
 
+        let alt_handler_instruction = Instruction::new(alternative_handler, 0);
+
         // Override the CLOAD instruction
-        seismic_instructions.insert_instruction(CLOAD, alternative_handler);
+        seismic_instructions.insert_instruction(CLOAD, alt_handler_instruction);
 
         // Verify the override worked
         let table = seismic_instructions.instruction_table();
         assert!(
-            instructions_equal(table[CLOAD as usize], alternative_handler),
+            instructions_equal(table[CLOAD as usize], alt_handler_instruction),
             "CLOAD should be updated to alternative_handler"
         );
         assert!(
-            instructions_equal(table[CSTORE as usize], cstore),
+            instructions_equal(table[CSTORE as usize], cstore_instruction()),
             "CSTORE should remain unchanged"
         );
     }
@@ -189,11 +192,11 @@ mod tests {
         // Verify our custom opcodes weren't inserted
         let table = seismic_instructions.instruction_table();
         assert!(
-            !instructions_equal(table[CLOAD as usize], cload),
+            !instructions_equal(table[CLOAD as usize], cload_instruction()),
             "CLOAD shouldn't be added to the base table by default"
         );
         assert!(
-            !instructions_equal(table[CSTORE as usize], cstore),
+            !instructions_equal(table[CSTORE as usize], cstore_instruction()),
             "CSTORE shouldn't be added to the base table by default"
         );
     }

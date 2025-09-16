@@ -8,8 +8,7 @@ macro_rules! check {
             .is_enabled_in(crate::spec::SeismicSpecId::$min.into())
         {
             $interpreter
-                .control
-                .set_instruction_result(revm::interpreter::InstructionResult::NotActivated);
+                .halt(revm::interpreter::InstructionResult::NotActivated);
             return;
         }
     };

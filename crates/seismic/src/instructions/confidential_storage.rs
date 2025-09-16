@@ -1,150 +1,147 @@
 use crate::{check, SeismicHaltReason, SeismicHost};
 use revm::interpreter::{
-    gas,
-    gas::CALL_STIPEND,
-    interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr},
-    popn, popn_top, require_non_staticcall, Host, InstructionResult, Interpreter,
+    gas::{self, CALL_STIPEND}, interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr}, popn, popn_top, require_non_staticcall, Host, Instruction, InstructionContext, InstructionResult, Interpreter
 };
 use revm::primitives::hardfork::SpecId::*;
 
 pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
-    interpreter: &mut Interpreter<WIRE>,
-    host: &mut H,
+    context: InstructionContext<'_, H, WIRE>
 ) {
-    check!(interpreter, MERCURY);
-    popn_top!([], index, interpreter);
+    check!(context.interpreter, MERCURY);
+    popn_top!([], index, context.interpreter);
 
-    if let Some(value) = host.cload(interpreter.input.target_address(), *index) {
+    if let Some(value) = context.host.cload(context.interpreter.input.target_address(), *index) {
         if !value.is_private && !value.data.is_zero() {
-            interpreter
-                .control
-                .set_instruction_result(InstructionResult::FatalExternalError);
-            host.set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
+            context.interpreter
+                .halt_fatal();
+            context.host.set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
             return;
         }
-        gas!(
-            interpreter,
-            gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
-        );
+        // gas!(
+        //     context.interpreter,
+        //     gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
+        // );
         *index = value.data;
     } else {
-        interpreter
-            .control
-            .set_instruction_result(InstructionResult::FatalExternalError);
+        context.interpreter
+            .halt_fatal();
         return;
     }
 }
 
 pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
-    interpreter: &mut Interpreter<WIRE>,
-    host: &mut H,
+    context: InstructionContext<'_, H, WIRE>
 ) {
-    check!(interpreter, MERCURY);
-    require_non_staticcall!(interpreter);
-    popn!([index, value], interpreter);
+    check!(context.interpreter, MERCURY);
+    require_non_staticcall!(context.interpreter);
+    popn!([index, value], context.interpreter);
 
-    let Some(state_load) = host.cstore(interpreter.input.target_address(), index, value) else {
-        interpreter
-            .control
-            .set_instruction_result(InstructionResult::FatalExternalError);
+    let Some(state_load) = context.host.cstore(context.interpreter.input.target_address(), index, value) else {
+        context.interpreter
+            .halt_fatal();
         return;
     };
 
     // EIP-1706 Disable SSTORE with gasleft lower than call stipend
-    if interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL)
-        && interpreter.control.gas().remaining() <= CALL_STIPEND
+    if context.interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL)
+        && context.interpreter.gas.remaining() <= CALL_STIPEND
     {
-        interpreter
-            .control
-            .set_instruction_result(InstructionResult::ReentrancySentryOOG);
+        context.interpreter
+            .halt(InstructionResult::ReentrancySentryOOG);
         return;
     }
-    gas!(
-        interpreter,
-        gas::sstore_cost(
-            interpreter.runtime_flag.spec_id(),
-            &state_load.data,
-            state_load.is_cold
-        )
-    );
+    // gas!(
+    //     context.interpreter,
+    //     gas::sstore_cost(
+    //         context.interpreter.runtime_flag.spec_id(),
+    //         &state_load.data,
+    //         state_load.is_cold
+    //     )
+    // );
 
-    interpreter
-        .control
-        .gas_mut()
+    context.interpreter
+        .gas
         .record_refund(gas::sstore_refund(
-            interpreter.runtime_flag.spec_id(),
+            context.interpreter.runtime_flag.spec_id(),
             &state_load.data,
         ));
 }
 
 pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
-    interpreter: &mut Interpreter<WIRE>,
-    host: &mut H,
+    context: InstructionContext<'_, H, WIRE>
 ) {
-    popn_top!([], index, interpreter);
+    popn_top!([], index, context.interpreter);
 
-    if let Some(value) = host.sload(interpreter.input.target_address(), *index) {
+    if let Some(value) = context.host.sload(context.interpreter.input.target_address(), *index) {
         if value.is_private {
-            interpreter
-                .control
-                .set_instruction_result(InstructionResult::FatalExternalError);
-            host.set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+            context.interpreter
+                .halt_fatal();
+            context.host.set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
             return;
         }
-        gas!(
-            interpreter,
-            gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
-        );
+        // gas!(
+        //     context.interpreter,
+        //     gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
+        // );
         *index = value.data;
     } else {
-        interpreter
-            .control
-            .set_instruction_result(InstructionResult::FatalExternalError);
+        context.interpreter.halt_fatal();
         return;
     }
 }
 
 pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(
-    interpreter: &mut Interpreter<WIRE>,
-    host: &mut H,
+    context: InstructionContext<'_, H, WIRE>
 ) {
-    require_non_staticcall!(interpreter);
+    require_non_staticcall!(context.interpreter);
 
-    popn!([index, value], interpreter);
+    popn!([index, value], context.interpreter);
 
-    let Some(state_load) = host.sstore(interpreter.input.target_address(), index, value.into())
+    let Some(state_load) = context.host.sstore(context.interpreter.input.target_address(), index, value.into())
     else {
-        interpreter
-            .control
-            .set_instruction_result(InstructionResult::FatalExternalError);
+        context.interpreter.halt_fatal();
         return;
     };
 
     // EIP-1706 Disable SSTORE with gasleft lower than call stipend
-    if interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL)
-        && interpreter.control.gas().remaining() <= CALL_STIPEND
+    if context.interpreter.runtime_flag.spec_id().is_enabled_in(ISTANBUL)
+        && context.interpreter.gas.remaining() <= CALL_STIPEND
     {
-        interpreter
-            .control
-            .set_instruction_result(InstructionResult::ReentrancySentryOOG);
+        context.interpreter.halt(InstructionResult::ReentrancySentryOOG);
         return;
     }
-    gas!(
-        interpreter,
-        gas::sstore_cost(
-            interpreter.runtime_flag.spec_id(),
-            &state_load.data,
-            state_load.is_cold
-        )
-    );
+    // gas!(
+    //     context.interpreter,
+    //     gas::sstore_cost(
+    //         context.interpreter.runtime_flag.spec_id(),
+    //         &state_load.data,
+    //         state_load.is_cold
+    //     )
+    // );
 
-    interpreter
-        .control
-        .gas_mut()
+    context.interpreter
+        .gas
         .record_refund(gas::sstore_refund(
-            interpreter.runtime_flag.spec_id(),
+            context.interpreter.runtime_flag.spec_id(),
             &state_load.data,
         ));
+}
+
+// NOTE: static_gas is 0 for these, because gas is dynamic
+pub fn cload_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H> {    
+    Instruction::new(cload, 0)
+}
+
+pub fn cstore_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H> {
+    Instruction::new(cstore, 0)
+}
+
+pub fn seismic_sload_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H> {
+    Instruction::new(sload, 0)
+}
+
+pub fn seismic_sstore_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>() -> Instruction<WIRE, H> {
+    Instruction::new(sstore, 0)
 }
 
 #[cfg(test)]
@@ -172,7 +169,6 @@ mod tests {
                 bytecode_address: None,
             },
             false,
-            false,
             spec_id,
             u64::MAX,
         );
@@ -185,12 +181,16 @@ mod tests {
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x60, 0x00, 0x60, 0x00, 0x01][..]));
         let mut host = SeismicDummyHost::new();
         let mut interpreter = build_interpreter(SpecId::LONDON, bytecode);
+        let context = InstructionContext {
+            interpreter: &mut interpreter,
+            host: &mut host,
+        };
 
-        cload(&mut interpreter, &mut host);
+        cload(context);
 
         assert_eq!(
-            interpreter.control.instruction_result(),
-            InstructionResult::NotActivated
+            interpreter.bytecode.instruction_result(),
+            Some(InstructionResult::NotActivated)
         );
     }
 
@@ -201,23 +201,27 @@ mod tests {
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);
+        let context = InstructionContext {
+            interpreter: &mut interpreter,
+            host: &mut host,
+        };
 
         //60 2A          PUSH1 0x2A    ; push decimal 42 as "value"
         //60 0A          PUSH1 0x0A    ; push decimal 10 as "index"
         //0xB1           CSTORE        ; CSTORE
-        let _ = interpreter.stack.push(U256::from(0x0A)); // index
-        let _ = interpreter.stack.push(U256::from(0x2A)); // value
-        cstore(&mut interpreter, &mut host);
+        let _ = context.interpreter.stack.push(U256::from(0x0A)); // index
+        let _ = context.interpreter.stack.push(U256::from(0x2A)); // value
+        cstore(context);
 
         assert_ne!(
-            interpreter.control.instruction_result(),
-            InstructionResult::NotActivated
+            interpreter.bytecode.instruction_result(),
+            Some(InstructionResult::NotActivated)
         );
 
         //Should get Fatal External Error given DummyHost returns None
         assert_eq!(
-            interpreter.control.instruction_result(),
-            InstructionResult::FatalExternalError
+            interpreter.bytecode.instruction_result(),
+            Some(InstructionResult::FatalExternalError)
         );
     }
 
@@ -226,12 +230,15 @@ mod tests {
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x60, 0x00, 0x60, 0x00, 0x01][..]));
         let mut host = SeismicDummyHost::new();
         let mut interpreter = build_interpreter(SpecId::LONDON, bytecode);
-
-        cstore(&mut interpreter, &mut host);
+        let context = InstructionContext {
+            interpreter: &mut interpreter,
+            host: &mut host,
+        };
+        cstore(context);
 
         assert_eq!(
-            interpreter.control.instruction_result(),
-            InstructionResult::NotActivated
+            interpreter.bytecode.instruction_result(),
+            Some(InstructionResult::NotActivated)
         );
     }
 
@@ -242,21 +249,25 @@ mod tests {
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);
+        let context = InstructionContext {
+            interpreter: &mut interpreter,
+            host: &mut host,
+        };
 
         //60 0A          PUSH1 0x0A    ; push decimal 10 as "index"
         //0xB            CLOAD         ; CLOAD
-        let _ = interpreter.stack.push(U256::from(0x0A)); // index
-        cload(&mut interpreter, &mut host);
+        let _ = context.interpreter.stack.push(U256::from(0x0A)); // index
+        cload(context);
 
         assert_ne!(
-            interpreter.control.instruction_result(),
-            InstructionResult::NotActivated
+            interpreter.bytecode.instruction_result(),
+            Some(InstructionResult::NotActivated)
         );
 
         //Should get Fatal External Error given DummyHost returns None
         assert_eq!(
-            interpreter.control.instruction_result(),
-            InstructionResult::FatalExternalError
+            interpreter.bytecode.instruction_result(),
+            Some(InstructionResult::FatalExternalError)
         );
     }
 }

@@ -277,8 +277,7 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
         && context.interpreter.gas.remaining() <= CALL_STIPEND
     {
         context
-            .interpreter
-            .halt(InstructionResult::ReentrancySentryOOG);
+            .interpreter.halt(InstructionResult::ReentrancySentryOOG);
         return;
     }
 
