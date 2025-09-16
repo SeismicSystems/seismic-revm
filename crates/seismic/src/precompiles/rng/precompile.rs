@@ -132,7 +132,7 @@ fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -
 
     // Let the container update its state and produce the random bytes.
     let output = evmctx
-        .chain()
+        .chain_mut()
         .process_rng(&pers, requested_output_len, kernel_mode, &tx_hash)
         .map_err(|e| PrecompileError::Other(e.to_string()))?; // Changed PCError to PrecompileError
 
