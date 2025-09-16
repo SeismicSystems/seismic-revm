@@ -1,30 +1,29 @@
 use crate::cmd::statetest::merkle_trie::{compute_test_roots, TestValidationResult};
+
+use context::{TxEnv};
 use database::State;
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use inspector::{inspectors::TracerEip3155, InspectCommitEvm};
 use primitives::U256;
 use revm::{
-    bytecode::Bytecode,
     context::{block::BlockEnv, cfg::CfgEnv},
     context_interface::{
-        block::calc_excess_blob_gas,
         result::{EVMError, ExecutionResult, InvalidTransaction},
         Cfg,
     },
     database_interface::EmptyDB,
     primitives::{
-        eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN, hardfork::SpecId, keccak256, Bytes,
-        FlaggedStorage, TxKind, B256,
+        Bytes,
+        B256,
     },
     Context, ExecuteCommitEvm,
 };
-// TODO(usm): merge in this was wonky; mostly defaulted to upstream
 use seismic_revm::{
-    transaction::abstraction::SeismicTransaction, DefaultSeismicContext, SeismicBuilder,
-    SeismicHaltReason, SeismicSpecId,
+    DefaultSeismicContext, SeismicBuilder, SeismicHaltReason, SeismicHaltReason as HaltReason, SeismicSpecId as SpecId, SeismicTransaction
 };
 use serde_json::json;
 use statetest_types::{SpecName, Test, TestSuite, TestUnit};
+
 use std::{
     convert::Infallible,
     fmt::Debug,
@@ -134,9 +133,9 @@ struct TestExecutionContext<'a> {
     name: &'a str,
     unit: &'a TestUnit,
     test: &'a Test,
-    cfg: &'a CfgEnv,
+    cfg: &'a CfgEnv<SpecId>,
     block: &'a BlockEnv,
-    tx: &'a TxEnv,
+    tx: &'a SeismicTransaction<TxEnv>,
     cache_state: &'a database::CacheState,
     elapsed: &'a Arc<Mutex<Duration>>,
     trace: bool,
@@ -148,9 +147,9 @@ struct DebugContext<'a> {
     path: &'a str,
     index: usize,
     test: &'a Test,
-    cfg: &'a CfgEnv,
+    cfg: &'a CfgEnv<SpecId>,
     block: &'a BlockEnv,
-    tx: &'a TxEnv,
+    tx: &'a SeismicTransaction<TxEnv>,
     cache_state: &'a database::CacheState,
     error: &'a TestErrorKind,
 }
@@ -231,7 +230,7 @@ fn check_evm_execution(
         EVMError<Infallible, InvalidTransaction>,
     >,
     db: &mut State<EmptyDB>,
-    spec: SeismicSpecId,
+    spec: SpecId,
     print_json_outcome: bool,
 ) -> Result<(), TestErrorKind> {
     let validation = compute_test_roots(exec_result, db);
@@ -322,7 +321,7 @@ pub fn execute_test_suite(
         let cache_state = unit.state();
 
         // Setup base configuration
-        let mut cfg: CfgEnv<SeismicSpecId> = CfgEnv::default();
+        let mut cfg: CfgEnv<SpecId> = CfgEnv::default();
         cfg.chain_id = unit
             .env
             .current_chain_id
@@ -337,8 +336,9 @@ pub fn execute_test_suite(
                 continue;
             }
 
-            cfg.spec = SeismicSpecId::MERCURY;
+            cfg.spec = SpecId::MERCURY;
 
+            /*
             // Configure max blobs per spec
             if cfg.spec.is_enabled_in(SpecId::OSAKA) {
                 cfg.set_max_blobs_per_tx(6);
@@ -347,6 +347,7 @@ pub fn execute_test_suite(
             } else {
                 cfg.set_max_blobs_per_tx(6);
             }
+            */
 
             // Setup block environment for this spec
             let block = unit.block_env(&cfg);
@@ -354,7 +355,7 @@ pub fn execute_test_suite(
             for (index, test) in tests.iter().enumerate() {
                 // Setup transaction environment
                 let tx = match test.tx_env(&unit) {
-                    Ok(tx) => tx,
+                    Ok(tx) => SeismicTransaction::new(tx),
                     Err(_) if test.expect_exception.is_some() => continue,
                     Err(_) => {
                         return Err(TestError {
@@ -418,13 +419,15 @@ pub fn execute_test_suite(
 fn execute_single_test(ctx: TestExecutionContext) -> Result<(), TestErrorKind> {
     // Prepare state
     let mut cache = ctx.cache_state.clone();
+    /*
     cache.set_state_clear_flag(ctx.cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
+    */
     let mut state = database::State::builder()
         .with_cached_prestate(cache)
         .with_bundle_update()
         .build();
 
-    let evm_context = Context::mainnet()
+    let evm_context = Context::seismic()
         .with_block(ctx.block)
         .with_tx(ctx.tx)
         .with_cfg(ctx.cfg)
@@ -434,12 +437,12 @@ fn execute_single_test(ctx: TestExecutionContext) -> Result<(), TestErrorKind> {
     let timer = Instant::now();
     let (db, exec_result) = if ctx.trace {
         let mut evm = evm_context
-            .build_mainnet_with_inspector(TracerEip3155::buffered(stderr()).without_summary());
+            .build_seismic_evm_with_inspector(TracerEip3155::buffered(stderr()).without_summary());
         let res = evm.inspect_tx_commit(ctx.tx);
         let db = evm.ctx.journaled_state.database;
         (db, res)
     } else {
-        let mut evm = evm_context.build_mainnet();
+        let mut evm = evm_context.build_seismic_evm();
         let res = evm.transact_commit(ctx.tx);
         let db = evm.ctx.journaled_state.database;
         (db, res)
@@ -463,18 +466,20 @@ fn debug_failed_test(ctx: DebugContext) {
 
     // Re-run with tracing
     let mut cache = ctx.cache_state.clone();
+    /*
     cache.set_state_clear_flag(ctx.cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
+    */
     let mut state = database::State::builder()
         .with_cached_prestate(cache)
         .with_bundle_update()
         .build();
 
-    let mut evm = Context::mainnet()
+    let mut evm = Context::seismic()
         .with_db(&mut state)
         .with_block(ctx.block)
         .with_tx(ctx.tx)
         .with_cfg(ctx.cfg)
-        .build_mainnet_with_inspector(TracerEip3155::buffered(stderr()).without_summary());
+        .build_seismic_evm_with_inspector(TracerEip3155::buffered(stderr()).without_summary());
 
     let exec_result = evm.inspect_tx_commit(ctx.tx);
 
