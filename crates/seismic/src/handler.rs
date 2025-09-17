@@ -2,8 +2,7 @@
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
 use revm::{
     context::{
-        result::{ExecutionResult, InvalidTransaction},
-        ContextTr, JournalTr, Transaction,
+        result::{ExecutionResult, InvalidTransaction}, ContextTr, JournalTr, LocalContextTr, Transaction
     },
     context_interface::{context::ContextError, result::FromStringError},
     handler::{
@@ -59,14 +58,15 @@ where
         evm: &mut Self::Evm,
         result: <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
-        println!("Error: {:?}", result);
         match core::mem::replace(evm.ctx().error(), Ok(())) {
-            Err(ContextError::Db(e)) => Err(e.into()),
+            Err(ContextError::Db(e)) => return Err(e.into()),
             Err(ContextError::Custom(e)) => {
                 if let Some(seismic_reason) =
                     SeismicHaltReason::try_from_error_string(&e.to_string())
                 {
-                    evm.ctx().journal_mut().clear();
+                    // Same as catch error, except don't discard tx
+                    evm.ctx().local_mut().clear();
+                    evm.frame_stack().clear();
                     evm.ctx().chain_mut().reset_rng();
 
                     return Ok(ExecutionResult::Halt {
@@ -74,16 +74,21 @@ where
                         gas_used: evm.ctx().tx().gas_limit(),
                     });
                 }
-
-                Err(Self::Error::from_string(e))
-            }
-            Ok(_) => {
-                let output = post_execution::output(evm.ctx(), result);
-                evm.ctx().journal_mut().clear();
-                evm.ctx().chain_mut().reset_rng();
-                Ok(output)
-            }
+                return Err(Self::Error::from_string(e))
+            },
+            Ok(_) => (),
         }
+
+        let exec_result = post_execution::output(evm.ctx(), result);
+
+        // commit transaction
+        evm.ctx().journal_mut().commit_tx();
+        evm.ctx().local_mut().clear();
+        evm.frame_stack().clear();
+        // ...and we also reset the RNG
+        evm.ctx().chain_mut().reset_rng();
+
+        Ok(exec_result)
     }
 
     /// Handles cleanup when an error occurs during execution.
@@ -97,11 +102,12 @@ where
         evm: &mut Self::Evm,
         error: Self::Error,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
-        println!("We hit an error: {error:#?}");
-        // Clean up journal state if error occurs
-        evm.ctx().journal_mut().clear();
-        evm.ctx().chain_mut().reset_rng();
+        // Same as in normal ETH handler...
+        evm.ctx().local_mut().clear();
+        evm.ctx().journal_mut().discard_tx();
         evm.frame_stack().clear();
+        // ...except we also reset the RNG
+        evm.ctx().chain_mut().reset_rng();
         Err(error)
     }
 }

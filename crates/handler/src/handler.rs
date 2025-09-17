@@ -97,10 +97,7 @@ pub trait Handler {
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
         // Run inner handler and catch all errors to handle cleanup.
         match self.run_without_catch_error(evm) {
-            Ok(output) => {
-                println!("Good output: {:?}", output);
-                Ok(output)
-            },
+            Ok(output) =>  Ok(output),
             Err(e) => {
                 println!("Error in run:");
                 self.catch_error(evm, e)
@@ -199,13 +196,10 @@ pub trait Handler {
         let gas_limit = evm.ctx().tx().gas_limit() - init_and_floor_gas.initial_gas;
         // Create first frame action
         let first_frame_input = self.first_frame_input(evm, gas_limit)?;
-        println!("Frame init: {first_frame_input:?}");
         // Run execution loop
         let mut frame_result = self.run_exec_loop(evm, first_frame_input)?;
-        println!("Frame result: {frame_result:?}");
         // Handle last frame result
         self.last_frame_result(evm, &mut frame_result)?;
-        println!("Last frame result: {frame_result:?}");
         Ok(frame_result)
     }
 

@@ -224,7 +224,6 @@ impl EthFrame<EthInterpreter> {
 
         // Returns success if bytecode is empty.
         if bytecode.is_empty() {
-            println!("Bytecode empty, stopping");
             ctx.journal_mut().checkpoint_commit();
             return return_result(InstructionResult::Stop);
         }

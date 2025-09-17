@@ -302,11 +302,11 @@ mod tests {
         let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
         let mut evm = call_ctx.build_seismic_evm();
+        let deployed_contract = evm.ctx.journal_mut().load_account(contract);
         let account = evm.ctx().journal_mut().load_account(BENCH_CALLER).unwrap();
         account.data.info.balance = U256::from(balance);
 
         let result = evm.replay()?;
-        println!("Result: {:?}", result);
 
         assert_cload_error(&result, balance, gas_limit, gas_price);
         Ok(())

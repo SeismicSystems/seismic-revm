@@ -74,7 +74,6 @@ where
     ) -> Result<ExecResultAndState<Self::ExecutionResult, Self::State>, Self::Error> {
         let mut h = SeismicHandler::<_, _, EthFrame<EthInterpreter>>::new();
         h.run(self).map(|result| {
-            println!("Replay result: {:?}", result);
             let state = self.finalize();
             ExecResultAndState::new(result, state)
         })
