@@ -1,6 +1,6 @@
 use crate::cmd::statetest::merkle_trie::{compute_test_roots, TestValidationResult};
 
-use context::{TxEnv};
+use context::TxEnv;
 use database::State;
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use inspector::{inspectors::TracerEip3155, InspectCommitEvm};
@@ -12,14 +12,12 @@ use revm::{
         Cfg,
     },
     database_interface::EmptyDB,
-    primitives::{
-        Bytes,
-        B256,
-    },
+    primitives::{Bytes, B256},
     Context, ExecuteCommitEvm,
 };
 use seismic_revm::{
-    DefaultSeismicContext, SeismicBuilder, SeismicHaltReason, SeismicHaltReason as HaltReason, SeismicSpecId as SpecId, SeismicTransaction
+    DefaultSeismicContext, SeismicBuilder, SeismicHaltReason, SeismicHaltReason as HaltReason,
+    SeismicSpecId as SpecId, SeismicTransaction,
 };
 use serde_json::json;
 use statetest_types::{SpecName, Test, TestSuite, TestUnit};

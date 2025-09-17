@@ -97,11 +97,11 @@ pub trait Handler {
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
         // Run inner handler and catch all errors to handle cleanup.
         match self.run_without_catch_error(evm) {
-            Ok(output) =>  Ok(output),
+            Ok(output) => Ok(output),
             Err(e) => {
                 println!("Error in run:");
                 self.catch_error(evm, e)
-            },
+            }
         }
     }
 

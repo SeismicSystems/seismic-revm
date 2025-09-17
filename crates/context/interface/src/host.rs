@@ -102,10 +102,16 @@ pub trait Host {
         address: Address,
         key: StorageKey,
         value: StorageValue,
+        skip_cold_load: bool,
     ) -> Result<StateLoad<SStoreResult>, LoadError>;
 
     /// Cload, for loading shielded state
-    fn cload(&mut self, address: Address, key: StorageKey) -> Result<StateLoad<U256>, LoadError>;
+    fn cload(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<U256>, LoadError>;
 
     /// Sload with optional fetch from database. Return none if the value is cold or if there is db error.
     fn sload_skip_cold_load(
@@ -119,7 +125,6 @@ pub trait Host {
     fn sload(&mut self, address: Address, key: StorageKey) -> Option<StateLoad<StorageValue>> {
         self.sload_skip_cold_load(address, key, false).ok()
     }
-
 
     /// Tstore, calls `ContextTr::journal_mut().tstore(address, key, value)`
     fn tstore(&mut self, address: Address, key: StorageKey, value: StorageValue);
@@ -288,11 +293,22 @@ impl Host for DummyHost {
         StorageValue::ZERO
     }
 
-    fn cload(&mut self, _address:Address, _key:StorageKey) -> Result<StateLoad<U256>, LoadError> {
+    fn cload(
+        &mut self,
+        _address: Address,
+        _key: StorageKey,
+        _skip_cold_load: bool,
+    ) -> Result<StateLoad<U256>, LoadError> {
         Err(LoadError::DBError)
     }
 
-    fn cstore(&mut self, _address:Address, _key:StorageKey, _value:StorageValue) -> Result<StateLoad<SStoreResult>, LoadError> {
+    fn cstore(
+        &mut self,
+        _address: Address,
+        _key: StorageKey,
+        _value: StorageValue,
+        _skip_cold_load: bool,
+    ) -> Result<StateLoad<SStoreResult>, LoadError> {
         Err(LoadError::DBError)
     }
 

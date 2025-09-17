@@ -77,7 +77,8 @@ impl JournalTr for Backend {
         value: U256,
         skip_cold_load: bool,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
-        self.journaled_state.cstore(address, key, value, skip_cold_load)
+        self.journaled_state
+            .cstore(address, key, value, skip_cold_load)
     }
 
     fn new(database: InMemoryDB) -> Self {

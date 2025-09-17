@@ -1,122 +1,142 @@
 use crate::{check, SeismicHaltReason, SeismicHost};
-use revm::interpreter::{
-    gas::{self, CALL_STIPEND},
-    interpreter_types::{InputsTr, InterpreterTypes, RuntimeFlag, StackTr},
-    popn, popn_top, require_non_staticcall, Host, Instruction, InstructionContext,
-    InstructionResult, _count,
-};
 use revm::primitives::hardfork::SpecId::*;
+use revm::{
+    context::host::LoadError,
+    interpreter::{
+        gas::{
+            CALL_STIPEND, COLD_SLOAD_COST_ADDITIONAL, ISTANBUL_SLOAD_GAS, WARM_STORAGE_READ_COST,
+        },
+        interpreter_types::{InputsTr, InterpreterTypes, RuntimeFlag, StackTr},
+        popn, popn_top, require_non_staticcall, Host, Instruction, InstructionContext,
+        InstructionResult, _count, gas,
+    },
+};
 
-pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
-    context: InstructionContext<'_, H, WIRE>,
-) {
-    check!(context.interpreter, MERCURY);
-    popn_top!([], index, context.interpreter);
-
-    if let Ok(value) = context
-        .host
-        .cload(context.interpreter.input.target_address(), *index)
-    {
-        if !value.is_private && !value.data.is_zero() {
-            context.interpreter.halt_fatal();
-            context
-                .host
-                .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
-            return;
-        }
-        // gas!(
-        //     context.interpreter,
-        //     gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
-        // );
-        *index = value.data;
-    } else {
-        context.interpreter.halt_fatal();
-        return;
-    }
-}
-
-pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
-    check!(context.interpreter, MERCURY);
-    require_non_staticcall!(context.interpreter);
-    popn!([index, value], context.interpreter);
-
-    let Ok(state_load) =
-        context
-            .host
-            .cstore(context.interpreter.input.target_address(), index, value)
-    else {
-        context.interpreter.halt_fatal();
-        return;
-    };
-
-    // EIP-1706 Disable SSTORE with gasleft lower than call stipend
-    if context
-        .interpreter
-        .runtime_flag
-        .spec_id()
-        .is_enabled_in(ISTANBUL)
-        && context.interpreter.gas.remaining() <= CALL_STIPEND
-    {
-        context
-            .interpreter
-            .halt(InstructionResult::ReentrancySentryOOG);
-        return;
-    }
-    // gas!(
-    //     context.interpreter,
-    //     gas::sstore_cost(
-    //         context.interpreter.runtime_flag.spec_id(),
-    //         &state_load.data,
-    //         state_load.is_cold
-    //     )
-    // );
-
-    context.interpreter.gas.record_refund(gas::sstore_refund(
-        context.interpreter.runtime_flag.spec_id(),
-        &state_load.data,
-    ));
-}
-
+/// Implements the SLOAD instruction.
+///
+/// Loads a word from storage.
 pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
     popn_top!([], index, context.interpreter);
+    let spec_id = context.interpreter.runtime_flag.spec_id();
+    let target = context.interpreter.input.target_address();
 
-    if let Some(value) = context
-        .host
-        .sload(context.interpreter.input.target_address(), *index)
-    {
-        if value.is_private {
+    // `SLOAD` opcode cost calculation.
+    let gas = if spec_id.is_enabled_in(BERLIN) {
+        WARM_STORAGE_READ_COST
+    } else if spec_id.is_enabled_in(ISTANBUL) {
+        // EIP-1884: Repricing for trie-size-dependent opcodes
+        ISTANBUL_SLOAD_GAS
+    } else if spec_id.is_enabled_in(TANGERINE) {
+        // EIP-150: Gas cost changes for IO-heavy operations
+        200
+    } else {
+        50
+    };
+    gas!(context.interpreter, gas);
+    if spec_id.is_enabled_in(BERLIN) {
+        let skip_cold = context.interpreter.gas.remaining() < COLD_SLOAD_COST_ADDITIONAL;
+        let res = context.host.sload_skip_cold_load(target, *index, skip_cold);
+        match res {
+            Ok(storage) => {
+                if storage.is_cold {
+                    gas!(context.interpreter, COLD_SLOAD_COST_ADDITIONAL);
+                }
+                if storage.is_private {
+                    context.interpreter.halt_fatal();
+                    context
+                        .host
+                        .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+                    return;
+                }
+
+                *index = storage.data;
+            }
+            Err(LoadError::ColdLoadSkipped) => context.interpreter.halt_oog(),
+            Err(LoadError::DBError) => context.interpreter.halt_fatal(),
+        }
+    } else {
+        let Some(storage) = context.host.sload(target, *index) else {
+            return context.interpreter.halt_fatal();
+        };
+        if storage.is_private {
             context.interpreter.halt_fatal();
             context
                 .host
                 .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
             return;
         }
-        // gas!(
-        //     context.interpreter,
-        //     gas::sload_cost(interpreter.runtime_flag.spec_id(), value.is_cold)
-        // );
-        *index = value.data;
-    } else {
-        context.interpreter.halt_fatal();
-        return;
-    }
+        *index = storage.data;
+    };
 }
 
+pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
+    context: InstructionContext<'_, H, WIRE>,
+) {
+    check!(context.interpreter, MERCURY);
+    popn_top!([], index, context.interpreter);
+    let spec_id = context.interpreter.runtime_flag.spec_id();
+    let target = context.interpreter.input.target_address();
+
+    // `SLOAD` opcode cost calculation.
+    let gas = if spec_id.is_enabled_in(BERLIN) {
+        WARM_STORAGE_READ_COST
+    } else if spec_id.is_enabled_in(ISTANBUL) {
+        // EIP-1884: Repricing for trie-size-dependent opcodes
+        ISTANBUL_SLOAD_GAS
+    } else if spec_id.is_enabled_in(TANGERINE) {
+        // EIP-150: Gas cost changes for IO-heavy operations
+        200
+    } else {
+        50
+    };
+    gas!(context.interpreter, gas);
+    if spec_id.is_enabled_in(BERLIN) {
+        let skip_cold = context.interpreter.gas.remaining() < COLD_SLOAD_COST_ADDITIONAL;
+        let res = context.host.cload(target, *index, skip_cold);
+        match res {
+            Ok(storage) => {
+                if storage.is_cold {
+                    gas!(context.interpreter, COLD_SLOAD_COST_ADDITIONAL);
+                }
+                if !storage.is_private && !storage.data.is_zero() {
+                    context.interpreter.halt_fatal();
+                    context
+                        .host
+                        .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
+                    return;
+                }
+
+                *index = storage.data;
+            }
+            Err(LoadError::ColdLoadSkipped) => context.interpreter.halt_oog(),
+            Err(LoadError::DBError) => context.interpreter.halt_fatal(),
+        }
+    } else {
+        let Some(storage) = context.host.sload(target, *index) else {
+            return context.interpreter.halt_fatal();
+        };
+        if !storage.is_private && !storage.data.is_zero() {
+            context.interpreter.halt_fatal();
+            context
+                .host
+                .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
+            return;
+        }
+        *index = storage.data;
+    };
+}
+
+/// Implements the SSTORE instruction.
+///
+/// Stores a word to public storage.
 pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
     require_non_staticcall!(context.interpreter);
-
     popn!([index, value], context.interpreter);
 
-    let Some(state_load) = context.host.sstore(
-        context.interpreter.input.target_address(),
-        index,
-        value.into(),
-    ) else {
-        context.interpreter.halt_fatal();
-        return;
-    };
+    let target = context.interpreter.input.target_address();
+    let spec_id = context.interpreter.runtime_flag.spec_id();
 
     // EIP-1706 Disable SSTORE with gasleft lower than call stipend
     if context
@@ -131,15 +151,104 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
             .halt(InstructionResult::ReentrancySentryOOG);
         return;
     }
-    // gas!(
-    //     context.interpreter,
-    //     gas::sstore_cost(
-    //         context.interpreter.runtime_flag.spec_id(),
-    //         &state_load.data,
-    //         state_load.is_cold
-    //     )
-    // );
 
+    // static gas
+    gas!(
+        context.interpreter,
+        gas::static_sstore_cost(context.interpreter.runtime_flag.spec_id())
+    );
+
+    let state_load = if spec_id.is_enabled_in(BERLIN) {
+        let skip_cold = context.interpreter.gas.remaining() < COLD_SLOAD_COST_ADDITIONAL;
+        let res = context
+            .host
+            .sstore_skip_cold_load(target, index, value, skip_cold);
+        match res {
+            Ok(load) => load,
+            Err(LoadError::ColdLoadSkipped) => return context.interpreter.halt_oog(),
+            Err(LoadError::DBError) => return context.interpreter.halt_fatal(),
+        }
+    } else {
+        let Some(load) = context.host.sstore(target, index, value) else {
+            return context.interpreter.halt_fatal();
+        };
+        load
+    };
+
+    // dynamic gas
+    gas!(
+        context.interpreter,
+        gas::dyn_sstore_cost(
+            context.interpreter.runtime_flag.spec_id(),
+            &state_load.data,
+            state_load.is_cold
+        )
+    );
+
+    // refund
+    context.interpreter.gas.record_refund(gas::sstore_refund(
+        context.interpreter.runtime_flag.spec_id(),
+        &state_load.data,
+    ));
+}
+
+/// Implements the CSTORE instruction.
+///
+/// Stores a word to shielded storage.
+pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+    check!(context.interpreter, MERCURY);
+    require_non_staticcall!(context.interpreter);
+    popn!([index, value], context.interpreter);
+
+    let target = context.interpreter.input.target_address();
+    let spec_id = context.interpreter.runtime_flag.spec_id();
+
+    // EIP-1706 Disable SSTORE with gasleft lower than call stipend
+    if context
+        .interpreter
+        .runtime_flag
+        .spec_id()
+        .is_enabled_in(ISTANBUL)
+        && context.interpreter.gas.remaining() <= CALL_STIPEND
+    {
+        context
+            .interpreter
+            .halt(InstructionResult::ReentrancySentryOOG);
+        return;
+    }
+
+    // static gas
+    gas!(
+        context.interpreter,
+        gas::static_sstore_cost(context.interpreter.runtime_flag.spec_id())
+    );
+
+    let state_load = if spec_id.is_enabled_in(BERLIN) {
+        let skip_cold = context.interpreter.gas.remaining() < COLD_SLOAD_COST_ADDITIONAL;
+        let res = context.host.cstore(target, index, value, skip_cold);
+        match res {
+            Ok(load) => load,
+            Err(LoadError::ColdLoadSkipped) => return context.interpreter.halt_oog(),
+            Err(LoadError::DBError) => return context.interpreter.halt_fatal(),
+        }
+    } else {
+        let Ok(load) = context.host.cstore(target, index, value, false) else {
+            return context.interpreter.halt_fatal();
+        };
+        load
+    };
+
+    // dynamic gas
+    gas!(
+        context.interpreter,
+        gas::dyn_sstore_cost(
+            context.interpreter.runtime_flag.spec_id(),
+            &state_load.data,
+            state_load.is_cold
+        )
+    );
+
+    // refund
     context.interpreter.gas.record_refund(gas::sstore_refund(
         context.interpreter.runtime_flag.spec_id(),
         &state_load.data,

@@ -271,13 +271,17 @@ mod tests {
         gas_limit: u64,
         gas_price: u64,
     ) {
-        assert!(matches!(
-            result.result,
-            ExecutionResult::Halt {
-                reason: SeismicHaltReason::InvalidPublicStorageAccess,
-                ..
-            }
-        ), "Received result: {:?}", result.result);
+        assert!(
+            matches!(
+                result.result,
+                ExecutionResult::Halt {
+                    reason: SeismicHaltReason::InvalidPublicStorageAccess,
+                    ..
+                }
+            ),
+            "Received result: {:?}",
+            result.result
+        );
 
         let expected = U256::from(starting_balance - gas_limit * gas_price);
         assert_eq!(
@@ -302,7 +306,6 @@ mod tests {
         let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
         let mut evm = call_ctx.build_seismic_evm();
-        let deployed_contract = evm.ctx.journal_mut().load_account(contract);
         let account = evm.ctx().journal_mut().load_account(BENCH_CALLER).unwrap();
         account.data.info.balance = U256::from(balance);
 

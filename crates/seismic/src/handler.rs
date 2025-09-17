@@ -2,7 +2,8 @@
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
 use revm::{
     context::{
-        result::{ExecutionResult, InvalidTransaction}, ContextTr, JournalTr, LocalContextTr, Transaction
+        result::{ExecutionResult, InvalidTransaction},
+        ContextTr, JournalTr, LocalContextTr, Transaction,
     },
     context_interface::{context::ContextError, result::FromStringError},
     handler::{
@@ -74,8 +75,8 @@ where
                         gas_used: evm.ctx().tx().gas_limit(),
                     });
                 }
-                return Err(Self::Error::from_string(e))
-            },
+                return Err(Self::Error::from_string(e));
+            }
             Ok(_) => (),
         }
 

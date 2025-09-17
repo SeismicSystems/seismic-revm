@@ -43,10 +43,7 @@ impl DefaultSeismicContext for SeismicContext<EmptyDB> {
 mod test {
     use super::*;
     use crate::api::builder::SeismicBuilder;
-    use revm::{
-        inspector::{InspectEvm, NoOpInspector},
-        ExecuteEvm,
-    };
+    use revm::{inspector::NoOpInspector, ExecuteEvm};
 
     #[test]
     fn default_run_seismic() {

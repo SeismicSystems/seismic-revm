@@ -193,7 +193,6 @@ mod tests {
         database::EmptyDB,
         interpreter::{CallScheme, CallValue},
         primitives::{hex, U256},
-        Context,
     };
 
     use crate::{DefaultSeismicContext, SeismicContext};
