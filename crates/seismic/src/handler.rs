@@ -37,7 +37,7 @@ impl<EVM, ERROR, FRAME> Default for SeismicHandler<EVM, ERROR, FRAME> {
 impl<EVM, ERROR, FRAME> Handler for SeismicHandler<EVM, ERROR, FRAME>
 where
     EVM: EvmTr<Context: SeismicContextTr, Frame = FRAME>,
-    ERROR: EvmTrError<EVM> + From<InvalidTransaction> + FromStringError,
+    ERROR: EvmTrError<EVM> + From<InvalidTransaction> + FromStringError + core::fmt::Debug,
     FRAME: FrameTr<FrameResult = FrameResult, FrameInit = FrameInit>,
 {
     type Evm = EVM;
@@ -59,6 +59,7 @@ where
         evm: &mut Self::Evm,
         result: <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
+        println!("Error: {:?}", result);
         match core::mem::replace(evm.ctx().error(), Ok(())) {
             Err(ContextError::Db(e)) => Err(e.into()),
             Err(ContextError::Custom(e)) => {
@@ -96,9 +97,11 @@ where
         evm: &mut Self::Evm,
         error: Self::Error,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
+        println!("We hit an error: {error:#?}");
         // Clean up journal state if error occurs
         evm.ctx().journal_mut().clear();
         evm.ctx().chain_mut().reset_rng();
+        evm.frame_stack().clear();
         Err(error)
     }
 }
@@ -107,7 +110,7 @@ where
 impl<EVM, ERROR> InspectorHandler for SeismicHandler<EVM, ERROR, EthFrame<EthInterpreter>>
 where
     EVM: InspectorEvmTr<Context: SeismicContextTr>,
-    ERROR: EvmTrError<EVM> + From<InvalidTransaction> + FromStringError,
+    ERROR: EvmTrError<EVM> + From<InvalidTransaction> + FromStringError + core::fmt::Debug,
     EVM::Inspector: Inspector<EVM::Context, EthInterpreter>,
 {
     type IT = EthInterpreter;

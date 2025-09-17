@@ -129,11 +129,15 @@ impl Host for SeismicDummyHost {
 
     fn cstore(
         &mut self,
-        _address: Address,
-        _key: U256,
-        _value: U256,
-    ) -> Option<StateLoad<SStoreResult>> {
-        None
+        address: Address,
+        key: U256,
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult>, LoadError> {
+        self.dummy_host.cstore(address, key, value)
+    }
+
+    fn cload(&mut self, address: Address, key: U256) -> Result<StateLoad<U256>, LoadError> {
+        self.dummy_host.cload(address, key)
     }
 
     fn sstore(
@@ -147,10 +151,6 @@ impl Host for SeismicDummyHost {
 
     fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
         self.dummy_host.sload(address, key)
-    }
-
-    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
-        None
     }
 
     fn tstore(&mut self, address: Address, key: U256, value: U256) {

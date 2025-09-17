@@ -124,9 +124,10 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         address: Address,
         key: StorageKey,
         value: U256,
+        skip_cold_load: bool,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
         self.inner
-            .cstore(&mut self.database, address, key, value, false)
+            .cstore(&mut self.database, address, key, value, skip_cold_load)
             .map_err(JournalLoadError::unwrap_db_error)
     }
 

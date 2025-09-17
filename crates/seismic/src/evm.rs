@@ -306,6 +306,7 @@ mod tests {
         account.data.info.balance = U256::from(balance);
 
         let result = evm.replay()?;
+        println!("Result: {:?}", result);
 
         assert_cload_error(&result, balance, gas_limit, gas_price);
         Ok(())

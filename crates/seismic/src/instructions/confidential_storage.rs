@@ -13,7 +13,7 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     check!(context.interpreter, MERCURY);
     popn_top!([], index, context.interpreter);
 
-    if let Some(value) = context
+    if let Ok(value) = context
         .host
         .cload(context.interpreter.input.target_address(), *index)
     {
@@ -40,7 +40,7 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
     require_non_staticcall!(context.interpreter);
     popn!([index, value], context.interpreter);
 
-    let Some(state_load) =
+    let Ok(state_load) =
         context
             .host
             .cstore(context.interpreter.input.target_address(), index, value)
