@@ -265,14 +265,6 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
     require_non_staticcall!(context.interpreter);
     popn!([index, value], context.interpreter);
 
-    let Some(state_load) = host.sstore(context.interpreter.input.target_address(), index, value.into())
-    else {
-        context
-            .interpreter
-            .control
-            .set_instruction_result(InstructionResult::FatalExternalError);
-        return;
-    };
     let target = context.interpreter.input.target_address();
     let spec_id = context.interpreter.runtime_flag.spec_id();
 

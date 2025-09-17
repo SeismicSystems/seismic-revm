@@ -39,7 +39,7 @@ rand_core = { version = "0.6.4", default-features = false }
 hkdf = { version = "0.12", default-features = false }
 seismic-enclave = { workspace = true, default-features = false}
 sha2 = { workspace = true } 
-secp256k1 = { workspace = true }
+secp256k1 = { workspace = true, features = ["recovery"] }
 
 [dev-dependencies]
 anyhow.workspace = true

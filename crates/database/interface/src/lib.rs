@@ -9,8 +9,8 @@ use core::convert::Infallible;
 
 use auto_impl::auto_impl;
 use core::error::Error;
-use primitives::{address, Address, HashMap, StorageKey, B256, U256};
 use primitives::FlaggedStorage;
+use primitives::{address, Address, HashMap, StorageKey, B256, U256};
 use state::{Account, AccountInfo, Bytecode};
 use std::string::String;
 

@@ -49,10 +49,8 @@ pub trait JournalTr {
         &mut self,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        self.sload_skip_cold_load(address, key, false)
-            .map_err(JournalLoadError::unwrap_db_error)
-    }
+        _skip_cold_load: bool,
+    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
 
     /// Loads the storage value from Journal state.
     fn sload_skip_cold_load(
@@ -79,11 +77,9 @@ pub trait JournalTr {
         &mut self,
         address: Address,
         key: StorageKey,
-        value: U256,
-    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
-        self.sstore_skip_cold_load(address, key, value, false)
-            .map_err(JournalLoadError::unwrap_db_error)
-    }
+        value: StorageValue,
+        _skip_cold_load: bool,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
 
     /// Stores the storage value in Journal state.
     fn sstore_skip_cold_load(

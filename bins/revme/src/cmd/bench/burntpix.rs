@@ -2,6 +2,7 @@ pub mod static_data;
 
 use context::TxEnv;
 use criterion::Criterion;
+use primitives::{StorageKey, StorageValue};
 use static_data::{
     BURNTPIX_ADDRESS_ONE, BURNTPIX_ADDRESS_THREE, BURNTPIX_ADDRESS_TWO, BURNTPIX_BYTECODE_FOUR,
     BURNTPIX_BYTECODE_ONE, BURNTPIX_BYTECODE_THREE, BURNTPIX_BYTECODE_TWO, BURNTPIX_MAIN_ADDRESS,
@@ -158,7 +159,7 @@ fn init_db() -> CacheDB<EmptyDB> {
         .insert_account_storage(
             BURNTPIX_MAIN_ADDRESS,
             StorageKey::from(2),
-            StorageValue::from_be_bytes(*STORAGE_TWO),
+            StorageValue::from_be_bytes(*STORAGE_TWO).into(),
         )
         .unwrap();
 

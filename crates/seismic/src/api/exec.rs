@@ -4,21 +4,25 @@ use crate::{
     SeismicChain, SeismicHaltReason, SeismicSpecId,
 };
 use revm::{
-    context::{result::InvalidTransaction, ContextSetters, JournalOutput},
+    context::{
+        result::{ExecResultAndState, InvalidTransaction},
+        ContextSetters,
+    },
     context_interface::{
-        result::{EVMError, ExecutionResult, ResultAndState},
+        result::{EVMError, ExecutionResult},
         Cfg, ContextTr, Database, JournalTr,
     },
-    handler::{EthFrame, EvmTr, Handler, PrecompileProvider},
+    handler::{EthFrame, Handler, PrecompileProvider},
     inspector::{InspectCommitEvm, InspectEvm, Inspector, InspectorHandler, JournalExt},
     interpreter::{interpreter::EthInterpreter, InterpreterResult},
+    state::EvmState,
     DatabaseCommit, ExecuteCommitEvm, ExecuteEvm,
 };
 
 // Type alias for Seismic context
 pub trait SeismicContextTr:
     ContextTr<
-    Journal: JournalTr<FinalOutput = JournalOutput>,
+    Journal: JournalTr<State = EvmState>,
     Tx: SeismicTxTr,
     Cfg: Cfg<Spec = SeismicSpecId>,
     Chain = SeismicChain,
@@ -28,7 +32,7 @@ pub trait SeismicContextTr:
 
 impl<T> SeismicContextTr for T where
     T: ContextTr<
-        Journal: JournalTr<FinalOutput = JournalOutput>,
+        Journal: JournalTr<State = EvmState>,
         Tx: SeismicTxTr,
         Cfg: Cfg<Spec = SeismicSpecId>,
         Chain = SeismicChain,
@@ -45,23 +49,34 @@ where
     CTX: SeismicContextTr + ContextSetters,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
-    type Output = Result<ResultAndState<SeismicHaltReason>, SeismicError<CTX>>;
-
     type Tx = <CTX as ContextTr>::Tx;
-
     type Block = <CTX as ContextTr>::Block;
-
-    fn set_tx(&mut self, tx: Self::Tx) {
-        self.0.ctx.set_tx(tx);
-    }
+    type State = EvmState;
+    type Error = SeismicError<CTX>;
+    type ExecutionResult = ExecutionResult<SeismicHaltReason>;
 
     fn set_block(&mut self, block: Self::Block) {
         self.0.ctx.set_block(block);
     }
 
-    fn replay(&mut self) -> Self::Output {
-        let mut h = SeismicHandler::<_, _, EthFrame<_, _, _>>::new();
+    fn transact_one(&mut self, tx: Self::Tx) -> Result<Self::ExecutionResult, Self::Error> {
+        self.0.ctx.set_tx(tx);
+        let mut h = SeismicHandler::<_, _, EthFrame<EthInterpreter>>::new();
         h.run(self)
+    }
+
+    fn finalize(&mut self) -> Self::State {
+        self.0.ctx.journal_mut().finalize()
+    }
+
+    fn replay(
+        &mut self,
+    ) -> Result<ExecResultAndState<Self::ExecutionResult, Self::State>, Self::Error> {
+        let mut h = SeismicHandler::<_, _, EthFrame<EthInterpreter>>::new();
+        h.run(self).map(|result| {
+            let state = self.finalize();
+            ExecResultAndState::new(result, state)
+        })
     }
 }
 
@@ -71,13 +86,8 @@ where
     CTX: SeismicContextTr<Db: DatabaseCommit> + ContextSetters,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
-    type CommitOutput = Result<ExecutionResult<SeismicHaltReason>, SeismicError<CTX>>;
-
-    fn replay_commit(&mut self) -> Self::CommitOutput {
-        self.replay().map(|r| {
-            self.ctx().db().commit(r.state);
-            r.result
-        })
+    fn commit(&mut self, state: Self::State) {
+        self.0.ctx.db_mut().commit(state);
     }
 }
 
@@ -94,8 +104,9 @@ where
         self.0.inspector = inspector;
     }
 
-    fn inspect_replay(&mut self) -> Self::Output {
-        let mut h = SeismicHandler::<_, _, EthFrame<_, _, _>>::new();
+    fn inspect_one_tx(&mut self, tx: Self::Tx) -> Result<Self::ExecutionResult, Self::Error> {
+        self.0.ctx.set_tx(tx);
+        let mut h = SeismicHandler::<_, _, EthFrame<EthInterpreter>>::new();
         h.inspect_run(self)
     }
 }
@@ -107,10 +118,4 @@ where
     INSP: Inspector<CTX, EthInterpreter>,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
-    fn inspect_replay_commit(&mut self) -> Self::CommitOutput {
-        self.inspect_replay().map(|r| {
-            self.ctx().db().commit(r.state);
-            r.result
-        })
-    }
 }

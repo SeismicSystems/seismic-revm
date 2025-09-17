@@ -253,7 +253,11 @@ impl<DB: Database> Database for State<DB> {
         res
     }
 
-    fn storage(&mut self, address: Address, index: StorageKey) -> Result<state::FlaggedStorage, Self::Error> {
+    fn storage(
+        &mut self,
+        address: Address,
+        index: StorageKey,
+    ) -> Result<state::FlaggedStorage, Self::Error> {
         // Account is guaranteed to be loaded.
         // Note that storage from bundle is already loaded with account.
         if let Some(account) = self.cache.accounts.get_mut(&address) {
@@ -449,9 +453,15 @@ mod tests {
             nonce: 1,
             ..Default::default()
         };
-        let existing_account_initial_storage = HashMap::<U256, FlaggedStorage>::from_iter([
-            (slot1, FlaggedStorage::new_from_value(U256::from(100))), // 0x01 => 100
-            (slot2, FlaggedStorage::new_from_value(U256::from(100))), // 0x02 => 200
+        let existing_account_initial_storage = HashMap::<U256, state::FlaggedStorage>::from_iter([
+            (
+                slot1,
+                state::FlaggedStorage::new_from_value(U256::from(100)),
+            ), // 0x01 => 100
+            (
+                slot2,
+                state::FlaggedStorage::new_from_value(U256::from(100)),
+            ), // 0x02 => 200
         ]);
         let existing_account_changed_info = AccountInfo {
             nonce: 2,
@@ -481,7 +491,7 @@ mod tests {
                         slot1,
                         StorageSlot::new_changed(
                             *existing_account_initial_storage.get(&slot1).unwrap(),
-                            FlaggedStorage::from(U256::from(1000)),
+                            state::FlaggedStorage::from(U256::from(1000)),
                         ),
                     )]),
                     storage_was_destroyed: false,
@@ -513,8 +523,8 @@ mod tests {
                     storage: HashMap::from_iter([(
                         slot1,
                         StorageSlot::new_changed(
-                            FlaggedStorage::ZERO,
-                            FlaggedStorage::from(U256::from(1)),
+                            state::FlaggedStorage::ZERO,
+                            state::FlaggedStorage::from(U256::from(1)),
                         ),
                     )]),
                     storage_was_destroyed: false,
@@ -531,23 +541,23 @@ mod tests {
                         (
                             slot1,
                             StorageSlot::new_changed(
-                                FlaggedStorage::from(U256::from(100)),
-                                FlaggedStorage::from(U256::from(1_000)),
+                                state::FlaggedStorage::from(U256::from(100)),
+                                state::FlaggedStorage::from(U256::from(1_000)),
                             ),
                         ),
                         (
                             slot2,
                             StorageSlot::new_changed(
                                 *existing_account_initial_storage.get(&slot2).unwrap(),
-                                FlaggedStorage::from(U256::from(2_000)),
+                                state::FlaggedStorage::from(U256::from(2_000)),
                             ),
                         ),
                         // Create new slot
                         (
                             slot3,
                             StorageSlot::new_changed(
-                                FlaggedStorage::ZERO,
-                                FlaggedStorage::from(U256::from(3_000)),
+                                state::FlaggedStorage::ZERO,
+                                state::FlaggedStorage::from(U256::from(3_000)),
                             ),
                         ),
                     ]),
@@ -572,7 +582,7 @@ mod tests {
                         previous_status: AccountStatus::LoadedNotExisting,
                         storage: HashMap::from_iter([(
                             slot1,
-                            RevertToSlot::Some(FlaggedStorage::ZERO)
+                            RevertToSlot::Some(state::FlaggedStorage::ZERO)
                         )]),
                         wipe_storage: false,
                     }
@@ -595,7 +605,7 @@ mod tests {
                                     *existing_account_initial_storage.get(&slot2).unwrap()
                                 )
                             ),
-                            (slot3, RevertToSlot::Some(FlaggedStorage::ZERO))
+                            (slot3, RevertToSlot::Some(state::FlaggedStorage::ZERO))
                         ]),
                         wipe_storage: false,
                     }
@@ -615,8 +625,8 @@ mod tests {
                 storage: HashMap::from_iter([(
                     slot1,
                     StorageSlot::new_changed(
-                        FlaggedStorage::ZERO,
-                        FlaggedStorage::from(U256::from(1))
+                        state::FlaggedStorage::ZERO,
+                        state::FlaggedStorage::from(U256::from(1))
                     )
                 )]),
             }),
@@ -636,22 +646,22 @@ mod tests {
                         slot1,
                         StorageSlot::new_changed(
                             *existing_account_initial_storage.get(&slot1).unwrap(),
-                            FlaggedStorage::from(U256::from(1_000))
+                            state::FlaggedStorage::from(U256::from(1_000))
                         )
                     ),
                     (
                         slot2,
                         StorageSlot::new_changed(
                             *existing_account_initial_storage.get(&slot2).unwrap(),
-                            FlaggedStorage::from(U256::from(2_000))
+                            state::FlaggedStorage::from(U256::from(2_000))
                         )
                     ),
                     // Create new slot
                     (
                         slot3,
                         StorageSlot::new_changed(
-                            FlaggedStorage::ZERO,
-                            FlaggedStorage::from(U256::from(3_000))
+                            state::FlaggedStorage::ZERO,
+                            state::FlaggedStorage::from(U256::from(3_000))
                         )
                     ),
                 ]),
@@ -726,15 +736,15 @@ mod tests {
                         (
                             slot1,
                             StorageSlot::new_changed(
-                                FlaggedStorage::from(U256::from(1)),
-                                FlaggedStorage::from(U256::from(10)),
+                                state::FlaggedStorage::from(U256::from(1)),
+                                state::FlaggedStorage::from(U256::from(10)),
                             ),
                         ),
                         (
                             slot2,
                             StorageSlot::new_changed(
-                                FlaggedStorage::ZERO,
-                                FlaggedStorage::from(U256::from(20)),
+                                state::FlaggedStorage::ZERO,
+                                state::FlaggedStorage::from(U256::from(20)),
                             ),
                         ),
                     ]),
@@ -776,15 +786,15 @@ mod tests {
                         (
                             slot1,
                             StorageSlot::new_changed(
-                                FlaggedStorage::from(U256::from(10)),
-                                FlaggedStorage::from(U256::from(1)),
+                                state::FlaggedStorage::from(U256::from(10)),
+                                state::FlaggedStorage::from(U256::from(1)),
                             ),
                         ),
                         (
                             slot2,
                             StorageSlot::new_changed(
-                                FlaggedStorage::from(U256::from(20)),
-                                FlaggedStorage::ZERO,
+                                state::FlaggedStorage::from(U256::from(20)),
+                                state::FlaggedStorage::ZERO,
                             ),
                         ),
                     ]),
@@ -841,8 +851,8 @@ mod tests {
                 storage: HashMap::from_iter([(
                     slot1,
                     StorageSlot::new_changed(
-                        FlaggedStorage::ZERO,
-                        FlaggedStorage::from(U256::from(1)),
+                        state::FlaggedStorage::ZERO,
+                        state::FlaggedStorage::from(U256::from(1)),
                     ),
                 )]),
                 storage_was_destroyed: false,
@@ -874,8 +884,8 @@ mod tests {
                 storage: HashMap::from_iter([(
                     slot2,
                     StorageSlot::new_changed(
-                        FlaggedStorage::ZERO,
-                        FlaggedStorage::from(U256::from(2)),
+                        state::FlaggedStorage::ZERO,
+                        state::FlaggedStorage::from(U256::from(2)),
                     ),
                 )]),
                 storage_was_destroyed: false,
@@ -896,8 +906,8 @@ mod tests {
                     storage: HashMap::from_iter([(
                         slot2,
                         StorageSlot::new_changed(
-                            FlaggedStorage::ZERO,
-                            FlaggedStorage::from(U256::from(2))
+                            state::FlaggedStorage::ZERO,
+                            state::FlaggedStorage::from(U256::from(2))
                         )
                     )]),
                     status: AccountStatus::DestroyedChanged,

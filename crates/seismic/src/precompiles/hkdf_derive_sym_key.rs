@@ -1,6 +1,6 @@
 use revm::precompile::{
-    calc_linear_cost_u32, u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult,
-    PrecompileWithAddress,
+    calc_linear_cost_u32, u64_to_address, Precompile, PrecompileError, PrecompileId,
+    PrecompileOutput, PrecompileResult,
 };
 
 use hkdf::Hkdf;
@@ -13,12 +13,15 @@ Precompile Wiring
 pub const HKDF_ADDRESS: u64 = 104;
 
 /// Returns the ecdh precompile with its address.
-pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
+pub fn precompiles() -> impl Iterator<Item = Precompile> {
     [HKDF].into_iter()
 }
 
-pub const HKDF: PrecompileWithAddress =
-    PrecompileWithAddress(u64_to_address(HKDF_ADDRESS), hkdf_derive_symmetric_key);
+pub const HKDF: Precompile = Precompile::new(
+    PrecompileId::Custom(std::borrow::Cow::Borrowed("HKDF")),
+    u64_to_address(HKDF_ADDRESS),
+    hkdf_derive_symmetric_key,
+);
 
 /* --------------------------------------------------------------------------
  Cost Constants

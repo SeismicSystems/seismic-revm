@@ -513,8 +513,8 @@ mod tests {
         let mut storage = HashMap::<StorageKey, EvmStorageSlot>::default();
         let key1 = StorageKey::from(1);
         let key2 = StorageKey::from(2);
-        let slot1 = EvmStorageSlot::new(StorageValue::from(10).into(), 0);
-        let slot2 = EvmStorageSlot::new(StorageValue::from(20).into(), 0);
+        let slot1 = EvmStorageSlot::new(FlaggedStorage::from(10), 0);
+        let slot2 = EvmStorageSlot::new(FlaggedStorage::from(20).into(), 0);
 
         storage.insert(key1, slot1.clone());
         storage.insert(key2, slot2.clone());
@@ -562,7 +562,7 @@ mod tests {
 
     #[test]
     fn test_storage_mark_warm_with_transaction_id() {
-        let mut slot = EvmStorageSlot::new(U256::ZERO, 0);
+        let mut slot = EvmStorageSlot::new(FlaggedStorage::ZERO, 0);
         slot.is_cold = true;
         slot.transaction_id = 0;
         assert!(slot.mark_warm_with_transaction_id(1));
@@ -621,7 +621,7 @@ mod tests {
         };
 
         let slot_key = StorageKey::from(42);
-        let slot_value = EvmStorageSlot::new(StorageValue::from(123).into(), 0);
+        let slot_value = EvmStorageSlot::new(FlaggedStorage::from(123), 0);
         let mut storage = HashMap::<StorageKey, EvmStorageSlot>::default();
         storage.insert(slot_key, slot_value.clone());
 

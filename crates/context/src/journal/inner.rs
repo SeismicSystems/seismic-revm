@@ -71,8 +71,9 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         db: &mut DB,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<U256>, DB::Error> {
-        self.load_inner(db, address, key, true)
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<U256>, JournalLoadError<DB::Error>> {
+        self.load_inner(db, address, key, skip_cold_load, true)
     }
 
     /// Stores the private storage value in Journal state.
@@ -83,7 +84,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         key: StorageKey,
         value: U256,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, DB::Error> {
+    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
         self.store(db, address, key, value, skip_cold_load, true)
     }
 
@@ -739,6 +740,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 address,
                 storage_key,
                 false,
+                false,
             )?;
         }
         Ok(load)
@@ -756,6 +758,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         address: Address,
         key: StorageKey,
         skip_cold_load: bool,
+        default_privacy: bool,
     ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
@@ -768,6 +771,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             address,
             key,
             skip_cold_load,
+            default_privacy,
         )
     }
 
@@ -778,8 +782,8 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         address: Address,
         key: StorageKey,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<StorageValue>, DB::Error> {
-        self.load_inner(db, address, key, skip_cold_load)
+    ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
+        self.load_inner(db, address, key, skip_cold_load, false)
     }
 
     /// Stores public storage value
@@ -791,7 +795,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         key: StorageKey,
         value: U256,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, DB::Error> {
+    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
         self.store(db, address, key, value, skip_cold_load, false)
     }
 
@@ -910,18 +914,25 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
     address: Address,
     key: StorageKey,
     skip_cold_load: bool,
+    default_privacy: bool,
 ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
     // only if account is created in this tx we can assume that storage is empty.
     let is_newly_created = account.is_created();
     let (value, is_cold, is_private) = match account.storage.entry(key) {
         Entry::Occupied(occ) => {
             let slot = occ.into_mut();
-            let is_cold = slot.mark_warm();
+            let is_cold = slot.is_cold_transaction_id(transaction_id);
+            if skip_cold_load && is_cold {
+                return Err(JournalLoadError::ColdLoadSkipped);
+            }
             let is_private = slot.present_value().is_private;
             (slot.present_value.value, is_cold, is_private)
         }
         Entry::Vacant(vac) => {
             // if storage was cleared, we don't need to ping db.
+            if skip_cold_load {
+                return Err(JournalLoadError::ColdLoadSkipped);
+            }
             let value = if is_newly_created {
                 FlaggedStorage::ZERO.set_visibility(default_privacy)
             } else {
@@ -929,7 +940,7 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
                 v
             };
 
-            vac.insert(EvmStorageSlot::new(valu, transaction_id));
+            vac.insert(EvmStorageSlot::new(value, transaction_id));
 
             (value.value, true, value.is_private)
         }
@@ -937,7 +948,7 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
 
     if is_cold {
         // add it to journal as cold loaded.
-        self.journal.push(ENTRY::storage_warmed(address, key));
+        journal.push(ENTRY::storage_warmed(address, key));
     }
 
     Ok(StateLoad::new(value, is_cold, is_private))

@@ -541,6 +541,29 @@ impl<
         self.journal_mut().tstore(address, index, value)
     }
 
+    fn cload(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<U256>, LoadError> {
+        self.journal_mut()
+            .cload(address, key, skip_cold_load)
+            .map_err(|_e| LoadError::DBError)
+    }
+
+    fn cstore(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        value: StorageValue,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<SStoreResult>, LoadError> {
+        self.journal_mut()
+            .cstore(address, key, value, skip_cold_load)
+            .map_err(|_e| LoadError::DBError)
+    }
+
     /// Emits a log owned by `address` with given `LogData`.
     fn log(&mut self, log: Log) {
         self.journal_mut().log(log);

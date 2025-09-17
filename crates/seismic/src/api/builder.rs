@@ -3,9 +3,10 @@ use crate::{
     transaction::abstraction::SeismicTxTr, SeismicEvm, SeismicSpecId,
 };
 use revm::{
-    context::{Cfg, JournalOutput},
+    context::Cfg,
     context_interface::{Block, JournalTr},
     interpreter::interpreter::EthInterpreter,
+    state::EvmState,
     Context, Database,
 };
 
@@ -35,7 +36,7 @@ where
     TX: SeismicTxTr,
     CFG: Cfg<Spec = SeismicSpecId>,
     DB: Database,
-    JOURNAL: JournalTr<Database = DB, FinalOutput = JournalOutput>,
+    JOURNAL: JournalTr<Database = DB, State = EvmState>,
 {
     type Context = Self;
 
