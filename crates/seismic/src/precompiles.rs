@@ -34,8 +34,8 @@ use revm::{
     precompile::{secp256r1, Precompile, PrecompileError, Precompiles},
     primitives::{Address, Bytes},
 };
-use std::{boxed::Box, sync::OnceLock};
 use std::string::String;
+use std::{boxed::Box, sync::OnceLock};
 
 #[derive(Debug, Clone)]
 pub struct SeismicPrecompiles<CTX: SeismicContextTr> {
@@ -63,16 +63,17 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
         }
     }
 
-    pub fn apply_precompile(&mut self, p: Precompile)
-    where
-    {
+    pub fn apply_precompile(&mut self, p: Precompile) {
         static INSTANCE: OnceLock<Precompiles> = OnceLock::new();
         let precompiles = INSTANCE.get_or_init(|| {
             let mut precompiles = self.inner.precompiles.clone();
             precompiles.extend([p]);
             precompiles
         });
-        self.inner = EthPrecompiles { precompiles, spec: <CTX::Cfg as Cfg>::Spec::MERCURY.into() };
+        self.inner = EthPrecompiles {
+            precompiles,
+            spec: <CTX::Cfg as Cfg>::Spec::MERCURY.into(),
+        };
     }
 }
 
