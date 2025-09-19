@@ -63,7 +63,7 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
         }
     }
 
-    pub fn apply_precompile<F>(&mut self, p: Precompile)
+    pub fn apply_precompile(&mut self, p: Precompile)
     where
     {
         static INSTANCE: OnceLock<Precompiles> = OnceLock::new();
