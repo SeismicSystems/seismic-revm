@@ -31,10 +31,10 @@ use revm::{
     context::{Cfg, LocalContextTr},
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{CallInput, CallInputs, Gas, InstructionResult, InterpreterResult},
-    precompile::{secp256r1, PrecompileError, Precompiles},
+    precompile::{secp256r1, Precompile, PrecompileError, Precompiles},
     primitives::{Address, Bytes},
 };
-use std::boxed::Box;
+use std::{boxed::Box, sync::OnceLock};
 use std::string::String;
 
 #[derive(Debug, Clone)]
@@ -61,6 +61,18 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
         match spec {
             _spec @ SeismicSpecId::MERCURY => Self::new(mercury::<CTX>()),
         }
+    }
+
+    pub fn apply_precompile<F>(&mut self, p: Precompile)
+    where
+    {
+        static INSTANCE: OnceLock<Precompiles> = OnceLock::new();
+        let precompiles = INSTANCE.get_or_init(|| {
+            let mut precompiles = self.inner.precompiles.clone();
+            precompiles.extend([p]);
+            precompiles
+        });
+        self.inner = EthPrecompiles { precompiles, spec: <CTX::Cfg as Cfg>::Spec::MERCURY.into() };
     }
 }
 
