@@ -333,7 +333,7 @@ mod tests {
         let mut host = SeismicDummyHost::new();
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
-        let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);
+        let mut interpreter = build_interpreter(SpecId::MERCURY, bytecode);
         let context = InstructionContext {
             interpreter: &mut interpreter,
             host: &mut host,
@@ -381,7 +381,7 @@ mod tests {
         let mut host = SeismicDummyHost::new();
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
-        let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);
+        let mut interpreter = build_interpreter(SpecId::MERCURY, bytecode);
         let context = InstructionContext {
             interpreter: &mut interpreter,
             host: &mut host,
