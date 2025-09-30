@@ -1,81 +1,96 @@
-### Revm
+# Mercury Specification – Seismic’s REVM
 
-[![CI](https://github.com/bluealloy/revm/actions/workflows/ci.yml/badge.svg)][gh-ci]
-[![License](https://img.shields.io/badge/License-MIT-orange.svg)][mit-license]
-[![crates.io](https://img.shields.io/crates/v/revm.svg)](https://crates.io/crates/revm)
-[![Chat][tg-badge]][tg-url]
+Mercury is an EVM specification built by Seismic. This repository outlines the differences from standard EVM/REVM implementations. It will host our modifications to the EVM, as well as newly introduced features. This document serves as a diff report against REVM and assumes familiarity with both REVM and, more broadly, the EVM.
 
-Revm is a highly efficient and stable implementation of the Ethereum Virtual Machine (EVM) written in Rust.
+This work stands on the shoulders of giants and would not have been possible without [REVM](https://github.com/bluealloy/revm)’s world-class codebase.
 
-![banner](https://raw.githubusercontent.com/bluealloy/revm/refs/heads/main/assets/logo/revm-banner.png)
+---
 
-[mit-license]: https://opensource.org/license/mit/
-[gh-ci]: https://github.com/bluealloy/revm/actions/workflows/ci.yml
-[tg-url]: https://t.me/+Ig4WDWOzikA3MzA0
-[tg-badge]: https://img.shields.io/badge/chat-telegram-blue
+## Overview
 
-Known for its robustness, it stands as one of the most popular libraries and a critical component of the Ethereum ecosystem. Revm plays a crucial role across various projects, being widely utilized by almost all tooling and block builders. It is integrated into Reth, multiple Layer 2 variants and other clients and serving as a standard for zkVMs.
+We introduce several features:
 
-Revm offers two primary applications: firstly, it functions as an executor where users can set up block info and process mainnet transactions; secondly, it acts as a framework that facilitates the extension and support of different EVM variants such as op-revm.
+- **Instruction Set:** CLOAD and CSTORE for accessing private storage.
+- **Flagged Storage:** [Flagged Storage](#flagged-storage) introduces a novel mechanism where each slot is represented as a tuple `(value, is_private)` with strict access rules.
+- **Precompiles:** [Precompiles](#precompiles) extend the functionality of the EVM.
+- **Semantic Tests:** [Semantic Tests](#semantic-tests) help us catch regressions and validate new features.
 
-### How to use:
+---
 
-Here is a straightforward example of using the Execution API: It allows us to create an Ethereum Virtual Machine (EVM) and execute transactions. Additionally, it can be utilized to generate traces with the inspector or more complex example of foundry cheatcodes.
+## Semantic Tests
 
-```rust,ignore
-let mut evm = Context::mainnet().with_block(block).build_mainnet();
-let out = evm.transact(tx);
+A new suite of semantic tests has been added to ensure that changes to the compiler do not introduce regressions. **Current limitations include:**
+- No support for nested dependencies.
+- Missing gas metering.
+- Incomplete support for libraries and event emission.
+- Lack of balance checks and handling of edge cases (e.g., non-existent function calls).
 
-// or you can use powerful inspection tool to trace it
-let mut evm = evm.with_inspector(tracer);
-let out = evm.inspect_tx(tx);
-```
+---
 
-The Evm Framework API is somewhat complex to use, but this document provides a detailed explanation. It enables users to extend logic, incorporate various context types, and offers built-in support for inspection. For a practical example, you can refer to the [op-revm crate](https://github.com/op-rs/op-revm).
+## Flagged Storage
 
-### Users:
+Mercury introduces **Flagged Storage**, where each storage slot is now represented as a tuple:  
 
-As previously noted, there are several groups of projects that utilize this technology:
+`(value, is_private)`
 
-* **Major block builders**.
-* **Clients**: [Reth](https://github.com/paradigmxyz/reth), [Helios](https://github.com/a16z/helios), [Trin](https://github.com/ethereum/trin),..
-* **Tooling**: [Foundry](https://github.com/foundry-rs/foundry/), [Hardhat](https://github.com/NomicFoundation/hardhat),..
-* **L2s**: [Optimism](https://github.com/bluealloy/revm/tree/main/crates/op-revm), [Coinbase](https://www.base.org/), [Scroll](https://github.com/scroll-tech/revm),..
-* **zkVM**: [Risc0](https://github.com/risc0/risc0-ethereum), [Succinct](https://github.com/succinctlabs/rsp),..
+To support private storage, Mercury provides new instructions:
+- **CLOAD:** Loads data from a slot marked as private.
+- **CSTORE:** Stores data into a slot, tagging it as private.
 
-The full list of projects that use Revm is available in the [awesome-revm](https://bluealloy.github.io/revm/awesome.html) section of the book.
+**Access Rules:**
+- **Loading:** The operation must match the slot’s privacy flag. Attempting to load a slot using an instruction that doesn’t match its privacy (e.g., using SLOAD on a private slot or CLOAD on a public slot) is disallowed. The only caveat is that CLOAD can load public slot with value 0.
+- **Storing:** Writing to a slot is allowed regardless of its current privacy flag, enabling seamless transitions between public and private states.
 
-### How to, dev section
+**Gas Costs:**  
+Confidential storage operations (both load and store) incur the same gas costs as their public counterparts.
 
-The [book](https://bluealloy.github.io/revm/) and [`Architecture and API`](https://bluealloy.github.io/revm/architecture.html) page is the best starting resource.
+---
 
-Some quick links can be found here. Some point to code documentation or the book. code docs are there to explain usage of a particular part of the code where the book is to get more of an overview of the architecture or how components/projects fit together.
+## Precompiles
 
-* [How to build and use revm](https://bluealloy.github.io/revm/dev.html)
-* [Architecture overview](https://bluealloy.github.io/revm/architecture.html)
-* [Structure of the project](https://github.com/bluealloy/revm/tree/main/crates) (list of crates and their versions)
-* [How to use Revm Framework](https://github.com/bluealloy/revm/tree/main/examples/my_evm) (MyEvm example)
-* [Release procedure and changelogs explanation](https://bluealloy.github.io/revm/release_procedure.html)
-* [How to use revme](https://github.com/bluealloy/revm/tree/main/bins/revme) (Revm binary with few commands)
-* [How to run Ethereum tests](https://bluealloy.github.io/revm/revme.html#running-eth-tests)
-* If there is more need for explanations please open a PR request.
+Mercury adds several new precompiles to enhance the functionality of the REVM. These precompiles are available at fixed addresses:
 
-## Supported Rust Versions (MSRV)
+| **Precompile**             | **Address (Hex)** | **Address (Dec)** |
+|----------------------------|-------------------|-------------------|
+| RNG                        | `0x64`            | 100               |
+| ECDH                       | `0x65`            | 101               |
+| AES-GCM Encryption         | `0x66`            | 102               |
+| AES-GCM Decryption         | `0x67`            | 103               |
+| HDKF                       | `0x68`            | 104               |
+| SECP256K1 Signature        | `0x69`            | 105               |
 
-Revm always aims to stay up-to-date with the latest stable Rust release.
+---
 
-The Minimum Supported Rust Version (MSRV) may be updated at any time, so we can take advantage of new features and improvements in Rust.
+## Enhanced RNG Logic
 
-### Community:
-For questions please open a github issue or join the public [telegram group](https://t.me/+Ig4WDWOzikA3MzA0)
+The RNG precompile works jointly with two additional parameters in the transaction environment (`TX_ENV`):
 
-### Licence
-Revm is licensed under MIT Licence.
+- **tx_hash:** Provides domain separation.
+- **RNG_mode:** Introduces extra entropy for simulation calls.
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in these crates by you, shall be licensed as above, without any additional terms or conditions.
+**State Management:**  
+Since RNG is stateful, a pre-execution hook resets its state at the start of every transaction, ensuring consistency and improved security.
 
-If `gmp` feature flag is used, GPL code gets compiled, if enabled please make sure to follow this license.
+Note that the inner logic of this precompile is strongly inspired from [Oasis Sapphire work](https://oasisprotocol.org/sapphire).
 
-### Security
+---
 
-For any security questions or findings, please reach out to me directly via email at [dragan0rakita@gmail.com](mailto:dragan0rakita@gmail.com) or contact me on Keybase under the username @draganrakita.
+## Upstream
+
+The upstream repository lives [here](https://github.com/bluealloy/revm). This fork is up-to-date with it through commit `398ef74`. You can see this by viewing the [main](https://github.com/SeismicSystems/seismic-revm/tree/main) branch on this repository
+
+You can view all of our changes vs. upstream on this [pull request](https://github.com/SeismicSystems/seismic-revm/pull/2). The sole purpose of this PR is to display our diff; it will never be merged in to the main branch of this repo
+
+### Structure
+
+Seismic's forks of the [reth](https://github.com/paradigmxyz/reth) stack all have the same branch structure:
+- `main` or `master`: this branch only consists of commits from the upstream repository. However it will rarely be up-to-date with upstream. The latest commit from this branch reflects how recently Seismic has merged in upstream commits to the seismic branch
+- `seismic`: the default and production branch for these repositories. This includes all Seismic-specific code essential to make our network run
+
+---
+
+## Conclusion
+
+We are working on many more features, so you can expect this diff documentation to grow over time. At this stage, this is still **experimental** software, so tread with caution!
+
+Don't hesitate to get in touch—we'd also be delighted to onboard new contributors to this repository.

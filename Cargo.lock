@@ -4299,6 +4299,8 @@ name = "revm-state"
 version = "7.0.5"
 dependencies = [
  "bitflags",
+ "proptest",
+ "proptest-derive",
  "revm-bytecode",
  "revm-primitives",
  "serde",
