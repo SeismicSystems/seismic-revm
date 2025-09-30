@@ -1,7 +1,10 @@
+//! Context trait and related types.
 pub use crate::journaled_state::StateLoad;
-use crate::{Block, Cfg, Database, JournalTr, LocalContextTr, Transaction};
+use crate::{
+    result::FromStringError, Block, Cfg, Database, Host, JournalTr, LocalContextTr, Transaction,
+};
 use auto_impl::auto_impl;
-use primitives::FlaggedStorage;
+use primitives::StorageValue;
 use std::string::String;
 
 /// Trait that defines the context of the EVM execution.
@@ -9,8 +12,10 @@ use std::string::String;
 /// This trait is used to access the environment and state of the EVM.
 /// It is used to access the transaction, block, configuration, database, journal, and chain.
 /// It is also used to set the error of the EVM.
+///
+/// All functions have a `*_mut` variant except the function for [`ContextTr::tx`] and [`ContextTr::block`].
 #[auto_impl(&mut, Box)]
-pub trait ContextTr {
+pub trait ContextTr: Host {
     /// Block type
     type Block: Block;
     /// Transaction type
@@ -33,30 +38,48 @@ pub trait ContextTr {
     /// Get the configuration
     fn cfg(&self) -> &Self::Cfg;
     /// Get the journal
-    fn journal(&mut self) -> &mut Self::Journal;
+    fn journal(&self) -> &Self::Journal;
+    /// Get the journal mutably
+    fn journal_mut(&mut self) -> &mut Self::Journal;
     /// Get the journal reference
-    fn journal_ref(&self) -> &Self::Journal;
+    fn journal_ref(&self) -> &Self::Journal {
+        self.journal()
+    }
     /// Get the database
-    fn db(&mut self) -> &mut Self::Db;
+    fn db(&self) -> &Self::Db;
+    /// Get the database mutably
+    fn db_mut(&mut self) -> &mut Self::Db;
     /// Get the database reference
-    fn db_ref(&self) -> &Self::Db;
+    fn db_ref(&self) -> &Self::Db {
+        self.db()
+    }
     /// Get the chain
-    fn chain(&mut self) -> &mut Self::Chain;
+    fn chain(&self) -> &Self::Chain;
+    /// Get the chain mutably
+    fn chain_mut(&mut self) -> &mut Self::Chain;
     /// Get the chain reference
-    fn chain_ref(&self) -> &Self::Chain;
+    fn chain_ref(&self) -> &Self::Chain {
+        self.chain()
+    }
     /// Get the local context
-    fn local(&mut self) -> &mut Self::Local;
+    fn local(&self) -> &Self::Local;
+    /// Get the local context mutably
+    fn local_mut(&mut self) -> &mut Self::Local;
+    /// Get the local context reference
+    fn local_ref(&self) -> &Self::Local {
+        self.local()
+    }
     /// Get the error
     fn error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>>;
     /// Get the transaction and journal. It is used to efficiently load access list
     /// into journal without copying them from transaction.
-    fn tx_journal(&mut self) -> (&Self::Tx, &mut Self::Journal);
+    fn tx_journal_mut(&mut self) -> (&Self::Tx, &mut Self::Journal);
     /// Get the transaction and local context. It is used to efficiently load initcode
     /// into local context without copying them from transaction.
-    fn tx_local(&mut self) -> (&Self::Tx, &mut Self::Local);
+    fn tx_local_mut(&mut self) -> (&Self::Tx, &mut Self::Local);
 }
 
-/// Inner Context error used for Interpreter to set error without returning it frm instruction
+/// Inner Context error used for Interpreter to set error without returning it from instruction
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ContextError<DbError> {
@@ -64,6 +87,12 @@ pub enum ContextError<DbError> {
     Db(DbError),
     /// Custom string error.
     Custom(String),
+}
+
+impl<DbError> FromStringError for ContextError<DbError> {
+    fn from_string(value: String) -> Self {
+        Self::Custom(value)
+    }
 }
 
 impl<DbError> From<DbError> for ContextError<DbError> {
@@ -77,48 +106,48 @@ impl<DbError> From<DbError> for ContextError<DbError> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SStoreResult {
     /// Value of the storage when it is first read
-    pub original_value: FlaggedStorage,
+    pub original_value: StorageValue,
     /// Current value of the storage
-    pub present_value: FlaggedStorage,
+    pub present_value: StorageValue,
     /// New value that is set
-    pub new_value: FlaggedStorage,
+    pub new_value: StorageValue,
 }
 
 impl SStoreResult {
     /// Returns `true` if the new value is equal to the present value.
     #[inline]
-    pub fn is_new_eq_present(&self) -> bool {
-        self.new_value.value == self.present_value.value
+    pub const fn is_new_eq_present(&self) -> bool {
+        self.new_value.const_eq(&self.present_value)
     }
 
     /// Returns `true` if the original value is equal to the present value.
     #[inline]
-    pub fn is_original_eq_present(&self) -> bool {
-        self.original_value.value == self.present_value.value
+    pub const fn is_original_eq_present(&self) -> bool {
+        self.original_value.const_eq(&self.present_value)
     }
 
     /// Returns `true` if the original value is equal to the new value.
     #[inline]
-    pub fn is_original_eq_new(&self) -> bool {
-        self.original_value.value == self.new_value.value
+    pub const fn is_original_eq_new(&self) -> bool {
+        self.original_value.const_eq(&self.new_value)
     }
 
     /// Returns `true` if the original value is zero.
     #[inline]
-    pub fn is_original_zero(&self) -> bool {
-        self.original_value.is_zero()
+    pub const fn is_original_zero(&self) -> bool {
+        self.original_value.const_is_zero()
     }
 
     /// Returns `true` if the present value is zero.
     #[inline]
-    pub fn is_present_zero(&self) -> bool {
-        self.present_value.is_zero()
+    pub const fn is_present_zero(&self) -> bool {
+        self.present_value.const_is_zero()
     }
 
     /// Returns `true` if the new value is zero.
     #[inline]
-    pub fn is_new_zero(&self) -> bool {
-        self.new_value.is_zero()
+    pub const fn is_new_zero(&self) -> bool {
+        self.new_value.const_is_zero()
     }
 }
 
@@ -128,12 +157,18 @@ impl SStoreResult {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SelfDestructResult {
+    /// Whether the account had a value.
     pub had_value: bool,
+    /// Whether the target account exists.
     pub target_exists: bool,
+    /// Whether the account was previously destroyed.
     pub previously_destroyed: bool,
 }
 
+/// Trait for setting the transaction and block in the context.
 pub trait ContextSetters: ContextTr {
+    /// Set the transaction
     fn set_tx(&mut self, tx: Self::Tx);
+    /// Set the block
     fn set_block(&mut self, block: Self::Block);
 }

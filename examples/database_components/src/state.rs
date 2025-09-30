@@ -8,8 +8,12 @@ use revm::{
 };
 use std::{error::Error as StdError, sync::Arc};
 
+/// Trait for mutable access to state data including accounts, code, and storage.
+/// This is typically used for database implementations that may modify state
+/// or need mutable access for caching purposes.
 #[auto_impl(&mut, Box)]
 pub trait State {
+    /// Error type for state operations
     type Error: StdError;
 
     /// Gets basic account information.
@@ -22,8 +26,12 @@ pub trait State {
     fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
 }
 
+/// Trait for immutable access to state data including accounts, code, and storage.
+/// This is typically used for read-only database implementations or when
+/// state data is pre-loaded and doesn't require modification.
 #[auto_impl(&, &mut, Box, Rc, Arc)]
 pub trait StateRef {
+    /// Error type for state operations
     type Error: StdError;
 
     /// Gets basic account information.

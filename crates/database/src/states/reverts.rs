@@ -6,8 +6,7 @@ use core::{
     cmp::Ordering,
     ops::{Deref, DerefMut},
 };
-use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{Address, HashMap, StorageKey};
+use primitives::{Address, HashMap, StorageKey, StorageValue};
 use state::AccountInfo;
 use std::vec::Vec;
 
@@ -143,9 +142,13 @@ impl PartialEq for Reverts {
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AccountRevert {
+    /// Account information revert.
     pub account: AccountInfoRevert,
+    /// Storage slots to revert.
     pub storage: HashMap<StorageKey, RevertToSlot>,
+    /// Previous account status before the change.
     pub previous_status: AccountStatus,
+    /// Whether to wipe the storage.
     pub wipe_storage: bool,
 }
 
@@ -314,15 +317,18 @@ pub enum AccountInfoRevert {
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RevertToSlot {
-    Some(FlaggedStorage),
+    /// Revert to this value.
+    Some(StorageValue),
+    /// Storage was destroyed.
     Destroyed,
 }
 
 impl RevertToSlot {
-    pub fn to_previous_value(self) -> FlaggedStorage {
+    /// Returns the previous value to set on revert.
+    pub fn to_previous_value(self) -> StorageValue {
         match self {
             RevertToSlot::Some(value) => value,
-            RevertToSlot::Destroyed => FlaggedStorage::ZERO,
+            RevertToSlot::Destroyed => StorageValue::ZERO,
         }
     }
 }

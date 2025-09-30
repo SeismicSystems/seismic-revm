@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.5](https://github.com/bluealloy/revm/compare/revm-database-interface-v7.0.4...revm-database-interface-v7.0.5) - 2025-08-23
+
+### Other
+
+- *(database)* remove unused dependencies ([#2885](https://github.com/bluealloy/revm/pull/2885))
+
+## [7.0.4](https://github.com/bluealloy/revm/compare/revm-database-interface-v7.0.3...revm-database-interface-v7.0.4) - 2025-08-12
+
+### Other
+
+- updated the following local packages: revm-primitives, revm-state
+
+## [7.0.3](https://github.com/bluealloy/revm/compare/revm-database-interface-v7.0.2...revm-database-interface-v7.0.3) - 2025-08-06
+
+### Other
+
+- update README.md ([#2842](https://github.com/bluealloy/revm/pull/2842))
+- add rust-version and note about MSRV ([#2789](https://github.com/bluealloy/revm/pull/2789))
+
+## [7.0.2](https://github.com/bluealloy/revm/compare/revm-database-interface-v7.0.1...revm-database-interface-v7.0.2) - 2025-07-23
+
+### Other
+
+- impl DatabaseRef for WrapDatabaseRef ([#2726](https://github.com/bluealloy/revm/pull/2726))
+
+## [7.0.1](https://github.com/bluealloy/revm/compare/revm-database-interface-v7.0.0...revm-database-interface-v7.0.1) - 2025-07-03
+
+### Other
+
+- updated the following local packages: revm-state
+
+## [7.0.0](https://github.com/bluealloy/revm/compare/revm-database-interface-v6.0.0...revm-database-interface-v7.0.0) - 2025-06-30
+
+### Added
+
+- implement Database traits for either::Either ([#2673](https://github.com/bluealloy/revm/pull/2673))
+
+### Other
+
+- fix copy-pasted inner doc comments ([#2663](https://github.com/bluealloy/revm/pull/2663))
+
+## [6.0.0](https://github.com/bluealloy/revm/compare/revm-database-interface-v5.0.0...revm-database-interface-v6.0.0) - 2025-06-19
+
+### Added
+
+- *(precompile)* rug/gmp-based modexp ([#2596](https://github.com/bluealloy/revm/pull/2596))
+
+## [5.0.0](https://github.com/bluealloy/revm/compare/revm-database-interface-v4.0.1...revm-database-interface-v5.0.0) - 2025-06-06
+
+### Added
+
+- added TxEnv::new_bench() add util function ([#2556](https://github.com/bluealloy/revm/pull/2556))
+- transact multi tx ([#2517](https://github.com/bluealloy/revm/pull/2517))
+
+### Other
+
+- *(docs)* add lints to database-interface and op-revm crates ([#2568](https://github.com/bluealloy/revm/pull/2568))
+
+## [4.0.1](https://github.com/bluealloy/revm/compare/revm-database-interface-v4.0.0...revm-database-interface-v4.0.1) - 2025-05-22
+
+### Other
+
+- make crates.io version badge clickable ([#2526](https://github.com/bluealloy/revm/pull/2526))
+- Storage Types Alias ([#2461](https://github.com/bluealloy/revm/pull/2461))
+
 ## [4.0.0](https://github.com/bluealloy/revm/compare/revm-database-interface-v3.0.1...revm-database-interface-v4.0.0) - 2025-05-07
 
 Dependency bump

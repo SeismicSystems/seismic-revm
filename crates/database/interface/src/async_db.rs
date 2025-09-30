@@ -1,9 +1,7 @@
-use core::future::Future;
-
+//! Async database interface.
 use crate::{DBErrorMarker, Database, DatabaseRef};
-use core::error::Error;
-use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{Address, B256, U256};
+use core::{error::Error, future::Future};
+use primitives::{Address, StorageKey, StorageValue, B256};
 use state::{AccountInfo, Bytecode};
 use tokio::runtime::{Handle, Runtime};
 
@@ -32,8 +30,8 @@ pub trait DatabaseAsync {
     fn storage_async(
         &mut self,
         address: Address,
-        index: U256,
-    ) -> impl Future<Output = Result<FlaggedStorage, Self::Error>> + Send;
+        index: StorageKey,
+    ) -> impl Future<Output = Result<StorageValue, Self::Error>> + Send;
 
     /// Gets block hash by block number.
     fn block_hash_async(
@@ -67,8 +65,8 @@ pub trait DatabaseAsyncRef {
     fn storage_async_ref(
         &self,
         address: Address,
-        index: U256,
-    ) -> impl Future<Output = Result<FlaggedStorage, Self::Error>> + Send;
+        index: StorageKey,
+    ) -> impl Future<Output = Result<StorageValue, Self::Error>> + Send;
 
     /// Gets block hash by block number.
     fn block_hash_async_ref(
@@ -135,7 +133,11 @@ impl<T: DatabaseAsync> Database for WrapDatabaseAsync<T> {
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
+    fn storage(
+        &mut self,
+        address: Address,
+        index: StorageKey,
+    ) -> Result<StorageValue, Self::Error> {
         self.rt.block_on(self.db.storage_async(address, index))
     }
 
@@ -159,7 +161,11 @@ impl<T: DatabaseAsyncRef> DatabaseRef for WrapDatabaseAsync<T> {
     }
 
     #[inline]
-    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
+    fn storage_ref(
+        &self,
+        address: Address,
+        index: StorageKey,
+    ) -> Result<StorageValue, Self::Error> {
         self.rt.block_on(self.db.storage_async_ref(address, index))
     }
 
@@ -184,7 +190,23 @@ impl HandleOrRuntime {
         F::Output: Send,
     {
         match self {
-            Self::Handle(handle) => tokio::task::block_in_place(move || handle.block_on(f)),
+            Self::Handle(handle) => {
+                // Use block_in_place only when we're currently inside a multi-threaded Tokio runtime.
+                // Otherwise, call handle.block_on directly to avoid panicking outside of a runtime.
+                let can_block_in_place = match Handle::try_current() {
+                    Ok(current) => !matches!(
+                        current.runtime_flavor(),
+                        tokio::runtime::RuntimeFlavor::CurrentThread
+                    ),
+                    Err(_) => false,
+                };
+
+                if can_block_in_place {
+                    tokio::task::block_in_place(move || handle.block_on(f))
+                } else {
+                    handle.block_on(f)
+                }
+            }
             Self::Runtime(rt) => rt.block_on(f),
         }
     }

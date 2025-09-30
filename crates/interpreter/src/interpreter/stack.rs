@@ -48,8 +48,14 @@ impl Clone for Stack {
 }
 
 impl StackTr for Stack {
+    #[inline]
     fn len(&self) -> usize {
         self.len()
+    }
+
+    #[inline]
+    fn clear(&mut self) {
+        self.data.clear();
     }
 
     #[inline]
@@ -70,16 +76,24 @@ impl StackTr for Stack {
         Some(unsafe { self.popn_top::<POPN>() })
     }
 
+    #[inline]
     fn exchange(&mut self, n: usize, m: usize) -> bool {
         self.exchange(n, m)
     }
 
+    #[inline]
     fn dup(&mut self, n: usize) -> bool {
         self.dup(n)
     }
 
+    #[inline]
     fn push(&mut self, value: U256) -> bool {
         self.push(value)
+    }
+
+    #[inline]
+    fn push_slice(&mut self, slice: &[u8]) -> bool {
+        self.push_slice_(slice)
     }
 }
 
@@ -91,6 +105,12 @@ impl Stack {
             // SAFETY: Expansion functions assume that capacity is `STACK_LIMIT`.
             data: Vec::with_capacity(STACK_LIMIT),
         }
+    }
+
+    /// Instantiate a new invalid Stack.
+    #[inline]
+    pub fn invalid() -> Self {
+        Self { data: Vec::new() }
     }
 
     /// Returns the length of the stack in words.
@@ -139,6 +159,7 @@ impl Stack {
     #[inline]
     #[cfg_attr(debug_assertions, track_caller)]
     pub unsafe fn pop_unsafe(&mut self) -> U256 {
+        assume!(!self.data.is_empty());
         self.data.pop().unwrap_unchecked()
     }
 
@@ -150,8 +171,8 @@ impl Stack {
     #[inline]
     #[cfg_attr(debug_assertions, track_caller)]
     pub unsafe fn top_unsafe(&mut self) -> &mut U256 {
-        let len = self.data.len();
-        self.data.get_unchecked_mut(len - 1)
+        assume!(!self.data.is_empty());
+        self.data.last_mut().unwrap_unchecked()
     }
 
     /// Pops `N` values from the stack.
@@ -162,14 +183,8 @@ impl Stack {
     #[inline]
     #[cfg_attr(debug_assertions, track_caller)]
     pub unsafe fn popn<const N: usize>(&mut self) -> [U256; N] {
-        if N == 0 {
-            return [U256::ZERO; N];
-        }
-        let mut result = [U256::ZERO; N];
-        for v in &mut result {
-            *v = self.data.pop().unwrap_unchecked();
-        }
-        result
+        assume!(self.data.len() >= N);
+        core::array::from_fn(|_| unsafe { self.pop_unsafe() })
     }
 
     /// Pops `N` values from the stack and returns the top of the stack.
@@ -281,14 +296,25 @@ impl Stack {
     /// if necessary.
     #[inline]
     pub fn push_slice(&mut self, slice: &[u8]) -> Result<(), InstructionResult> {
+        if self.push_slice_(slice) {
+            Ok(())
+        } else {
+            Err(InstructionResult::StackOverflow)
+        }
+    }
+
+    /// Pushes an arbitrary length slice of bytes onto the stack, padding the last word with zeros
+    /// if necessary.
+    #[inline]
+    fn push_slice_(&mut self, slice: &[u8]) -> bool {
         if slice.is_empty() {
-            return Ok(());
+            return true;
         }
 
         let n_words = slice.len().div_ceil(32);
         let new_len = self.data.len() + n_words;
         if new_len > STACK_LIMIT {
-            return Err(InstructionResult::StackOverflow);
+            return false;
         }
 
         // SAFETY: Length checked above.
@@ -311,7 +337,7 @@ impl Stack {
             }
 
             if partial_last_word.is_empty() {
-                return Ok(());
+                return true;
             }
 
             // Write limbs of partial last word
@@ -339,7 +365,7 @@ impl Stack {
             }
         }
 
-        Ok(())
+        true
     }
 
     /// Set a value at given index for the stack, where the top of the
@@ -396,7 +422,7 @@ mod tests {
         // No-op
         run(|stack| {
             stack.push_slice(b"").unwrap();
-            assert_eq!(stack.data, Vec::<U256>::new());
+            assert!(stack.data.is_empty());
         });
 
         // One word

@@ -2,14 +2,17 @@ use primitives::alloy_primitives::FlaggedStorage;
 use primitives::{HashMap, StorageKey, U256};
 use state::{AccountInfo, EvmStorageSlot};
 
-// Plain account of StateDatabase.
+/// Plain account of StateDatabase.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PlainAccount {
+    /// Account information.
     pub info: AccountInfo,
+    /// Account storage.
     pub storage: PlainStorage,
 }
 
 impl PlainAccount {
+    /// Creates a new empty account with the given storage.
     pub fn new_empty_with_storage(storage: PlainStorage) -> Self {
         Self {
             info: AccountInfo::default(),
@@ -17,6 +20,7 @@ impl PlainAccount {
         }
     }
 
+    /// Consumes the account and returns its components.
     pub fn into_components(self) -> (AccountInfo, PlainStorage) {
         (self.info, self.storage)
     }

@@ -1,25 +1,21 @@
 [package]
 name = "revm-inspector"
 description = "Revm inspector interface"
-version = "4.1.0"
+version = "10.0.0"
 authors.workspace = true
 edition.workspace = true
 keywords.workspace = true
 license.workspace = true
 repository.workspace = true
 readme.workspace = true
+rust-version.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
-[lints.rust]
-unreachable_pub = "warn"
-unused_must_use = "deny"
-rust_2018_idioms = "deny"
-
-[lints.rustdoc]
-all = "warn"
+[lints]
+workspace = true
 
 [dependencies]
 # revm
@@ -31,10 +27,14 @@ state.workspace = true
 interpreter.workspace = true
 
 auto_impl.workspace = true
+either.workspace = true
 
 # Optional
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
-serde_json = { workspace = true, features = ["alloc"], optional = true }
+serde_json = { workspace = true, features = [
+	"alloc",
+	"preserve_order",
+], optional = true }
 
 [dev-dependencies]
 database = { workspace = true, features = ["serde"] }
@@ -53,8 +53,10 @@ std = [
 	"interpreter/std",
 	"primitives/std",
 	"state/std",
+	"either/std",
 ]
 serde = [
+	"dep:serde",
 	"database/serde",
 	"context/serde",
 	"database-interface/serde",
@@ -62,6 +64,10 @@ serde = [
 	"interpreter/serde",
 	"primitives/serde",
 	"state/serde",
+	"either/serde",
 ]
-# serde is used only for TracerEip33155
-serde-json = ["dep:serde", "dep:serde_json", "serde"]
+
+tracer = ["std", "serde", "dep:serde_json"]
+
+# Deprecated, please use `tracer` feature instead.
+serde-json = ["tracer"]
