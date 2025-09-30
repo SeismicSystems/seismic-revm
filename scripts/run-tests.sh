@@ -1,24 +1,35 @@
-# ./run-tests --help
+#!/usr/bin/env bash
+set -eo pipefail
 
-#!/bin/bash
-set -e
+# Usage: ./scripts/run-tests.sh --help
 
 # Version for the execution spec tests
-VERSION="v4.4.0"
-# Version for the EOF spec tests, it is currently upgrading to eof devnet-1 so we will use devnet-0 suite.
-EOF_VERSION="v4.4.0"
+MAIN_VERSION="v4.5.0"
+DEVNET_VERSION="fusaka-devnet-5@v1.1.0"
 
-# Directories
+### Directories ###
 FIXTURES_DIR="test-fixtures"
-STABLE_DIR="$FIXTURES_DIR/stable"
-DEVELOP_DIR="$FIXTURES_DIR/develop"
-EOF_DIR="$FIXTURES_DIR/eof"
 
-# URL and filenames
+MAIN_DIR="$FIXTURES_DIR/main"
+MAIN_STABLE_DIR="$MAIN_DIR/stable"
+MAIN_DEVELOP_DIR="$MAIN_DIR/develop"
+MAIN_STATIC_DIR="$MAIN_DIR/static"
+
+DEVNET_DIR="$FIXTURES_DIR/devnet"
+DEVNET_DEVELOP_DIR="$DEVNET_DIR/develop"
+
+LEGACY_DIR="$FIXTURES_DIR/legacytests" 
+
+### URL and filenames ###
 FIXTURES_URL="https://github.com/ethereum/execution-spec-tests/releases/download"
-STABLE_TAR="fixtures_stable.tar.gz"
-DEVELOP_TAR="fixtures_develop.tar.gz"
-EOF_TAR="fixtures_eip7692.tar.gz"
+
+MAIN_STABLE_TAR="fixtures_stable.tar.gz"
+MAIN_DEVELOP_TAR="fixtures_develop.tar.gz"
+MAIN_STATIC_TAR="fixtures_static.tar.gz"
+
+DEVNET_TAR="fixtures_fusaka-devnet-5.tar.gz"
+
+LEGACY_REPO_URL="https://github.com/ethereum/legacytests.git"
 
 # Print usage information and exit
 usage() {
@@ -63,7 +74,7 @@ clean() {
 
 # Check if all required fixture directories exist
 check_fixtures() {
-    if [ -d "$STABLE_DIR" ] && [ -d "$DEVELOP_DIR" ] && [ -d "$EOF_DIR" ]; then
+    if [ -d "$MAIN_STABLE_DIR" ] && [ -d "$MAIN_DEVELOP_DIR" ] && [ -d "$MAIN_STATIC_DIR" ] && [ -d "$DEVNET_DIR" ] && [ -d "$LEGACY_DIR" ]; then
         return 0
     else
         return 1
@@ -90,14 +101,20 @@ download_and_extract() {
 # Download all fixtures
 download_fixtures() {
     echo "Creating fixtures directory structure..."
-    mkdir -p "$STABLE_DIR" "$DEVELOP_DIR" "$EOF_DIR"
+    mkdir -p "$MAIN_STABLE_DIR" "$MAIN_DEVELOP_DIR" "$MAIN_STATIC_DIR" "$DEVNET_DIR" "$LEGACY_DIR"
 
-    download_and_extract "$STABLE_DIR" "$STABLE_TAR" "stable" "$VERSION"
-    download_and_extract "$DEVELOP_DIR" "$DEVELOP_TAR" "develop" "$VERSION"
-    download_and_extract "$EOF_DIR" "$EOF_TAR" "EOF" "$EOF_VERSION"
+    download_and_extract "$MAIN_STABLE_DIR" "$MAIN_STABLE_TAR" "main stable" "$MAIN_VERSION"
+    download_and_extract "$MAIN_DEVELOP_DIR" "$MAIN_DEVELOP_TAR" "main develop" "$MAIN_VERSION"
+    download_and_extract "$MAIN_STATIC_DIR" "$MAIN_STATIC_TAR" "main static" "$MAIN_VERSION"
+    download_and_extract "$DEVNET_DIR" "$DEVNET_TAR" "devnet" "$DEVNET_VERSION"
 
     echo "Cleaning up tar files..."
-    rm "${FIXTURES_DIR}/${STABLE_TAR}" "${FIXTURES_DIR}/${DEVELOP_TAR}" "${FIXTURES_DIR}/${EOF_TAR}"
+    rm "${FIXTURES_DIR}/${MAIN_STABLE_TAR}" "${FIXTURES_DIR}/${MAIN_DEVELOP_TAR}" "${FIXTURES_DIR}/${MAIN_STATIC_TAR}" "${FIXTURES_DIR}/${DEVNET_TAR}"
+    
+    # Clone legacytests repository
+    echo "Cloning legacytests repository..."
+    git clone --depth 1 "$LEGACY_REPO_URL" "$LEGACY_DIR"
+    
     echo "Fixtures download and extraction complete."
 }
 
@@ -124,17 +141,29 @@ build_cargo_options() {
 
 # Run tests for each set of fixtures using the chosen runner.
 run_tests() {
-    echo "Running stable statetests..."
-    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$STABLE_DIR/state_tests"
+    echo "Running main stable statetests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$MAIN_STABLE_DIR/state_tests"
 
-    echo "Running develop statetests..."
-    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$DEVELOP_DIR/state_tests"
+    echo "Running main develop statetests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$MAIN_DEVELOP_DIR/state_tests"
+    
+    echo "Running main static statetests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$MAIN_STATIC_DIR/state_tests"
 
-    echo "Skipping EOF statetests..."
-    # $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$EOF_DIR/state_tests"
+    echo "Running devnet statetests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$DEVNET_DIR/state_tests"
 
-    echo "Skipping EOF validation tests..."
-    # $RUST_RUNNER run $CARGO_OPTS -p revme -- eof-validation "$EOF_DIR/eof_tests"
+    echo "Running legacy tests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$LEGACY_DIR/Cancun/GeneralStateTests"
+
+    echo "Running main develop blockchain tests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- btest "$MAIN_DEVELOP_DIR/blockchain_tests"
+
+    echo "Running main static blockchain tests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- btest "$MAIN_STATIC_DIR/blockchain_tests"
+
+    echo "Running main stable blockchain tests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- btest "$MAIN_STABLE_DIR/blockchain_tests"
 }
 
 ##############################

@@ -1,9 +1,9 @@
 use revm::{
-    context::ContextTr,
+    context::{host::LoadError, journaled_state::AccountInfoLoad, ContextTr},
     context_interface::{context::ContextError, journaled_state::AccountLoad, Database},
     database::EmptyDB,
     interpreter::{host::DummyHost, Host, SStoreResult, SelfDestructResult, StateLoad},
-    primitives::{Address, Bytes, Log, B256, U256},
+    primitives::{Address, Bytes, Log, StorageKey, StorageValue, B256, U256},
 };
 
 use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
@@ -79,7 +79,7 @@ impl Host for SeismicDummyHost {
         self.dummy_host.prevrandao()
     }
 
-    fn block_number(&self) -> u64 {
+    fn block_number(&self) -> U256 {
         self.dummy_host.block_number()
     }
 
@@ -107,10 +107,6 @@ impl Host for SeismicDummyHost {
         self.dummy_host.blob_hash(number)
     }
 
-    fn initcode_by_hash(&mut self, _hash: B256) -> Option<Bytes> {
-        self.dummy_host.initcode_by_hash(_hash)
-    }
-
     fn max_initcode_size(&self) -> usize {
         self.dummy_host.max_initcode_size()
     }
@@ -133,11 +129,21 @@ impl Host for SeismicDummyHost {
 
     fn cstore(
         &mut self,
-        _address: Address,
-        _key: U256,
-        _value: U256,
-    ) -> Option<StateLoad<SStoreResult>> {
-        None
+        address: Address,
+        key: U256,
+        value: U256,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<SStoreResult>, LoadError> {
+        self.dummy_host.cstore(address, key, value, skip_cold_load)
+    }
+
+    fn cload(
+        &mut self,
+        address: Address,
+        key: U256,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<U256>, LoadError> {
+        self.dummy_host.cload(address, key, skip_cold_load)
     }
 
     fn sstore(
@@ -151,10 +157,6 @@ impl Host for SeismicDummyHost {
 
     fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
         self.dummy_host.sload(address, key)
-    }
-
-    fn cload(&mut self, _address: Address, _key: U256) -> Option<StateLoad<U256>> {
-        None
     }
 
     fn tstore(&mut self, address: Address, key: U256, value: U256) {
@@ -179,5 +181,33 @@ impl Host for SeismicDummyHost {
 
     fn load_account_code_hash(&mut self, address: Address) -> Option<StateLoad<B256>> {
         self.dummy_host.load_account_code_hash(address)
+    }
+
+    fn load_account_info_skip_cold_load(
+        &mut self,
+        _address: Address,
+        _load_code: bool,
+        _skip_cold_load: bool,
+    ) -> Result<AccountInfoLoad<'_>, LoadError> {
+        Err(LoadError::DBError)
+    }
+
+    fn sstore_skip_cold_load(
+        &mut self,
+        _address: Address,
+        _key: StorageKey,
+        _value: StorageValue,
+        _skip_cold_load: bool,
+    ) -> Result<StateLoad<SStoreResult>, LoadError> {
+        Err(LoadError::DBError)
+    }
+
+    fn sload_skip_cold_load(
+        &mut self,
+        _address: Address,
+        _key: StorageKey,
+        _skip_cold_load: bool,
+    ) -> Result<StateLoad<StorageValue>, LoadError> {
+        Err(LoadError::DBError)
     }
 }

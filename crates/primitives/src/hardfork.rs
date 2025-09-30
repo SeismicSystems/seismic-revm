@@ -69,7 +69,7 @@ pub enum SpecId {
     /// Activated at block 19426587 (Timestamp: 1710338135)
     CANCUN,
     /// Prague hard fork
-    /// Activated at block TBD
+    /// Activated at block 22431084 (Timestamp: 1746612311)
     PRAGUE,
     /// Seismic's fork of the EVM.
     #[default]
@@ -77,6 +77,9 @@ pub enum SpecId {
     /// Osaka hard fork
     /// Activated at block TBD
     OSAKA,
+    /// Amsterdam hard fork
+    /// Activated at block TBD
+    AMSTERDAM,
 }
 
 impl SpecId {
@@ -133,8 +136,10 @@ pub mod name {
     pub const CANCUN: &str = "Cancun";
     /// String identifier for the Prague hardfork
     pub const PRAGUE: &str = "Prague";
-    /// String identifier for the Osaka hardfork (Prague with EOF)
+    /// String identifier for the Osaka hardfork
     pub const OSAKA: &str = "Osaka";
+    /// String identifier for the Amsterdam hardfork
+    pub const AMSTERDAM: &str = "Amsterdam";
     /// String identifier for the latest hardfork
     pub const LATEST: &str = "Latest";
 }
@@ -169,6 +174,7 @@ impl FromStr for SpecId {
             name::CANCUN => Ok(Self::CANCUN),
             name::PRAGUE => Ok(Self::PRAGUE),
             name::OSAKA => Ok(Self::OSAKA),
+            name::AMSTERDAM => Ok(Self::AMSTERDAM),
             _ => Err(UnknownHardfork),
         }
     }
@@ -198,6 +204,7 @@ impl From<SpecId> for &'static str {
             SpecId::CANCUN => name::CANCUN,
             SpecId::PRAGUE => name::PRAGUE,
             SpecId::OSAKA => name::OSAKA,
+            SpecId::AMSTERDAM => name::AMSTERDAM,
         }
     }
 }

@@ -30,12 +30,12 @@ use once_cell::race::OnceBox;
 use revm::{
     context::{Cfg, LocalContextTr},
     handler::{EthPrecompiles, PrecompileProvider},
-    interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
-    precompile::{secp256r1, PrecompileError, PrecompileWithAddress, Precompiles},
+    interpreter::{CallInput, CallInputs, Gas, InstructionResult, InterpreterResult},
+    precompile::{secp256r1, Precompile, PrecompileError, Precompiles},
     primitives::{Address, Bytes},
 };
-use std::boxed::Box;
 use std::string::String;
+use std::{boxed::Box, sync::OnceLock};
 
 #[derive(Debug, Clone)]
 pub struct SeismicPrecompiles<CTX: SeismicContextTr> {
@@ -62,6 +62,19 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
             _spec @ SeismicSpecId::MERCURY => Self::new(mercury::<CTX>()),
         }
     }
+
+    pub fn apply_precompile(&mut self, p: Precompile) {
+        static INSTANCE: OnceLock<Precompiles> = OnceLock::new();
+        let precompiles = INSTANCE.get_or_init(|| {
+            let mut precompiles = self.inner.precompiles.clone();
+            precompiles.extend([p]);
+            precompiles
+        });
+        self.inner = EthPrecompiles {
+            precompiles,
+            spec: <CTX::Cfg as Cfg>::Spec::MERCURY.into(),
+        };
+    }
 }
 
 /// Returns precompiles for MERCURY spec.
@@ -74,13 +87,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
     let regular_precompiles = INSTANCE.get_or_init(|| {
         let mut precompiles = Precompiles::prague().clone();
         if let Some(extra) = extra {
-            precompiles.extend(
-                extra
-                    .inner()
-                    .clone()
-                    .into_iter()
-                    .map(|(a, p)| PrecompileWithAddress(a, p)),
-            );
+            precompiles.extend(extra.inner().clone().into_iter().map(|(_, p)| p));
         }
         precompiles.extend([
             secp256r1::P256VERIFY,
@@ -121,15 +128,12 @@ where
     fn run(
         &mut self,
         context: &mut CTX,
-        address: &Address,
-        inputs: &InputsImpl,
-        is_static: bool,
-        gas_limit: u64,
+        inputs: &CallInputs,
     ) -> Result<Option<Self::Output>, String> {
-        if let Some(precompile) = self.stateful_precompiles.get(address) {
+        if let Some(precompile) = self.stateful_precompiles.get(&inputs.bytecode_address) {
             let mut result = InterpreterResult {
                 result: InstructionResult::Return,
-                gas: Gas::new(gas_limit),
+                gas: Gas::new(inputs.gas_limit),
                 output: Bytes::new(),
             };
 
@@ -147,7 +151,7 @@ where
             };
 
             // Now call the precompile with the owned bytes
-            match (*precompile)(context, &bytes, gas_limit) {
+            match (*precompile)(context, &bytes, inputs.gas_limit) {
                 Ok(output) => {
                     let underflow = result.gas.record_cost(output.gas_used);
                     assert!(underflow, "Gas underflow should not occur");
@@ -167,8 +171,7 @@ where
             Ok(Some(result))
         } else {
             // Fall back to standard precompiles
-            self.inner
-                .run(context, address, inputs, is_static, gas_limit)
+            self.inner.run(context, inputs)
         }
     }
 
@@ -199,7 +202,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use revm::{database::EmptyDB, primitives::hex};
+    use revm::{
+        database::EmptyDB,
+        interpreter::{CallScheme, CallValue},
+        primitives::{hex, U256},
+    };
 
     use crate::{DefaultSeismicContext, SeismicContext};
 
@@ -229,6 +236,20 @@ mod tests {
         assert_eq!(intersection.len(), latest.len())
     }
 
+    fn call_inputs(input_data: Vec<u8>, address: Address) -> CallInputs {
+        CallInputs {
+            input: CallInput::Bytes(Bytes::from(input_data)),
+            bytecode_address: address,
+            target_address: address,
+            is_static: false,
+            gas_limit: 10_000,
+            return_memory_offset: 0..0,
+            scheme: CallScheme::Call,
+            caller: Address::ZERO,
+            value: CallValue::Apparent(U256::ZERO),
+        }
+    }
+
     #[test]
     fn test_seismic_precompiles_rng() {
         let mut precompiles =
@@ -244,14 +265,8 @@ mod tests {
         let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
         let mut input_data = bytes_requested.to_be_bytes().to_vec();
         input_data.extend(personalization);
-        let input = InputsImpl {
-            input: CallInput::Bytes(Bytes::from(input_data)),
-            ..Default::default()
-        };
-
-        let gas_limit = 10000;
-
-        let result = precompiles.run(&mut context, &rng_address, &input, false, gas_limit);
+        let input = call_inputs(input_data, rng_address);
+        let result = precompiles.run(&mut context, &input);
 
         assert!(
             result.is_ok(),
@@ -272,14 +287,14 @@ mod tests {
             "RNG precompile should return successfully"
         );
 
-        let gas_used = gas_limit - interpreter_result.gas.remaining();
+        let gas_used = input.gas_limit - interpreter_result.gas.remaining();
         assert!(
             gas_used >= 3500 && gas_used <= 3600,
             "Gas used should be in expected range, got {}",
             gas_used
         );
 
-        let result2 = precompiles.run(&mut context, &rng_address, &input, false, gas_limit);
+        let result2 = precompiles.run(&mut context, &input);
         assert!(result2.is_ok(), "Second RNG call should succeed");
 
         let interpreter_result2 = result2
@@ -293,7 +308,7 @@ mod tests {
             "Second RNG output should be 32 bytes"
         );
 
-        let gas_used2 = gas_limit - interpreter_result2.gas.remaining();
+        let gas_used2 = input.gas_limit - interpreter_result2.gas.remaining();
         assert!(
             gas_used2 < gas_used,
             "Second call should use less gas, used {} vs first call {}",

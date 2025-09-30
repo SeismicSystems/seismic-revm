@@ -1,5 +1,5 @@
 use revm::precompile::{
-    u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult, PrecompileWithAddress,
+    u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult,
 };
 
 use secp256k1::Secp256k1;
@@ -11,11 +11,12 @@ Precompile Wiring
 pub const SECP256K1_SIGN_ADDRESS: u64 = 105;
 
 /// Returns the ecdh precompile with its address.
-pub fn precompiles() -> impl Iterator<Item = PrecompileWithAddress> {
+pub fn precompiles() -> impl Iterator<Item = Precompile> {
     [SECP256K1_SIGN].into_iter()
 }
 
-pub const SECP256K1_SIGN: PrecompileWithAddress = PrecompileWithAddress(
+pub const SECP256K1_SIGN: Precompile = Precompile::new(
+    PrecompileId::Custom(std::borrow::Cow::Borrowed("Secp256K1_sign")),
     u64_to_address(SECP256K1_SIGN_ADDRESS),
     secp256k1_sign_ecdsa_recoverable,
 );
@@ -45,14 +46,13 @@ pub fn secp256k1_sign_ecdsa_recoverable(input: &[u8], gas_limit: u64) -> Precomp
     }
     let key_bytes: [u8; 32] = input[0..32].try_into().unwrap();
     let digest_bytes: [u8; 32] = input[32..64].try_into().unwrap();
-    let secret_key = secp256k1::SecretKey::from_slice(&key_bytes)
+    let secret_key = secp256k1::SecretKey::from_byte_array(key_bytes)
         .map_err(|e| PrecompileError::Other(format!("Invalid secret key: {e}")))?;
-    let message = secp256k1::Message::from_digest_slice(&digest_bytes)
-        .map_err(|e| PrecompileError::Other(format!("Invalid message: {e}")))?;
+    let message = secp256k1::Message::from_digest(digest_bytes);
 
     // sign
     let secp = Secp256k1::new();
-    let sig = secp.sign_ecdsa_recoverable(&message, &secret_key);
+    let sig = secp.sign_ecdsa_recoverable(message, &secret_key);
 
     // serialize the output
     let (recid, sig) = sig.serialize_compact();
@@ -77,7 +77,7 @@ mod tests {
         let full_message = "1234567890abcdef1234567890abcdef";
         let message: [u8; 32] = keccak256(full_message.as_bytes()).into();
         let sk_bytes: [u8; 32] = [0x1; 32];
-        let sk = secp256k1::SecretKey::from_slice(&sk_bytes).unwrap();
+        let sk = secp256k1::SecretKey::from_byte_array(sk_bytes).unwrap();
 
         let mut input = sk_bytes.to_vec();
         input.extend_from_slice(&message);
@@ -92,7 +92,7 @@ mod tests {
             secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::signing_only(), &sk);
         assert!(secp
             .verify_ecdsa(
-                &Message::from_digest_slice(&message).unwrap(),
+                Message::from_digest(message),
                 &Signature::from_compact(&sig).unwrap(),
                 &pk
             )
@@ -108,7 +108,7 @@ mod tests {
         let full_message = "1234567890abcdef1234567890abcdef";
         let message: [u8; 32] = keccak256(full_message.as_bytes()).into();
         let sk_bytes: [u8; 32] = [0x1; 32];
-        let sk = secp256k1::SecretKey::from_slice(&sk_bytes).unwrap();
+        let sk = secp256k1::SecretKey::from_byte_array(sk_bytes).unwrap();
 
         let pk: secp256k1::PublicKey =
             secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::signing_only(), &sk);

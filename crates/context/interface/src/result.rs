@@ -1,33 +1,44 @@
-use crate::transaction::TransactionError;
+//! Result of the EVM execution. Containing both execution result, state and errors.
+//!
+//! [`ExecutionResult`] is the result of the EVM execution.
+//!
+//! [`InvalidTransaction`] is the error that is returned when the transaction is invalid.
+//!
+//! [`InvalidHeader`] is the error that is returned when the header is invalid.
+//!
+//! [`SuccessReason`] is the reason that the transaction successfully completed.
+use crate::{context::ContextError, transaction::TransactionError};
 use core::fmt::{self, Debug};
 use database_interface::DBErrorMarker;
 use primitives::{Address, Bytes, Log, U256};
 use state::EvmState;
 use std::{boxed::Box, string::String, vec::Vec};
 
+/// Trait for the halt reason.
 pub trait HaltReasonTr: Clone + Debug + PartialEq + Eq + From<HaltReason> {}
 
 impl<T> HaltReasonTr for T where T: Clone + Debug + PartialEq + Eq + From<HaltReason> {}
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Tuple containing evm execution result and state.s
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ResultAndState<HaltReasonTy = HaltReason> {
-    /// Status of execution
-    pub result: ExecutionResult<HaltReasonTy>,
-    /// State that got updated
-    pub state: EvmState,
+pub struct ExecResultAndState<R, S = EvmState> {
+    /// Execution result
+    pub result: R,
+    /// Output State.
+    pub state: S,
 }
 
-impl<HaltReasonTy> ResultAndState<HaltReasonTy> {
-    /// Maps a `DBError` to a new error type using the provided closure, leaving other variants unchanged.
-    pub fn map_haltreason<F, OHR>(self, op: F) -> ResultAndState<OHR>
-    where
-        F: FnOnce(HaltReasonTy) -> OHR,
-    {
-        ResultAndState {
-            result: self.result.map_haltreason(op),
-            state: self.state,
-        }
+/// Type alias for backwards compatibility.
+pub type ResultAndState<H = HaltReason, S = EvmState> = ExecResultAndState<ExecutionResult<H>, S>;
+
+/// Tuple containing multiple execution results and state.
+pub type ResultVecAndState<R, S> = ExecResultAndState<Vec<R>, S>;
+
+impl<R, S> ExecResultAndState<R, S> {
+    /// Creates new ResultAndState.
+    pub fn new(result: R, state: S) -> Self {
+        Self { result, state }
     }
 }
 
@@ -37,17 +48,30 @@ impl<HaltReasonTy> ResultAndState<HaltReasonTy> {
 pub enum ExecutionResult<HaltReasonTy = HaltReason> {
     /// Returned successfully
     Success {
+        /// Reason for the success.
         reason: SuccessReason,
+        /// Gas used by the transaction.s
         gas_used: u64,
+        /// Gas refunded by the transaction.
         gas_refunded: u64,
+        /// Logs emitted by the transaction.
         logs: Vec<Log>,
+        /// Output of the transaction.
         output: Output,
     },
     /// Reverted by `REVERT` opcode that doesn't spend all gas
-    Revert { gas_used: u64, output: Bytes },
+    Revert {
+        /// Gas used by the transaction.
+        gas_used: u64,
+        /// Output of the transaction.
+        output: Bytes,
+    },
     /// Reverted for various reasons and spend all gas
     Halt {
+        /// Reason for the halt.
         reason: HaltReasonTy,
+        /// Gas used by the transaction.
+        ///
         /// Halting will spend all the gas, and will be equal to gas_limit.
         gas_used: u64,
     },
@@ -156,7 +180,9 @@ impl<HaltReasonTy> ExecutionResult<HaltReasonTy> {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Output {
+    /// Output of a call.
     Call(Bytes),
+    /// Output of a create.
     Create(Bytes, Option<Address>),
 }
 
@@ -202,13 +228,26 @@ pub enum EVMError<DBError, TransactionError = InvalidTransaction> {
     Custom(String),
 }
 
+impl<DBError, TransactionValidationErrorT> From<ContextError<DBError>>
+    for EVMError<DBError, TransactionValidationErrorT>
+{
+    fn from(value: ContextError<DBError>) -> Self {
+        match value {
+            ContextError::Db(e) => Self::Database(e),
+            ContextError::Custom(e) => Self::Custom(e),
+        }
+    }
+}
+
 impl<DBError: DBErrorMarker, TX> From<DBError> for EVMError<DBError, TX> {
     fn from(value: DBError) -> Self {
         Self::Database(value)
     }
 }
 
+/// Trait for converting a string to an [`EVMError::Custom`] error.
 pub trait FromStringError {
+    /// Converts a string to an [`EVMError::Custom`] error.
     fn from_string(value: String) -> Self;
 }
 
@@ -299,7 +338,9 @@ pub enum InvalidTransaction {
     /// - initial stipend gas
     /// - gas for access list and input data
     CallGasCostMoreThanGasLimit {
+        /// Initial gas for a Call.
         initial_gas: u64,
+        /// Gas limit for the transaction.
         gas_limit: u64,
     },
     /// Gas floor calculated from EIP-7623 Increase calldata cost
@@ -307,32 +348,51 @@ pub enum InvalidTransaction {
     ///
     /// Tx data is too large to be executed.
     GasFloorMoreThanGasLimit {
+        /// Gas floor calculated from EIP-7623 Increase calldata cost.
         gas_floor: u64,
+        /// Gas limit for the transaction.
         gas_limit: u64,
     },
     /// EIP-3607 Reject transactions from senders with deployed code
     RejectCallerWithCode,
     /// Transaction account does not have enough amount of ether to cover transferred value and gas_limit*gas_price.
     LackOfFundForMaxFee {
+        /// Fee for the transaction.
         fee: Box<U256>,
+        /// Balance of the sender.
         balance: Box<U256>,
     },
     /// Overflow payment in transaction.
     OverflowPaymentInTransaction,
     /// Nonce overflows in transaction.
     NonceOverflowInTransaction,
+    /// Nonce is too high.
     NonceTooHigh {
+        /// Nonce of the transaction.
         tx: u64,
+        /// Nonce of the state.
         state: u64,
     },
+    /// Nonce is too low.
     NonceTooLow {
+        /// Nonce of the transaction.
         tx: u64,
+        /// Nonce of the state.
         state: u64,
     },
     /// EIP-3860: Limit and meter initcode
     CreateInitCodeSizeLimit,
     /// Transaction chain id does not match the config chain id.
     InvalidChainId,
+    /// Missing chain id.
+    MissingChainId,
+    /// Transaction gas limit is greater than the cap.
+    TxGasLimitGreaterThanCap {
+        /// Transaction gas limit.
+        gas_limit: u64,
+        /// Gas limit cap.
+        cap: u64,
+    },
     /// Access list is not supported for blocks before the Berlin hardfork.
     AccessListNotSupported,
     /// `max_fee_per_blob_gas` is not supported for blocks before the Cancun hardfork.
@@ -340,7 +400,12 @@ pub enum InvalidTransaction {
     /// `blob_hashes`/`blob_versioned_hashes` is not supported for blocks before the Cancun hardfork.
     BlobVersionedHashesNotSupported,
     /// Block `blob_gas_price` is greater than tx-specified `max_fee_per_blob_gas` after Cancun.
-    BlobGasPriceGreaterThanMax,
+    BlobGasPriceGreaterThanMax {
+        /// Block `blob_gas_price`.
+        block_blob_gas_price: u128,
+        /// Tx-specified `max_fee_per_blob_gas`.
+        tx_max_fee_per_blob_gas: u128,
+    },
     /// There should be at least one blob in Blob transaction.
     EmptyBlobs,
     /// Blob transaction can't be a create transaction.
@@ -349,13 +414,13 @@ pub enum InvalidTransaction {
     BlobCreateTransaction,
     /// Transaction has more then `max` blobs
     TooManyBlobs {
+        /// Maximum number of blobs allowed.
         max: usize,
+        /// Number of blobs in the transaction.
         have: usize,
     },
     /// Blob transaction contains a versioned hash with an incorrect version
     BlobVersionNotSupported,
-    /// EOF create should have `to` address
-    EofCreateShouldHaveToAddress,
     /// EIP-7702 is not enabled.
     AuthorizationListNotSupported,
     /// EIP-7702 transaction has invalid fields set.
@@ -372,22 +437,6 @@ pub enum InvalidTransaction {
     Eip7702NotSupported,
     /// EIP-7873 is not supported.
     Eip7873NotSupported,
-    // TODO (EOF)
-    // /// EIP-7873 needs to have at least one initcode.
-    // Eip7873EmptyInitcodeList,
-    // /// EIP-7873 initcode can't be zero length.
-    // Eip7873EmptyInitcode {
-    //     i: usize,
-    // },
-    // /// EIP-7873 initcodes can't be more than [`MAX_INITCODE_COUNT`].
-    // Eip7873TooManyInitcodes {
-    //     size: usize,
-    // },
-    // /// EIP-7873 initcodes can't be more than [`MAX_INITCODE_SIZE`].
-    // Eip7873InitcodeTooLarge {
-    //     i: usize,
-    //     size: usize,
-    // },
     /// EIP-7873 initcode transaction should have `to` address.
     Eip7873MissingTarget,
 }
@@ -407,6 +456,12 @@ impl fmt::Display for InvalidTransaction {
             }
             Self::CallerGasLimitMoreThanBlock => {
                 write!(f, "caller gas limit exceeds the block gas limit")
+            }
+            Self::TxGasLimitGreaterThanCap { gas_limit, cap } => {
+                write!(
+                    f,
+                    "transaction gas limit ({gas_limit}) is greater than the cap ({cap})"
+                )
             }
             Self::CallGasCostMoreThanGasLimit {
                 initial_gas,
@@ -448,6 +503,7 @@ impl fmt::Display for InvalidTransaction {
                 write!(f, "create initcode size limit")
             }
             Self::InvalidChainId => write!(f, "invalid chain ID"),
+            Self::MissingChainId => write!(f, "missing chain ID"),
             Self::AccessListNotSupported => write!(f, "access list not supported"),
             Self::MaxFeePerBlobGasNotSupported => {
                 write!(f, "max fee per blob gas not supported")
@@ -455,8 +511,14 @@ impl fmt::Display for InvalidTransaction {
             Self::BlobVersionedHashesNotSupported => {
                 write!(f, "blob versioned hashes not supported")
             }
-            Self::BlobGasPriceGreaterThanMax => {
-                write!(f, "blob gas price is greater than max fee per blob gas")
+            Self::BlobGasPriceGreaterThanMax {
+                block_blob_gas_price,
+                tx_max_fee_per_blob_gas,
+            } => {
+                write!(
+                    f,
+                    "blob gas price ({block_blob_gas_price}) is greater than max fee per blob gas ({tx_max_fee_per_blob_gas})"
+                )
             }
             Self::EmptyBlobs => write!(f, "empty blobs"),
             Self::BlobCreateTransaction => write!(f, "blob create transaction"),
@@ -464,7 +526,6 @@ impl fmt::Display for InvalidTransaction {
                 write!(f, "too many blobs, have {have}, max {max}")
             }
             Self::BlobVersionNotSupported => write!(f, "blob version not supported"),
-            Self::EofCreateShouldHaveToAddress => write!(f, "EOF crate should have `to` address"),
             Self::AuthorizationListNotSupported => write!(f, "authorization list not supported"),
             Self::AuthorizationListInvalidFields => {
                 write!(f, "authorization list tx has invalid fields")
@@ -475,25 +536,6 @@ impl fmt::Display for InvalidTransaction {
             Self::Eip4844NotSupported => write!(f, "Eip4844 is not supported"),
             Self::Eip7702NotSupported => write!(f, "Eip7702 is not supported"),
             Self::Eip7873NotSupported => write!(f, "Eip7873 is not supported"),
-            // TODO(EOF)
-            // Self::Eip7873EmptyInitcodeList => {
-            //     write!(f, "Eip7873 initcode list should have at least one initcode")
-            // }
-            // Self::Eip7873EmptyInitcode { i } => {
-            //     write!(f, "Eip7873 initcode {i} can't be zero length")
-            // }
-            // Self::Eip7873TooManyInitcodes { size } => {
-            //     write!(
-            //         f,
-            //         "Eip7873 initcodes can't be more than {MAX_INITCODE_COUNT}, have {size}"
-            //     )
-            // }
-            // Self::Eip7873InitcodeTooLarge { i, size } => {
-            //     write!(
-            //         f,
-            //         "Eip7873 initcode {i} can't be more than {MAX_INITCODE_SIZE}, have {size}"
-            //     )
-            // }
             Self::Eip7873MissingTarget => {
                 write!(f, "Eip7873 initcode transaction should have `to` address")
             }
@@ -525,10 +567,12 @@ impl fmt::Display for InvalidHeader {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SuccessReason {
+    /// Stop [`state::bytecode::opcode::STOP`] opcode.
     Stop,
+    /// Return [`state::bytecode::opcode::RETURN`] opcode.
     Return,
+    /// Self destruct opcode.
     SelfDestruct,
-    EofReturnContract,
 }
 
 /// Indicates that the EVM has experienced an exceptional halt.
@@ -537,16 +581,27 @@ pub enum SuccessReason {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum HaltReason {
+    /// Out of gas error.
     OutOfGas(OutOfGasError),
+    /// Opcode not found error.
     OpcodeNotFound,
+    /// Invalid FE opcode error.
     InvalidFEOpcode,
+    /// Invalid jump destination.
     InvalidJump,
+    /// The feature or opcode is not activated in hardfork.
     NotActivated,
+    /// Attempting to pop a value from an empty stack.
     StackUnderflow,
+    /// Attempting to push a value onto a full stack.
     StackOverflow,
+    /// Invalid memory or storage offset for [`state::bytecode::opcode::RETURNDATACOPY`].
     OutOfOffset,
+    /// Address collision during contract creation.
     CreateCollision,
+    /// Precompile error.
     PrecompileError,
+    /// Nonce overflow.
     NonceOverflow,
     /// Create init code size exceeds limit (runtime).
     CreateContractSizeLimit,
@@ -556,36 +611,33 @@ pub enum HaltReason {
     CreateInitCodeSizeLimit,
 
     /* Internal Halts that can be only found inside Inspector */
+    /// Overflow payment. Not possible to happen on mainnet.
     OverflowPayment,
+    /// State change during static call.
     StateChangeDuringStaticCall,
+    /// Call not allowed inside static call.
     CallNotAllowedInsideStatic,
+    /// Out of funds to pay for the call.
     OutOfFunds,
+    /// Call is too deep.
     CallTooDeep,
-
-    /// Aux data overflow, new aux data is larger than [u16] max size.
-    EofAuxDataOverflow,
-    /// Aux data is smaller than already present data size.
-    EofAuxDataTooSmall,
-    /// EOF Subroutine stack overflow
-    SubRoutineStackOverflow,
-    /// Check for target address validity is only done inside subcall.
-    InvalidEXTCALLTarget,
 }
 
+/// Out of gas errors.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum OutOfGasError {
-    // Basic OOG error
+    /// Basic OOG error. Not enough gas to execute the opcode.
     Basic,
-    // Tried to expand past REVM limit
+    /// Tried to expand past memory limit.
     MemoryLimit,
-    // Basic OOG error from memory expansion
+    /// Basic OOG error from memory expansion
     Memory,
-    // Precompile threw OOG error
+    /// Precompile threw OOG error
     Precompile,
-    // When performing something that takes a U256 and casts down to a u64, if its too large this would fire
-    // i.e. in `as_usize_or_fail`
+    /// When performing something that takes a U256 and casts down to a u64, if its too large this would fire
+    /// i.e. in `as_usize_or_fail`
     InvalidOperand,
-    // When performing SSTORE the gasleft is less than or equal to 2300
+    /// When performing SSTORE the gasleft is less than or equal to 2300
     ReentrancySentry,
 }
