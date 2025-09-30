@@ -65,8 +65,9 @@ impl JournalTr for Backend {
         &mut self,
         address: Address,
         key: U256,
+        skip_cold_load: bool,
     ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        self.journaled_state.cload(address, key)
+        self.journaled_state.cload(address, key, skip_cold_load)
     }
 
     fn cstore(
@@ -74,8 +75,10 @@ impl JournalTr for Backend {
         address: Address,
         key: U256,
         value: U256,
+        skip_cold_load: bool,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
-        self.journaled_state.cstore(address, key, value)
+        self.journaled_state
+            .cstore(address, key, value, skip_cold_load)
     }
 
     fn new(database: InMemoryDB) -> Self {

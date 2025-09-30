@@ -24,13 +24,13 @@ pub(crate) struct EvmConfig {
     pub blob_hashes: Vec<FixedBytes<32>>,
     pub max_blob_fee: u128,
     pub gas_limit: u64,
-    pub timestamp: u64,
+    pub timestamp: U256,
     pub gas_price: u128,
     pub block_gas_limit: u64,
     pub block_prevrandao: FixedBytes<32>,
     pub block_difficulty: FixedBytes<32>,
     pub block_basefee: u64,
-    pub block_number: u64,
+    pub block_number: U256,
     pub env_contract_address: Address,
     pub caller: Address,
     pub gas_priority_fee: Option<u128>,
@@ -72,8 +72,8 @@ impl EvmConfig {
         .unwrap();
         let block_basefee = 7_u64;
         let gas_priority_fee = Some(gas_price - block_basefee as u128);
-        let block_number = 1_u64;
-        let timestamp = 15_u64;
+        let block_number = U256::from(1_u64);
+        let timestamp = U256::from(15_u64);
         let env_contract_address =
             Address::from_hex("0xc06afe3a8444fc0004668591e8306bfb9968e79e").unwrap();
         let caller = Address::from_str("0x1212121212121212121212121212120000000012").unwrap();
@@ -139,7 +139,7 @@ impl EvmExecutor {
                     .build_seismic_evm_with_inspector(
                         TracerEip3155::new_stdout().without_summary(),
                     );
-                evm.inspect_replay().map_err(|err| {
+                evm.inspect_tx(evm.tx.clone()).map_err(|err| {
                     Errors::EVMError(format!("DEPLOY transaction error: {:?}", err.to_string()))
                 })?
             } else {
@@ -171,7 +171,7 @@ impl EvmExecutor {
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
-                evm.inspect_replay().map_err(|err| {
+                evm.inspect_tx(evm.tx.clone()).map_err(|err| {
                     Errors::EVMError(format!("DEPLOY transaction error: {:?}", err.to_string()))
                 })?
             } else {
@@ -271,7 +271,7 @@ impl EvmExecutor {
                     .build_seismic_evm_with_inspector(TracerEip3155::new(Box::new(
                         std::io::stdout(),
                     )));
-                evm.inspect_replay().map_err(|err| {
+                evm.inspect_tx(evm.tx.clone()).map_err(|err| {
                     Errors::EVMError(format!(
                         "EVM transaction error: {:?}, for the file: {:?}",
                         err.to_string(),
@@ -342,7 +342,7 @@ impl EvmExecutor {
                     })
                     .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_spec_id())
                     .build_mainnet_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
-                evm.inspect_replay().map_err(|err| {
+                evm.inspect_tx(evm.tx.clone()).map_err(|err| {
                     Errors::EVMError(format!(
                         "EVM transaction error: {:?}, for the file: {:?}",
                         err.to_string(),

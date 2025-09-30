@@ -10,6 +10,12 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+cargo_metadata.workspace = true
+log = "0.4"
+env_logger = "0.9"
+rayon = "1.5"
+regex = "1.11.1"
+
 # revm
 revm = { workspace = true, features = ["std", "hashbrown", "c-kzg", "blst"] }
 primitives.workspace = true
@@ -22,6 +28,9 @@ context-interface.workspace = true
 inspector = { workspace = true, features = ["std", "tracer"] }
 statetest-types.workspace = true
 criterion.workspace = true
+
+#seismic
+seismic-revm = { workspace = true, default-features = true, features = ["serde"] }
 
 # alloy
 alloy-rlp = { workspace = true, features = ["arrayvec", "derive"] }
