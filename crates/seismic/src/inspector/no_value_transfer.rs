@@ -2,11 +2,11 @@
 use revm::{
     inspector::Inspector,
     interpreter::{
-        CallInputs, CallOutcome, CreateInputs, CreateOutcome, Gas, InterpreterResult, InstructionResult, InterpreterTypes,
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, Gas, InstructionResult,
+        InterpreterResult, InterpreterTypes,
     },
     primitives::{Bytes, U256},
 };
-
 
 /// Helper to prevent value transfers during EVM execution
 #[allow(dead_code)]
@@ -18,7 +18,11 @@ impl<CTX, INTR: InterpreterTypes> Inspector<CTX, INTR> for NoValueTransferInspec
     fn call(&mut self, _context: &mut CTX, inputs: &mut CallInputs) -> Option<CallOutcome> {
         if inputs.value.get() > U256::ZERO {
             return Some(CallOutcome::new(
-                InterpreterResult::new(InstructionResult::ValueTransferNotAllowed, Bytes::new(), Gas::new(0)),
+                InterpreterResult::new(
+                    InstructionResult::ValueTransferNotAllowed,
+                    Bytes::new(),
+                    Gas::new(0),
+                ),
                 0..0,
             ));
         }
@@ -29,7 +33,11 @@ impl<CTX, INTR: InterpreterTypes> Inspector<CTX, INTR> for NoValueTransferInspec
     fn create(&mut self, _context: &mut CTX, inputs: &mut CreateInputs) -> Option<CreateOutcome> {
         if inputs.value > U256::ZERO {
             return Some(CreateOutcome::new(
-                InterpreterResult::new(InstructionResult::ValueTransferNotAllowed, Bytes::new(), Gas::new(0)),
+                InterpreterResult::new(
+                    InstructionResult::ValueTransferNotAllowed,
+                    Bytes::new(),
+                    Gas::new(0),
+                ),
                 None,
             ));
         }
