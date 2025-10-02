@@ -83,4 +83,4 @@ optional_no_base_fee = ["revm/optional_no_base_fee"]
 c-kzg = ["revm/c-kzg"]
 blst = ["revm/blst"]
 
-no-value-transfers = []
+no-value-transfers = ["revm/no-value-transfers"]
