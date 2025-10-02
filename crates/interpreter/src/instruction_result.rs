@@ -81,6 +81,8 @@ pub enum InstructionResult {
     CreateInitCodeSizeLimit,
     /// Fatal external error. Returned by database.
     FatalExternalError,
+    /// Value transfer not allowed.
+    ValueTransferNotAllowed,
 }
 
 impl From<TransferError> for InstructionResult {
@@ -132,6 +134,7 @@ impl From<HaltReason> for InstructionResult {
             HaltReason::CallNotAllowedInsideStatic => Self::CallNotAllowedInsideStatic,
             HaltReason::OutOfFunds => Self::OutOfFunds,
             HaltReason::CallTooDeep => Self::CallTooDeep,
+            HaltReason::ValueTransferNotAllowed => Self::ValueTransferNotAllowed,
         }
     }
 }
@@ -167,6 +170,7 @@ macro_rules! return_revert {
 macro_rules! return_error {
     () => {
         $crate::InstructionResult::OutOfGas
+            | $crate::InstructionResult::ValueTransferNotAllowed
             | $crate::InstructionResult::MemoryOOG
             | $crate::InstructionResult::MemoryLimitOOG
             | $crate::InstructionResult::PrecompileOOG
@@ -346,6 +350,9 @@ impl<HaltReasonTr: From<HaltReason>> From<InstructionResult> for SuccessOrHalt<H
             InstructionResult::FatalExternalError => Self::FatalExternalError,
             InstructionResult::InvalidExtDelegateCallTarget => {
                 Self::Internal(InternalResult::InvalidExtDelegateCallTarget)
+            }
+            InstructionResult::ValueTransferNotAllowed => {
+                Self::Halt(HaltReason::ValueTransferNotAllowed.into())
             }
         }
     }

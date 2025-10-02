@@ -621,6 +621,8 @@ pub enum HaltReason {
     OutOfFunds,
     /// Call is too deep.
     CallTooDeep,
+    /// Value transfer not allowed.
+    ValueTransferNotAllowed,
 }
 
 /// Out of gas errors.

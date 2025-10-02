@@ -71,3 +71,5 @@ tracer = ["std", "serde", "dep:serde_json"]
 
 # Deprecated, please use `tracer` feature instead.
 serde-json = ["tracer"]
+
+no-value-transfers = []
