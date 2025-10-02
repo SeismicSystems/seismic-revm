@@ -15,6 +15,7 @@ pub mod handler;
 mod inspect;
 mod inspector;
 mod mainnet_inspect;
+#[cfg(feature = "no-value-transfers")]
 mod no_value_transfer;
 mod noop;
 mod traits;
