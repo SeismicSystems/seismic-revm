@@ -2,11 +2,13 @@
 use revm::{
     inspector::Inspector,
     interpreter::{
-        CallInputs, CallOutcome, CreateInputs, CreateOutcome, Gas,
-        InstructionResult::ValueTransferNotAllowed, InterpreterResult, InterpreterTypes,
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, Gas, InterpreterResult, InterpreterTypes,
     },
     primitives::{Bytes, U256},
 };
+
+#[cfg(feature = "no-value-transfers")]
+use revm::interpreter::InstructionResult::ValueTransferNotAllowed;
 
 /// Helper to prevent value transfers during EVM execution
 #[allow(dead_code)]
