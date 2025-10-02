@@ -9,6 +9,7 @@ pub mod api;
 pub mod chain;
 pub mod evm;
 pub mod handler;
+pub mod inspector;
 pub mod instructions;
 pub mod precompiles;
 pub mod result;

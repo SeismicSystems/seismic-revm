@@ -30,7 +30,7 @@ statetest-types.workspace = true
 criterion.workspace = true
 
 #seismic
-seismic-revm = { workspace = true, default-features = true, features = ["serde"] }
+seismic-revm = { workspace = true, default-features = true, features = ["serde", "no-value-transfers"] }
 
 # alloy
 alloy-rlp = { workspace = true, features = ["arrayvec", "derive"] }
