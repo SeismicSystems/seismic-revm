@@ -4344,6 +4344,7 @@ dependencies = [
  "revm-database",
  "revm-database-interface",
  "revm-inspector",
+ "revm-interpreter",
  "revm-primitives",
  "revm-state",
  "revm-statetest-types",

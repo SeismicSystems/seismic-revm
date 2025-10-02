@@ -15,8 +15,6 @@ pub mod handler;
 mod inspect;
 mod inspector;
 mod mainnet_inspect;
-#[cfg(feature = "no-value-transfers")]
-mod no_value_transfer;
 mod noop;
 mod traits;
 
@@ -28,8 +26,6 @@ pub mod inspectors {
     #[cfg(feature = "tracer")]
     pub use super::eip3155::TracerEip3155;
     pub use super::gas::GasInspector;
-    #[cfg(feature = "no-value-transfers")]
-    pub use super::no_value_transfer::NoValueTransferInspector;
 }
 
 pub use count_inspector::CountInspector;

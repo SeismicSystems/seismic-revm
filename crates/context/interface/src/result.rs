@@ -622,6 +622,7 @@ pub enum HaltReason {
     /// Call is too deep.
     CallTooDeep,
     /// Value transfer not allowed.
+    #[cfg(feature = "no-value-transfers")]
     ValueTransferNotAllowed,
 }
 

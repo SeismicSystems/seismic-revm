@@ -55,3 +55,5 @@ serde = [
 
 # Deprecated, please use `serde` feature instead.
 serde-json = ["serde"]
+
+no-value-transfers = []

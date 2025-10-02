@@ -24,8 +24,9 @@ database-interface.workspace = true
 state.workspace = true
 bytecode = { workspace = true, features = ["std", "parse"] }
 context.workspace = true
-context-interface.workspace = true
+context-interface = { workspace = true, features = ["no-value-transfers"] }
 inspector = { workspace = true, features = ["std", "tracer", "no-value-transfers"] }
+interpreter = { workspace = true, features = ["no-value-transfers"] }
 statetest-types.workspace = true
 criterion.workspace = true
 

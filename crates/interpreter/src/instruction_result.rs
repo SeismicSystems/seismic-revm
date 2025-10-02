@@ -82,6 +82,7 @@ pub enum InstructionResult {
     /// Fatal external error. Returned by database.
     FatalExternalError,
     /// Value transfer not allowed.
+    #[cfg(feature = "no-value-transfers")]
     ValueTransferNotAllowed,
 }
 
@@ -134,6 +135,7 @@ impl From<HaltReason> for InstructionResult {
             HaltReason::CallNotAllowedInsideStatic => Self::CallNotAllowedInsideStatic,
             HaltReason::OutOfFunds => Self::OutOfFunds,
             HaltReason::CallTooDeep => Self::CallTooDeep,
+            #[cfg(feature = "no-value-transfers")]
             HaltReason::ValueTransferNotAllowed => Self::ValueTransferNotAllowed,
         }
     }
@@ -170,7 +172,6 @@ macro_rules! return_revert {
 macro_rules! return_error {
     () => {
         $crate::InstructionResult::OutOfGas
-            | $crate::InstructionResult::ValueTransferNotAllowed
             | $crate::InstructionResult::MemoryOOG
             | $crate::InstructionResult::MemoryLimitOOG
             | $crate::InstructionResult::PrecompileOOG
@@ -351,6 +352,7 @@ impl<HaltReasonTr: From<HaltReason>> From<InstructionResult> for SuccessOrHalt<H
             InstructionResult::InvalidExtDelegateCallTarget => {
                 Self::Internal(InternalResult::InvalidExtDelegateCallTarget)
             }
+            #[cfg(feature = "no-value-transfers")]
             InstructionResult::ValueTransferNotAllowed => {
                 Self::Halt(HaltReason::ValueTransferNotAllowed.into())
             }
@@ -366,6 +368,8 @@ mod tests {
     fn exhaustiveness() {
         match InstructionResult::Stop {
             return_error!() => {}
+            #[cfg(feature = "no-value-transfers")]
+            InstructionResult::ValueTransferNotAllowed => {}
             return_revert!() => {}
             return_ok!() => {}
         }

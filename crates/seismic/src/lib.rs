@@ -22,6 +22,8 @@ pub use api::{
 };
 pub use chain::seismic_chain::SeismicChain;
 pub use evm::SeismicEvm;
+#[cfg(feature = "no-value-transfers")]
+pub use inspector::NoValueTransferInspector;
 pub use instructions::seismic_host::SeismicHost;
 pub use result::SeismicHaltReason;
 pub use spec::*;
