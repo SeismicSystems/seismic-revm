@@ -25,7 +25,7 @@ state.workspace = true
 bytecode = { workspace = true, features = ["std", "parse"] }
 context.workspace = true
 context-interface.workspace = true
-inspector = { workspace = true, features = ["std", "tracer"] }
+inspector = { workspace = true, features = ["std", "tracer", "no-value-transfers"] }
 statetest-types.workspace = true
 criterion.workspace = true
 
