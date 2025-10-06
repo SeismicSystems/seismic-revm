@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.0.2](https://github.com/bluealloy/revm/compare/revm-statetest-types-v9.0.1...revm-statetest-types-v9.0.2) - 2025-08-23
+
+### Other
+
+- updated the following local packages: revm
+
+## [9.0.1](https://github.com/bluealloy/revm/compare/revm-statetest-types-v9.0.0...revm-statetest-types-v9.0.1) - 2025-08-12
+
+### Other
+
+- updated the following local packages: revm
+
+## [9.0.0](https://github.com/bluealloy/revm/compare/revm-statetest-types-v8.0.5...revm-statetest-types-v9.0.0) - 2025-08-06
+
+### Other
+
+- update README.md ([#2842](https://github.com/bluealloy/revm/pull/2842))
+- add rust-version and note about MSRV ([#2789](https://github.com/bluealloy/revm/pull/2789))
+
+## [8.0.5](https://github.com/bluealloy/revm/compare/revm-statetest-types-v8.0.4...revm-statetest-types-v8.0.5) - 2025-07-23
+
+### Other
+
+- updated the following local packages: revm
+
+## [8.0.4](https://github.com/bluealloy/revm/compare/revm-statetest-types-v8.0.3...revm-statetest-types-v8.0.4) - 2025-07-14
+
+### Other
+
+- updated the following local packages: revm
+
+## [8.0.3](https://github.com/bluealloy/revm/compare/revm-statetest-types-v8.0.2...revm-statetest-types-v8.0.3) - 2025-07-03
+
+### Other
+
+- updated the following local packages: revm
+
+## [8.0.2](https://github.com/bluealloy/revm/compare/revm-statetest-types-v8.0.1...revm-statetest-types-v8.0.2) - 2025-06-30
+
+### Other
+
+- cargo clippy --fix --all ([#2671](https://github.com/bluealloy/revm/pull/2671))
+- statetest runner cleanup ([#2665](https://github.com/bluealloy/revm/pull/2665))
+
+## [8.0.1](https://github.com/bluealloy/revm/compare/revm-statetest-types-v8.0.0...revm-statetest-types-v8.0.1) - 2025-06-20
+
+### Other
+
+- updated the following local packages: revm
+
+## [8.0.0](https://github.com/bluealloy/revm/compare/revm-statetest-types-v7.0.0...revm-statetest-types-v8.0.0) - 2025-06-19
+
+### Added
+
+- *(precompile)* rug/gmp-based modexp ([#2596](https://github.com/bluealloy/revm/pull/2596))
+
+### Other
+
+- lints for examples ([#2650](https://github.com/bluealloy/revm/pull/2650))
+
+## [7.0.0](https://github.com/bluealloy/revm/compare/revm-statetest-types-v6.0.0...revm-statetest-types-v7.0.0) - 2025-06-06
+
+### Added
+
+- transact multi tx ([#2517](https://github.com/bluealloy/revm/pull/2517))
+
+### Other
+
+- tag v75 revm v24.0.1 ([#2563](https://github.com/bluealloy/revm/pull/2563)) ([#2589](https://github.com/bluealloy/revm/pull/2589))
+- unify calling of journal account loading ([#2561](https://github.com/bluealloy/revm/pull/2561))
+
+## [6.0.0](https://github.com/bluealloy/revm/compare/revm-statetest-types-v5.0.0...revm-statetest-types-v6.0.0) - 2025-05-31
+
+### Other
+
+- unify calling of journal account loading
+
+## [5.0.0](https://github.com/bluealloy/revm/compare/revm-statetest-types-v4.1.0...revm-statetest-types-v5.0.0) - 2025-05-22
+
+### Other
+
+- add TxEnvBuilder::build_fill ([#2536](https://github.com/bluealloy/revm/pull/2536))
+- make crates.io version badge clickable ([#2526](https://github.com/bluealloy/revm/pull/2526))
+- Storage Types Alias ([#2461](https://github.com/bluealloy/revm/pull/2461))
+
 ## [4.1.0](https://github.com/bluealloy/revm/compare/revm-statetest-types-v4.0.0...revm-statetest-types-v4.1.0) - 2025-05-07
 
 Dependency bump

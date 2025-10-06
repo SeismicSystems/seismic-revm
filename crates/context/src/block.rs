@@ -1,21 +1,21 @@
 //! This module contains [`BlockEnv`] and it implements [`Block`] trait.
 use context_interface::block::{BlobExcessGasAndPrice, Block};
-use primitives::{Address, B256, U256};
+use primitives::{eip4844::BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE, Address, B256, U256};
 
 /// The block environment
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BlockEnv {
-    /// The number of ancestor blocks of this block (block height)
-    pub number: u64,
-    /// Beneficiary (Coinbase or miner) is a address that have signed the block
+    /// The number of ancestor blocks of this block (block height).
+    pub number: U256,
+    /// Beneficiary (Coinbase or miner) is a address that have signed the block.
     ///
     /// This is the receiver address of all the gas spent in the block.
     pub beneficiary: Address,
 
     /// The timestamp of the block in seconds since the UNIX epoch
     /// Modification: timestamp of block will be in milliseconds since the UNIX epoch
-    pub timestamp: u64,
+    pub timestamp: U256,
     /// The gas limit of the block
     pub gas_limit: u64,
     /// The base fee per gas, added in the London upgrade with [EIP-1559]
@@ -36,8 +36,6 @@ pub struct BlockEnv {
     pub prevrandao: Option<B256>,
     /// Excess blob gas and blob gasprice
     ///
-    /// See also [`calc_excess_blob_gas`][context_interface::block::calc_excess_blob_gas]
-    /// and [`calc_blob_gasprice`][context_interface::block::blob::calc_blob_gasprice].
     ///
     /// Incorporated as part of the Cancun upgrade via [EIP-4844].
     ///
@@ -48,15 +46,21 @@ pub struct BlockEnv {
 impl BlockEnv {
     /// Takes `blob_excess_gas` saves it inside env
     /// and calculates `blob_fee` with [`BlobExcessGasAndPrice`].
-    pub fn set_blob_excess_gas_and_price(&mut self, excess_blob_gas: u64, is_prague: bool) {
-        self.blob_excess_gas_and_price =
-            Some(BlobExcessGasAndPrice::new(excess_blob_gas, is_prague));
+    pub fn set_blob_excess_gas_and_price(
+        &mut self,
+        excess_blob_gas: u64,
+        base_fee_update_fraction: u64,
+    ) {
+        self.blob_excess_gas_and_price = Some(BlobExcessGasAndPrice::new(
+            excess_blob_gas,
+            base_fee_update_fraction,
+        ));
     }
 }
 
 impl Block for BlockEnv {
     #[inline]
-    fn number(&self) -> u64 {
+    fn number(&self) -> U256 {
         self.number
     }
 
@@ -66,7 +70,7 @@ impl Block for BlockEnv {
     }
 
     #[inline]
-    fn timestamp(&self) -> u64 {
+    fn timestamp(&self) -> U256 {
         self.timestamp
     }
 
@@ -99,14 +103,17 @@ impl Block for BlockEnv {
 impl Default for BlockEnv {
     fn default() -> Self {
         Self {
-            number: 0,
+            number: U256::ZERO,
             beneficiary: Address::ZERO,
-            timestamp: 1,
+            timestamp: U256::ONE,
             gas_limit: u64::MAX,
             basefee: 0,
             difficulty: U256::ZERO,
             prevrandao: Some(B256::ZERO),
-            blob_excess_gas_and_price: Some(BlobExcessGasAndPrice::new(0, false)),
+            blob_excess_gas_and_price: Some(BlobExcessGasAndPrice::new(
+                0,
+                BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE,
+            )),
         }
     }
 }

@@ -7,6 +7,126 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0](https://github.com/bluealloy/revm/compare/revm-inspector-v9.1.0...revm-inspector-v10.0.0) - 2025-08-23
+
+### Other
+
+- updated the following local packages: revm-database-interface, revm-context, revm-database, revm-interpreter, revm-handler, revm-state
+
+## [9.1.0](https://github.com/bluealloy/revm/compare/revm-inspector-v9.0.0...revm-inspector-v9.1.0) - 2025-08-12
+
+### Added
+
+- impl inspector for tuple ([#2871](https://github.com/bluealloy/revm/pull/2871))
+
+### Other
+
+- Aggregate changes from PRs #2866, #2867, and #2874 ([#2876](https://github.com/bluealloy/revm/pull/2876))
+- small performance and safety improvements ([#2868](https://github.com/bluealloy/revm/pull/2868))
+
+## [9.0.0](https://github.com/bluealloy/revm/compare/revm-inspector-v8.1.0...revm-inspector-v9.0.0) - 2025-08-06
+
+### Added
+
+- fix renamed functions for system_call ([#2824](https://github.com/bluealloy/revm/pull/2824))
+- add system transaction inspection support ([#2808](https://github.com/bluealloy/revm/pull/2808))
+
+### Other
+
+- update README.md ([#2842](https://github.com/bluealloy/revm/pull/2842))
+- fix inspector, cleanup loop ([#2797](https://github.com/bluealloy/revm/pull/2797))
+- improve inspector loop ([#2776](https://github.com/bluealloy/revm/pull/2776))
+- add rust-version and note about MSRV ([#2789](https://github.com/bluealloy/revm/pull/2789))
+
+## [8.1.0](https://github.com/bluealloy/revm/compare/revm-inspector-v8.0.3...revm-inspector-v8.1.0) - 2025-07-23
+
+### Added
+
+- count inspector and bench test ([#2730](https://github.com/bluealloy/revm/pull/2730))
+
+### Fixed
+
+- fully deprecate serde-json ([#2767](https://github.com/bluealloy/revm/pull/2767))
+- features and check in ci ([#2766](https://github.com/bluealloy/revm/pull/2766))
+
+### Other
+
+- *(inspector)* simplify create_end docs and intrp.bytecode.set_action ([#2723](https://github.com/bluealloy/revm/pull/2723))
+- *(inspector)* update obsolete current_opcode() comment ([#2722](https://github.com/bluealloy/revm/pull/2722))
+
+## [8.0.3](https://github.com/bluealloy/revm/compare/revm-inspector-v8.0.2...revm-inspector-v8.0.3) - 2025-07-14
+
+### Fixed
+
+- *(Inspector)* call_end not calle on first call fast return ([#2697](https://github.com/bluealloy/revm/pull/2697))
+
+## [8.0.2](https://github.com/bluealloy/revm/compare/revm-inspector-v8.0.1...revm-inspector-v8.0.2) - 2025-07-03
+
+### Fixed
+
+- *(inspector)* revert pointer before calling step_end ([#2687](https://github.com/bluealloy/revm/pull/2687))
+
+### Other
+
+- minor fixes ([#2686](https://github.com/bluealloy/revm/pull/2686))
+
+## [8.0.1](https://github.com/bluealloy/revm/compare/revm-inspector-v7.0.1...revm-inspector-v8.0.1) - 2025-06-30
+
+### Other
+
+- cargo clippy --fix --all ([#2671](https://github.com/bluealloy/revm/pull/2671))
+- use TxEnv::builder ([#2652](https://github.com/bluealloy/revm/pull/2652))
+
+## [7.0.1](https://github.com/bluealloy/revm/compare/revm-inspector-v7.0.0...revm-inspector-v7.0.1) - 2025-06-20
+
+### Other
+
+- updated the following local packages: revm-context, revm-handler, revm-interpreter
+
+## [7.0.0](https://github.com/bluealloy/revm/compare/revm-inspector-v6.0.0...revm-inspector-v7.0.0) - 2025-06-19
+
+### Added
+
+- remove EOF ([#2644](https://github.com/bluealloy/revm/pull/2644))
+- *(precompile)* rug/gmp-based modexp ([#2596](https://github.com/bluealloy/revm/pull/2596))
+- add Inspector implementation for either::Either ([#2614](https://github.com/bluealloy/revm/pull/2614))
+- *(InspectEvm)* add inspect_finalize method for tx+inspector with state ([#2593](https://github.com/bluealloy/revm/pull/2593))
+
+### Other
+
+- lints handler inspector interpreter ([#2646](https://github.com/bluealloy/revm/pull/2646))
+- re-use frame allocation ([#2636](https://github.com/bluealloy/revm/pull/2636))
+- rename `transact` methods ([#2616](https://github.com/bluealloy/revm/pull/2616))
+
+## [6.0.0](https://github.com/bluealloy/revm/compare/revm-inspector-v5.0.1...revm-inspector-v6.0.0) - 2025-06-06
+
+### Added
+
+- transact multi tx ([#2517](https://github.com/bluealloy/revm/pull/2517))
+
+### Other
+
+- tag v75 revm v24.0.1 ([#2563](https://github.com/bluealloy/revm/pull/2563)) ([#2589](https://github.com/bluealloy/revm/pull/2589))
+- ContextTr rm *_ref, and add *_mut fn ([#2560](https://github.com/bluealloy/revm/pull/2560))
+- simplify Interpreter loop ([#2544](https://github.com/bluealloy/revm/pull/2544))
+- Add InstructionContext instead of Host and Interpreter ([#2548](https://github.com/bluealloy/revm/pull/2548))
+
+## [5.0.1](https://github.com/bluealloy/revm/compare/revm-inspector-v5.0.0...revm-inspector-v5.0.1) - 2025-05-31
+
+### Other
+
+- updated the following local packages: revm-context, revm-handler
+
+## [5.0.0](https://github.com/bluealloy/revm/compare/revm-inspector-v4.1.0...revm-inspector-v5.0.0) - 2025-05-22
+
+### Added
+
+- *(op-revm)* add testdata comparison utility for EVM execution output ([#2525](https://github.com/bluealloy/revm/pull/2525))
+
+### Other
+
+- make crates.io version badge clickable ([#2526](https://github.com/bluealloy/revm/pull/2526))
+
 ## [4.1.0](https://github.com/bluealloy/revm/compare/revm-inspector-v4.0.0...revm-inspector-v4.1.0) - 2025-05-07
 
 Dependency bump

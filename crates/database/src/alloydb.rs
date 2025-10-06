@@ -1,3 +1,5 @@
+//! Alloy provider database implementation.
+
 pub use alloy_eips::BlockId;
 use alloy_provider::{
     network::{primitives::HeaderResponse, BlockResponse},
@@ -11,6 +13,7 @@ use primitives::{Address, B256, U256};
 use state::{AccountInfo, Bytecode};
 use std::fmt::Display;
 
+/// Error type for transport-related database operations.
 #[derive(Debug)]
 pub struct DBTransportError(pub TransportError);
 
@@ -120,14 +123,14 @@ mod tests {
     use alloy_provider::ProviderBuilder;
     use database_interface::{DatabaseRef, WrapDatabaseAsync};
 
-    #[test]
+    #[tokio::test]
     #[ignore = "flaky RPC"]
-    fn can_get_basic() {
-        let client = ProviderBuilder::new().connect_http(
-            "https://mainnet.infura.io/v3/c60b0bb42f8a4c6481ecd229eddaca27"
-                .parse()
-                .unwrap(),
-        );
+    async fn can_get_basic() {
+        let client = ProviderBuilder::new()
+            .connect("https://mainnet.infura.io/v3/c60b0bb42f8a4c6481ecd229eddaca27")
+            .await
+            .unwrap()
+            .erased();
         let alloydb = AlloyDB::new(client, BlockId::from(16148323));
         let wrapped_alloydb = WrapDatabaseAsync::new(alloydb).unwrap();
 

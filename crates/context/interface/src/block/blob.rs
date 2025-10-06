@@ -1,4 +1,17 @@
-use primitives::eip4844::{self, MIN_BLOB_GASPRICE};
+//! Blob (EIP-4844) related functions and types. [`BlobExcessGasAndPrice`] is struct that helps with
+//! calculating blob gas price and excess blob gas.
+//!
+//! See also [the EIP-4844 helpers](https://eips.ethereum.org/EIPS/eip-4844#helpers).
+//!
+//!
+//! [`BlobExcessGasAndPrice`] is used to store the blob gas price and excess blob gas.s
+use primitives::{
+    eip4844::{
+        BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN, BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE,
+        MIN_BLOB_GASPRICE,
+    },
+    hardfork::SpecId,
+};
 
 /// Structure holding block blob excess gas and it calculates blob fee
 ///
@@ -18,46 +31,27 @@ pub struct BlobExcessGasAndPrice {
 
 impl BlobExcessGasAndPrice {
     /// Creates a new instance by calculating the blob gas price with [`calc_blob_gasprice`].
-    pub fn new(excess_blob_gas: u64, is_prague: bool) -> Self {
-        let blob_gasprice = calc_blob_gasprice(excess_blob_gas, is_prague);
+    ///
+    /// `excess_blob_gas` is the excess blob gas of the block, it can be calculated with `calc_excess_blob_gas` function from alloy-eips.
+    pub fn new(excess_blob_gas: u64, blob_base_fee_update_fraction: u64) -> Self {
+        let blob_gasprice = calc_blob_gasprice(excess_blob_gas, blob_base_fee_update_fraction);
         Self {
             excess_blob_gas,
             blob_gasprice,
         }
     }
 
-    /// Calculate this block excess gas and price from the parent excess gas and gas used
-    /// and the target blob gas per block.
-    ///
-    /// This fields will be used to calculate `excess_blob_gas` with [`calc_excess_blob_gas`] func.
-    pub fn from_parent_and_target(
-        parent_excess_blob_gas: u64,
-        parent_blob_gas_used: u64,
-        parent_target_blob_gas_per_block: u64,
-        is_prague: bool,
-    ) -> Self {
+    /// Creates a new instance by calculating the blob gas price based on the spec.
+    pub fn new_with_spec(excess_blob_gas: u64, spec: SpecId) -> Self {
         Self::new(
-            calc_excess_blob_gas(
-                parent_excess_blob_gas,
-                parent_blob_gas_used,
-                parent_target_blob_gas_per_block,
-            ),
-            is_prague,
+            excess_blob_gas,
+            if spec.is_enabled_in(SpecId::PRAGUE) {
+                BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE
+            } else {
+                BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN
+            },
         )
     }
-}
-
-/// Calculates the `excess_blob_gas` from the parent header's `blob_gas_used` and `excess_blob_gas`.
-///
-/// See also [the EIP-4844 helpers]<https://eips.ethereum.org/EIPS/eip-4844#helpers>
-/// (`calc_excess_blob_gas`).
-#[inline]
-pub fn calc_excess_blob_gas(
-    parent_excess_blob_gas: u64,
-    parent_blob_gas_used: u64,
-    parent_target_blob_gas_per_block: u64,
-) -> u64 {
-    (parent_excess_blob_gas + parent_blob_gas_used).saturating_sub(parent_target_blob_gas_per_block)
 }
 
 /// Calculates the blob gas price from the header's excess blob gas field.
@@ -65,16 +59,18 @@ pub fn calc_excess_blob_gas(
 /// See also [the EIP-4844 helpers](https://eips.ethereum.org/EIPS/eip-4844#helpers)
 /// (`get_blob_gasprice`).
 #[inline]
-pub fn calc_blob_gasprice(excess_blob_gas: u64, is_prague: bool) -> u128 {
+pub fn calc_blob_gasprice(excess_blob_gas: u64, blob_base_fee_update_fraction: u64) -> u128 {
     fake_exponential(
         MIN_BLOB_GASPRICE,
         excess_blob_gas,
-        if is_prague {
-            eip4844::BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE
-        } else {
-            eip4844::BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN
-        },
+        blob_base_fee_update_fraction,
     )
+}
+
+/// Calculates the base fee per blob gas. Calls [`calc_blob_gasprice`] internally.
+/// Name of the function is aligned with EIP-4844 spec.
+pub fn get_base_fee_per_blob_gas(excess_blob_gas: u64, blob_base_fee_update_fraction: u64) -> u128 {
+    calc_blob_gasprice(excess_blob_gas, blob_base_fee_update_fraction)
 }
 
 /// Approximates `factor * e ** (numerator / denominator)` using Taylor expansion.
@@ -83,16 +79,16 @@ pub fn calc_blob_gasprice(excess_blob_gas: u64, is_prague: bool) -> u128 {
 ///
 /// See also [the EIP-4844 helpers](https://eips.ethereum.org/EIPS/eip-4844#helpers)
 /// (`fake_exponential`).
-///
-/// # Panics
-///
-/// This function panics if `denominator` is zero.
 #[inline]
 pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u128 {
     assert_ne!(denominator, 0, "attempt to divide by zero");
     let factor = factor as u128;
     let numerator = numerator as u128;
     let denominator = denominator as u128;
+
+    if denominator == 0 {
+        return 0;
+    }
 
     let mut i = 1;
     let mut output = 0;
@@ -110,92 +106,7 @@ pub fn fake_exponential(factor: u64, numerator: u64, denominator: u64) -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use primitives::eip4844::{
-        BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN, GAS_PER_BLOB,
-        TARGET_BLOB_GAS_PER_BLOCK_CANCUN as TARGET_BLOB_GAS_PER_BLOCK,
-    };
-
-    // https://github.com/ethereum/go-ethereum/blob/28857080d732857030eda80c69b9ba2c8926f221/consensus/misc/eip4844/eip4844_test.go#L27
-    #[test]
-    fn test_calc_excess_blob_gas() {
-        for t @ &(excess, blobs, expected) in &[
-            // The excess blob gas should not increase from zero if the used blob
-            // slots are below - or equal - to the target.
-            (0, 0, 0),
-            (0, 1, 0),
-            (0, TARGET_BLOB_GAS_PER_BLOCK / GAS_PER_BLOB, 0),
-            // If the target blob gas is exceeded, the excessBlobGas should increase
-            // by however much it was overshot
-            (
-                0,
-                (TARGET_BLOB_GAS_PER_BLOCK / GAS_PER_BLOB) + 1,
-                GAS_PER_BLOB,
-            ),
-            (
-                1,
-                (TARGET_BLOB_GAS_PER_BLOCK / GAS_PER_BLOB) + 1,
-                GAS_PER_BLOB + 1,
-            ),
-            (
-                1,
-                (TARGET_BLOB_GAS_PER_BLOCK / GAS_PER_BLOB) + 2,
-                2 * GAS_PER_BLOB + 1,
-            ),
-            // The excess blob gas should decrease by however much the target was
-            // under-shot, capped at zero.
-            (
-                TARGET_BLOB_GAS_PER_BLOCK,
-                TARGET_BLOB_GAS_PER_BLOCK / GAS_PER_BLOB,
-                TARGET_BLOB_GAS_PER_BLOCK,
-            ),
-            (
-                TARGET_BLOB_GAS_PER_BLOCK,
-                (TARGET_BLOB_GAS_PER_BLOCK / GAS_PER_BLOB) - 1,
-                TARGET_BLOB_GAS_PER_BLOCK - GAS_PER_BLOB,
-            ),
-            (
-                TARGET_BLOB_GAS_PER_BLOCK,
-                (TARGET_BLOB_GAS_PER_BLOCK / GAS_PER_BLOB) - 2,
-                TARGET_BLOB_GAS_PER_BLOCK - (2 * GAS_PER_BLOB),
-            ),
-            (
-                GAS_PER_BLOB - 1,
-                (TARGET_BLOB_GAS_PER_BLOCK / GAS_PER_BLOB) - 1,
-                0,
-            ),
-        ] {
-            let actual = calc_excess_blob_gas(
-                excess,
-                blobs * GAS_PER_BLOB,
-                eip4844::TARGET_BLOB_GAS_PER_BLOCK_CANCUN,
-            );
-            assert_eq!(actual, expected, "test: {t:?}");
-        }
-    }
-
-    // https://github.com/ethereum/go-ethereum/blob/28857080d732857030eda80c69b9ba2c8926f221/consensus/misc/eip4844/eip4844_test.go#L60
-    #[test]
-    fn test_calc_blob_fee() {
-        let blob_fee_vectors = &[
-            (0, 1),
-            (2314057, 1),
-            (2314058, 2),
-            (10 * 1024 * 1024, 23),
-            // `calc_blob_gasprice` approximates `e ** (excess_blob_gas / BLOB_BASE_FEE_UPDATE_FRACTION)` using Taylor expansion
-            //
-            // to roughly find where boundaries will be hit:
-            // 2 ** bits = e ** (excess_blob_gas / BLOB_BASE_FEE_UPDATE_FRACTION)
-            // excess_blob_gas = ln(2 ** bits) * BLOB_BASE_FEE_UPDATE_FRACTION
-            (148099578, 18446739238971471609), // output is just below the overflow
-            (148099579, 18446744762204311910), // output is just after the overflow
-            (161087488, 902580055246494526580),
-        ];
-
-        for &(excess, expected) in blob_fee_vectors {
-            let actual = calc_blob_gasprice(excess, false);
-            assert_eq!(actual, expected, "test: {excess}");
-        }
-    }
+    use primitives::eip4844::BLOB_BASE_FEE_UPDATE_FRACTION_CANCUN;
 
     // https://github.com/ethereum/go-ethereum/blob/28857080d732857030eda80c69b9ba2c8926f221/consensus/misc/eip4844/eip4844_test.go#L78
     #[test]

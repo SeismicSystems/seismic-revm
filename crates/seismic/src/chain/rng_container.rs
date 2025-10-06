@@ -80,21 +80,45 @@ impl RngContainer {
         kernel_mode: RngMode,
         tx_hash: &B256,
     ) -> Result<Bytes, PrecompileError> {
-        // Domain separation: update the root RNG
-        self.maybe_append_entropy(kernel_mode);
-        self.rng.append_tx(tx_hash);
+        self.process_rng_with_key(pers, requested_output_len, kernel_mode, tx_hash, None)
+    }
 
-        // Initialize the leaf RNG if not done already.
-        if self.leaf_rng.is_none() {
-            let leaf_rng = self.rng.fork(pers);
-            self.leaf_rng = Some(leaf_rng);
+    pub fn process_rng_with_key(
+        &mut self,
+        pers: &[u8],
+        requested_output_len: usize,
+        kernel_mode: RngMode,
+        tx_hash: &B256,
+        live_key: Option<schnorrkel::Keypair>,
+    ) -> Result<Bytes, PrecompileError> {
+        // Use live key for Execute mode, otherwise use default container
+        if let Some(key) = live_key {
+            // Create a temporary RNG with the live key for this operation
+            // Note: live_key is only provided for RngMode::Execution
+            let live_rng = RootRng::new(key);
+            live_rng.append_tx(tx_hash);
+
+            let mut leaf_rng = live_rng.fork(pers);
+            let mut rng_bytes = vec![0u8; requested_output_len];
+            leaf_rng.fill_bytes(&mut rng_bytes);
+            Ok(Bytes::from(rng_bytes))
+        } else {
+            // Use the default container's RNG
+            self.maybe_append_entropy(kernel_mode);
+            self.rng.append_tx(tx_hash);
+
+            // Initialize the leaf RNG if not done already.
+            if self.leaf_rng.is_none() {
+                let leaf_rng = self.rng.fork(pers);
+                self.leaf_rng = Some(leaf_rng);
+            }
+
+            // Get the random bytes.
+            let leaf_rng = self.leaf_rng.as_mut().unwrap();
+            let mut rng_bytes = vec![0u8; requested_output_len];
+            leaf_rng.fill_bytes(&mut rng_bytes);
+            Ok(Bytes::from(rng_bytes))
         }
-
-        // Get the random bytes.
-        let leaf_rng = self.leaf_rng.as_mut().unwrap();
-        let mut rng_bytes = vec![0u8; requested_output_len];
-        leaf_rng.fill_bytes(&mut rng_bytes);
-        Ok(Bytes::from(rng_bytes))
     }
 
     #[cfg(test)]

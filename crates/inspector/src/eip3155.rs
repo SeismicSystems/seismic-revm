@@ -2,9 +2,9 @@ use crate::inspectors::GasInspector;
 use crate::Inspector;
 use context::{Cfg, ContextTr, JournalTr, Transaction};
 use interpreter::{
-    interpreter_types::{Jumps, LoopControl, MemoryTr, RuntimeFlag, StackTr, SubRoutineStack},
-    CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, Interpreter,
-    InterpreterResult, InterpreterTypes, Stack,
+    interpreter_types::{Jumps, LoopControl, MemoryTr, StackTr},
+    CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter, InterpreterResult,
+    InterpreterTypes, Stack,
 };
 use primitives::{hex, HashMap, B256, U256};
 use serde::Serialize;
@@ -19,15 +19,29 @@ pub struct TracerEip3155 {
     print_summary: bool,
     stack: Vec<U256>,
     pc: u64,
-    section: Option<u64>,
-    function_depth: Option<u64>,
     opcode: u8,
     gas: u64,
     refunded: i64,
     mem_size: usize,
-    skip: bool,
     include_memory: bool,
     memory: Option<String>,
+}
+
+impl std::fmt::Debug for TracerEip3155 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TracerEip3155")
+            .field("gas_inspector", &self.gas_inspector)
+            .field("print_summary", &self.print_summary)
+            .field("stack", &self.stack)
+            .field("pc", &self.pc)
+            .field("opcode", &self.opcode)
+            .field("gas", &self.gas)
+            .field("refunded", &self.refunded)
+            .field("mem_size", &self.mem_size)
+            .field("include_memory", &self.include_memory)
+            .field("memory", &self.memory)
+            .finish()
+    }
 }
 
 // # Output
@@ -38,9 +52,11 @@ struct Output<'a> {
     // Required fields:
     /// Program counter
     pc: u64,
-    /// EOF code section
+    /// Depth of the call stack
+    depth: u64,
+    /// Name of the operation
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    section: Option<u64>,
+    op_name: Option<&'static str>,
     /// OpCode
     op: u8,
     /// Gas left before executing this operation
@@ -51,11 +67,6 @@ struct Output<'a> {
     gas_cost: u64,
     /// Array of all values on the stack
     stack: &'a [U256],
-    /// Depth of the call stack
-    depth: u64,
-    /// Depth of the EOF function call stack
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    function_depth: Option<u64>,
     /// Data returned by the function call
     return_data: &'static str,
     /// Amount of **global** gas refunded
@@ -66,9 +77,6 @@ struct Output<'a> {
     mem_size: u64,
 
     // Optional fields:
-    /// Name of the operation
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    op_name: Option<&'static str>,
     /// Description of an error (should contain revert reason if supported)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     error: Option<String>,
@@ -129,13 +137,10 @@ impl TracerEip3155 {
             stack: Default::default(),
             memory: Default::default(),
             pc: 0,
-            section: None,
-            function_depth: None,
             opcode: 0,
             gas: 0,
             refunded: 0,
             mem_size: 0,
-            skip: false,
         }
     }
 
@@ -168,7 +173,6 @@ impl TracerEip3155 {
             gas,
             refunded,
             mem_size,
-            skip,
             ..
         } = self;
         *gas_inspector = GasInspector::new();
@@ -178,7 +182,6 @@ impl TracerEip3155 {
         *gas = 0;
         *refunded = 0;
         *mem_size = 0;
-        *skip = false;
     }
 
     fn print_summary(&mut self, result: &InterpreterResult, context: &mut impl ContextTr) {
@@ -219,11 +222,11 @@ where
     INTR: InterpreterTypes<Stack: StackTr + CloneStack>,
 {
     fn initialize_interp(&mut self, interp: &mut Interpreter<INTR>, _: &mut CTX) {
-        self.gas_inspector.initialize_interp(interp.control.gas());
+        self.gas_inspector.initialize_interp(&interp.gas);
     }
 
     fn step(&mut self, interp: &mut Interpreter<INTR>, _: &mut CTX) {
-        self.gas_inspector.step(interp.control.gas());
+        self.gas_inspector.step(&interp.gas);
         self.stack.clear();
         interp.stack.clone_into(&mut self.stack);
         self.memory = if self.include_memory {
@@ -234,45 +237,32 @@ where
             None
         };
         self.pc = interp.bytecode.pc() as u64;
-        self.section = if interp.runtime_flag.is_eof() {
-            Some(interp.sub_routine.routine_idx() as u64)
-        } else {
-            None
-        };
-        self.function_depth = if interp.runtime_flag.is_eof() {
-            Some(interp.sub_routine.len() as u64 + 1)
-        } else {
-            None
-        };
         self.opcode = interp.bytecode.opcode();
         self.mem_size = interp.memory.size();
-        self.gas = interp.control.gas().remaining();
-        self.refunded = interp.control.gas().refunded();
+        self.gas = interp.gas.remaining();
+        self.refunded = interp.gas.refunded();
     }
 
     fn step_end(&mut self, interp: &mut Interpreter<INTR>, context: &mut CTX) {
-        self.gas_inspector.step_end(interp.control.gas_mut());
-        if self.skip {
-            self.skip = false;
-            return;
-        }
-
+        self.gas_inspector.step_end(&mut interp.gas);
         let value = Output {
             pc: self.pc,
-            section: self.section,
             op: self.opcode,
             gas: self.gas,
             gas_cost: self.gas_inspector.last_gas_cost(),
             stack: &self.stack,
-            depth: context.journal().depth() as u64,
-            function_depth: self.function_depth,
+            depth: context.journal_mut().depth() as u64,
             return_data: "0x",
             refund: self.refunded as u64,
             mem_size: self.mem_size as u64,
 
             op_name: OpCode::new(self.opcode).map(|i| i.as_str()),
-            error: (!interp.control.instruction_result().is_ok())
-                .then(|| format!("{:?}", interp.control.instruction_result())),
+            error: interp
+                .bytecode
+                .action()
+                .as_ref()
+                .and_then(|a| a.instruction_result())
+                .map(|ir| format!("{ir:?}")),
             memory: self.memory.take(),
             storage: None,
             return_stack: None,
@@ -283,7 +273,7 @@ where
     fn call_end(&mut self, context: &mut CTX, _: &CallInputs, outcome: &mut CallOutcome) {
         self.gas_inspector.call_end(outcome);
 
-        if context.journal().depth() == 0 {
+        if context.journal_mut().depth() == 0 {
             self.print_summary(&outcome.result, context);
             let _ = self.output.flush();
             // Clear the state if we are at the top level.
@@ -294,23 +284,7 @@ where
     fn create_end(&mut self, context: &mut CTX, _: &CreateInputs, outcome: &mut CreateOutcome) {
         self.gas_inspector.create_end(outcome);
 
-        if context.journal().depth() == 0 {
-            self.print_summary(&outcome.result, context);
-            let _ = self.output.flush();
-            // Clear the state if we are at the top level.
-            self.clear();
-        }
-    }
-
-    fn eofcreate_end(
-        &mut self,
-        context: &mut CTX,
-        _: &EOFCreateInputs,
-        outcome: &mut CreateOutcome,
-    ) {
-        self.gas_inspector.create_end(outcome);
-
-        if context.journal().depth() == 0 {
+        if context.journal_mut().depth() == 0 {
             self.print_summary(&outcome.result, context);
             let _ = self.output.flush();
             // Clear the state if we are at the top level.
