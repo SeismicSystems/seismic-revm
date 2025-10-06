@@ -32,44 +32,42 @@ pub fn coinbase<WIRE: InterpreterTypes, H: Host + ?Sized>(
 pub fn timestamp<WIRE: InterpreterTypes, H: Host + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
-<<<<<<< HEAD
-    gas!(interpreter, gas::BASE);
+    // gas!(interpreter, gas::BASE);
+
     #[cfg(not(feature = "timestamp-in-seconds"))]
     {
         // Host returns milliseconds, convert to seconds for EVM compatibility
-        let timestamp_seconds = host.timestamp() / U256::from(1000);
-        push!(interpreter, timestamp_seconds);
+        let timestamp_seconds = context.host.timestamp() / U256::from(1000);
+        push!(context.interpreter, timestamp_seconds);
     }
 
     #[cfg(feature = "timestamp-in-seconds")]
     {
         // Host returns seconds, use as is
-        push!(interpreter, host.timestamp());
+        push!(context.interpreter, context.host.timestamp());
     }
 }
 
+/// Implements the TIMESTAMP_MS instruction.
+///
+/// Pushes the current block's timestamp in milliseconds onto the stack.
 pub fn timestamp_milliseconds<WIRE: InterpreterTypes, H: Host + ?Sized>(
-    interpreter: &mut Interpreter<WIRE>,
-    host: &mut H,
+    context: InstructionContext<'_, H, WIRE>,
 ) {
-    gas!(interpreter, gas::BASE);
+    // gas!(interpreter, gas::BASE);
 
     #[cfg(feature = "timestamp-in-seconds")]
     {
         // Host returns seconds, convert to milliseconds for reth compatibility
-        let timestamp_ms = host.timestamp() * U256::from(1000);
-        push!(interpreter, timestamp_ms);
+        let timestamp_ms = context.host.timestamp() * U256::from(1000);
+        push!(context.interpreter, timestamp_ms);
     }
 
     #[cfg(not(feature = "timestamp-in-seconds"))]
     {
         // Host returns milliseconds, use as is
-        push!(interpreter, host.timestamp());
+        push!(context.interpreter, context.host.timestamp());
     }
-=======
-    //gas!(context.interpreter, gas::BASE);
-    push!(context.interpreter, context.host.timestamp());
->>>>>>> b62d5218983b8824585bf36e1d7ac53c1eeacb9c
 }
 
 /// Implements the NUMBER instruction.
