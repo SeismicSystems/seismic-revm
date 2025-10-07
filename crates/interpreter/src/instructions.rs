@@ -144,6 +144,7 @@ const fn instruction_table_impl<WIRE: InterpreterTypes, H: Host>() -> [Instructi
     table[BLOCKHASH as usize] = Instruction::new(host::blockhash, 20);
     table[COINBASE as usize] = Instruction::new(block_info::coinbase, 2);
     table[TIMESTAMP as usize] = Instruction::new(block_info::timestamp, 2);
+    table[TIMESTAMPMS as usize] = Instruction::new(block_info::timestamp_milliseconds, 2);
     table[NUMBER as usize] = Instruction::new(block_info::block_number, 2);
     table[DIFFICULTY as usize] = Instruction::new(block_info::difficulty, 2);
     table[GASLIMIT as usize] = Instruction::new(block_info::gaslimit, 2);

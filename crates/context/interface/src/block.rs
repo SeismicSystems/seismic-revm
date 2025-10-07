@@ -20,6 +20,7 @@ pub trait Block {
     fn beneficiary(&self) -> Address;
 
     /// The timestamp of the block in seconds since the UNIX epoch.
+    /// Modification: timestamp of block will be in milliseconds since the UNIX epoch
     fn timestamp(&self) -> U256;
 
     /// The gas limit of the block.

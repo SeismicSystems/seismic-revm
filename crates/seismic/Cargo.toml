@@ -50,6 +50,7 @@ serde_json = { workspace = true, features = ["alloc"] }
 
 [features]
 default = ["std", "c-kzg", "portable", "blst"]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
 std = [
 	"serde?/std",
 	"revm/std",

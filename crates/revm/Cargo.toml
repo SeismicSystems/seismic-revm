@@ -37,6 +37,7 @@ serde = { workspace = true, features = ["derive"] }
 
 [features]
 default = ["std", "secp256k1", "portable", "tracer", "c-kzg", "blst"]
+timestamp-in-seconds = ["interpreter/timestamp-in-seconds"]
 std = [
 	"interpreter/std",
 	"precompile/std",
