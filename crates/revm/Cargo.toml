@@ -37,6 +37,7 @@ serde = { workspace = true, features = ["derive"] }
 
 [features]
 default = ["std", "secp256k1", "portable", "tracer", "c-kzg", "blst"]
+timestamp-in-seconds = ["interpreter/timestamp-in-seconds"]
 std = [
 	"interpreter/std",
 	"precompile/std",
@@ -107,7 +108,6 @@ asm-sha2 = ["precompile/asm-sha2"]
 # Binary can be executed on all systems.
 portable = ["precompile/portable"]
 
-timestamp-in-seconds = ["interpreter/timestamp-in-seconds"]
 # use gmp for modexp precompile.
 # It is faster library but licences as GPL code, if enabled please make sure to follow the license.
 gmp = ["precompile/gmp"]
