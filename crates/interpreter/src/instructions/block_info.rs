@@ -32,7 +32,7 @@ pub fn coinbase<WIRE: InterpreterTypes, H: Host + ?Sized>(
 pub fn timestamp<WIRE: InterpreterTypes, H: Host + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
-    // gas!(interpreter, gas::BASE);
+    //gas!(context.interpreter, gas::BASE);
 
     #[cfg(not(feature = "timestamp-in-seconds"))]
     {
@@ -54,7 +54,7 @@ pub fn timestamp<WIRE: InterpreterTypes, H: Host + ?Sized>(
 pub fn timestamp_milliseconds<WIRE: InterpreterTypes, H: Host + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
-    // gas!(interpreter, gas::BASE);
+    //gas!(context.interpreter, gas::BASE);
 
     #[cfg(feature = "timestamp-in-seconds")]
     {
