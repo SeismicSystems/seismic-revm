@@ -138,7 +138,7 @@ impl Cmd {
             error!("{}", output);
         }
 
-        Err(Errors::TestsFailed)
+        Err(Errors::TestsFailed(total_failures))
     }
 
     fn run_single_threaded(
