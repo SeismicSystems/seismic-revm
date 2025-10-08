@@ -39,6 +39,8 @@ pub enum Errors {
     CompilerNotFound,
     #[error("Unexpected output. Received {0:0x}, Expected {1:0x}")]
     UnexpectedOutput(Bytes, Bytes),
+    #[error("{0} test(s) failed")]
+    TestsFailed(usize),
 }
 
 impl Into<Vec<(Errors, Option<TestCase>)>> for Errors {
