@@ -10,8 +10,9 @@ use merlin::{Transcript, TranscriptRng};
 use rand_core::{CryptoRng, OsRng, RngCore};
 use revm::primitives::B256;
 pub use schnorrkel::keys::Keypair as SchnorrkelKeypair;
-use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
 use std::{cell::RefCell, rc::Rc};
+
+use crate::get_unsecure_sample_schnorrkel_keypair;
 
 /// RNG domain separation context.
 const RNG_CONTEXT: &[u8] = b"seismic rng context";

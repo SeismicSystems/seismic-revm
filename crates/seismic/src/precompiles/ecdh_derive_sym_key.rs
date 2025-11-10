@@ -1,9 +1,9 @@
+use super::aes::common::derive_aes_key;
 use super::hkdf_derive_sym_key::EXPAND_FIXED_COST;
 use revm::precompile::{
     u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult,
 };
-
-use seismic_enclave::{derive_aes_key, ecdh::SharedSecret, PublicKey, SecretKey};
+use secp256k1::{ecdh::SharedSecret, PublicKey, SecretKey};
 
 /// Address of ECDH precompile.
 pub const ECDH_ADDRESS: u64 = 101;

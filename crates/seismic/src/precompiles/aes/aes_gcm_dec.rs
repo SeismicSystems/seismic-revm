@@ -3,10 +3,9 @@ use revm::precompile::{
 };
 
 use super::common::{
-    calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length, validate_nonce_length,
+    aes_decrypt, calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length,
+    validate_nonce_length,
 };
-
-use seismic_enclave::aes_decrypt;
 
 /* --------------------------------------------------------------------------
 Constants & Setup
@@ -57,8 +56,7 @@ pub fn precompile_decrypt(input: &[u8], gas_limit: u64) -> PrecompileResult {
     let cost = calculate_cost(ciphertext.len());
     validate_gas_limit(cost, gas_limit)?;
 
-    let plaintext = aes_decrypt(&aes_key.into(), ciphertext, nonce)
-        .map_err(|e| PrecompileError::Other(format!("Decryption failed: {e}")))?;
+    let plaintext = aes_decrypt(&aes_key.into(), ciphertext, nonce)?;
 
     Ok(PrecompileOutput::new(cost, plaintext.into()))
 }

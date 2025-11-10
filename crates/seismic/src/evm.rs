@@ -187,8 +187,8 @@ mod tests {
     use crate::precompiles::rng::precompile::{calculate_fill_cost, calculate_init_cost};
     use crate::transaction::abstraction::SeismicTransaction;
     use crate::{
-        DefaultSeismicContext, SeismicBuilder, SeismicChain, SeismicContext, SeismicHaltReason,
-        SeismicSpecId,
+        get_unsecure_sample_schnorrkel_keypair, DefaultSeismicContext, SeismicBuilder,
+        SeismicChain, SeismicContext, SeismicHaltReason, SeismicSpecId,
     };
     use anyhow::bail;
     use rand_core::RngCore;
@@ -200,7 +200,6 @@ mod tests {
     use revm::precompile::u64_to_address;
     use revm::primitives::{Address, Bytes, TxKind, B256, U256};
     use revm::{ExecuteCommitEvm, ExecuteEvm, Journal};
-    use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
 
     // === Fixture data ===
 

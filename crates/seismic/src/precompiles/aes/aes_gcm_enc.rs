@@ -1,12 +1,11 @@
 use revm::precompile::{
-    u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult,
+    u64_to_address, Precompile, PrecompileId, PrecompileOutput, PrecompileResult,
 };
 
 use super::common::{
-    calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length, validate_nonce_length,
+    aes_encrypt, calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length,
+    validate_nonce_length,
 };
-
-use seismic_enclave::aes_encrypt;
 
 /* --------------------------------------------------------------------------
 Constants & Setup
@@ -71,8 +70,7 @@ pub fn precompile_encrypt(input: &[u8], gas_limit: u64) -> PrecompileResult {
     let plaintext = &input[44..];
     let cost = calculate_cost(plaintext.len());
     validate_gas_limit(cost, gas_limit)?;
-    let ciphertext = aes_encrypt(&aes_key.into(), plaintext, nonce)
-        .map_err(|e| PrecompileError::Other(format!("Encryption failed: {e}")))?;
+    let ciphertext = aes_encrypt(&aes_key.into(), plaintext, nonce)?;
 
     Ok(PrecompileOutput::new(cost, ciphertext.into()))
 }
