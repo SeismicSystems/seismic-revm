@@ -200,7 +200,7 @@ mod tests {
     use revm::precompile::u64_to_address;
     use revm::primitives::{Address, Bytes, TxKind, B256, U256};
     use revm::{ExecuteCommitEvm, ExecuteEvm, Journal};
-    use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
+    use seismic_enclave_crypto::get_unsecure_sample_schnorrkel_keypair;
 
     // === Fixture data ===
 

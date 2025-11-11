@@ -6,7 +6,7 @@ use super::common::{
     calculate_cost, parse_aes_key, validate_gas_limit, validate_input_length, validate_nonce_length,
 };
 
-use seismic_enclave::aes_encrypt;
+use seismic_enclave_crypto::aes_encrypt;
 
 /* --------------------------------------------------------------------------
 Constants & Setup
