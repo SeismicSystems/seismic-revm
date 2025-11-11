@@ -4369,7 +4369,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave-crypto"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=3bf938718366c6d12aaa160ad32f847046b8dda0#3bf938718366c6d12aaa160ad32f847046b8dda0"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=c93c192b52ddaa80f40f26a13943695bf4fdc050#c93c192b52ddaa80f40f26a13943695bf4fdc050"
 dependencies = [
  "aes-gcm",
  "anyhow",
