@@ -37,7 +37,7 @@ schnorrkel = { version = "0.11.2", default-features = false }
 merlin = { version = "3.0.0", default-features = false }
 rand_core = { version = "0.6.4", default-features = false }
 hkdf = { version = "0.12", default-features = false }
-seismic-enclave-crypto = { workspace = true, default-features = false}
+seismic-enclave = { workspace = true}
 sha2 = { workspace = true } 
 secp256k1 = { workspace = true, features = ["recovery"] }
 

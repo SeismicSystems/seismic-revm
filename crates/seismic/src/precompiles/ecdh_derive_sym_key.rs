@@ -3,7 +3,7 @@ use revm::precompile::{
     u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult,
 };
 
-use seismic_enclave_crypto::{
+use seismic_enclave::{
     derive_aes_key, secp256k1::ecdh::SharedSecret, secp256k1::PublicKey, secp256k1::SecretKey,
 };
 
