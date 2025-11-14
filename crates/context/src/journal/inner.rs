@@ -827,9 +827,9 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
         println!("[store] address={:?}, key={:?}, new={:?}, is_private={}", address, key, new, is_private);
         // assume that acc exists and load the slot.
-        println!("[store] BUG: calling self.sload() (public) before storing - this should respect is_private!");
-        let present = self.sload(db, address, key, skip_cold_load)?;
-        println!("[store] sload returned: value={:?}, is_private={}", present.data, present.is_private);
+        println!("[store] FIX: calling load_inner with correct privacy setting!");
+        let present = self.load_inner(db, address, key, skip_cold_load, is_private)?;
+        println!("[store] load_inner returned: value={:?}, is_private={}", present.data, present.is_private);
         let acc = self.state.get_mut(&address).unwrap();
 
         // if there is no original value in dirty return present value, that is our original.
