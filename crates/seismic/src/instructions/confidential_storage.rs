@@ -22,6 +22,8 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     let spec_id = context.interpreter.runtime_flag.spec_id();
     let target = context.interpreter.input.target_address();
 
+    println!("[SLOAD] address={:?}, slot={:?}", target, index);
+
     // `SLOAD` opcode cost calculation.
     let gas = if spec_id.is_enabled_in(BERLIN) {
         WARM_STORAGE_READ_COST
@@ -40,10 +42,12 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
         let res = context.host.sload_skip_cold_load(target, *index, skip_cold);
         match res {
             Ok(storage) => {
+                println!("[SLOAD] result: value={:?}, is_private={}, is_cold={}", storage.data, storage.is_private, storage.is_cold);
                 if storage.is_cold {
                     gas!(context.interpreter, COLD_SLOAD_COST_ADDITIONAL);
                 }
                 if storage.is_private {
+                    println!("[SLOAD] ERROR: InvalidPrivateStorageAccess - tried to SLOAD a private slot");
                     context.interpreter.halt_fatal();
                     context
                         .host
@@ -79,6 +83,8 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     let spec_id = context.interpreter.runtime_flag.spec_id();
     let target = context.interpreter.input.target_address();
 
+    println!("[CLOAD] address={:?}, slot={:?}", target, index);
+
     // `SLOAD` opcode cost calculation.
     let gas = if spec_id.is_enabled_in(BERLIN) {
         WARM_STORAGE_READ_COST
@@ -97,10 +103,12 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
         let res = context.host.cload(target, *index, skip_cold);
         match res {
             Ok(storage) => {
+                println!("[CLOAD] result: value={:?}, is_private={}, is_cold={}", storage.data, storage.is_private, storage.is_cold);
                 if storage.is_cold {
                     gas!(context.interpreter, COLD_SLOAD_COST_ADDITIONAL);
                 }
                 if !storage.is_private && !storage.data.is_zero() {
+                    println!("[CLOAD] ERROR: InvalidPublicStorageAccess - tried to CLOAD a public slot with non-zero value");
                     context.interpreter.halt_fatal();
                     context
                         .host
@@ -137,6 +145,8 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
 
     let target = context.interpreter.input.target_address();
     let spec_id = context.interpreter.runtime_flag.spec_id();
+
+    println!("[SSTORE] address={:?}, slot={:?}, value={:?}", target, index, value);
 
     // EIP-1706 Disable SSTORE with gasleft lower than call stipend
     if context
@@ -202,6 +212,8 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
 
     let target = context.interpreter.input.target_address();
     let spec_id = context.interpreter.runtime_flag.spec_id();
+
+    println!("[CSTORE] address={:?}, slot={:?}, value={:?}", target, index, value);
 
     // EIP-1706 Disable SSTORE with gasleft lower than call stipend
     if context

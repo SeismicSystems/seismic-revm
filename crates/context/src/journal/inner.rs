@@ -73,7 +73,12 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         key: StorageKey,
         skip_cold_load: bool,
     ) -> Result<StateLoad<U256>, JournalLoadError<DB::Error>> {
-        self.load_inner(db, address, key, skip_cold_load, true)
+        println!("[Journal::cload] address={:?}, key={:?}", address, key);
+        let result = self.load_inner(db, address, key, skip_cold_load, true);
+        if let Ok(ref load) = result {
+            println!("[Journal::cload] result: value={:?}, is_private={}, is_cold={}", load.data, load.is_private, load.is_cold);
+        }
+        result
     }
 
     /// Stores the private storage value in Journal state.
@@ -85,7 +90,12 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         value: U256,
         skip_cold_load: bool,
     ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
-        self.store(db, address, key, value, skip_cold_load, true)
+        println!("[Journal::cstore] address={:?}, key={:?}, value={:?}", address, key, value);
+        let result = self.store(db, address, key, value, skip_cold_load, true);
+        if let Ok(ref load) = result {
+            println!("[Journal::cstore] stored successfully, is_cold={}", load.is_cold);
+        }
+        result
     }
 
     /// Creates new [`JournalInner`].
@@ -760,6 +770,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         skip_cold_load: bool,
         default_privacy: bool,
     ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
+        println!("[load_inner] address={:?}, key={:?}, default_privacy={}", address, key, default_privacy);
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx we can assume that storage is empty.
@@ -814,8 +825,11 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         skip_cold_load: bool,
         is_private: bool,
     ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
+        println!("[store] address={:?}, key={:?}, new={:?}, is_private={}", address, key, new, is_private);
         // assume that acc exists and load the slot.
+        println!("[store] BUG: calling self.sload() (public) before storing - this should respect is_private!");
         let present = self.sload(db, address, key, skip_cold_load)?;
+        println!("[store] sload returned: value={:?}, is_private={}", present.data, present.is_private);
         let acc = self.state.get_mut(&address).unwrap();
 
         // if there is no original value in dirty return present value, that is our original.
@@ -934,9 +948,12 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
                 return Err(JournalLoadError::ColdLoadSkipped);
             }
             let value = if is_newly_created {
+                println!("[load_inner] slot not in journal, account is newly created, returning ZERO with privacy={}", default_privacy);
                 FlaggedStorage::ZERO.set_visibility(default_privacy)
             } else {
+                println!("[load_inner] slot not in journal, calling db.storage() for address={:?}, key={:?}", address, key);
                 let v = db.storage(address, key)?;
+                println!("[load_inner] db.storage() returned: value={:?}, is_private={}", v.value, v.is_private);
                 v
             };
 
