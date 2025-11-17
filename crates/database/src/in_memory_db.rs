@@ -346,19 +346,31 @@ impl<ExtDB: DatabaseRef> DatabaseRef for CacheDB<ExtDB> {
     ) -> Result<state::FlaggedStorage, Self::Error> {
         match self.cache.accounts.get(&address) {
             Some(acc_entry) => match acc_entry.storage.get(&index) {
-                Some(entry) => Ok(*entry),
+                Some(entry) => {
+                    println!("[CacheDB::storage_ref] HIT in cache: address={:?}, index={:?}, value={:?}, is_private={}", address, index, entry.value, entry.is_private);
+                    Ok(*entry)
+                }
                 None => {
                     if matches!(
                         acc_entry.account_state,
                         AccountState::StorageCleared | AccountState::NotExisting
                     ) {
+                        println!("[CacheDB::storage_ref] Account cleared/not existing, returning ZERO");
                         Ok(state::FlaggedStorage::ZERO)
                     } else {
-                        self.db.storage_ref(address, index)
+                        println!("[CacheDB::storage_ref] Calling underlying db.storage_ref");
+                        let result = self.db.storage_ref(address, index)?;
+                        println!("[CacheDB::storage_ref] Underlying db returned: value={:?}, is_private={}", result.value, result.is_private);
+                        Ok(result)
                     }
                 }
             },
-            None => self.db.storage_ref(address, index),
+            None => {
+                println!("[CacheDB::storage_ref] Account not in cache, calling underlying db");
+                let result = self.db.storage_ref(address, index)?;
+                println!("[CacheDB::storage_ref] Underlying db returned: value={:?}, is_private={}", result.value, result.is_private);
+                Ok(result)
+            }
         }
     }
 
