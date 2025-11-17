@@ -216,12 +216,16 @@ impl<ExtDB> DatabaseCommit for CacheDB<ExtDB> {
             } else {
                 AccountState::Touched
             };
-            db_account.storage.extend(
-                account
-                    .storage
-                    .into_iter()
-                    .map(|(key, value)| (key, value.present_value())),
-            );
+            let storage_changes: Vec<_> = account
+                .storage
+                .into_iter()
+                .map(|(key, value)| {
+                    let flagged = value.present_value();
+                    println!("[CacheDB::commit] Storing: address={:?}, key={:?}, value={:?}, is_private={}", address, key, flagged.value, flagged.is_private);
+                    (key, flagged)
+                })
+                .collect();
+            db_account.storage.extend(storage_changes);
         }
     }
 }
@@ -267,15 +271,22 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
             Entry::Occupied(mut acc_entry) => {
                 let acc_entry = acc_entry.get_mut();
                 match acc_entry.storage.entry(index) {
-                    Entry::Occupied(entry) => Ok(*entry.get()),
+                    Entry::Occupied(entry) => {
+                        let result = *entry.get();
+                        println!("[CacheDB::storage] HIT in cache: address={:?}, index={:?}, value={:?}, is_private={}", address, index, result.value, result.is_private);
+                        Ok(result)
+                    },
                     Entry::Vacant(entry) => {
                         if matches!(
                             acc_entry.account_state,
                             AccountState::StorageCleared | AccountState::NotExisting
                         ) {
+                            println!("[CacheDB::storage] MISS (account cleared): address={:?}, index={:?}, returning default", address, index);
                             Ok(state::FlaggedStorage::default())
                         } else {
+                            println!("[CacheDB::storage] MISS (calling underlying db): address={:?}, index={:?}", address, index);
                             let slot = self.db.storage_ref(address, index)?;
+                            println!("[CacheDB::storage] Underlying db returned: value={:?}, is_private={}", slot.value, slot.is_private);
                             entry.insert(slot);
                             Ok(slot)
                         }
