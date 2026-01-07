@@ -4,7 +4,7 @@ use revm::{
     context::host::LoadError,
     interpreter::{
         gas::{
-            CALL_STIPEND, COLD_SLOAD_COST_ADDITIONAL, ISTANBUL_SLOAD_GAS, WARM_STORAGE_READ_COST,
+            CALL_STIPEND, COLD_SLOAD_COST_ADDITIONAL, ISTANBUL_SLOAD_GAS, WARM_STORAGE_READ_COST, CSTORE_FIXED_GAS,
         },
         interpreter_types::{InputsTr, InterpreterTypes, RuntimeFlag, StackTr},
         popn, popn_top, require_non_staticcall, Host, Instruction, InstructionContext,
@@ -238,21 +238,17 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
         load
     };
 
+    let cold_cost = if state_load.is_cold {
+        COLD_SLOAD_COST_ADDITIONAL
+    } else {
+        0
+    };
+
     // dynamic gas
     gas!(
         context.interpreter,
-        gas::dyn_sstore_cost(
-            context.interpreter.runtime_flag.spec_id(),
-            &state_load.data,
-            state_load.is_cold
-        )
+        CSTORE_FIXED_GAS + cold_cost
     );
-
-    // refund
-    context.interpreter.gas.record_refund(gas::sstore_refund(
-        context.interpreter.runtime_flag.spec_id(),
-        &state_load.data,
-    ));
 }
 
 // NOTE: static_gas is 0 for these, because gas is dynamic
