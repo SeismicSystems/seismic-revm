@@ -275,12 +275,14 @@ mod tests {
     use crate::instructions::seismic_host::SeismicDummyHost;
 
     use super::*;
+    use revm::context_interface::context::SStoreResult;
+    use revm::interpreter::gas::{COLD_SLOAD_COST, CSTORE_FIXED_GAS, WARM_STORAGE_READ_COST};
     use revm::interpreter::interpreter::{EthInterpreter, ExtBytecode};
     use revm::interpreter::interpreter_types::LoopControl;
     use revm::interpreter::{CallInput, InputsImpl, SharedMemory};
     use revm::interpreter::{InstructionResult, Interpreter};
     use revm::primitives::hardfork::SpecId;
-    use revm::primitives::{Address, Bytes, U256};
+    use revm::primitives::{Address, Bytes, FlaggedStorage, U256};
     use revm::state::Bytecode;
 
     // Helper to build an interpreter with a given SpecId.
@@ -396,5 +398,154 @@ mod tests {
             interpreter.bytecode.instruction_result(),
             Some(InstructionResult::FatalExternalError)
         );
+    }
+
+    mod gas_tests {
+        use super::*;
+        use revm::context::host::LoadError;
+        use revm::context_interface::journaled_state::{AccountInfoLoad, AccountLoad, StateLoad};
+        use revm::database::EmptyDB;
+        use revm::database_interface::Database;
+        use revm::interpreter::gas::COLD_SLOAD_COST_ADDITIONAL;
+        use revm::primitives::{Log, B256};
+
+        struct MockCstoreHost {
+            sstore_result: SStoreResult,
+            is_cold: bool,
+        }
+
+        impl MockCstoreHost {
+            fn new(sstore_result: SStoreResult, is_cold: bool) -> Self {
+                Self { sstore_result, is_cold }
+            }
+
+            fn zero_to_nonzero(is_cold: bool) -> Self {
+                Self::new(
+                    SStoreResult {
+                        original_value: FlaggedStorage::ZERO,
+                        present_value: FlaggedStorage::ZERO,
+                        new_value: FlaggedStorage::new(U256::from(42), true),
+                    },
+                    is_cold,
+                )
+            }
+
+            fn nonzero_to_nonzero(is_cold: bool) -> Self {
+                Self::new(
+                    SStoreResult {
+                        original_value: FlaggedStorage::new(U256::from(100), true),
+                        present_value: FlaggedStorage::new(U256::from(100), true),
+                        new_value: FlaggedStorage::new(U256::from(200), true),
+                    },
+                    is_cold,
+                )
+            }
+        }
+
+        impl crate::instructions::seismic_host::SeismicHost for MockCstoreHost {
+            type Db = EmptyDB;
+            fn ctx_error(
+                &mut self,
+            ) -> &mut Result<(), revm::context_interface::context::ContextError<<Self::Db as Database>::Error>>
+            {
+                static mut ERR: Result<(), revm::context_interface::context::ContextError<std::convert::Infallible>> = Ok(());
+                unsafe { &mut ERR }
+            }
+        }
+
+        impl Host for MockCstoreHost {
+            fn basefee(&self) -> U256 { U256::ZERO }
+            fn blob_gasprice(&self) -> U256 { U256::ZERO }
+            fn gas_limit(&self) -> U256 { U256::MAX }
+            fn difficulty(&self) -> U256 { U256::ZERO }
+            fn prevrandao(&self) -> Option<U256> { None }
+            fn block_number(&self) -> U256 { U256::ZERO }
+            fn timestamp(&self) -> U256 { U256::ZERO }
+            fn beneficiary(&self) -> Address { Address::ZERO }
+            fn chain_id(&self) -> U256 { U256::from(1) }
+            fn effective_gas_price(&self) -> U256 { U256::ZERO }
+            fn caller(&self) -> Address { Address::ZERO }
+            fn blob_hash(&self, _: usize) -> Option<U256> { None }
+            fn max_initcode_size(&self) -> usize { 0 }
+            fn block_hash(&mut self, _: u64) -> Option<B256> { None }
+            fn selfdestruct(&mut self, _: Address, _: Address) -> Option<StateLoad<revm::interpreter::SelfDestructResult>> { None }
+            fn log(&mut self, _: Log) {}
+            fn tstore(&mut self, _: Address, _: U256, _: U256) {}
+            fn tload(&mut self, _: Address, _: U256) -> U256 { U256::ZERO }
+            fn sstore(&mut self, _: Address, _: U256, _: U256) -> Option<StateLoad<SStoreResult>> { None }
+            fn sload(&mut self, _: Address, _: U256) -> Option<StateLoad<U256>> { None }
+            fn balance(&mut self, _: Address) -> Option<StateLoad<U256>> { None }
+            fn load_account_delegated(&mut self, _: Address) -> Option<StateLoad<AccountLoad>> { None }
+            fn load_account_code(&mut self, _: Address) -> Option<StateLoad<Bytes>> { None }
+            fn load_account_code_hash(&mut self, _: Address) -> Option<StateLoad<B256>> { None }
+            fn load_account_info_skip_cold_load(&mut self, _: Address, _: bool, _: bool) -> Result<AccountInfoLoad<'_>, LoadError> {
+                Err(LoadError::DBError)
+            }
+            fn sstore_skip_cold_load(&mut self, _: Address, _: U256, _: U256, _: bool) -> Result<StateLoad<SStoreResult>, LoadError> {
+                Err(LoadError::DBError)
+            }
+            fn sload_skip_cold_load(&mut self, _: Address, _: U256, _: bool) -> Result<StateLoad<U256>, LoadError> {
+                Err(LoadError::DBError)
+            }
+            fn cstore(&mut self, _: Address, _: U256, _: U256, _: bool) -> Result<StateLoad<SStoreResult>, LoadError> {
+                Ok(StateLoad::new(self.sstore_result.clone(), self.is_cold, true))
+            }
+            fn cload(&mut self, _: Address, _: U256, _: bool) -> Result<StateLoad<U256>, LoadError> {
+                Err(LoadError::DBError)
+            }
+        }
+
+        #[test]
+        fn test_cstore_gas_constant_for_zero_vs_nonzero() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+
+            let mut host1 = MockCstoreHost::zero_to_nonzero(true);
+            let mut interp1 = build_interpreter(SpecId::MERCURY, bytecode.clone());
+            let _ = interp1.stack.push(U256::from(1));
+            let _ = interp1.stack.push(U256::from(42));
+            let gas_before_1 = interp1.gas.remaining();
+            cstore(InstructionContext { interpreter: &mut interp1, host: &mut host1 });
+            let gas_used_1 = gas_before_1 - interp1.gas.remaining();
+
+            let mut host2 = MockCstoreHost::nonzero_to_nonzero(true);
+            let mut interp2 = build_interpreter(SpecId::MERCURY, bytecode.clone());
+            let _ = interp2.stack.push(U256::from(1));
+            let _ = interp2.stack.push(U256::from(200));
+            let gas_before_2 = interp2.gas.remaining();
+            cstore(InstructionContext { interpreter: &mut interp2, host: &mut host2 });
+            let gas_used_2 = gas_before_2 - interp2.gas.remaining();
+
+            println!("gas_used_1 (zero->nonzero): {}", gas_used_1);
+            println!("gas_used_2 (nonzero->nonzero): {}", gas_used_2);
+            println!("expected: {}", WARM_STORAGE_READ_COST + CSTORE_FIXED_GAS + COLD_SLOAD_COST_ADDITIONAL);
+            
+            assert_eq!(gas_used_1, gas_used_2, "Gas must be constant regardless of value transition");
+            assert_eq!(gas_used_1, WARM_STORAGE_READ_COST + CSTORE_FIXED_GAS + COLD_SLOAD_COST_ADDITIONAL);
+        }
+
+        #[test]
+        fn test_cstore_gas_cold_vs_warm() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+
+            let mut host_cold = MockCstoreHost::zero_to_nonzero(true);
+            let mut interp_cold = build_interpreter(SpecId::MERCURY, bytecode.clone());
+            let _ = interp_cold.stack.push(U256::from(1));
+            let _ = interp_cold.stack.push(U256::from(42));
+            let gas_before_cold = interp_cold.gas.remaining();
+            cstore(InstructionContext { interpreter: &mut interp_cold, host: &mut host_cold });
+            let gas_cold = gas_before_cold - interp_cold.gas.remaining();
+
+            let mut host_warm = MockCstoreHost::zero_to_nonzero(false);
+            let mut interp_warm = build_interpreter(SpecId::MERCURY, bytecode.clone());
+            let _ = interp_warm.stack.push(U256::from(1));
+            let _ = interp_warm.stack.push(U256::from(42));
+            let gas_before_warm = interp_warm.gas.remaining();
+            cstore(InstructionContext { interpreter: &mut interp_warm, host: &mut host_warm });
+            let gas_warm = gas_before_warm - interp_warm.gas.remaining();
+
+            assert_eq!(gas_cold - gas_warm, COLD_SLOAD_COST_ADDITIONAL);
+            assert_eq!(gas_cold, WARM_STORAGE_READ_COST + CSTORE_FIXED_GAS + COLD_SLOAD_COST_ADDITIONAL);
+            assert_eq!(gas_warm, WARM_STORAGE_READ_COST + CSTORE_FIXED_GAS);
+        }
     }
 }
