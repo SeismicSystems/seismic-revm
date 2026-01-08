@@ -863,5 +863,3 @@ fn test_nested_checkpoint_private_storage_reverts() {
 fn test_nested_checkpoint_public_storage_reverts() {
     _test_nested_checkpoint_storage_reverts(false);
 }
-
-
