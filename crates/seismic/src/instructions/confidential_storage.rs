@@ -4,7 +4,8 @@ use revm::{
     context::host::LoadError,
     interpreter::{
         gas::{
-            CALL_STIPEND, COLD_SLOAD_COST_ADDITIONAL, ISTANBUL_SLOAD_GAS, WARM_STORAGE_READ_COST, CSTORE_FIXED_GAS,
+            CALL_STIPEND, COLD_SLOAD_COST_ADDITIONAL, CSTORE_FIXED_GAS, ISTANBUL_SLOAD_GAS,
+            WARM_STORAGE_READ_COST,
         },
         interpreter_types::{InputsTr, InterpreterTypes, RuntimeFlag, StackTr},
         popn, popn_top, require_non_staticcall, Host, Instruction, InstructionContext,
@@ -245,10 +246,7 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
     };
 
     // dynamic gas
-    gas!(
-        context.interpreter,
-        CSTORE_FIXED_GAS + cold_cost
-    );
+    gas!(context.interpreter, CSTORE_FIXED_GAS + cold_cost);
 }
 
 // NOTE: static_gas is 0 for these, because gas is dynamic
