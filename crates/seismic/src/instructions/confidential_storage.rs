@@ -245,11 +245,11 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
     println!("flat_gas: {}", flat_gas);
     gas!(context.interpreter, flat_gas);
 
-    // static gas
-    gas!(
-        context.interpreter,
-        gas::static_sstore_cost(context.interpreter.runtime_flag.spec_id())
-    );
+    // // static gas
+    // gas!(
+    //     context.interpreter,
+    //     gas::static_sstore_cost(context.interpreter.runtime_flag.spec_id())
+    // );
 
     let res = context.host.cstore(target, index, value, false);
     if res.is_err() {
