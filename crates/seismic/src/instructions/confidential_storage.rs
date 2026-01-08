@@ -72,26 +72,15 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     };
 }
 
+/// Implements the CLOAD instruction.
+///
+/// Loads a word from shielded storage with flat gas cost to prevent information leakage.
 pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
     check!(context.interpreter, MERCURY);
     popn_top!([], index, context.interpreter);
-    let spec_id = context.interpreter.runtime_flag.spec_id();
     let target = context.interpreter.input.target_address();
-
-    // // `SLOAD` opcode cost calculation.
-    // let gas = if spec_id.is_enabled_in(BERLIN) {
-    //     WARM_STORAGE_READ_COST
-    // } else if spec_id.is_enabled_in(ISTANBUL) {
-    //     // EIP-1884: Repricing for trie-size-dependent opcodes
-    //     ISTANBUL_SLOAD_GAS
-    // } else if spec_id.is_enabled_in(TANGERINE) {
-    //     // EIP-150: Gas cost changes for IO-heavy operations
-    //     200
-    // } else {
-    //     50
-    // };
 
     gas!(
         context.interpreter,
@@ -102,7 +91,6 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
         return context.interpreter.halt_fatal();
     };
 
-    // Validate: CLOAD only allowed on private storage (or zero public slots)
     if !storage.is_private && !storage.data.is_zero() {
         context.interpreter.halt_fatal();
         context
@@ -112,41 +100,6 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     }
 
     *index = storage.data;
-
-    // if spec_id.is_enabled_in(BERLIN) {
-    //     let skip_cold = context.interpreter.gas.remaining() < COLD_SLOAD_COST_ADDITIONAL;
-    //     let res = context.host.cload(target, *index, skip_cold);
-    //     match res {
-    //         Ok(storage) => {
-    //             if storage.is_cold {
-    //                 gas!(context.interpreter, COLD_SLOAD_COST_ADDITIONAL);
-    //             }
-    //             if !storage.is_private && !storage.data.is_zero() {
-    //                 context.interpreter.halt_fatal();
-    //                 context
-    //                     .host
-    //                     .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
-    //                 return;
-    //             }
-
-    //             *index = storage.data;
-    //         }
-    //         Err(LoadError::ColdLoadSkipped) => context.interpreter.halt_oog(),
-    //         Err(LoadError::DBError) => context.interpreter.halt_fatal(),
-    //     }
-    // } else {
-    //     let Some(storage) = context.host.sload(target, *index) else {
-    //         return context.interpreter.halt_fatal();
-    //     };
-    //     if !storage.is_private && !storage.data.is_zero() {
-    //         context.interpreter.halt_fatal();
-    //         context
-    //             .host
-    //             .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
-    //         return;
-    //     }
-    //     *index = storage.data;
-    // };
 }
 
 /// Implements the SSTORE instruction.
@@ -215,14 +168,15 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
 
 /// Implements the CSTORE instruction.
 ///
-/// Stores a word to shielded storage.
+/// Stores a word to shielded storage with flat gas cost to prevent information leakage.
+/// Unlike SSTORE, CSTORE charges constant gas regardless of value transitions to avoid
+/// leaking information about secret values through gas observations.
 pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
     check!(context.interpreter, MERCURY);
     require_non_staticcall!(context.interpreter);
     popn!([index, value], context.interpreter);
 
     let target = context.interpreter.input.target_address();
-    let spec_id = context.interpreter.runtime_flag.spec_id();
 
     // EIP-1706 Disable SSTORE with gasleft lower than call stipend
     if context
@@ -241,44 +195,11 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
     let flat_gas = gas::static_sstore_cost(context.interpreter.runtime_flag.spec_id())
         + CSTORE_FIXED_GAS
         + COLD_SLOAD_COST_ADDITIONAL;
-
-    println!("flat_gas: {}", flat_gas);
     gas!(context.interpreter, flat_gas);
 
-    // // static gas
-    // gas!(
-    //     context.interpreter,
-    //     gas::static_sstore_cost(context.interpreter.runtime_flag.spec_id())
-    // );
-
-    let res = context.host.cstore(target, index, value, false);
-    if res.is_err() {
+    if context.host.cstore(target, index, value, false).is_err() {
         return context.interpreter.halt_fatal();
     }
-
-    // let state_load = if spec_id.is_enabled_in(BERLIN) {
-    //     let skip_cold = context.interpreter.gas.remaining() < COLD_SLOAD_COST_ADDITIONAL;
-    //     let res = context.host.cstore(target, index, value, skip_cold);
-    //     match res {
-    //         Ok(load) => load,
-    //         Err(LoadError::ColdLoadSkipped) => return context.interpreter.halt_oog(),
-    //         Err(LoadError::DBError) => return context.interpreter.halt_fatal(),
-    //     }
-    // } else {
-    //     let Ok(load) = context.host.cstore(target, index, value, false) else {
-    //         return context.interpreter.halt_fatal();
-    //     };
-    //     load
-    // };
-
-    // let cold_cost = if state_load.is_cold {
-    //     COLD_SLOAD_COST_ADDITIONAL
-    // } else {
-    //     0
-    // };
-
-    // // dynamic gas
-    // gas!(context.interpreter, CSTORE_FIXED_GAS + cold_cost);
 }
 
 // NOTE: static_gas is 0 for these, because gas is dynamic
@@ -308,7 +229,7 @@ mod tests {
 
     use super::*;
     use revm::context_interface::context::SStoreResult;
-    use revm::interpreter::gas::{COLD_SLOAD_COST, CSTORE_FIXED_GAS, WARM_STORAGE_READ_COST};
+    use revm::interpreter::gas::{CSTORE_FIXED_GAS, WARM_STORAGE_READ_COST};
     use revm::interpreter::interpreter::{EthInterpreter, ExtBytecode};
     use revm::interpreter::interpreter_types::LoopControl;
     use revm::interpreter::{CallInput, InputsImpl, SharedMemory};
@@ -317,9 +238,8 @@ mod tests {
     use revm::primitives::{Address, Bytes, FlaggedStorage, U256};
     use revm::state::Bytecode;
 
-    // Helper to build an interpreter with a given SpecId.
     fn build_interpreter(spec_id: SpecId, bytecode: Bytecode) -> Interpreter<EthInterpreter> {
-        let interp = Interpreter::<EthInterpreter>::new(
+        Interpreter::<EthInterpreter>::new(
             SharedMemory::new(),
             ExtBytecode::new(bytecode),
             InputsImpl {
@@ -332,13 +252,11 @@ mod tests {
             false,
             spec_id,
             u64::MAX,
-        );
-        interp
+        )
     }
 
     #[test]
     fn test_cload_before_mercury() {
-        // SpecId < PRAGUE => Mercury check should fail => NotActivated
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x60, 0x00, 0x60, 0x00, 0x01][..]));
         let mut host = SeismicDummyHost::new();
         let mut interpreter = build_interpreter(SpecId::LONDON, bytecode);
@@ -357,9 +275,7 @@ mod tests {
 
     #[test]
     fn test_cstore_mercury_or_later() {
-        // SpecId >= PRAGUE => Mercury is "enabled", so it shouldn't fail at the macro check
         let mut host = SeismicDummyHost::new();
-
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::MERCURY, bytecode);
         let context = InstructionContext {
@@ -367,19 +283,14 @@ mod tests {
             host: &mut host,
         };
 
-        //60 2A          PUSH1 0x2A    ; push decimal 42 as "value"
-        //60 0A          PUSH1 0x0A    ; push decimal 10 as "index"
-        //0xB1           CSTORE        ; CSTORE
-        let _ = context.interpreter.stack.push(U256::from(0x0A)); // index
-        let _ = context.interpreter.stack.push(U256::from(0x2A)); // value
+        let _ = context.interpreter.stack.push(U256::from(0x0A));
+        let _ = context.interpreter.stack.push(U256::from(0x2A));
         cstore(context);
 
         assert_ne!(
             interpreter.bytecode.instruction_result(),
             Some(InstructionResult::NotActivated)
         );
-
-        //Should get Fatal External Error given DummyHost returns None
         assert_eq!(
             interpreter.bytecode.instruction_result(),
             Some(InstructionResult::FatalExternalError)
@@ -405,9 +316,7 @@ mod tests {
 
     #[test]
     fn test_cload_mercury_or_later() {
-        // SpecId >= PRAGUE => Mercury is "enabled", so it shouldn't fail at the macro check
         let mut host = SeismicDummyHost::new();
-
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::MERCURY, bytecode);
         let context = InstructionContext {
@@ -415,17 +324,13 @@ mod tests {
             host: &mut host,
         };
 
-        //60 0A          PUSH1 0x0A    ; push decimal 10 as "index"
-        //0xB            CLOAD         ; CLOAD
-        let _ = context.interpreter.stack.push(U256::from(0x0A)); // index
+        let _ = context.interpreter.stack.push(U256::from(0x0A));
         cload(context);
 
         assert_ne!(
             interpreter.bytecode.instruction_result(),
             Some(InstructionResult::NotActivated)
         );
-
-        //Should get Fatal External Error given DummyHost returns None
         assert_eq!(
             interpreter.bytecode.instruction_result(),
             Some(InstructionResult::FatalExternalError)
@@ -446,6 +351,7 @@ mod tests {
 
         struct MockCstoreHost {
             sstore_result: SStoreResult,
+            #[allow(dead_code)]
             is_cold: bool,
         }
 
@@ -493,6 +399,7 @@ mod tests {
 
         impl crate::instructions::seismic_host::SeismicHost for MockCstoreHost {
             type Db = EmptyDB;
+            #[allow(static_mut_refs)]
             fn ctx_error(
                 &mut self,
             ) -> &mut Result<
@@ -612,11 +519,7 @@ mod tests {
                 _: U256,
                 _: bool,
             ) -> Result<StateLoad<SStoreResult>, LoadError> {
-                Ok(StateLoad::new(
-                    self.sstore_result.clone(),
-                    self.is_cold,
-                    true,
-                ))
+                Ok(StateLoad::new(self.sstore_result.clone(), false, true))
             }
             fn cload(
                 &mut self,
@@ -752,7 +655,7 @@ mod tests {
             let mut host = MockCstoreHost::nonzero_to_zero(true);
             let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
             let _ = interp.stack.push(U256::from(1));
-            let _ = interp.stack.push(U256::ZERO); // clearing to zero
+            let _ = interp.stack.push(U256::ZERO);
 
             cstore(InstructionContext {
                 interpreter: &mut interp,
