@@ -238,6 +238,7 @@ mod tests {
     use revm::primitives::{Address, Bytes, FlaggedStorage, U256};
     use revm::state::Bytecode;
 
+    // Helper to build an interpreter with a given SpecId.
     fn build_interpreter(spec_id: SpecId, bytecode: Bytecode) -> Interpreter<EthInterpreter> {
         Interpreter::<EthInterpreter>::new(
             SharedMemory::new(),
@@ -257,6 +258,7 @@ mod tests {
 
     #[test]
     fn test_cload_before_mercury() {
+        // SpecId < PRAGUE => Mercury check should fail => NotActivated
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x60, 0x00, 0x60, 0x00, 0x01][..]));
         let mut host = SeismicDummyHost::new();
         let mut interpreter = build_interpreter(SpecId::LONDON, bytecode);
@@ -275,7 +277,9 @@ mod tests {
 
     #[test]
     fn test_cstore_mercury_or_later() {
+        // SpecId >= PRAGUE => Mercury is "enabled", so it shouldn't fail at the macro check
         let mut host = SeismicDummyHost::new();
+
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::MERCURY, bytecode);
         let context = InstructionContext {
@@ -283,14 +287,19 @@ mod tests {
             host: &mut host,
         };
 
-        let _ = context.interpreter.stack.push(U256::from(0x0A));
-        let _ = context.interpreter.stack.push(U256::from(0x2A));
+        //60 2A          PUSH1 0x2A    ; push decimal 42 as "value"
+        //60 0A          PUSH1 0x0A    ; push decimal 10 as "index"
+        //0xB1           CSTORE        ; CSTORE
+        let _ = context.interpreter.stack.push(U256::from(0x0A)); // index
+        let _ = context.interpreter.stack.push(U256::from(0x2A)); // value
         cstore(context);
 
         assert_ne!(
             interpreter.bytecode.instruction_result(),
             Some(InstructionResult::NotActivated)
         );
+
+        //Should get Fatal External Error given DummyHost returns None
         assert_eq!(
             interpreter.bytecode.instruction_result(),
             Some(InstructionResult::FatalExternalError)
@@ -316,7 +325,9 @@ mod tests {
 
     #[test]
     fn test_cload_mercury_or_later() {
+        // SpecId >= PRAGUE => Mercury is "enabled", so it shouldn't fail at the macro check
         let mut host = SeismicDummyHost::new();
+
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
         let mut interpreter = build_interpreter(SpecId::MERCURY, bytecode);
         let context = InstructionContext {
@@ -324,13 +335,17 @@ mod tests {
             host: &mut host,
         };
 
-        let _ = context.interpreter.stack.push(U256::from(0x0A));
+        //60 0A          PUSH1 0x0A    ; push decimal 10 as "index"
+        //0xB            CLOAD         ; CLOAD
+        let _ = context.interpreter.stack.push(U256::from(0x0A)); // index
         cload(context);
 
         assert_ne!(
             interpreter.bytecode.instruction_result(),
             Some(InstructionResult::NotActivated)
         );
+
+        //Should get Fatal External Error given DummyHost returns None
         assert_eq!(
             interpreter.bytecode.instruction_result(),
             Some(InstructionResult::FatalExternalError)
