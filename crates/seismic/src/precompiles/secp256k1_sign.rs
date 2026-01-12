@@ -44,8 +44,10 @@ pub fn secp256k1_sign_ecdsa_recoverable(input: &[u8], gas_limit: u64) -> Precomp
     if input.len() != 64 {
         return Err(PrecompileError::Other("Invalid input length".to_string()).into());
     }
-    let key_bytes: [u8; 32] = input[0..32].try_into().unwrap();
-    let digest_bytes: [u8; 32] = input[32..64].try_into().unwrap();
+    #[allow(clippy::expect_used)]
+    let key_bytes: [u8; 32] = input[0..32].try_into().expect("input length already validated as 64 bytes");
+    #[allow(clippy::expect_used)]
+    let digest_bytes: [u8; 32] = input[32..64].try_into().expect("input length already validated as 64 bytes");
     let secret_key = secp256k1::SecretKey::from_byte_array(key_bytes)
         .map_err(|e| PrecompileError::Other(format!("Invalid secret key: {e}")))?;
     let message = secp256k1::Message::from_digest(digest_bytes);
