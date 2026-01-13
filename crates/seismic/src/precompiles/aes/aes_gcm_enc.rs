@@ -82,7 +82,12 @@ pub fn precompile_encrypt(input: &[u8], gas_limit: u64) -> PrecompileResult {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic
+    )]
 
     use super::*;
     use revm::precompile::PrecompileError;

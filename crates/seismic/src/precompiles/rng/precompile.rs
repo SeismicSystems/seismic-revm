@@ -181,7 +181,13 @@ pub(crate) fn validate_input_length(
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic, clippy::useless_conversion)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic,
+        clippy::useless_conversion
+    )]
 
     use crate::transaction::abstraction::SeismicTransaction;
     use crate::{DefaultSeismicContext, SeismicContext};

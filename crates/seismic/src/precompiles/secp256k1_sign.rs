@@ -71,7 +71,13 @@ pub fn secp256k1_sign_ecdsa_recoverable(input: &[u8], gas_limit: u64) -> Precomp
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic, clippy::unnecessary_fallible_conversions)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic,
+        clippy::unnecessary_fallible_conversions
+    )]
 
     use super::*;
     use revm::precompile::secp256k1::ecrecover;

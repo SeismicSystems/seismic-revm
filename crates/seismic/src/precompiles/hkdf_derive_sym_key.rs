@@ -114,7 +114,13 @@ pub fn hkdf_derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResu
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic, clippy::doc_lazy_continuation)]
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic,
+        clippy::doc_lazy_continuation
+    )]
 
     use super::*;
     use revm::precompile::PrecompileError;
