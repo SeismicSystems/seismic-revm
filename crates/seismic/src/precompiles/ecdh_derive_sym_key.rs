@@ -100,6 +100,7 @@ pub fn derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
         .map_err(|e| PrecompileError::Other(format!("aes derivation failed: {e}")))?;
 
     // SAFETY: derive_aes_key always returns 32-byte AES-256 key
+    #[allow(clippy::expect_used)]
     let output_32: [u8; 32] = aes_key.to_vec().try_into().expect("must be 32 bytes");
 
     Ok(PrecompileOutput::new(DERIVE_SYM_KEY_COST, output_32.into()))

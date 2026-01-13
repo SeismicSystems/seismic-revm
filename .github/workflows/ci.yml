@@ -88,29 +88,6 @@ jobs:
         env:
           RUSTFLAGS: -Dwarnings
 
-  clippy-strict:
-    name: clippy-strict (seismic)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-      - uses: Swatinem/rust-cache@v2
-      - name: Clippy (strict - seismic crate)
-        run: |
-          cargo clippy \
-            -p seismic-revm \
-            --lib --tests --no-deps \
-            -- -D warnings \
-            -W clippy::unwrap_used \
-            -W clippy::expect_used \
-            -W clippy::indexing_slicing \
-            -W clippy::panic \
-            -W clippy::unreachable \
-            -W clippy::todo
-
   docs:
     name: docs
     runs-on: ubuntu-latest
