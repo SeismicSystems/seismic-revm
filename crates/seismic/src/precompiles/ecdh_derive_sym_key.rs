@@ -70,9 +70,11 @@ const DERIVE_SYM_KEY_COST: u64 = SHARED_SECRET_COST + EXPAND_FIXED_COST;
 /// overestimate in comparison to `ECRecover` and simpler HKDF ops.*  
 ///
 /// If `gas_limit < DERIVE_SYM_KEY_COST`, we revert with `OutOfGas`.
+// SAFETY: Indexing validated by INPUT_LENGTH check, expect is library invariant
+#[allow(clippy::indexing_slicing, clippy::expect_used)]
 pub fn derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
     if DERIVE_SYM_KEY_COST > gas_limit {
-        return Err(PrecompileError::OutOfGas.into());
+        return Err(PrecompileError::OutOfGas);
     }
 
     if input.len() != INPUT_LENGTH {
@@ -80,7 +82,7 @@ pub fn derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
             "invalid input length: expected {INPUT_LENGTH} but got {}",
             input.len()
         );
-        return Err(PrecompileError::Other(err_msg).into());
+        return Err(PrecompileError::Other(err_msg));
     }
 
     let sk_bytes = &input[..32];
@@ -97,6 +99,7 @@ pub fn derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
     let aes_key = derive_aes_key(&shared_secret)
         .map_err(|e| PrecompileError::Other(format!("aes derivation failed: {e}")))?;
 
+    // SAFETY: derive_aes_key always returns 32-byte AES-256 key
     let output_32: [u8; 32] = aes_key.to_vec().try_into().expect("must be 32 bytes");
 
     Ok(PrecompileOutput::new(DERIVE_SYM_KEY_COST, output_32.into()))
@@ -104,6 +107,8 @@ pub fn derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)]
+
     use super::*;
     use revm::precompile::PrecompileError;
     use revm::primitives::{hex, Bytes};

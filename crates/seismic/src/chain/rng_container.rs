@@ -114,6 +114,8 @@ impl RngContainer {
             }
 
             // Get the random bytes.
+            // SAFETY: leaf_rng is guaranteed to be Some - initialized in the if block above
+            #[allow(clippy::unwrap_used)]
             let leaf_rng = self.leaf_rng.as_mut().unwrap();
             let mut rng_bytes = vec![0u8; requested_output_len];
             leaf_rng.fill_bytes(&mut rng_bytes);

@@ -8,14 +8,14 @@
 //!
 //! - [`aes`]: Provides AES-GCM encryption and decryption functionalities.
 //! - [`ecdh_derive_sym_key`]: Implements symmetric key derivation using
-//!     Elliptic Curve Diffie-Hellman (ECDH) with the secp256k1 curve,
-//!     producing an AES-compatible key.
+//!   Elliptic Curve Diffie-Hellman (ECDH) with the secp256k1 curve,
+//!   producing an AES-compatible key.
 //! - [`hkdf_derive_sym_key`]: Implements key derivation using the HKDF
-//!     (HMAC-based Key Derivation Function) algorithm to derive AES-compatible
-//!     symmetric keys from raw input bytes.
+//!   (HMAC-based Key Derivation Function) algorithm to derive AES-compatible
+//!   symmetric keys from raw input bytes.
 //! - [`rng`]: Generates cryptographically secure random bytes. The randomness
-//!     is based on a secret Verifiable Random Function (VRF) key and the
-//!     block's transcript.
+//!   is based on a secret Verifiable Random Function (VRF) key and the
+//!   block's transcript.
 
 pub mod aes;
 pub mod ecdh_derive_sym_key;
@@ -87,7 +87,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
     let regular_precompiles = INSTANCE.get_or_init(|| {
         let mut precompiles = Precompiles::prague().clone();
         if let Some(extra) = extra {
-            precompiles.extend(extra.inner().clone().into_iter().map(|(_, p)| p));
+            precompiles.extend(extra.inner().clone().into_values());
         }
         precompiles.extend([
             secp256r1::P256VERIFY,
@@ -178,7 +178,7 @@ where
     #[inline]
     fn warm_addresses(&self) -> Box<impl Iterator<Item = Address>> {
         // Combine both standard and stateful precompile addresses
-        let standard_addresses = self.inner.warm_addresses().into_iter();
+        let standard_addresses = self.inner.warm_addresses();
         let stateful_addresses = self.stateful_precompiles.addresses().cloned();
 
         Box::new(standard_addresses.chain(stateful_addresses))
@@ -201,6 +201,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic, clippy::manual_range_contains)]
+
     use super::*;
     use revm::{
         database::EmptyDB,

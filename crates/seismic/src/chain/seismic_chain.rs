@@ -7,19 +7,10 @@ use crate::transaction::abstraction::RngMode;
 
 use super::rng_container::RngContainer;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct SeismicChain {
     rng_container: RngContainer,
     live_rng_key: Option<schnorrkel::Keypair>,
-}
-
-impl Default for SeismicChain {
-    fn default() -> Self {
-        Self {
-            rng_container: RngContainer::default(),
-            live_rng_key: None,
-        }
-    }
 }
 
 impl SeismicChain {

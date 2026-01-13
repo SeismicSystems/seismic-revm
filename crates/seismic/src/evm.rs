@@ -179,6 +179,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic, clippy::unnecessary_cast)]
+
     use core::str::FromStr;
 
     use super::*;

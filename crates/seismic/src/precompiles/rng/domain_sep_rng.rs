@@ -35,6 +35,7 @@ struct Inner {
 }
 
 impl Clone for RootRng {
+    #[allow(clippy::unwrap_used)] // cloning_transcript is always set when rng is Some
     fn clone(&self) -> Self {
         let inner = self.inner.borrow_mut();
         let rng_copy: Option<TranscriptRng>;
@@ -144,6 +145,8 @@ impl RootRng {
         inner.transcript.append_message(b"fork", pers);
 
         let rng_builder = inner.transcript.build_rng();
+        // SAFETY: rng is initialized in the block above if it was None
+        #[allow(clippy::expect_used)]
         let parent_rng = inner.rng.as_mut().expect("rng must be initialized");
         let rng = rng_builder.finalize(parent_rng);
 

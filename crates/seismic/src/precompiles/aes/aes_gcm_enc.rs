@@ -61,6 +61,9 @@ Precompile Logic
 /// If `cost > gas_limit`, we revert with `OutOfGas`.
 ///
 /// We set the final `gas_used` = `cost`.
+// SAFETY: All indexing is validated by validate_input_length (MIN_INPUT_LENGTH=44)
+// and validate_nonce_length before use
+#[allow(clippy::indexing_slicing, clippy::expect_used)]
 pub fn precompile_encrypt(input: &[u8], gas_limit: u64) -> PrecompileResult {
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
     let aes_key = parse_aes_key(&input[0..32])?;
@@ -79,6 +82,8 @@ pub fn precompile_encrypt(input: &[u8], gas_limit: u64) -> PrecompileResult {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic)]
+
     use super::*;
     use revm::precompile::PrecompileError;
     use revm::primitives::Bytes;

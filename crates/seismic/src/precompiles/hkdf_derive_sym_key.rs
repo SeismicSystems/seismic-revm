@@ -100,7 +100,7 @@ pub fn hkdf_derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResu
     let total_cost = extract_cost + EXPAND_FIXED_COST;
 
     if total_cost > gas_limit {
-        return Err(PrecompileError::OutOfGas.into());
+        return Err(PrecompileError::OutOfGas);
     }
 
     let hkdf = Hkdf::<Sha256>::new(None, input);
@@ -114,6 +114,8 @@ pub fn hkdf_derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResu
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing, clippy::panic, clippy::doc_lazy_continuation)]
+
     use super::*;
     use revm::precompile::PrecompileError;
     use revm::primitives::Bytes;
