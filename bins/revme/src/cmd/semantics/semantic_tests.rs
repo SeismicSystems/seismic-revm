@@ -7,6 +7,7 @@ use revm::primitives::{hex, Address, Bytes};
 
 use super::{
     compiler_evm_versions::EVMVersion,
+    solc_config::{CompilationParams, SolcConfig},
     test_cases::TestCase,
     utils::{extract_compile_via_yul, extract_functions_from_source, needs_eof},
     Errors,
@@ -108,7 +109,7 @@ pub struct SemanticTests {
 }
 
 impl SemanticTests {
-    pub fn new(test_path: &str, ssolc_path: &String, skip_eof: bool) -> Result<Self, Errors> {
+    pub fn new(test_path: &str, ssolc_path: &String, skip_eof: bool, solc_config: &SolcConfig) -> Result<Self, Errors> {
         let content = fs::read_to_string(test_path)?;
         let parts: Vec<&str> = content.split("// ----").collect();
         if parts.len() != 2 {
@@ -134,8 +135,9 @@ impl SemanticTests {
             return Err(Errors::UnhandledTestFormat);
         }
 
+        let params = CompilationParams::from_solc_config(solc_config, evm_version, via_ir, eof_mode, false);
         let mut contract_infos =
-            Self::get_contract_infos(test_path, ssolc_path, evm_version, via_ir, eof_mode, false)?;
+            Self::get_contract_infos(test_path, ssolc_path, &params)?;
 
         let test_cases = TestCase::from_expectations(expectations, &mut contract_infos[..])?;
         Ok(SemanticTests {
@@ -147,27 +149,31 @@ impl SemanticTests {
     fn compile_solidity(
         path: &str,
         ssolc_path: &String,
-        evm_version: Option<EVMVersion>,
-        via_ir: bool,
-        eof_mode: bool,
-        runtime: bool,
+        params: &CompilationParams,
     ) -> Result<String, Errors> {
         let mut solc = Command::new(ssolc_path);
 
-        solc.arg(if runtime { "--bin-runtime" } else { "--bin" })
+        solc.arg(if params.runtime { "--bin-runtime" } else { "--bin" })
             .arg(path);
 
-        if let Some(v) = evm_version {
+        if let Some(v) = params.evm_version {
             solc.arg("--evm-version").arg(v.to_string());
         }
 
         // via‑IR is required for EOF; keep explicit flag for legacy tests
-        if via_ir || eof_mode {
+        if params.via_ir || params.eof_mode {
             solc.arg("--via-ir");
         }
 
-        if eof_mode {
+        if params.eof_mode {
             solc.arg("--experimental-eof-version").arg("1");
+        }
+
+        if params.optimize {
+            solc.arg("--optimize");
+            if let Some(runs) = params.optimizer_runs {
+                solc.arg("--optimize-runs").arg(runs.to_string());
+            }
         }
         // ─── invoke ───────────────────────────────────────────────────────────────
         let output = solc.output().map_err(|e| {
@@ -193,15 +199,12 @@ impl SemanticTests {
     fn get_contract_infos(
         path: &str,
         ssolc_path: &String,
-        evm_version: Option<EVMVersion>,
-        via_ir: bool,
-        eof_mode: bool,
-        runtime: bool,
+        params: &CompilationParams,
     ) -> Result<Vec<ContractInfo>, Errors> {
         let stdout_output =
-            Self::compile_solidity(path, ssolc_path, evm_version, via_ir, eof_mode, runtime)?;
+            Self::compile_solidity(path, ssolc_path, params)?;
 
-        let revm_version = evm_version.unwrap_or(EVMVersion::Mercury);
+        let revm_version = params.evm_version.unwrap_or(EVMVersion::Mercury);
 
         let mut contract_infos = Vec::new();
 

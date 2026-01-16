@@ -20,6 +20,8 @@ use semantic_tests::SemanticTests;
 mod compiler_evm_versions;
 mod evm_handler;
 mod parser;
+mod solc_config;
+use solc_config::SolcConfig;
 mod test_cases;
 mod utils;
 use utils::find_test_files;
@@ -61,6 +63,9 @@ pub struct Cmd {
     /// Also, these don't work.
     #[clap(short, long)]
     eof: bool,
+
+    #[clap(flatten)]
+    solc_config: SolcConfig,
 }
 
 impl Cmd {
@@ -211,7 +216,7 @@ impl Cmd {
             None => return Err(Errors::InvalidTestFormat.into()),
         };
 
-        let failures = match SemanticTests::new(test_file_path, &self.ssolc_path, !self.eof) {
+        let failures = match SemanticTests::new(test_file_path, &self.ssolc_path, !self.eof, &self.solc_config) {
             Ok(semantic_tests) => {
                 let evm_version = semantic_tests.contract_infos[0].evm_version;
                 let evm_config = EvmConfig::new(evm_version);
