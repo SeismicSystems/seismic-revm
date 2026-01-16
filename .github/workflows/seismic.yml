@@ -63,6 +63,31 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
+  clippy-strict:
+    name: clippy-strict (seismic)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "clippy-cache"
+      - name: Clippy (strict - seismic crate)
+        run: |
+          cargo clippy \
+            -p seismic-revm \
+            --lib --tests --no-deps \
+            -- -D warnings \
+            -W clippy::unwrap_used \
+            -W clippy::expect_used \
+            -W clippy::indexing_slicing \
+            -W clippy::panic \
+            -W clippy::unreachable \
+            -W clippy::todo
+
   semantic-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30

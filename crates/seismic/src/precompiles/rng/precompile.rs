@@ -147,6 +147,8 @@ pub(crate) fn calculate_fill_cost(fill_len: usize) -> u64 {
     calc_linear_cost_u32(fill_len, 0, STROBE128WORD)
 }
 
+// SAFETY: Indexing is validated by the length check above
+#[allow(clippy::indexing_slicing)]
 pub(crate) fn parse_input(input: &Bytes) -> Result<(u32, Bytes), PrecompileError> {
     if input.len() < 4 {
         return Err(PrecompileError::Other(
@@ -179,6 +181,14 @@ pub(crate) fn validate_input_length(
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic,
+        clippy::useless_conversion
+    )]
+
     use crate::transaction::abstraction::SeismicTransaction;
     use crate::{DefaultSeismicContext, SeismicContext};
     use std::vec;

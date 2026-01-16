@@ -198,7 +198,7 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
     gas!(context.interpreter, flat_gas);
 
     if context.host.cstore(target, index, value, false).is_err() {
-        return context.interpreter.halt_fatal();
+        context.interpreter.halt_fatal()
     }
 }
 
@@ -225,6 +225,13 @@ pub fn seismic_sstore_instruction<WIRE: InterpreterTypes, H: SeismicHost + ?Size
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic
+    )]
+
     use crate::instructions::seismic_host::SeismicDummyHost;
 
     use super::*;

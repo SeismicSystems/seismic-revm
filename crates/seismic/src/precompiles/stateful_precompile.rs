@@ -13,16 +13,22 @@ pub struct StatefulPrecompiles<CTX> {
     addresses: HashSet<Address>,
 }
 
-impl<CTX> StatefulPrecompiles<CTX> {
-    pub fn new() -> Self {
+impl<CTX> Default for StatefulPrecompiles<CTX> {
+    fn default() -> Self {
         Self {
             inner: HashMap::new(),
             addresses: HashSet::new(),
         }
     }
+}
+
+impl<CTX> StatefulPrecompiles<CTX> {
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn insert(&mut self, address: Address, precompile: StatefulPrecompileFn<CTX>) {
-        self.addresses.insert(address.clone());
+        self.addresses.insert(address);
         self.inner.insert(address, precompile);
     }
 

@@ -45,6 +45,9 @@ Precompile Logic
 ///
 /// **Gas Model**:
 /// Refer to the encryption file for further discussion.
+// SAFETY: All indexing is validated by validate_input_length (MIN_INPUT_LENGTH=60)
+// and validate_nonce_length before use
+#[allow(clippy::indexing_slicing, clippy::expect_used)]
 pub fn precompile_decrypt(input: &[u8], gas_limit: u64) -> PrecompileResult {
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
 
@@ -65,6 +68,13 @@ pub fn precompile_decrypt(input: &[u8], gas_limit: u64) -> PrecompileResult {
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic
+    )]
+
     use super::*;
     use revm::precompile::PrecompileError;
     use revm::primitives::{hex, Bytes};

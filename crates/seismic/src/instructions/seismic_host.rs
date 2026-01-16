@@ -41,12 +41,18 @@ pub struct SeismicDummyHost {
     dummy_host: DummyHost,
 }
 
-impl SeismicDummyHost {
-    pub fn new() -> Self {
+impl Default for SeismicDummyHost {
+    fn default() -> Self {
         Self {
             ctx_result: Ok(()),
             dummy_host: DummyHost,
         }
+    }
+}
+
+impl SeismicDummyHost {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

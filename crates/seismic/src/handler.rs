@@ -125,6 +125,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic
+    )]
+
     use super::*;
     use crate::{api::default_ctx::SeismicContext, DefaultSeismicContext, SeismicBuilder};
     use revm::{

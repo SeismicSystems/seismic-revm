@@ -37,15 +37,22 @@ Precompile Logic and Gas Calculation
 pub fn secp256k1_sign_ecdsa_recoverable(input: &[u8], gas_limit: u64) -> PrecompileResult {
     let gas_used = BASE_GAS;
     if gas_used > gas_limit {
-        return Err(PrecompileError::OutOfGas.into());
+        return Err(PrecompileError::OutOfGas);
     }
 
     // input validation
     if input.len() != 64 {
-        return Err(PrecompileError::Other("Invalid input length".to_string()).into());
+        return Err(PrecompileError::Other("Invalid input length".to_string()));
     }
-    let key_bytes: [u8; 32] = input[0..32].try_into().unwrap();
-    let digest_bytes: [u8; 32] = input[32..64].try_into().unwrap();
+    // SAFETY: Length validated above - input is exactly 64 bytes
+    #[allow(clippy::expect_used, clippy::indexing_slicing)]
+    let key_bytes: [u8; 32] = input[0..32]
+        .try_into()
+        .expect("input length already validated as 64 bytes");
+    #[allow(clippy::expect_used, clippy::indexing_slicing)]
+    let digest_bytes: [u8; 32] = input[32..64]
+        .try_into()
+        .expect("input length already validated as 64 bytes");
     let secret_key = secp256k1::SecretKey::from_byte_array(key_bytes)
         .map_err(|e| PrecompileError::Other(format!("Invalid secret key: {e}")))?;
     let message = secp256k1::Message::from_digest(digest_bytes);
@@ -64,6 +71,14 @@ pub fn secp256k1_sign_ecdsa_recoverable(input: &[u8], gas_limit: u64) -> Precomp
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic,
+        clippy::unnecessary_fallible_conversions
+    )]
+
     use super::*;
     use revm::precompile::secp256k1::ecrecover;
     use revm::primitives::{alloy_primitives::B512, keccak256, Bytes, B256};

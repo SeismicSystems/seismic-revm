@@ -37,6 +37,7 @@ where
     HOST: SeismicHost,
 {
     /// Create a new SeismicInstructions with standard EVM opcodes plus our ISA
+    #[allow(clippy::indexing_slicing)] // Opcode constants are valid indices into 256-element table
     pub fn new_mainnet() -> Self {
         let mut table = instruction_table::<WIRE, HOST>();
 
@@ -59,6 +60,7 @@ where
     }
 
     /// Method to insert or override a single instruction
+    #[allow(clippy::indexing_slicing)] // u8 opcode is always valid index into 256-element table
     pub fn insert_instruction(&mut self, opcode: u8, instruction: Instruction<WIRE, HOST>) {
         self.instruction_table[opcode as usize] = instruction;
     }
@@ -80,6 +82,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::panic
+    )]
+
     use super::*;
     use crate::instructions::seismic_host::SeismicDummyHost;
     use revm::interpreter::{
