@@ -126,5 +126,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "semantic-test-cache"
-      - name: Run semantic tests
+      - name: Run semantic tests (no optimizer)
         run: RUST_BACKTRACE=1 cargo run -p revme -- semantics --keep-going -s /usr/local/bin/ssolc -t "$SEISMIC_SOLIDITY_PATH/test/libsolidity/semanticTests"
+      - name: Run semantic tests (with 200 optimizer runs)
+        run: RUST_BACKTRACE=1 cargo run -p revme -- semantics --keep-going -s /usr/local/bin/ssolc -t "$SEISMIC_SOLIDITY_PATH/test/libsolidity/semanticTests" --optimize --optimizer-runs 200
