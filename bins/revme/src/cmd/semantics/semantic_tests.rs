@@ -7,6 +7,7 @@ use revm::primitives::{hex, Address, Bytes};
 
 use super::{
     compiler_evm_versions::EVMVersion,
+    solc_config::SolcArgs,
     test_cases::TestCase,
     utils::{extract_compile_via_yul, extract_functions_from_source, needs_eof},
     Errors,
@@ -108,7 +109,12 @@ pub struct SemanticTests {
 }
 
 impl SemanticTests {
-    pub fn new(test_path: &str, ssolc_path: &String, skip_eof: bool) -> Result<Self, Errors> {
+    pub fn new(
+        test_path: &str,
+        ssolc_path: &String,
+        skip_eof: bool,
+        solc_args: &SolcArgs,
+    ) -> Result<Self, Errors> {
         let content = fs::read_to_string(test_path)?;
         let parts: Vec<&str> = content.split("// ----").collect();
         if parts.len() != 2 {
@@ -134,8 +140,15 @@ impl SemanticTests {
             return Err(Errors::UnhandledTestFormat);
         }
 
-        let mut contract_infos =
-            Self::get_contract_infos(test_path, ssolc_path, evm_version, via_ir, eof_mode, false)?;
+        let mut contract_infos = Self::get_contract_infos(
+            test_path,
+            ssolc_path,
+            evm_version,
+            via_ir,
+            eof_mode,
+            false,
+            solc_args,
+        )?;
 
         let test_cases = TestCase::from_expectations(expectations, &mut contract_infos[..])?;
         Ok(SemanticTests {
@@ -151,6 +164,7 @@ impl SemanticTests {
         via_ir: bool,
         eof_mode: bool,
         runtime: bool,
+        solc_args: &SolcArgs,
     ) -> Result<String, Errors> {
         let mut solc = Command::new(ssolc_path);
 
@@ -168,6 +182,13 @@ impl SemanticTests {
 
         if eof_mode {
             solc.arg("--experimental-eof-version").arg("1");
+        }
+
+        if solc_args.optimize {
+            solc.arg("--optimize");
+            if let Some(runs) = solc_args.optimizer_runs {
+                solc.arg("--optimize-runs").arg(runs.to_string());
+            }
         }
         // ─── invoke ───────────────────────────────────────────────────────────────
         let output = solc.output().map_err(|e| {
@@ -197,9 +218,17 @@ impl SemanticTests {
         via_ir: bool,
         eof_mode: bool,
         runtime: bool,
+        solc_args: &SolcArgs,
     ) -> Result<Vec<ContractInfo>, Errors> {
-        let stdout_output =
-            Self::compile_solidity(path, ssolc_path, evm_version, via_ir, eof_mode, runtime)?;
+        let stdout_output = Self::compile_solidity(
+            path,
+            ssolc_path,
+            evm_version,
+            via_ir,
+            eof_mode,
+            runtime,
+            solc_args,
+        )?;
 
         let revm_version = evm_version.unwrap_or(EVMVersion::Mercury);
 
