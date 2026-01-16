@@ -216,7 +216,12 @@ impl Cmd {
             None => return Err(Errors::InvalidTestFormat.into()),
         };
 
-        let failures = match SemanticTests::new(test_file_path, &self.ssolc_path, !self.eof, &self.solc_args) {
+        let failures = match SemanticTests::new(
+            test_file_path,
+            &self.ssolc_path,
+            !self.eof,
+            &self.solc_args,
+        ) {
             Ok(semantic_tests) => {
                 let evm_version = semantic_tests.contract_infos[0].evm_version;
                 let evm_config = EvmConfig::new(evm_version);
