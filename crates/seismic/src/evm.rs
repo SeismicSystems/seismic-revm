@@ -212,12 +212,36 @@ mod tests {
 
     // === Fixture data ===
 
-    fn get_meta_data() -> (Bytes, Bytes) {
-        // bytecode for a contract whose function f() does `cload(0)` after `sstore(0,1)`
+    /// Returns bytecode for a contract that does `sstore(0, 1)` then `cstore(0, 2)`.
+    /// This tests CSTORE's InvalidPublicStorageAccess: cannot overwrite non-zero public slot.
+    fn get_cstore_violation_bytecode() -> (Bytes, Bytes) {
+        // Contract that does: sstore(0, 1) then cstore(0, 2)
+        // The sstore makes slot 0 public with value 1
+        // The cstore should fail because slot 0 is (1, public) - non-zero public
         let bytecode = Bytes::from_str(
             "6080604052348015600e575f5ffd5b5060d880601a5f395ff3fe6080604052348015600e\
              575f5ffd5b50600436106026575f3560e01c806326121ff014602a575b5f5ffd5b60306\
-             044565b604051603b91906066565b60405180910390f35b5f60015f555fb0905090565b\
+             044565b604051603b91906066565b60405180910390f35b5f60015f5560025fb1905090565b\
+             5f819050919050565b6060816050565b82525050565b5f60208201905060775f830184\
+             6059565b9291505056fea26469706673582212203976fb983ef7119eeabfd96d1698e9\
+             bca8ad8a92c6f39e22bc2c6b412755a16864736f6c637827302e382e32382d63692e32\
+             3032342e31312e342b636f6d6d69742e64396333323834372e6d6f640058",
+        )
+        .unwrap();
+        let selector = Bytes::from_str("26121ff0").unwrap();
+        (bytecode, selector)
+    }
+
+    /// Returns bytecode for a contract that does `cstore(0, 1)` then `sstore(0, 2)`.
+    /// This tests SSTORE's InvalidPrivateStorageAccess: cannot write to private slot.
+    fn get_sstore_violation_bytecode() -> (Bytes, Bytes) {
+        // Contract that does: cstore(0, 1) then sstore(0, 2)
+        // The cstore makes slot 0 private with value 1
+        // The sstore should fail because slot 0 is private
+        let bytecode = Bytes::from_str(
+            "6080604052348015600e575f5ffd5b5060d880601a5f395ff3fe6080604052348015600e\
+             575f5ffd5b50600436106026575f3560e01c806326121ff014602a575b5f5ffd5b60306\
+             044565b604051603b91906066565b60405180910390f35b60015fb160025f55905090565b\
              5f819050919050565b6060816050565b82525050565b5f60208201905060775f830184\
              6059565b9291505056fea26469706673582212203976fb983ef7119eeabfd96d1698e9\
              bca8ad8a92c6f39e22bc2c6b412755a16864736f6c637827302e382e32382d63692e32\
@@ -230,8 +254,9 @@ mod tests {
 
     // === Test helpers ===
 
-    fn deploy_contract() -> anyhow::Result<(SeismicContext<InMemoryDB>, Address)> {
-        let (bytecode, _) = get_meta_data();
+    fn deploy_contract_with_bytecode(
+        bytecode: Bytes,
+    ) -> anyhow::Result<(SeismicContext<InMemoryDB>, Address)> {
         let ctx = Context::seismic()
             .modify_tx_chained(|tx| {
                 tx.base.kind = TxKind::Create;
@@ -273,21 +298,20 @@ mod tests {
         ctx
     }
 
-    fn assert_cload_error(
+    fn assert_storage_access_error(
         result: &ResultAndState<SeismicHaltReason>,
+        expected_reason: SeismicHaltReason,
         starting_balance: u64,
         gas_limit: u64,
         gas_price: u64,
     ) {
         assert!(
             matches!(
-                result.result,
-                ExecutionResult::Halt {
-                    reason: SeismicHaltReason::InvalidPublicStorageAccess,
-                    ..
-                }
+                &result.result,
+                ExecutionResult::Halt { reason, .. } if *reason == expected_reason
             ),
-            "Received result: {:?}",
+            "Expected {:?}, received result: {:?}",
+            expected_reason,
             result.result
         );
 
@@ -302,15 +326,17 @@ mod tests {
         assert_eq!(final_nonce, 1, "Caller nonce incremented by 1");
     }
 
+    /// Tests that CSTORE halts with InvalidPublicStorageAccess when trying to
+    /// overwrite a non-zero public slot (x, public) where x != 0.
     #[test]
-    fn cload_access_violation_bubbles_up_and_charges_gas() -> anyhow::Result<()> {
-        let (ctx, contract) = deploy_contract()?;
+    fn cstore_on_nonzero_public_slot_halts() -> anyhow::Result<()> {
+        let (bytecode, selector) = get_cstore_violation_bytecode();
+        let (ctx, contract) = deploy_contract_with_bytecode(bytecode)?;
 
         let balance = 1_000_000;
-        let gas_limit = 59_000;
+        let gas_limit = 100_000;
         let gas_price = 10;
 
-        let (_, selector) = get_meta_data();
         let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
         let mut evm = call_ctx.build_seismic_evm();
@@ -319,7 +345,42 @@ mod tests {
 
         let result = evm.replay()?;
 
-        assert_cload_error(&result, balance, gas_limit, gas_price);
+        assert_storage_access_error(
+            &result,
+            SeismicHaltReason::InvalidPublicStorageAccess,
+            balance,
+            gas_limit,
+            gas_price,
+        );
+        Ok(())
+    }
+
+    /// Tests that SSTORE halts with InvalidPrivateStorageAccess when trying to
+    /// write to a private slot.
+    #[test]
+    fn sstore_on_private_slot_halts() -> anyhow::Result<()> {
+        let (bytecode, selector) = get_sstore_violation_bytecode();
+        let (ctx, contract) = deploy_contract_with_bytecode(bytecode)?;
+
+        let balance = 1_000_000;
+        let gas_limit = 100_000;
+        let gas_price = 10;
+
+        let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
+
+        let mut evm = call_ctx.build_seismic_evm();
+        let account = evm.ctx().journal_mut().load_account(BENCH_CALLER).unwrap();
+        account.data.info.balance = U256::from(balance);
+
+        let result = evm.replay()?;
+
+        assert_storage_access_error(
+            &result,
+            SeismicHaltReason::InvalidPrivateStorageAccess,
+            balance,
+            gas_limit,
+            gas_price,
+        );
         Ok(())
     }
 
