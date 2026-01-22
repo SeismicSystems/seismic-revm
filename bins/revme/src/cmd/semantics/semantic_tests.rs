@@ -201,10 +201,8 @@ impl SemanticTests {
         })?;
 
         if !output.status.success() {
-            error!(
-                "Compilation failed for file: {:?}, output: {:?}",
-                path, output
-            );
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            error!("Compilation failed for file: {:?}\n{}", path, stderr);
             return Err(Errors::CompilationFailed);
         }
 

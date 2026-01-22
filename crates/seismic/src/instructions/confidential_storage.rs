@@ -8,14 +8,15 @@ use revm::{
             WARM_STORAGE_READ_COST,
         },
         interpreter_types::{InputsTr, InterpreterTypes, RuntimeFlag, StackTr},
-        popn, popn_top, require_non_staticcall, Host, Instruction, InstructionContext,
-        InstructionResult, _count, gas,
+        popn, popn_top, require_non_staticcall, Instruction, InstructionContext, InstructionResult,
+        _count, gas,
     },
 };
 
 /// Implements the SLOAD instruction.
 ///
 /// Loads a word from storage.
+/// SLOAD can only read from public slots. Attempting to read from a private slot will halt.
 pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
@@ -74,7 +75,10 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
 
 /// Implements the CLOAD instruction.
 ///
-/// Loads a word from shielded storage with flat gas cost to prevent information leakage.
+/// Loads a word from storage with flat gas cost to prevent information leakage.
+/// Note that CLOAD is strictly more powerful than SLOAD, as it can access both private and public storage.
+/// SLOAD should however be preferred when accessing public storage, since CLOAD charges constant gas regardless
+/// of access patterns to avoid leaking information about secret values through gas observations.
 pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
@@ -90,22 +94,16 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     let Some(storage) = context.host.sload(target, *index) else {
         return context.interpreter.halt_fatal();
     };
-
-    if !storage.is_private && !storage.data.is_zero() {
-        context.interpreter.halt_fatal();
-        context
-            .host
-            .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
-        return;
-    }
-
     *index = storage.data;
 }
 
 /// Implements the SSTORE instruction.
 ///
 /// Stores a word to public storage.
-pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+/// SSTORE can only write to public slots. Attempting to write to a private slot will halt.
+pub fn sstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
+    context: InstructionContext<'_, H, WIRE>,
+) {
     require_non_staticcall!(context.interpreter);
     popn!([index, value], context.interpreter);
 
@@ -149,6 +147,15 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
         load
     };
 
+    // Privacy check: SSTORE cannot write to private slots
+    if state_load.data.present_value.is_private {
+        context.interpreter.halt_fatal();
+        context
+            .host
+            .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+        return;
+    }
+
     // dynamic gas
     gas!(
         context.interpreter,
@@ -171,7 +178,17 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
 /// Stores a word to shielded storage with flat gas cost to prevent information leakage.
 /// Unlike SSTORE, CSTORE charges constant gas regardless of value transitions to avoid
 /// leaking information about secret values through gas observations.
-pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+///
+/// CSTORE can write to:
+/// - (0, public) -> (y, private): switching from uninitialized/zero public to private
+/// - (0, private) -> (y, private): writing to zero private slot
+/// - (x, private) -> (y, private): writing to non-zero private slot
+///
+/// CSTORE will HALT on:
+/// - (x, public) where x != 0: cannot overwrite non-zero public slot
+pub fn cstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
+    context: InstructionContext<'_, H, WIRE>,
+) {
     check!(context.interpreter, MERCURY);
     require_non_staticcall!(context.interpreter);
     popn!([index, value], context.interpreter);
@@ -197,8 +214,20 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
         + COLD_SLOAD_COST_ADDITIONAL;
     gas!(context.interpreter, flat_gas);
 
-    if context.host.cstore(target, index, value, false).is_err() {
-        context.interpreter.halt_fatal()
+    let result = context.host.cstore(target, index, value, false);
+    match result {
+        Ok(state_load) => {
+            // Privacy check: CSTORE cannot overwrite non-zero public slots
+            if !state_load.data.present_value.is_private
+                && !state_load.data.present_value.value.is_zero()
+            {
+                context.interpreter.halt_fatal();
+                context
+                    .host
+                    .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
+            }
+        }
+        Err(_) => context.interpreter.halt_fatal(),
     }
 }
 
@@ -366,6 +395,7 @@ mod tests {
         use revm::database::EmptyDB;
         use revm::database_interface::Database;
         use revm::interpreter::gas::COLD_SLOAD_COST_ADDITIONAL;
+        use revm::interpreter::Host;
         use revm::primitives::{Log, B256};
 
         const CSTORE_FLAT_GAS: u64 =
@@ -689,6 +719,540 @@ mod tests {
                 0,
                 "CSTORE must never issue refunds (would leak zero-clearing)"
             );
+        }
+    }
+
+    /// Tests for storage opcode semantics as defined in the table (one test per matrix entry):
+    ///
+    /// |           | (0, public)  | (x, public) | (0, private) | (x, private) |
+    /// | --------- | ------------ | ----------- | ------------ | ------------ |
+    /// | SLOAD     | 0            | x           | HALT         | HALT         |
+    /// | CLOAD     | 0            | x           | 0            | x            |
+    /// | SSTORE(y) | (y, public)  | (y, public) | HALT         | HALT         |
+    /// | CSTORE(y) | (y, private) | HALT        | (y, private) | (y, private) |
+    mod semantics_tests {
+        use super::*;
+        use crate::SeismicHaltReason;
+        use revm::context::host::LoadError;
+        use revm::context_interface::journaled_state::{AccountInfoLoad, AccountLoad, StateLoad};
+        use revm::database::EmptyDB;
+        use revm::database_interface::Database;
+        use revm::interpreter::Host;
+        use revm::primitives::{Log, B256};
+
+        /// A configurable mock host for testing storage semantics.
+        struct MockStorageHost {
+            storage_state: FlaggedStorage,
+            halt_reason: Option<SeismicHaltReason>,
+        }
+
+        impl MockStorageHost {
+            fn new(value: U256, is_private: bool) -> Self {
+                Self {
+                    storage_state: FlaggedStorage::new(value, is_private),
+                    halt_reason: None,
+                }
+            }
+
+            fn zero_public() -> Self {
+                Self::new(U256::ZERO, false)
+            }
+
+            fn nonzero_public(value: u64) -> Self {
+                Self::new(U256::from(value), false)
+            }
+
+            fn zero_private() -> Self {
+                Self::new(U256::ZERO, true)
+            }
+
+            fn nonzero_private(value: u64) -> Self {
+                Self::new(U256::from(value), true)
+            }
+        }
+
+        impl crate::instructions::seismic_host::SeismicHost for MockStorageHost {
+            type Db = EmptyDB;
+
+            #[allow(static_mut_refs)]
+            fn ctx_error(
+                &mut self,
+            ) -> &mut Result<
+                (),
+                revm::context_interface::context::ContextError<<Self::Db as Database>::Error>,
+            > {
+                static mut ERR: Result<
+                    (),
+                    revm::context_interface::context::ContextError<std::convert::Infallible>,
+                > = Ok(());
+                unsafe { &mut ERR }
+            }
+
+            fn set_halt_reason(&mut self, reason: SeismicHaltReason) {
+                self.halt_reason = Some(reason);
+            }
+        }
+
+        impl Host for MockStorageHost {
+            fn basefee(&self) -> U256 {
+                U256::ZERO
+            }
+            fn blob_gasprice(&self) -> U256 {
+                U256::ZERO
+            }
+            fn gas_limit(&self) -> U256 {
+                U256::MAX
+            }
+            fn difficulty(&self) -> U256 {
+                U256::ZERO
+            }
+            fn prevrandao(&self) -> Option<U256> {
+                None
+            }
+            fn block_number(&self) -> U256 {
+                U256::ZERO
+            }
+            fn timestamp(&self) -> U256 {
+                U256::ZERO
+            }
+            fn beneficiary(&self) -> Address {
+                Address::ZERO
+            }
+            fn chain_id(&self) -> U256 {
+                U256::from(1)
+            }
+            fn effective_gas_price(&self) -> U256 {
+                U256::ZERO
+            }
+            fn caller(&self) -> Address {
+                Address::ZERO
+            }
+            fn blob_hash(&self, _: usize) -> Option<U256> {
+                None
+            }
+            fn max_initcode_size(&self) -> usize {
+                0
+            }
+            fn block_hash(&mut self, _: u64) -> Option<B256> {
+                None
+            }
+            fn selfdestruct(
+                &mut self,
+                _: Address,
+                _: Address,
+            ) -> Option<StateLoad<revm::interpreter::SelfDestructResult>> {
+                None
+            }
+            fn log(&mut self, _: Log) {}
+            fn tstore(&mut self, _: Address, _: U256, _: U256) {}
+            fn tload(&mut self, _: Address, _: U256) -> U256 {
+                U256::ZERO
+            }
+
+            fn sload(&mut self, _: Address, _: U256) -> Option<StateLoad<U256>> {
+                Some(StateLoad::new(
+                    self.storage_state.value,
+                    false,
+                    self.storage_state.is_private,
+                ))
+            }
+
+            fn sload_skip_cold_load(
+                &mut self,
+                _: Address,
+                _: U256,
+                _: bool,
+            ) -> Result<StateLoad<U256>, LoadError> {
+                Ok(StateLoad::new(
+                    self.storage_state.value,
+                    false,
+                    self.storage_state.is_private,
+                ))
+            }
+
+            fn sstore(
+                &mut self,
+                _: Address,
+                _: U256,
+                new_value: U256,
+            ) -> Option<StateLoad<SStoreResult>> {
+                Some(StateLoad::new(
+                    SStoreResult {
+                        original_value: self.storage_state,
+                        present_value: self.storage_state,
+                        new_value: FlaggedStorage::new(new_value, false),
+                    },
+                    false,
+                    false,
+                ))
+            }
+
+            fn sstore_skip_cold_load(
+                &mut self,
+                _: Address,
+                _: U256,
+                new_value: U256,
+                _: bool,
+            ) -> Result<StateLoad<SStoreResult>, LoadError> {
+                Ok(StateLoad::new(
+                    SStoreResult {
+                        original_value: self.storage_state,
+                        present_value: self.storage_state,
+                        new_value: FlaggedStorage::new(new_value, false),
+                    },
+                    false,
+                    false,
+                ))
+            }
+
+            fn cstore(
+                &mut self,
+                _: Address,
+                _: U256,
+                new_value: U256,
+                _: bool,
+            ) -> Result<StateLoad<SStoreResult>, LoadError> {
+                Ok(StateLoad::new(
+                    SStoreResult {
+                        original_value: self.storage_state,
+                        present_value: self.storage_state,
+                        new_value: FlaggedStorage::new(new_value, true),
+                    },
+                    false,
+                    true,
+                ))
+            }
+
+            fn cload(
+                &mut self,
+                _: Address,
+                _: U256,
+                _: bool,
+            ) -> Result<StateLoad<U256>, LoadError> {
+                Ok(StateLoad::new(
+                    self.storage_state.value,
+                    false,
+                    self.storage_state.is_private,
+                ))
+            }
+
+            fn balance(&mut self, _: Address) -> Option<StateLoad<U256>> {
+                None
+            }
+            fn load_account_delegated(&mut self, _: Address) -> Option<StateLoad<AccountLoad>> {
+                None
+            }
+            fn load_account_code(&mut self, _: Address) -> Option<StateLoad<Bytes>> {
+                None
+            }
+            fn load_account_code_hash(&mut self, _: Address) -> Option<StateLoad<B256>> {
+                None
+            }
+            fn load_account_info_skip_cold_load(
+                &mut self,
+                _: Address,
+                _: bool,
+                _: bool,
+            ) -> Result<AccountInfoLoad<'_>, LoadError> {
+                Err(LoadError::DBError)
+            }
+        }
+
+        // SLOAD tests
+
+        #[test]
+        fn test_sload_zero_public_returns_zero() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::zero_public();
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            sload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+            assert_eq!(interp.stack.pop().unwrap(), U256::ZERO);
+        }
+
+        #[test]
+        fn test_sload_nonzero_public_returns_value() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::nonzero_public(42);
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            sload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+            assert_eq!(interp.stack.pop().unwrap(), U256::from(42));
+        }
+
+        #[test]
+        fn test_sload_zero_private_halts() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::zero_private();
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            sload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::FatalExternalError)
+            );
+            assert_eq!(
+                host.halt_reason,
+                Some(SeismicHaltReason::InvalidPrivateStorageAccess)
+            );
+        }
+
+        #[test]
+        fn test_sload_nonzero_private_halts() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::nonzero_private(42);
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            sload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::FatalExternalError)
+            );
+            assert_eq!(
+                host.halt_reason,
+                Some(SeismicHaltReason::InvalidPrivateStorageAccess)
+            );
+        }
+
+        // CLOAD tests
+
+        #[test]
+        fn test_cload_zero_public_returns_zero() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::zero_public();
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            cload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+            assert_eq!(interp.stack.pop().unwrap(), U256::ZERO);
+        }
+
+        #[test]
+        fn test_cload_nonzero_public_returns_value() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::nonzero_public(42);
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            cload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+            assert_eq!(interp.stack.pop().unwrap(), U256::from(42));
+        }
+
+        #[test]
+        fn test_cload_zero_private_returns_zero() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::zero_private();
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            cload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+            assert_eq!(interp.stack.pop().unwrap(), U256::ZERO);
+        }
+
+        #[test]
+        fn test_cload_nonzero_private_returns_value() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::nonzero_private(42);
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            cload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+            assert_eq!(interp.stack.pop().unwrap(), U256::from(42));
+        }
+
+        // SSTORE tests
+
+        #[test]
+        fn test_sstore_zero_public_succeeds() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::zero_public();
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+            let _ = interp.stack.push(U256::from(42));
+
+            sstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+        }
+
+        #[test]
+        fn test_sstore_nonzero_public_succeeds() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::nonzero_public(100);
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+            let _ = interp.stack.push(U256::from(42));
+
+            sstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+        }
+
+        #[test]
+        fn test_sstore_zero_private_halts() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::zero_private();
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+            let _ = interp.stack.push(U256::from(42));
+
+            sstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::FatalExternalError)
+            );
+            assert_eq!(
+                host.halt_reason,
+                Some(SeismicHaltReason::InvalidPrivateStorageAccess)
+            );
+        }
+
+        #[test]
+        fn test_sstore_nonzero_private_halts() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::nonzero_private(100);
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+            let _ = interp.stack.push(U256::from(42));
+
+            sstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::FatalExternalError)
+            );
+            assert_eq!(
+                host.halt_reason,
+                Some(SeismicHaltReason::InvalidPrivateStorageAccess)
+            );
+        }
+
+        // CSTORE tests
+
+        #[test]
+        fn test_cstore_zero_public_succeeds() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::zero_public();
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+            let _ = interp.stack.push(U256::from(42));
+
+            cstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+        }
+
+        #[test]
+        fn test_cstore_nonzero_public_halts() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::nonzero_public(100);
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+            let _ = interp.stack.push(U256::from(42));
+
+            cstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::FatalExternalError)
+            );
+            assert_eq!(
+                host.halt_reason,
+                Some(SeismicHaltReason::InvalidPublicStorageAccess)
+            );
+        }
+
+        #[test]
+        fn test_cstore_zero_private_succeeds() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::zero_private();
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+            let _ = interp.stack.push(U256::from(42));
+
+            cstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+        }
+
+        #[test]
+        fn test_cstore_nonzero_private_succeeds() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::nonzero_private(100);
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+            let _ = interp.stack.push(U256::from(42));
+
+            cstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
         }
     }
 }

@@ -34,15 +34,30 @@ Mercury introduces **Flagged Storage**, where each storage slot is now represent
 `(value, is_private)`
 
 To support private storage, Mercury provides new instructions:
-- **CLOAD:** Loads data from a slot marked as private.
-- **CSTORE:** Stores data into a slot, tagging it as private.
+| opcode | name   | gas    | stack input | stack output | description            |
+| ------ | ------ | ------ | ----------- | ------------ | ---------------------- |
+| 0xB0   | CLOAD  | 2_200  | key         | value        | load word from storage |
+| 0xB1   | CSTORE | 22_100 | key/value   |              | save word to storage   |
 
 **Access Rules:**
-- **Loading:** The operation must match the slot’s privacy flag. Attempting to load a slot using an instruction that doesn’t match its privacy (e.g., using SLOAD on a private slot or CLOAD on a public slot) is disallowed. The only caveat is that CLOAD can load public slot with value 0.
-- **Storing:** Writing to a slot is allowed regardless of its current privacy flag, enabling seamless transitions between public and private states.
+The semantics of these instructions, as well as of SLOAD/SSTORE with respect to confidential storage, are as follows:
+
+|           | (0, public)  | (x, public) | (0, private) | (x, private) |
+| --------- | ------------ | ----------- | ------------ | ------------ |
+| SLOAD     | 0            | x           | HALT         | HALT         |
+| CLOAD     | 0            | x           | 0            | x            |
+| SSTORE(y) | (y, public)  | (y, public) | HALT         | HALT         |
+| CSTORE(y) | (y, private) | HALT        | (y, private) | (y, private) |
+
+The reasoning behind these choices is that:
+- Disallowing SLOAD to read private slots is the main way privacy is enforced
+- Preventing SSTORE and CSTORE from writing to non-matching confidentiality slots is a guardrail to protect both developers writing evmasm by hand, as well as seismic-solidity compiler bugs
+- Given that public and private slots share a same address space (and trie), CSTORE'ing into an uninitialized slot has to be allowed, as that is the only way to switch a slot from public->private
+    - As a side-effect, that does mean that a public slot can be turned into a private slot by first SSTORE'ing 0, and then CSTORE'ing (y, private)
+    - However, once a slot has been turned private, there is no way to flip it back to public
 
 **Gas Costs:**  
-Confidential storage operations (both load and store) incur the same gas costs as their public counterparts.
+Confidential storage operations (both load and store) incur a flat gas cost (max that SLOAD/SSTORE could cost). This is to prevent gas cost side-channels leaking information.
 
 ---
 
