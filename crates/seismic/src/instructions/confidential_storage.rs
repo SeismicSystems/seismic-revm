@@ -8,14 +8,15 @@ use revm::{
             WARM_STORAGE_READ_COST,
         },
         interpreter_types::{InputsTr, InterpreterTypes, RuntimeFlag, StackTr},
-        popn, popn_top, require_non_staticcall, Host, Instruction, InstructionContext,
-        InstructionResult, _count, gas,
+        popn, popn_top, require_non_staticcall, Instruction, InstructionContext, InstructionResult,
+        _count, gas,
     },
 };
 
 /// Implements the SLOAD instruction.
 ///
 /// Loads a word from storage.
+/// SLOAD can only read from public slots. Attempting to read from a private slot will halt.
 pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
@@ -99,7 +100,10 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
 /// Implements the SSTORE instruction.
 ///
 /// Stores a word to public storage.
-pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+/// SSTORE can only write to public slots. Attempting to write to a private slot will halt.
+pub fn sstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
+    context: InstructionContext<'_, H, WIRE>,
+) {
     require_non_staticcall!(context.interpreter);
     popn!([index, value], context.interpreter);
 
@@ -143,6 +147,15 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
         load
     };
 
+    // Privacy check: SSTORE cannot write to private slots
+    if state_load.data.present_value.is_private {
+        context.interpreter.halt_fatal();
+        context
+            .host
+            .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+        return;
+    }
+
     // dynamic gas
     gas!(
         context.interpreter,
@@ -165,7 +178,17 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
 /// Stores a word to shielded storage with flat gas cost to prevent information leakage.
 /// Unlike SSTORE, CSTORE charges constant gas regardless of value transitions to avoid
 /// leaking information about secret values through gas observations.
-pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionContext<'_, H, WIRE>) {
+///
+/// CSTORE can write to:
+/// - (0, public) -> (y, private): switching from uninitialized/zero public to private
+/// - (0, private) -> (y, private): writing to zero private slot
+/// - (x, private) -> (y, private): writing to non-zero private slot
+///
+/// CSTORE will HALT on:
+/// - (x, public) where x != 0: cannot overwrite non-zero public slot
+pub fn cstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
+    context: InstructionContext<'_, H, WIRE>,
+) {
     check!(context.interpreter, MERCURY);
     require_non_staticcall!(context.interpreter);
     popn!([index, value], context.interpreter);
@@ -191,8 +214,20 @@ pub fn cstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
         + COLD_SLOAD_COST_ADDITIONAL;
     gas!(context.interpreter, flat_gas);
 
-    if context.host.cstore(target, index, value, false).is_err() {
-        context.interpreter.halt_fatal()
+    let result = context.host.cstore(target, index, value, false);
+    match result {
+        Ok(state_load) => {
+            // Privacy check: CSTORE cannot overwrite non-zero public slots
+            if !state_load.data.present_value.is_private
+                && !state_load.data.present_value.value.is_zero()
+            {
+                context.interpreter.halt_fatal();
+                context
+                    .host
+                    .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
+            }
+        }
+        Err(_) => context.interpreter.halt_fatal(),
     }
 }
 
@@ -360,6 +395,7 @@ mod tests {
         use revm::database::EmptyDB;
         use revm::database_interface::Database;
         use revm::interpreter::gas::COLD_SLOAD_COST_ADDITIONAL;
+        use revm::interpreter::Host;
         use revm::primitives::{Log, B256};
 
         const CSTORE_FLAT_GAS: u64 =
