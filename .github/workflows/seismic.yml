@@ -96,7 +96,9 @@ jobs:
       - name: Clone seismic-solidity repo
         run: |
           TEMP_DIR=$(mktemp -d)
-          git clone https://github.com/SeismicSystems/seismic-solidity.git "$TEMP_DIR/seismic-solidity"
+          # Temporarily checking out the test--new-storage-opcode-semantics branch that fixes storage opcode semantic tests.
+          # TODO(samlaf): switch back to seismic (default) branch after we merge https://github.com/SeismicSystems/seismic-solidity/pull/130
+          git clone -b test--new-storage-opcode-semantics https://github.com/SeismicSystems/seismic-solidity.git "$TEMP_DIR/seismic-solidity"
           echo "SEISMIC_SOLIDITY_PATH=$TEMP_DIR/seismic-solidity" >> $GITHUB_ENV
           echo "seismic-solidity cloned to: $TEMP_DIR/seismic-solidity"
       - name: Install latest ssolc release
