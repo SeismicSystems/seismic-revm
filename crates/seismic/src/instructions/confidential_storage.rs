@@ -74,7 +74,10 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
 
 /// Implements the CLOAD instruction.
 ///
-/// Loads a word from shielded storage with flat gas cost to prevent information leakage.
+/// Loads a word from storage with flat gas cost to prevent information leakage.
+/// Note that CLOAD is strictly more powerful than SLOAD, as it can access both private and public storage.
+/// SLOAD should however be preferred when accessing public storage, since CLOAD charges constant gas regardless
+/// of access patterns to avoid leaking information about secret values through gas observations.
 pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
@@ -90,15 +93,6 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     let Some(storage) = context.host.sload(target, *index) else {
         return context.interpreter.halt_fatal();
     };
-
-    if !storage.is_private && !storage.data.is_zero() {
-        context.interpreter.halt_fatal();
-        context
-            .host
-            .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
-        return;
-    }
-
     *index = storage.data;
 }
 
