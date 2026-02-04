@@ -6,7 +6,7 @@
 //! or removal of the storage slot. Check [`JournalEntryTr`] for more details.
 use primitives::alloy_primitives::FlaggedStorage;
 
-use primitives::{Address, StorageKey, StorageValue, KECCAK_EMPTY, PRECOMPILE3, U256};
+use primitives::{Address, StorageKey, TransientStorageValue, KECCAK_EMPTY, PRECOMPILE3, U256};
 use state::{EvmState, TransientStorage};
 
 /// Trait for tracking and reverting state changes in the EVM.
@@ -55,7 +55,7 @@ pub trait JournalEntryTr {
     fn transient_storage_changed(
         address: Address,
         key: StorageKey,
-        had_value: StorageValue,
+        had_value: TransientStorageValue,
     ) -> Self;
 
     /// Creates a journal entry for when an account's code is modified
@@ -203,7 +203,7 @@ pub enum JournalEntry {
         /// Key of transient storage slot that is changed.
         key: StorageKey,
         /// Previous value of transient storage slot.
-        had_value: StorageValue,
+        had_value: TransientStorageValue,
         /// Address of account that had its transient storage changed.
         address: Address,
     },
@@ -224,7 +224,7 @@ impl JournalEntryTr for JournalEntry {
         address: Address,
         target: Address,
         destroyed_status: SelfdestructionRevertStatus,
-        had_balance: StorageValue,
+        had_balance: U256,
     ) -> Self {
         JournalEntry::AccountDestroyed {
             address,
@@ -275,7 +275,7 @@ impl JournalEntryTr for JournalEntry {
     fn transient_storage_changed(
         address: Address,
         key: StorageKey,
-        had_value: StorageValue,
+        had_value: TransientStorageValue,
     ) -> Self {
         JournalEntry::TransientStorageChange {
             address,

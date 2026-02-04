@@ -1,8 +1,9 @@
 use super::entry::JournalEntry;
 use super::inner::JournalInner;
+use context_interface::context::{SStoreResult, StateLoad};
 use database::InMemoryDB;
 use database_interface::Database;
-use primitives::{hardfork::SpecId, Address, FlaggedStorage, U256};
+use primitives::{hardfork::SpecId, Address, FlaggedStorage, StorageValue, U256};
 use state::{Account, AccountInfo, AccountStatus, EvmStorage};
 
 // =============================================================================
@@ -46,18 +47,20 @@ fn verify_storage_state(
 ) {
     let result = journal.sload(db, address, key, false).unwrap();
     assert_eq!(
-        result.data, expected_value,
+        result.data.value, expected_value,
         "{}: Storage value mismatch. Expected {}, got {}",
-        context, expected_value, result.data
+        context, expected_value, result.data.value
     );
     assert_eq!(
-        result.is_private, expected_private,
+        result.data.is_private, expected_private,
         "{}: Privacy flag mismatch. Expected {}, got {}",
-        context, expected_private, result.is_private
+        context, expected_private, result.data.is_private
     );
 }
 
 // Helper function to store data using appropriate operation based on shielded parameter
+// When shielded=true, stores as private (like CSTORE opcode)
+// When shielded=false, stores as public (like SSTORE opcode)
 fn store_value(
     shielded: bool,
     journal: &mut JournalInner<JournalEntry>,
@@ -65,27 +68,23 @@ fn store_value(
     address: Address,
     key: U256,
     value: U256,
-) -> context_interface::context::StateLoad<context_interface::context::SStoreResult> {
-    if shielded {
-        journal.cstore(db, address, key, value, false).unwrap()
-    } else {
-        journal.sstore(db, address, key, value, false).unwrap()
-    }
+) -> StateLoad<SStoreResult> {
+    let storage_value = StorageValue::new(value, shielded);
+    journal.sstore(db, address, key, storage_value, false).unwrap()
 }
 
-// Helper function to load data using appropriate operation based on shielded parameter
+// Helper function to load data from storage
+// The shielded parameter is kept for API compatibility but sload is used for all cases
+// (at the journal level, there's no difference - the privacy flag is in the returned StorageValue)
+#[allow(unused_variables)]
 fn load_value(
     shielded: bool,
     journal: &mut JournalInner<JournalEntry>,
     db: &mut InMemoryDB,
     address: Address,
     key: U256,
-) -> context_interface::context::StateLoad<U256> {
-    if shielded {
-        journal.cload(db, address, key, false).unwrap()
-    } else {
-        journal.sload(db, address, key, false).unwrap()
-    }
+) -> StateLoad<StorageValue> {
+    journal.sload(db, address, key, false).unwrap()
 }
 
 // Helper function to verify account status
@@ -164,7 +163,7 @@ fn _test_storage_simple_revert(shielded: bool) {
         U256::from(42),
     );
     assert_eq!(
-        store_result.is_private, shielded,
+        store_result.data.new_value.is_private, shielded,
         "{} operation must mark storage as {}",
         operation_name, storage_type
     );
@@ -174,21 +173,16 @@ fn _test_storage_simple_revert(shielded: bool) {
         "{} must store correct value",
         operation_name
     );
-    assert_eq!(
-        store_result.data.new_value.is_private, shielded,
-        "{} must mark new value as {}",
-        operation_name, storage_type
-    );
 
     // Verify storage was stored with correct value using consistent load operation
     let before_revert = load_value(shielded, &mut journal, &mut db, address, storage_key);
     assert_eq!(
-        before_revert.data,
+        before_revert.data.value,
         U256::from(42),
         "Storage must contain the stored value before revert"
     );
     assert_eq!(
-        before_revert.is_private, shielded,
+        before_revert.data.is_private, shielded,
         "Storage must be marked {} before revert",
         storage_type
     );
@@ -210,7 +204,7 @@ fn _test_storage_simple_revert(shielded: bool) {
     // Verify state after revert - should be back to original (zero/empty)
     let after_revert = load_value(shielded, &mut journal, &mut db, address, storage_key);
     assert_eq!(
-        after_revert.data,
+        after_revert.data.value,
         U256::ZERO,
         "Storage value must be zero after reverting {} storage write",
         storage_type
@@ -218,12 +212,12 @@ fn _test_storage_simple_revert(shielded: bool) {
 
     if shielded {
         assert!(
-            !after_revert.is_private,
+            !after_revert.data.is_private,
             "BUGGY: Storage must be public (not private) after revert to empty state"
         );
     } else {
         assert!(
-            !after_revert.is_private,
+            !after_revert.data.is_private,
             "Storage must remain public after revert to empty state"
         );
     }
@@ -284,7 +278,7 @@ fn _test_account_creation_storage_revert(shielded: bool) {
         U256::from(99),
     );
     assert_eq!(
-        store_result.is_private, shielded,
+        store_result.data.new_value.is_private, shielded,
         "{} in new account must mark storage as {}",
         operation_name, storage_type
     );
@@ -298,12 +292,12 @@ fn _test_account_creation_storage_revert(shielded: bool) {
         storage_key,
     );
     assert_eq!(
-        read_result.data,
+        read_result.data.value,
         U256::from(99),
         "Storage must contain the stored value"
     );
     assert_eq!(
-        read_result.is_private, shielded,
+        read_result.data.is_private, shielded,
         "Storage must be marked {} after {}",
         storage_type, operation_name
     );
@@ -329,12 +323,12 @@ fn _test_account_creation_storage_revert(shielded: bool) {
             storage_key,
         );
         assert_eq!(
-            read_after_revert.data,
+            read_after_revert.data.value,
             U256::ZERO,
             "Storage must be zero after account creation revert"
         );
         assert!(
-            !read_after_revert.is_private,
+            !read_after_revert.data.is_private,
             "Storage must be public after account creation revert"
         );
     }
@@ -391,7 +385,7 @@ fn _test_nested_checkpoint_storage_reverts(shielded: bool) {
         U256::from(10),
     );
     assert_eq!(
-        initial_store.is_private, shielded,
+        initial_store.data.new_value.is_private, shielded,
         "Level 0 {} must mark storage as {}",
         operation_name, storage_type
     );
@@ -422,7 +416,7 @@ fn _test_nested_checkpoint_storage_reverts(shielded: bool) {
         U256::from(20),
     ); // Modify existing
     assert_eq!(
-        modify_store.is_private, shielded,
+        modify_store.data.new_value.is_private, shielded,
         "Level 1 key1 {} must maintain {} flag",
         operation_name, storage_type
     );
@@ -442,7 +436,7 @@ fn _test_nested_checkpoint_storage_reverts(shielded: bool) {
         U256::from(30),
     ); // New key
     assert_eq!(
-        new_store.is_private, shielded,
+        new_store.data.new_value.is_private, shielded,
         "Level 1 key2 {} must mark storage as {}",
         operation_name, storage_type
     );
@@ -483,7 +477,7 @@ fn _test_nested_checkpoint_storage_reverts(shielded: bool) {
         U256::from(40),
     ); // Modify again
     assert_eq!(
-        modify_again.is_private, shielded,
+        modify_again.data.new_value.is_private, shielded,
         "Level 2 {} must maintain {} flag",
         operation_name, storage_type
     );
@@ -570,19 +564,19 @@ fn _test_nested_checkpoint_storage_reverts(shielded: bool) {
     // Check key2 after complete revert - behavior differs between private and public
     let key2_after_revert = load_value(shielded, &mut journal, &mut db, address, key2);
     assert_eq!(
-        key2_after_revert.data,
+        key2_after_revert.data.value,
         U256::ZERO,
         "key2 must revert to zero after level 1 revert"
     );
 
     if shielded {
         assert!(
-            !key2_after_revert.is_private,
+            !key2_after_revert.data.is_private,
             "BUGGY: key2 must be public (empty) after level 1 revert for private storage"
         );
     } else {
         assert!(
-            !key2_after_revert.is_private,
+            !key2_after_revert.data.is_private,
             "key2 must be public (empty) after level 1 revert for public storage"
         );
     }
@@ -697,7 +691,7 @@ fn test_mixed_storage_revert() {
         U256::from(100),
     );
     assert!(
-        !initial_public_store.is_private,
+        !initial_public_store.data.new_value.is_private,
         "SSTORE operation must mark storage as public"
     );
     assert_eq!(
@@ -731,7 +725,7 @@ fn test_mixed_storage_revert() {
         U256::from(200),
     );
     assert!(
-        private_store.is_private,
+        private_store.data.new_value.is_private,
         "CSTORE operation must mark storage as private"
     );
     assert_eq!(
@@ -750,7 +744,7 @@ fn test_mixed_storage_revert() {
         U256::from(300),
     );
     assert!(
-        !public_modify.is_private,
+        !public_modify.data.new_value.is_private,
         "SSTORE operation must keep storage public"
     );
     assert_eq!(
@@ -769,21 +763,21 @@ fn test_mixed_storage_revert() {
     let private_read = load_value(true, &mut journal, &mut db, address, private_key);
     let public_read = load_value(false, &mut journal, &mut db, address, public_key);
     assert_eq!(
-        private_read.data,
+        private_read.data.value,
         U256::from(200),
         "Private storage must contain correct value before revert"
     );
     assert!(
-        private_read.is_private,
+        private_read.data.is_private,
         "Private storage must be marked private before revert"
     );
     assert_eq!(
-        public_read.data,
+        public_read.data.value,
         U256::from(300),
         "Public storage must contain correct value before revert"
     );
     assert!(
-        !public_read.is_private,
+        !public_read.data.is_private,
         "Public storage must be marked public before revert"
     );
 
@@ -802,21 +796,21 @@ fn test_mixed_storage_revert() {
     let public_after = load_value(false, &mut journal, &mut db, address, public_key);
 
     assert_eq!(
-        private_after.data,
+        private_after.data.value,
         U256::ZERO,
         "Private storage value must be zero after revert"
     );
     assert!(
-        !private_after.is_private,
+        !private_after.data.is_private,
         "BUGGY: Reverted private storage must be public (empty)"
     );
     assert_eq!(
-        public_after.data,
+        public_after.data.value,
         U256::from(100),
         "Public storage value must be reverted to original"
     );
     assert!(
-        !public_after.is_private,
+        !public_after.data.is_private,
         "Public storage must remain public after revert"
     );
 

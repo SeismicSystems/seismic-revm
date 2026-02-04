@@ -133,35 +133,16 @@ impl Host for SeismicDummyHost {
         self.dummy_host.log(_log)
     }
 
-    fn cstore(
-        &mut self,
-        address: Address,
-        key: U256,
-        value: U256,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, LoadError> {
-        self.dummy_host.cstore(address, key, value, skip_cold_load)
-    }
-
-    fn cload(
-        &mut self,
-        address: Address,
-        key: U256,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<U256>, LoadError> {
-        self.dummy_host.cload(address, key, skip_cold_load)
-    }
-
     fn sstore(
         &mut self,
         address: Address,
         key: U256,
-        value: U256,
+        value: StorageValue,
     ) -> Option<StateLoad<SStoreResult>> {
         self.dummy_host.sstore(address, key, value)
     }
 
-    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<U256>> {
+    fn sload(&mut self, address: Address, key: U256) -> Option<StateLoad<StorageValue>> {
         self.dummy_host.sload(address, key)
     }
 

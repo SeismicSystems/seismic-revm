@@ -43,7 +43,11 @@ pub type StorageKey = U256;
 
 /// Type alias for EVM storage values (256-bit unsigned integers).
 /// Used to store data values in smart contract storage slots.
-pub type StorageValue = U256;
+pub type StorageValue = FlaggedStorage;
+
+/// Type alias for EIP-1153 transient storage values (256-bit unsigned integers).
+/// Used for temporary storage that does not persist between transactions.
+pub type TransientStorageValue = U256;
 
 /// Optimize short address access.
 pub const SHORT_ADDRESS_CAP: usize = 300;

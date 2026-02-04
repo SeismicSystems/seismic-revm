@@ -7,29 +7,15 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies))]
 
 use revm::{
-    context::{
-        journaled_state::{AccountInfoLoad, JournalLoadError},
-        result::InvalidTransaction,
-        BlockEnv, Cfg, CfgEnv, ContextTr, Evm, LocalContext, TxEnv,
-    },
-    context_interface::{
-        journaled_state::{AccountLoad, JournalCheckpoint, TransferError},
-        result::EVMError,
-        Block, JournalTr, Transaction,
-    },
-    database::InMemoryDB,
-    handler::{
-        instructions::{EthInstructions, InstructionProvider},
-        EthPrecompiles, PrecompileProvider,
-    },
-    inspector::{inspectors::TracerEip3155, JournalExt},
-    interpreter::{
-        interpreter::EthInterpreter, CallInputs, CallOutcome, InterpreterResult, SStoreResult,
-        SelfDestructResult, StateLoad,
-    },
-    primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, StorageValue, B256, U256},
-    state::{Account, Bytecode, EvmState},
-    Context, Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
+    Context, Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry, context::{
+        BlockEnv, Cfg, CfgEnv, ContextTr, Evm, LocalContext, TxEnv, journaled_state::{AccountInfoLoad, JournalLoadError}, result::InvalidTransaction
+    }, context_interface::{
+        Block, JournalTr, Transaction, journaled_state::{AccountLoad, JournalCheckpoint, TransferError}, result::EVMError
+    }, database::InMemoryDB, handler::{
+        EthPrecompiles, PrecompileProvider, instructions::{EthInstructions, InstructionProvider}
+    }, inspector::{JournalExt, inspectors::TracerEip3155}, interpreter::{
+        CallInputs, CallOutcome, InterpreterResult, SStoreResult, SelfDestructResult, StateLoad, interpreter::EthInterpreter
+    }, primitives::{Address, B256, HashSet, Log, StorageKey, StorageValue, TransientStorageValue, U256, hardfork::SpecId}, state::{Account, Bytecode, EvmState}
 };
 use std::{convert::Infallible, fmt::Debug};
 
@@ -110,11 +96,11 @@ impl JournalTr for Backend {
         self.journaled_state.sstore(address, key, value)
     }
 
-    fn tload(&mut self, address: Address, key: StorageKey) -> StorageValue {
+    fn tload(&mut self, address: Address, key: StorageKey) -> TransientStorageValue {
         self.journaled_state.tload(address, key)
     }
 
-    fn tstore(&mut self, address: Address, key: StorageKey, value: StorageValue) {
+    fn tstore(&mut self, address: Address, key: StorageKey, value: TransientStorageValue) {
         self.journaled_state.tstore(address, key, value)
     }
 
