@@ -134,11 +134,15 @@ impl SemanticTests {
 
         let evm_version = EVMVersion::extract(&content);
         let compile_via_yul = extract_compile_via_yul(&content);
+        // If the test explicitly opts out of via-IR and we're forcing --via-ir, skip it.
+        if compile_via_yul == Some(false) && solc_args.via_ir {
+            return Err(Errors::UnhandledTestFormat);
+        }
         // If the test requires via-IR but --skip-via-ir is set, skip it.
         if compile_via_yul == Some(true) && solc_args.skip_via_ir {
             return Err(Errors::UnhandledTestFormat);
         }
-        let via_ir = compile_via_yul.unwrap_or(false);
+        let via_ir = compile_via_yul.unwrap_or(false) || solc_args.via_ir;
         let eof_mode = needs_eof(&content);
 
         if eof_mode & skip_eof {
