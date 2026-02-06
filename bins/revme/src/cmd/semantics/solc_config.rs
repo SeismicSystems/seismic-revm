@@ -10,4 +10,10 @@ pub struct SolcArgs {
     /// Set the runs parameter for optimizer (requires --optimize)
     #[clap(long)]
     pub optimizer_runs: Option<usize>,
+
+    /// Skip tests that require via-IR compilation (compileViaYul: true).
+    ///
+    /// Use this when the solc binary does not support --via-ir.
+    #[clap(long)]
+    pub skip_via_ir: bool,
 }
