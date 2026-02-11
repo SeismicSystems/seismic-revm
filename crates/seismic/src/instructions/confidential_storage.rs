@@ -261,6 +261,7 @@ mod tests {
         clippy::panic
     )]
 
+    use crate::SeismicSpecId;
     use crate::instructions::seismic_host::SeismicDummyHost;
 
     use super::*;
@@ -294,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_cload_before_mercury() {
-        // SpecId < PRAGUE => Mercury check should fail => NotActivated
+        // SpecId < PRAGUE == Mercury => check should fail => NotActivated
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x60, 0x00, 0x60, 0x00, 0x01][..]));
         let mut host = SeismicDummyHost::new();
         let mut interpreter = build_interpreter(SpecId::LONDON, bytecode);
@@ -313,11 +314,11 @@ mod tests {
 
     #[test]
     fn test_cstore_mercury_or_later() {
-        // SpecId >= PRAGUE => Mercury is "enabled", so it shouldn't fail at the macro check
+        // SpecId >= PRAGUE == Mercury is "enabled", so it shouldn't fail at the macro check
         let mut host = SeismicDummyHost::new();
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
-        let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);
+        let mut interpreter = build_interpreter(SeismicSpecId::MERCURY.into_eth_spec(), bytecode);
         let context = InstructionContext {
             interpreter: &mut interpreter,
             host: &mut host,
