@@ -91,7 +91,6 @@ impl Precompiles {
     /// Returns the precompiles for the given spec.
     pub fn new(spec: PrecompileSpecId) -> &'static Self {
         match spec {
-            PrecompileSpecId::MERCURY => Self::mercury(),
             PrecompileSpecId::HOMESTEAD => Self::homestead(),
             PrecompileSpecId::BYZANTIUM => Self::byzantium(),
             PrecompileSpecId::ISTANBUL => Self::istanbul(),
@@ -100,13 +99,6 @@ impl Precompiles {
             PrecompileSpecId::PRAGUE => Self::prague(),
             PrecompileSpecId::OSAKA => Self::osaka(),
         }
-    }
-
-    /// Returns precompiles for Mercury spec.
-    /// NOTE: uncertain about this, but Christian thinks our precompiles
-    ///       are not registered here; they're nailed in deeper into the EVM
-    pub fn mercury() -> &'static Self {
-        Self::latest()
     }
 
     /// Returns precompiles for Homestead spec.
@@ -410,8 +402,6 @@ pub enum PrecompileSpecId {
     /// * `BLS12_MAP_FP_TO_G1` at address 0x10
     /// * `BLS12_MAP_FP2_TO_G2` at address 0x11
     PRAGUE,
-    /// Seismic's fork of the EVM.
-    MERCURY,
     /// Osaka spec added changes to modexp precompile:
     /// * [`EIP-7823: Set upper bounds for MODEXP`](https://eips.ethereum.org/EIPS/eip-7823).
     /// * [`EIP-7883: ModExp Gas Cost Increase`](https://eips.ethereum.org/EIPS/eip-7883)
@@ -429,7 +419,6 @@ impl PrecompileSpecId {
     pub const fn from_spec_id(spec_id: primitives::hardfork::SpecId) -> Self {
         use primitives::hardfork::SpecId::*;
         match spec_id {
-            MERCURY => Self::MERCURY,
             FRONTIER | FRONTIER_THAWING | HOMESTEAD | DAO_FORK | TANGERINE | SPURIOUS_DRAGON => {
                 Self::HOMESTEAD
             }

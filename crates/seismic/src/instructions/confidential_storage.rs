@@ -261,6 +261,7 @@ mod tests {
         clippy::panic
     )]
 
+    use crate::SeismicSpecId;
     use crate::instructions::seismic_host::SeismicDummyHost;
 
     use super::*;
@@ -294,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_cload_before_mercury() {
-        // SpecId < PRAGUE => Mercury check should fail => NotActivated
+        // SpecId < PRAGUE == Mercury => check should fail => NotActivated
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x60, 0x00, 0x60, 0x00, 0x01][..]));
         let mut host = SeismicDummyHost::new();
         let mut interpreter = build_interpreter(SpecId::LONDON, bytecode);
@@ -313,11 +314,11 @@ mod tests {
 
     #[test]
     fn test_cstore_mercury_or_later() {
-        // SpecId >= PRAGUE => Mercury is "enabled", so it shouldn't fail at the macro check
+        // SpecId >= PRAGUE == Mercury is "enabled", so it shouldn't fail at the macro check
         let mut host = SeismicDummyHost::new();
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
-        let mut interpreter = build_interpreter(SpecId::MERCURY, bytecode);
+        let mut interpreter = build_interpreter(SeismicSpecId::MERCURY.into_eth_spec(), bytecode);
         let context = InstructionContext {
             interpreter: &mut interpreter,
             host: &mut host,
@@ -365,7 +366,7 @@ mod tests {
         let mut host = SeismicDummyHost::new();
 
         let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
-        let mut interpreter = build_interpreter(SpecId::MERCURY, bytecode);
+        let mut interpreter = build_interpreter(SpecId::PRAGUE, bytecode);
         let context = InstructionContext {
             interpreter: &mut interpreter,
             host: &mut host,
@@ -588,7 +589,7 @@ mod tests {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
 
             let mut host1 = MockCstoreHost::zero_to_nonzero(true);
-            let mut interp1 = build_interpreter(SpecId::MERCURY, bytecode.clone());
+            let mut interp1 = build_interpreter(SpecId::PRAGUE, bytecode.clone());
             let _ = interp1.stack.push(U256::from(1));
             let _ = interp1.stack.push(U256::from(42));
             let gas_before_1 = interp1.gas.remaining();
@@ -599,7 +600,7 @@ mod tests {
             let gas_used_1 = gas_before_1 - interp1.gas.remaining();
 
             let mut host2 = MockCstoreHost::nonzero_to_nonzero(true);
-            let mut interp2 = build_interpreter(SpecId::MERCURY, bytecode.clone());
+            let mut interp2 = build_interpreter(SpecId::PRAGUE, bytecode.clone());
             let _ = interp2.stack.push(U256::from(1));
             let _ = interp2.stack.push(U256::from(200));
             let gas_before_2 = interp2.gas.remaining();
@@ -621,7 +622,7 @@ mod tests {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
 
             let mut host_cold = MockCstoreHost::zero_to_nonzero(true);
-            let mut interp_cold = build_interpreter(SpecId::MERCURY, bytecode.clone());
+            let mut interp_cold = build_interpreter(SpecId::PRAGUE, bytecode.clone());
             let _ = interp_cold.stack.push(U256::from(1));
             let _ = interp_cold.stack.push(U256::from(42));
             let gas_before_cold = interp_cold.gas.remaining();
@@ -632,7 +633,7 @@ mod tests {
             let gas_cold = gas_before_cold - interp_cold.gas.remaining();
 
             let mut host_warm = MockCstoreHost::zero_to_nonzero(false);
-            let mut interp_warm = build_interpreter(SpecId::MERCURY, bytecode.clone());
+            let mut interp_warm = build_interpreter(SpecId::PRAGUE, bytecode.clone());
             let _ = interp_warm.stack.push(U256::from(1));
             let _ = interp_warm.stack.push(U256::from(42));
             let gas_before_warm = interp_warm.gas.remaining();
@@ -682,7 +683,7 @@ mod tests {
             ];
 
             for (name, mut host) in scenarios {
-                let mut interp = build_interpreter(SpecId::MERCURY, bytecode.clone());
+                let mut interp = build_interpreter(SpecId::PRAGUE, bytecode.clone());
                 let _ = interp.stack.push(U256::from(1));
                 let _ = interp.stack.push(U256::from(42));
                 let gas_before = interp.gas.remaining();
@@ -705,7 +706,7 @@ mod tests {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
 
             let mut host = MockCstoreHost::nonzero_to_zero(true);
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(1));
             let _ = interp.stack.push(U256::ZERO);
 
@@ -964,7 +965,7 @@ mod tests {
         fn test_sload_zero_public_returns_zero() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_public();
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
 
             sload(InstructionContext {
@@ -980,7 +981,7 @@ mod tests {
         fn test_sload_nonzero_public_returns_value() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_public(42);
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
 
             sload(InstructionContext {
@@ -996,7 +997,7 @@ mod tests {
         fn test_sload_zero_private_halts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_private();
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
 
             sload(InstructionContext {
@@ -1018,7 +1019,7 @@ mod tests {
         fn test_sload_nonzero_private_halts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_private(42);
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
 
             sload(InstructionContext {
@@ -1042,7 +1043,7 @@ mod tests {
         fn test_cload_zero_public_returns_zero() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_public();
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
 
             cload(InstructionContext {
@@ -1058,7 +1059,7 @@ mod tests {
         fn test_cload_nonzero_public_returns_value() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_public(42);
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
 
             cload(InstructionContext {
@@ -1074,7 +1075,7 @@ mod tests {
         fn test_cload_zero_private_returns_zero() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_private();
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
 
             cload(InstructionContext {
@@ -1090,7 +1091,7 @@ mod tests {
         fn test_cload_nonzero_private_returns_value() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_private(42);
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
 
             cload(InstructionContext {
@@ -1108,7 +1109,7 @@ mod tests {
         fn test_sstore_zero_public_succeeds() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_public();
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
             let _ = interp.stack.push(U256::from(42));
 
@@ -1124,7 +1125,7 @@ mod tests {
         fn test_sstore_nonzero_public_succeeds() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_public(100);
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
             let _ = interp.stack.push(U256::from(42));
 
@@ -1140,7 +1141,7 @@ mod tests {
         fn test_sstore_zero_private_halts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_private();
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
             let _ = interp.stack.push(U256::from(42));
 
@@ -1163,7 +1164,7 @@ mod tests {
         fn test_sstore_nonzero_private_halts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_private(100);
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
             let _ = interp.stack.push(U256::from(42));
 
@@ -1188,7 +1189,7 @@ mod tests {
         fn test_cstore_zero_public_succeeds() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_public();
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
             let _ = interp.stack.push(U256::from(42));
 
@@ -1204,7 +1205,7 @@ mod tests {
         fn test_cstore_nonzero_public_halts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_public(100);
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
             let _ = interp.stack.push(U256::from(42));
 
@@ -1227,7 +1228,7 @@ mod tests {
         fn test_cstore_zero_private_succeeds() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_private();
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
             let _ = interp.stack.push(U256::from(42));
 
@@ -1243,7 +1244,7 @@ mod tests {
         fn test_cstore_nonzero_private_succeeds() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_private(100);
-            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let mut interp = build_interpreter(SpecId::PRAGUE, bytecode);
             let _ = interp.stack.push(U256::from(0));
             let _ = interp.stack.push(U256::from(42));
 
