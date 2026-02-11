@@ -14,7 +14,7 @@ impl SeismicSpecId {
     /// Converts the [`SeismicSpecId`] into a [`SpecId`].
     pub const fn into_eth_spec(self) -> SpecId {
         match self {
-            Self::MERCURY => SpecId::MERCURY,
+            Self::MERCURY => SpecId::PRAGUE,
         }
     }
 
@@ -74,7 +74,6 @@ mod tests {
                 (SpecId::SHANGHAI, true),
                 (SpecId::CANCUN, true),
                 (SpecId::PRAGUE, true),
-                (SpecId::MERCURY, true),
                 (SpecId::OSAKA, false),
                 (SpecId::AMSTERDAM, false),
             ],

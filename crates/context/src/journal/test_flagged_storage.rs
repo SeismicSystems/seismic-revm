@@ -29,7 +29,6 @@ fn setup_journal_with_account(
     status: AccountStatus,
 ) -> JournalInner<JournalEntry> {
     let mut journal = JournalInner::<JournalEntry>::new();
-    journal.spec = SpecId::MERCURY;
     journal.state.insert(address, create_test_account(status));
     journal
 }
@@ -237,7 +236,6 @@ fn _test_account_creation_storage_revert(shielded: bool) {
     let storage_key = U256::from(1);
 
     let mut journal = JournalInner::<JournalEntry>::new();
-    journal.spec = SpecId::MERCURY;
 
     let storage_type = if shielded { "private" } else { "public" };
     let operation_name = if shielded { "CSTORE" } else { "SSTORE" };
@@ -256,7 +254,7 @@ fn _test_account_creation_storage_revert(shielded: bool) {
             caller_address,
             created_address,
             U256::from(1000), // Transfer 1000 from caller to created account
-            SpecId::MERCURY,
+            SpecId::PRAGUE,
         )
         .unwrap();
 
