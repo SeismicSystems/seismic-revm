@@ -100,7 +100,8 @@ where
     let sender_balance = context
         .journal_mut()
         .sload(TOKEN, sender_balance_slot)?
-        .data;
+        .data
+        .value;
 
     if sender_balance < amount {
         return Err(ERROR::from(

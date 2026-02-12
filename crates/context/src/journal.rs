@@ -20,7 +20,10 @@ use context_interface::{
 };
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
-use primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, StorageValue, B256, U256};
+use primitives::{
+    hardfork::SpecId, Address, HashSet, Log, StorageKey, StorageValue, TransientStorageValue, B256,
+    U256,
+};
 use state::{Account, EvmState};
 use std::vec::Vec;
 
@@ -108,29 +111,6 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self.database
     }
 
-    fn cload(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        _skip_cold_load: bool,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        self.inner
-            .cload(&mut self.database, address, key, false)
-            .map_err(JournalLoadError::unwrap_db_error)
-    }
-
-    fn cstore(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        value: U256,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
-        self.inner
-            .cstore(&mut self.database, address, key, value, skip_cold_load)
-            .map_err(JournalLoadError::unwrap_db_error)
-    }
-
     fn sload(
         &mut self,
         address: Address,
@@ -145,18 +125,18 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self,
         address: Address,
         key: StorageKey,
-        value: U256,
+        value: StorageValue,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
         self.inner
             .sstore(&mut self.database, address, key, value, false)
             .map_err(JournalLoadError::unwrap_db_error)
     }
 
-    fn tload(&mut self, address: Address, key: StorageKey) -> U256 {
+    fn tload(&mut self, address: Address, key: StorageKey) -> TransientStorageValue {
         self.inner.tload(address, key)
     }
 
-    fn tstore(&mut self, address: Address, key: StorageKey, value: U256) {
+    fn tstore(&mut self, address: Address, key: StorageKey, value: TransientStorageValue) {
         self.inner.tstore(address, key, value)
     }
 

@@ -96,23 +96,6 @@ pub trait Host {
         self.sstore_skip_cold_load(address, key, value, false).ok()
     }
 
-    /// Cstore, for storing shielded state
-    fn cstore(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        value: StorageValue,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, LoadError>;
-
-    /// Cload, for loading shielded state
-    fn cload(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<U256>, LoadError>;
-
     /// Sload with optional fetch from database. Return none if the value is cold or if there is db error.
     fn sload_skip_cold_load(
         &mut self,
@@ -127,10 +110,10 @@ pub trait Host {
     }
 
     /// Tstore, calls `ContextTr::journal_mut().tstore(address, key, value)`
-    fn tstore(&mut self, address: Address, key: StorageKey, value: StorageValue);
+    fn tstore(&mut self, address: Address, key: StorageKey, value: U256);
 
     /// Tload, calls `ContextTr::journal_mut().tload(address, key)`
-    fn tload(&mut self, address: Address, key: StorageKey) -> StorageValue;
+    fn tload(&mut self, address: Address, key: StorageKey) -> U256;
 
     /// Main function to load account info.
     ///
@@ -168,7 +151,6 @@ pub trait Host {
                 is_empty: account.is_empty,
             },
             account.is_cold,
-            false,
         );
 
         // load delegate code if account is EIP-7702
@@ -287,29 +269,10 @@ impl Host for DummyHost {
 
     fn log(&mut self, _log: Log) {}
 
-    fn tstore(&mut self, _address: Address, _key: StorageKey, _value: StorageValue) {}
+    fn tstore(&mut self, _address: Address, _key: StorageKey, _value: U256) {}
 
-    fn tload(&mut self, _address: Address, _key: StorageKey) -> StorageValue {
-        StorageValue::ZERO
-    }
-
-    fn cload(
-        &mut self,
-        _address: Address,
-        _key: StorageKey,
-        _skip_cold_load: bool,
-    ) -> Result<StateLoad<U256>, LoadError> {
-        Err(LoadError::DBError)
-    }
-
-    fn cstore(
-        &mut self,
-        _address: Address,
-        _key: StorageKey,
-        _value: StorageValue,
-        _skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, LoadError> {
-        Err(LoadError::DBError)
+    fn tload(&mut self, _address: Address, _key: StorageKey) -> U256 {
+        U256::ZERO
     }
 
     fn load_account_info_skip_cold_load(

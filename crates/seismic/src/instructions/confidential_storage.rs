@@ -1,5 +1,6 @@
 use crate::{check, SeismicHaltReason, SeismicHost};
 use revm::primitives::hardfork::SpecId::*;
+use revm::primitives::StorageValue;
 use revm::{
     context::host::LoadError,
     interpreter::{
@@ -53,7 +54,7 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
                     return;
                 }
 
-                *index = storage.data;
+                *index = storage.data.value;
             }
             Err(LoadError::ColdLoadSkipped) => context.interpreter.halt_oog(),
             Err(LoadError::DBError) => context.interpreter.halt_fatal(),
@@ -69,7 +70,7 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
                 .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
             return;
         }
-        *index = storage.data;
+        *index = storage.data.value;
     };
 }
 
@@ -94,7 +95,7 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
     let Some(storage) = context.host.sload(target, *index) else {
         return context.interpreter.halt_fatal();
     };
-    *index = storage.data;
+    *index = storage.data.value;
 }
 
 /// Implements the SSTORE instruction.
@@ -132,16 +133,22 @@ pub fn sstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
 
     let state_load = if spec_id.is_enabled_in(BERLIN) {
         let skip_cold = context.interpreter.gas.remaining() < COLD_SLOAD_COST_ADDITIONAL;
-        let res = context
-            .host
-            .sstore_skip_cold_load(target, index, value, skip_cold);
+        let res = context.host.sstore_skip_cold_load(
+            target,
+            index,
+            StorageValue::new(value, false),
+            skip_cold,
+        );
         match res {
             Ok(load) => load,
             Err(LoadError::ColdLoadSkipped) => return context.interpreter.halt_oog(),
             Err(LoadError::DBError) => return context.interpreter.halt_fatal(),
         }
     } else {
-        let Some(load) = context.host.sstore(target, index, value) else {
+        let Some(load) = context
+            .host
+            .sstore(target, index, StorageValue::new(value, false))
+        else {
             return context.interpreter.halt_fatal();
         };
         load
@@ -214,7 +221,10 @@ pub fn cstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
         + COLD_SLOAD_COST_ADDITIONAL;
     gas!(context.interpreter, flat_gas);
 
-    let result = context.host.cstore(target, index, value, false);
+    let result =
+        context
+            .host
+            .sstore_skip_cold_load(target, index, StorageValue::private(value), false);
     match result {
         Ok(state_load) => {
             // Privacy check: CSTORE cannot overwrite non-zero public slots
@@ -522,10 +532,15 @@ mod tests {
             fn tload(&mut self, _: Address, _: U256) -> U256 {
                 U256::ZERO
             }
-            fn sstore(&mut self, _: Address, _: U256, _: U256) -> Option<StateLoad<SStoreResult>> {
+            fn sstore(
+                &mut self,
+                _: Address,
+                _: U256,
+                _: StorageValue,
+            ) -> Option<StateLoad<SStoreResult>> {
                 None
             }
-            fn sload(&mut self, _: Address, _: U256) -> Option<StateLoad<U256>> {
+            fn sload(&mut self, _: Address, _: U256) -> Option<StateLoad<StorageValue>> {
                 None
             }
             fn balance(&mut self, _: Address) -> Option<StateLoad<U256>> {
@@ -552,7 +567,7 @@ mod tests {
                 &mut self,
                 _: Address,
                 _: U256,
-                _: U256,
+                _: StorageValue,
                 _: bool,
             ) -> Result<StateLoad<SStoreResult>, LoadError> {
                 Err(LoadError::DBError)
@@ -562,24 +577,7 @@ mod tests {
                 _: Address,
                 _: U256,
                 _: bool,
-            ) -> Result<StateLoad<U256>, LoadError> {
-                Err(LoadError::DBError)
-            }
-            fn cstore(
-                &mut self,
-                _: Address,
-                _: U256,
-                _: U256,
-                _: bool,
-            ) -> Result<StateLoad<SStoreResult>, LoadError> {
-                Ok(StateLoad::new(self.sstore_result.clone(), false, true))
-            }
-            fn cload(
-                &mut self,
-                _: Address,
-                _: U256,
-                _: bool,
-            ) -> Result<StateLoad<U256>, LoadError> {
+            ) -> Result<StateLoad<StorageValue>, LoadError> {
                 Err(LoadError::DBError)
             }
         }
@@ -850,12 +848,8 @@ mod tests {
                 U256::ZERO
             }
 
-            fn sload(&mut self, _: Address, _: U256) -> Option<StateLoad<U256>> {
-                Some(StateLoad::new(
-                    self.storage_state.value,
-                    false,
-                    self.storage_state.is_private,
-                ))
+            fn sload(&mut self, _: Address, _: U256) -> Option<StateLoad<StorageValue>> {
+                Some(StateLoad::new(self.storage_state, false))
             }
 
             fn sload_skip_cold_load(
@@ -863,27 +857,22 @@ mod tests {
                 _: Address,
                 _: U256,
                 _: bool,
-            ) -> Result<StateLoad<U256>, LoadError> {
-                Ok(StateLoad::new(
-                    self.storage_state.value,
-                    false,
-                    self.storage_state.is_private,
-                ))
+            ) -> Result<StateLoad<StorageValue>, LoadError> {
+                Ok(StateLoad::new(self.storage_state, false))
             }
 
             fn sstore(
                 &mut self,
                 _: Address,
                 _: U256,
-                new_value: U256,
+                new_value: StorageValue,
             ) -> Option<StateLoad<SStoreResult>> {
                 Some(StateLoad::new(
                     SStoreResult {
                         original_value: self.storage_state,
                         present_value: self.storage_state,
-                        new_value: FlaggedStorage::new(new_value, false),
+                        new_value: new_value,
                     },
-                    false,
                     false,
                 ))
             }
@@ -892,48 +881,16 @@ mod tests {
                 &mut self,
                 _: Address,
                 _: U256,
-                new_value: U256,
+                new_value: StorageValue,
                 _: bool,
             ) -> Result<StateLoad<SStoreResult>, LoadError> {
                 Ok(StateLoad::new(
                     SStoreResult {
                         original_value: self.storage_state,
                         present_value: self.storage_state,
-                        new_value: FlaggedStorage::new(new_value, false),
+                        new_value: new_value,
                     },
                     false,
-                    false,
-                ))
-            }
-
-            fn cstore(
-                &mut self,
-                _: Address,
-                _: U256,
-                new_value: U256,
-                _: bool,
-            ) -> Result<StateLoad<SStoreResult>, LoadError> {
-                Ok(StateLoad::new(
-                    SStoreResult {
-                        original_value: self.storage_state,
-                        present_value: self.storage_state,
-                        new_value: FlaggedStorage::new(new_value, true),
-                    },
-                    false,
-                    true,
-                ))
-            }
-
-            fn cload(
-                &mut self,
-                _: Address,
-                _: U256,
-                _: bool,
-            ) -> Result<StateLoad<U256>, LoadError> {
-                Ok(StateLoad::new(
-                    self.storage_state.value,
-                    false,
-                    self.storage_state.is_private,
                 ))
             }
 
