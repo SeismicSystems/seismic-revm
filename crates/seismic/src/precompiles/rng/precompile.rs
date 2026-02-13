@@ -126,6 +126,7 @@ fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -
         return Err(PrecompileError::OutOfGas); // Changed REVM_ERROR to PrecompileError
     }
 
+    let total_gas_remaining = evmctx.chain().gas_remaining_all_frames() + gas_limit;
     // Obtain kernel mode and transaction hash.
     let kernel_mode = evmctx.tx().rng_mode();
     let tx_hash = evmctx.tx().tx_hash();
@@ -133,7 +134,7 @@ fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -
     // Let the container update its state and produce the random bytes.
     let output = evmctx
         .chain_mut()
-        .process_rng(&pers, requested_output_len, kernel_mode, &tx_hash)
+        .process_rng(&pers, requested_output_len, kernel_mode, &tx_hash,total_gas_remaining)
         .map_err(|e| PrecompileError::Other(e.to_string()))?; // Changed PCError to PrecompileError
 
     Ok(PrecompileOutput::new(gas_used, output))

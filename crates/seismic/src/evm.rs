@@ -116,7 +116,7 @@ where
 
 impl<CTX, INSP, I, P> EvmTr for SeismicEvm<CTX, INSP, I, P>
 where
-    CTX: ContextTr,
+    CTX: SeismicContextTr,
     I: InstructionProvider<Context = CTX, InterpreterTypes = EthInterpreter>,
     P: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
@@ -152,6 +152,17 @@ where
         ItemOrResult<&mut Self::Frame, <Self::Frame as FrameTr>::FrameResult>,
         ContextError<<<Self::Context as ContextTr>::Db as Database>::Error>,
     > {
+        // Sum remaining gas across all active frames and stash on SeismicChain
+        // so precompiles can read the total gas available across the call stack.
+        let total_gas: u64 = self
+            .0
+            .frame_stack
+            .active_frames()
+            .iter()
+            .map(|frame| frame.interpreter.gas.remaining())
+            .sum();
+        self.0.ctx.chain_mut().set_gas_remaining_all_frames(total_gas);
+
         self.0.frame_init(frame_input)
     }
 

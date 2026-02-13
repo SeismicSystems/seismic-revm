@@ -81,7 +81,7 @@ impl RngContainer {
         kernel_mode: RngMode,
         tx_hash: &B256,
     ) -> Result<Bytes, PrecompileError> {
-        self.process_rng_with_key(pers, requested_output_len, kernel_mode, tx_hash, None)
+        self.process_rng_with_key(pers, requested_output_len, kernel_mode, tx_hash, None, 0 /*todo(dalton) temporary*/ )
     }
 
     pub fn process_rng_with_key(
@@ -91,6 +91,7 @@ impl RngContainer {
         kernel_mode: RngMode,
         tx_hash: &B256,
         live_key: Option<schnorrkel::Keypair>,
+        total_gas_remaining: u64
     ) -> Result<Bytes, PrecompileError> {
         // Use live key for Execute mode, otherwise use default container
         if let Some(key) = live_key {
@@ -98,7 +99,7 @@ impl RngContainer {
             // Note: live_key is only provided for RngMode::Execution
             let live_rng = RootRng::new(key);
             live_rng.append_tx(tx_hash);
-
+            live_rng.append_gas_left(total_gas_remaining);
             let mut leaf_rng = live_rng.fork(pers);
             let mut rng_bytes = vec![0u8; requested_output_len];
             leaf_rng.fill_bytes(&mut rng_bytes);

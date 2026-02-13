@@ -112,6 +112,15 @@ impl RootRng {
         inner.transcript.append_message(b"local-rng", &bytes);
     }
 
+    /// append bytes
+    /// 
+    /// Append bytes to the RNG transcript
+    pub fn append_gas_left(&self, gas_left: u64) {
+        let mut inner = self.inner.borrow_mut();
+
+        inner.transcript.append_message(b"gas", &gas_left.to_le_bytes())
+    }
+
     /// Append an observed transaction hash to RNG transcript.
     pub fn append_tx(&self, tx_hash: &B256) {
         let mut inner = self.inner.borrow_mut();
