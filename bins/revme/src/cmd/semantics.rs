@@ -9,12 +9,14 @@ use log::{error, info, LevelFilter};
 use rayon::prelude::*;
 use state::AccountInfo;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use clap::{ArgAction, Parser};
 
 mod errors;
 pub use errors::Errors;
+use errors::SkipReason;
 mod semantic_tests;
 use semantic_tests::SemanticTests;
 mod compiler_evm_versions;
@@ -27,6 +29,41 @@ mod utils;
 use utils::find_test_files;
 
 use crate::cmd::semantics::test_cases::TestCase;
+
+/// Thread-safe counters for tracking skipped test files by reason.
+struct SkipCounts {
+    counts: [AtomicUsize; 7],
+}
+
+impl SkipCounts {
+    fn new() -> Self {
+        Self {
+            counts: std::array::from_fn(|_| AtomicUsize::new(0)),
+        }
+    }
+
+    fn increment(&self, reason: SkipReason) {
+        self.counts[reason.index()].fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn print_summary(&self) {
+        let entries: Vec<(usize, SkipReason)> = SkipReason::ALL
+            .iter()
+            .map(|&r| (self.counts[r.index()].load(Ordering::Relaxed), r))
+            .filter(|(count, _)| *count > 0)
+            .collect();
+
+        let total: usize = entries.iter().map(|(c, _)| *c).sum();
+        if total == 0 {
+            return;
+        }
+
+        println!("Skipped {} test file(s):", total);
+        for (count, reason) in &entries {
+            println!("  {:>4} - {}", count, reason);
+        }
+    }
+}
 
 /// EVM runner command that allows running Solidity semantic tests.
 /// If a path is provided, it will process that file or recursively process all `.sol` files in that directory.
@@ -74,18 +111,19 @@ impl Cmd {
         let start_time = Instant::now();
         let test_files = self.find_test_files()?;
         let n_files = test_files.len();
+        let skip_counts = SkipCounts::new();
 
         let failures = match self.single_thread {
             true => {
                 info!("Running in single-threaded mode");
-                self.run_single_threaded(test_files)
+                self.run_single_threaded(test_files, &skip_counts)
             }
             false => {
                 info!("Running in multi-threaded mode");
                 test_files
                     .par_iter()
                     .filter_map(|test_file| {
-                        match self.process_test_file(test_file.clone()) {
+                        match self.process_test_file(test_file.clone(), &skip_counts) {
                             Err(file_failures) => Some((test_file.clone(), file_failures)),
                             Ok(_) => None, // No failures for this file
                         }
@@ -96,6 +134,9 @@ impl Cmd {
 
         let duration = start_time.elapsed();
         info!("Execution time: {:?}", duration);
+
+        skip_counts.print_summary();
+
         if failures.len() == 0 {
             println!("All tests passed across {} files ✅", n_files);
             return Ok(());
@@ -149,10 +190,11 @@ impl Cmd {
     fn run_single_threaded(
         &self,
         test_files: Vec<PathBuf>,
+        skip_counts: &SkipCounts,
     ) -> Vec<(PathBuf, Vec<(Errors, Option<TestCase>)>)> {
         let mut failures = vec![];
         for test_file in test_files {
-            if let Err(file_failures) = self.process_test_file(test_file.clone()) {
+            if let Err(file_failures) = self.process_test_file(test_file.clone(), skip_counts) {
                 failures.push((test_file, file_failures));
                 if !self.keep_going {
                     return failures;
@@ -209,7 +251,11 @@ impl Cmd {
         }
     }
 
-    fn process_test_file(&self, test_file: PathBuf) -> Result<(), Vec<(Errors, Option<TestCase>)>> {
+    fn process_test_file(
+        &self,
+        test_file: PathBuf,
+        skip_counts: &SkipCounts,
+    ) -> Result<(), Vec<(Errors, Option<TestCase>)>> {
         info!("test_file: {:?}", test_file);
         let test_file_path = match test_file.to_str() {
             Some(p) => p,
@@ -259,7 +305,8 @@ impl Cmd {
                 }
                 failures
             }
-            Err(Errors::UnhandledTestFormat) => {
+            Err(Errors::Skipped(reason)) => {
+                skip_counts.increment(reason);
                 return Ok(());
             }
             Err(e) => {
