@@ -7,17 +7,12 @@ use revm::primitives::{hex, Address, Bytes};
 
 use super::{
     compiler_evm_versions::EVMVersion,
+    errors::SkipReason,
     solc_config::SolcArgs,
     test_cases::TestCase,
     utils::{extract_compile_via_yul, extract_functions_from_source, needs_eof},
     Errors,
 };
-
-const SKIP_KEYWORD: [&str; 3] = [
-    "==== Source:",
-    "allowNonExistingFunctions: true",
-    "revertStrings: debug",
-];
 
 #[derive(Debug, Clone)]
 pub struct ContractInfo {
@@ -121,32 +116,43 @@ impl SemanticTests {
             return Err(Errors::InvalidTestFormat);
         }
 
-        // Early exit if the content contains `==== Source:` We do not handle this yet nor
-        // nonExistingFunctions nor Libraries that generate some slightly different Bytecode with
-        // the unhandled "_"
-        if SKIP_KEYWORD
-            .iter()
-            .any(|&keyword| content.contains(keyword))
-        {
-            return Err(Errors::UnhandledTestFormat);
+        // Skip unsupported test formats individually so we can track counts per reason.
+        if content.contains("==== Source:") {
+            return Err(Errors::Skipped(SkipReason::MultiSource));
+        }
+        if content.contains("allowNonExistingFunctions: true") {
+            return Err(Errors::Skipped(SkipReason::NonExistingFunctions));
+        }
+        if content.contains("revertStrings: debug") {
+            return Err(Errors::Skipped(SkipReason::DebugRevertStrings));
         }
         let expectations = parts[1].to_string();
 
         let evm_version = EVMVersion::extract(&content);
         let compile_via_yul = extract_compile_via_yul(&content);
+        // If --skip-via-ir is set, skip tests that require via-IR.
+        if compile_via_yul == Some(true) && solc_args.skip_via_ir {
+            return Err(Errors::Skipped(SkipReason::ViaIrSkipped));
+        }
+        // Auto-skip: tests needing via-IR require --unsafe-via-ir on the runner,
+        // because the compiler will reject --via-ir without --unsafe-via-ir.
+        if compile_via_yul == Some(true) && !solc_args.unsafe_via_ir {
+            return Err(Errors::Skipped(SkipReason::ViaIrUnsafeRequired));
+        }
         // If the test explicitly opts out of via-IR and we're forcing --via-ir, skip it.
         if compile_via_yul == Some(false) && solc_args.via_ir {
-            return Err(Errors::UnhandledTestFormat);
-        }
-        // If the test requires via-IR but --skip-via-ir is set, skip it.
-        if compile_via_yul == Some(true) && solc_args.skip_via_ir {
-            return Err(Errors::UnhandledTestFormat);
+            return Err(Errors::Skipped(SkipReason::ViaIrOptOut));
         }
         let via_ir = compile_via_yul.unwrap_or(false) || solc_args.via_ir;
         let eof_mode = needs_eof(&content);
 
-        if eof_mode & skip_eof {
-            return Err(Errors::UnhandledTestFormat);
+        // EOF implicitly needs --via-ir, so also needs --unsafe-via-ir.
+        if eof_mode && (skip_eof || !solc_args.unsafe_via_ir) {
+            return Err(Errors::Skipped(if skip_eof {
+                SkipReason::EofNotEnabled
+            } else {
+                SkipReason::ViaIrUnsafeRequired
+            }));
         }
 
         let mut contract_infos = Self::get_contract_infos(
@@ -184,9 +190,14 @@ impl SemanticTests {
             solc.arg("--evm-version").arg(v.to_string());
         }
 
-        // via‑IR is required for EOF; keep explicit flag for legacy tests
+        // via-IR is required for EOF; keep explicit flag for legacy tests.
+        // The seismic compiler requires --unsafe-via-ir whenever --via-ir is used.
         if via_ir || eof_mode {
+            if !solc_args.unsafe_via_ir {
+                return Err(Errors::Skipped(SkipReason::ViaIrUnsafeRequired));
+            }
             solc.arg("--via-ir");
+            solc.arg("--unsafe-via-ir");
         }
 
         if eof_mode {
