@@ -37,7 +37,7 @@ const SHA256_PER_WORD: u64 = 12;
 /// So each HMAC run costs about 2×(SHA256_BASE + SHA256_PER_WORD * (#words)).
 fn calc_hmac_sha256_cost(input_len: usize) -> u64 {
     let cost_single_sha256 = calc_linear_cost_u32(input_len, SHA256_BASE, SHA256_PER_WORD);
-    2 * cost_single_sha256
+    2u64.saturating_mul(cost_single_sha256)
 }
 
 /// For HKDF, we do:
@@ -97,7 +97,7 @@ const APPLICATION_INFO_BYTES: &[u8] = b"seismic_hkdf_105";
 ///   (rare in practice).
 pub fn hkdf_derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
     let extract_cost = calc_hmac_sha256_cost(input.len());
-    let total_cost = extract_cost + EXPAND_FIXED_COST;
+    let total_cost = extract_cost.saturating_add(EXPAND_FIXED_COST);
 
     if total_cost > gas_limit {
         return Err(PrecompileError::OutOfGas);
@@ -254,7 +254,7 @@ mod tests {
         );
     }
 
-    /// 6) **Test Reproducibility**  
+    /// 6) **Test Reproducibility**
     /// Same input => same derived key. Confirm no randomness is introduced,
     /// as HKDF is purely deterministic.
     #[test]
@@ -271,6 +271,36 @@ mod tests {
         assert_eq!(
             out1, out2,
             "HKDF must produce the same key for identical input"
+        );
+    }
+
+    /// 7) **Test HKDF gas monotonicity**
+    /// Larger inputs must always cost at least as much gas as smaller inputs.
+    #[test]
+    fn test_hkdf_gas_monotonic() {
+        let gas_limit = u64::MAX;
+        let mut prev_gas = 0u64;
+        for size in (0..=2048).step_by(32) {
+            let input = vec![0u8; size];
+            let result = hkdf_derive_symmetric_key(&Bytes::from(input), gas_limit);
+            let gas = result.unwrap().gas_used;
+            assert!(
+                gas >= prev_gas,
+                "HKDF gas must be monotonically non-decreasing: gas({size}) = {gas} < gas({}) = {prev_gas}",
+                size.saturating_sub(32)
+            );
+            prev_gas = gas;
+        }
+    }
+
+    /// 8) **Test HKDF gas saturates instead of wrapping**
+    /// With extreme coefficients, calc_hmac_sha256_cost should saturate to u64::MAX.
+    #[test]
+    fn test_hkdf_gas_no_overflow() {
+        let cost = calc_hmac_sha256_cost(usize::MAX);
+        assert!(
+            cost >= calc_hmac_sha256_cost(0),
+            "Extreme input length must not wrap below base cost"
         );
     }
 }
