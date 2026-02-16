@@ -1,137 +1,40 @@
-use core::fmt;
-use rand_core::RngCore;
+use crate::precompiles::rng::{domain_sep_rng::RootRng, precompile::calculate_gas_cost};
 use revm::{
     precompile::PrecompileError,
     primitives::{Bytes, B256},
 };
+use schnorrkel::ExpansionMode;
 
-use crate::transaction::abstraction::RngMode;
-use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
+/// Derives random bytes for the RNG precompile.
+///
+/// Each call is fully stateless: a fresh `RootRng` is constructed from the
+/// provided key, domain separation data (tx_hash, gas_left) is appended,
+/// and bytes are derived via HKDF-SHA256.
+///
+/// - **Execution mode** (`live_key = Some(key)`): uses the enclave-provided key.
+///   Deterministic for the same (key, tx_hash, gas_left, pers).
+/// - **Simulation mode** (`live_key = None`): generates a random key via `OsRng`.
+///   Non-deterministic by design (each call gets a fresh random key).
+pub fn derive_rng_output(
+    pers: &[u8],
+    requested_output_len: usize,
+    tx_hash: &B256,
+    live_key: Option<schnorrkel::Keypair>,
+    total_gas_remaining: u64,
+) -> Result<Bytes, PrecompileError> {
+    let key = live_key.unwrap_or_else(|| {
+        schnorrkel::MiniSecretKey::generate()
+            .expand(ExpansionMode::Uniform)
+            .into()
+    });
 
-use crate::precompiles::rng::{
-    domain_sep_rng::{LeafRng, RootRng},
-    precompile::{calculate_fill_cost, calculate_init_cost},
-};
-
-pub struct RngContainer {
-    rng: RootRng,
-    leaf_rng: Option<LeafRng>,
+    let mut rng = RootRng::new(key);
+    rng.append_tx(tx_hash);
+    rng.append_gas_left(total_gas_remaining);
+    let rng_bytes = rng.derive_bytes(pers, requested_output_len);
+    Ok(Bytes::from(rng_bytes))
 }
 
-impl Clone for RngContainer {
-    fn clone(&self) -> Self {
-        Self {
-            rng: self.rng.clone(),
-            leaf_rng: None,
-        }
-    }
-}
-
-impl fmt::Debug for RngContainer {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Hide internal details of the RNG container.
-        write!(f, "Kernel {{  }}")
-    }
-}
-
-impl Default for RngContainer {
-    fn default() -> Self {
-        Self {
-            rng: RootRng::new(get_unsecure_sample_schnorrkel_keypair()),
-            leaf_rng: None,
-        }
-    }
-}
-
-impl RngContainer {
-    pub fn new(root_vrf_key: schnorrkel::Keypair) -> Self {
-        Self {
-            rng: RootRng::new(root_vrf_key),
-            leaf_rng: None,
-        }
-    }
-}
-
-impl RngContainer {
-    pub fn reset_rng(&mut self) {
-        let root_vrf_key = self.rng.get_root_vrf_key();
-        self.rng = RootRng::new(root_vrf_key);
-        self.leaf_rng = None;
-    }
-
-    /// Appends entropy to the root RNG if in Simulation mode.
-    pub fn maybe_append_entropy(&mut self, mode: RngMode) {
-        if mode == RngMode::Simulation {
-            self.rng.append_local_entropy();
-        }
-    }
-
-    pub fn calculate_gas_cost(&self, pers: &[u8], requested_output_len: usize) -> u64 {
-        match self.leaf_rng.as_ref() {
-            Some(_) => calculate_fill_cost(requested_output_len),
-            None => calculate_init_cost(pers.len())
-                .saturating_add(calculate_fill_cost(requested_output_len)),
-        }
-    }
-
-    pub fn process_rng(
-        &mut self,
-        pers: &[u8],
-        requested_output_len: usize,
-        kernel_mode: RngMode,
-        tx_hash: &B256,
-    ) -> Result<Bytes, PrecompileError> {
-        self.process_rng_with_key(pers, requested_output_len, kernel_mode, tx_hash, None, 0 /*todo(dalton) temporary*/ )
-    }
-
-    pub fn process_rng_with_key(
-        &mut self,
-        pers: &[u8],
-        requested_output_len: usize,
-        kernel_mode: RngMode,
-        tx_hash: &B256,
-        live_key: Option<schnorrkel::Keypair>,
-        total_gas_remaining: u64
-    ) -> Result<Bytes, PrecompileError> {
-        // Use live key for Execute mode, otherwise use default container
-        if let Some(key) = live_key {
-            // Create a temporary RNG with the live key for this operation
-            // Note: live_key is only provided for RngMode::Execution
-            let live_rng = RootRng::new(key);
-            live_rng.append_tx(tx_hash);
-            live_rng.append_gas_left(total_gas_remaining);
-            let mut leaf_rng = live_rng.fork(pers);
-            let mut rng_bytes = vec![0u8; requested_output_len];
-            leaf_rng.fill_bytes(&mut rng_bytes);
-            Ok(Bytes::from(rng_bytes))
-        } else {
-            // Use the default container's RNG
-            self.maybe_append_entropy(kernel_mode);
-            self.rng.append_tx(tx_hash);
-
-            // Initialize the leaf RNG if not done already.
-            if self.leaf_rng.is_none() {
-                let leaf_rng = self.rng.fork(pers);
-                self.leaf_rng = Some(leaf_rng);
-            }
-
-            // Get the random bytes.
-            // SAFETY: leaf_rng is guaranteed to be Some - initialized in the if block above
-            #[allow(clippy::unwrap_used)]
-            let leaf_rng = self.leaf_rng.as_mut().unwrap();
-            let mut rng_bytes = vec![0u8; requested_output_len];
-            leaf_rng.fill_bytes(&mut rng_bytes);
-            Ok(Bytes::from(rng_bytes))
-        }
-    }
-
-    #[cfg(test)]
-    pub fn root_rng(&self) -> &RootRng {
-        &self.rng
-    }
-
-    #[cfg(test)]
-    pub fn leaf_rng(&self) -> &Option<LeafRng> {
-        &self.leaf_rng
-    }
+pub fn rng_gas_cost(requested_output_len: usize) -> u64 {
+    calculate_gas_cost(requested_output_len)
 }

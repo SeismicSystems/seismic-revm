@@ -46,13 +46,14 @@ where
 
     /// Processes the final execution output.
     ///
-    /// This method, retrieves the final state from the journal, converts internal results to the external output format.
-    /// Internal state is cleared and EVM is prepared for the next transaction.
+    /// Retrieves the final state from the journal, converts internal results
+    /// to the external output format. Internal state is cleared and EVM is
+    /// prepared for the next transaction.
     ///
-    /// Seismic Addendum
-    /// Given that we can't yet pass instruction_result which aren't in the InstructionResult enum,
-    /// We leverage context_error to bubble up our instruction set specific errors! We also clear
-    /// the rng state on returns that won't go through catch_error.
+    /// Seismic Addendum:
+    /// Given that we can't yet pass instruction_result which aren't in the
+    /// InstructionResult enum, we leverage context_error to bubble up our
+    /// instruction set specific errors.
     #[inline]
     fn execution_result(
         &mut self,
@@ -65,10 +66,8 @@ where
                 if let Some(seismic_reason) =
                     SeismicHaltReason::try_from_error_string(&e.to_string())
                 {
-                    // Same as catch error, except don't discard tx
                     evm.ctx().local_mut().clear();
                     evm.frame_stack().clear();
-                    evm.ctx().chain_mut().reset_rng();
 
                     return Ok(ExecutionResult::Halt {
                         reason: seismic_reason,
@@ -82,12 +81,9 @@ where
 
         let exec_result = post_execution::output(evm.ctx(), result);
 
-        // commit transaction
         evm.ctx().journal_mut().commit_tx();
         evm.ctx().local_mut().clear();
         evm.frame_stack().clear();
-        // ...and we also reset the RNG
-        evm.ctx().chain_mut().reset_rng();
 
         Ok(exec_result)
     }
@@ -95,7 +91,6 @@ where
     /// Handles cleanup when an error occurs during execution.
     ///
     /// Ensures the journal state is properly cleared before propagating the error.
-    /// Also ensures the rng has been reset.
     /// On happy path journal is cleared in [`Handler::output`] method.
     #[inline]
     fn catch_error(
@@ -103,12 +98,9 @@ where
         evm: &mut Self::Evm,
         error: Self::Error,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
-        // Same as in normal ETH handler...
         evm.ctx().local_mut().clear();
         evm.ctx().journal_mut().discard_tx();
         evm.frame_stack().clear();
-        // ...except we also reset the RNG
-        evm.ctx().chain_mut().reset_rng();
         Err(error)
     }
 }
