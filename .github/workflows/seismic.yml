@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - seismic
+      - veridise-audit-feb-2026
   pull_request:
     branches:
       - seismic
+      - veridise-audit-feb-2026
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
