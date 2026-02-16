@@ -1255,4 +1255,213 @@ mod tests {
             assert!(interp.bytecode.instruction_result().is_none());
         }
     }
+
+    /// Tests that privacy violations produce Revert rather than FatalExternalError.
+    ///
+    /// FatalExternalError terminates the entire transaction and cannot be caught
+    /// by a calling contract. This allows a malicious callee to grief protocols
+    /// that execute untrusted callbacks by intentionally triggering a privacy
+    /// violation, causing the entire transaction to abort (DoS).
+    ///
+    /// The correct behavior is to revert the current call frame so that the
+    /// caller can handle the failure gracefully.
+    mod privacy_violation_reverts_not_fatal {
+        use super::*;
+        use revm::context::host::LoadError;
+        use revm::context_interface::journaled_state::{AccountInfoLoad, AccountLoad, StateLoad};
+        use revm::database::EmptyDB;
+        use revm::database_interface::Database;
+        use revm::interpreter::Host;
+        use revm::primitives::{Log, B256};
+
+        /// A mock host that returns configurable storage for testing privacy violations.
+        struct PrivacyTestHost {
+            storage_state: FlaggedStorage,
+        }
+
+        impl PrivacyTestHost {
+            fn private(value: U256) -> Self {
+                Self {
+                    storage_state: FlaggedStorage::new(value, true),
+                }
+            }
+
+            fn nonzero_public(value: U256) -> Self {
+                Self {
+                    storage_state: FlaggedStorage::new(value, false),
+                }
+            }
+        }
+
+        impl crate::instructions::seismic_host::SeismicHost for PrivacyTestHost {
+            type Db = EmptyDB;
+
+            #[allow(static_mut_refs)]
+            fn ctx_error(
+                &mut self,
+            ) -> &mut Result<
+                (),
+                revm::context_interface::context::ContextError<<Self::Db as Database>::Error>,
+            > {
+                static mut ERR: Result<
+                    (),
+                    revm::context_interface::context::ContextError<std::convert::Infallible>,
+                > = Ok(());
+                unsafe { &mut ERR }
+            }
+        }
+
+        impl Host for PrivacyTestHost {
+            fn basefee(&self) -> U256 { U256::ZERO }
+            fn blob_gasprice(&self) -> U256 { U256::ZERO }
+            fn gas_limit(&self) -> U256 { U256::MAX }
+            fn difficulty(&self) -> U256 { U256::ZERO }
+            fn prevrandao(&self) -> Option<U256> { None }
+            fn block_number(&self) -> U256 { U256::ZERO }
+            fn timestamp(&self) -> U256 { U256::ZERO }
+            fn beneficiary(&self) -> Address { Address::ZERO }
+            fn chain_id(&self) -> U256 { U256::from(1) }
+            fn effective_gas_price(&self) -> U256 { U256::ZERO }
+            fn caller(&self) -> Address { Address::ZERO }
+            fn blob_hash(&self, _: usize) -> Option<U256> { None }
+            fn max_initcode_size(&self) -> usize { 0 }
+            fn block_hash(&mut self, _: u64) -> Option<B256> { None }
+            fn selfdestruct(&mut self, _: Address, _: Address) -> Option<StateLoad<revm::interpreter::SelfDestructResult>> { None }
+            fn log(&mut self, _: Log) {}
+            fn tstore(&mut self, _: Address, _: U256, _: U256) {}
+            fn tload(&mut self, _: Address, _: U256) -> U256 { U256::ZERO }
+
+            fn sload(&mut self, _: Address, _: U256) -> Option<StateLoad<U256>> {
+                Some(StateLoad::new(self.storage_state.value, false, self.storage_state.is_private))
+            }
+
+            fn sload_skip_cold_load(&mut self, _: Address, _: U256, _: bool) -> Result<StateLoad<U256>, LoadError> {
+                Ok(StateLoad::new(self.storage_state.value, false, self.storage_state.is_private))
+            }
+
+            fn sstore(&mut self, _: Address, _: U256, new_value: U256) -> Option<StateLoad<SStoreResult>> {
+                Some(StateLoad::new(
+                    SStoreResult {
+                        original_value: self.storage_state,
+                        present_value: self.storage_state,
+                        new_value: FlaggedStorage::new(new_value, false),
+                    },
+                    false,
+                    false,
+                ))
+            }
+
+            fn sstore_skip_cold_load(&mut self, _: Address, _: U256, new_value: U256, _: bool) -> Result<StateLoad<SStoreResult>, LoadError> {
+                Ok(StateLoad::new(
+                    SStoreResult {
+                        original_value: self.storage_state,
+                        present_value: self.storage_state,
+                        new_value: FlaggedStorage::new(new_value, false),
+                    },
+                    false,
+                    false,
+                ))
+            }
+
+            fn cstore(&mut self, _: Address, _: U256, new_value: U256, _: bool) -> Result<StateLoad<SStoreResult>, LoadError> {
+                Ok(StateLoad::new(
+                    SStoreResult {
+                        original_value: self.storage_state,
+                        present_value: self.storage_state,
+                        new_value: FlaggedStorage::new(new_value, true),
+                    },
+                    false,
+                    true,
+                ))
+            }
+
+            fn cload(&mut self, _: Address, _: U256, _: bool) -> Result<StateLoad<U256>, LoadError> {
+                Ok(StateLoad::new(self.storage_state.value, false, self.storage_state.is_private))
+            }
+
+            fn balance(&mut self, _: Address) -> Option<StateLoad<U256>> { None }
+            fn load_account_delegated(&mut self, _: Address) -> Option<StateLoad<AccountLoad>> { None }
+            fn load_account_code(&mut self, _: Address) -> Option<StateLoad<Bytes>> { None }
+            fn load_account_code_hash(&mut self, _: Address) -> Option<StateLoad<B256>> { None }
+            fn load_account_info_skip_cold_load(&mut self, _: Address, _: bool, _: bool) -> Result<AccountInfoLoad<'_>, LoadError> { Err(LoadError::DBError) }
+        }
+
+        #[test]
+        fn test_sload_private_slot_reverts_not_fatal() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = PrivacyTestHost::private(U256::from(42));
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            sload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::Revert),
+                "SLOAD on private slot should revert, not fatal halt"
+            );
+        }
+
+        #[test]
+        fn test_sload_private_slot_pre_berlin_reverts_not_fatal() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = PrivacyTestHost::private(U256::from(42));
+            let mut interp = build_interpreter(SpecId::ISTANBUL, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            sload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::Revert),
+                "SLOAD on private slot (pre-Berlin) should revert, not fatal halt"
+            );
+        }
+
+        #[test]
+        fn test_sstore_private_slot_reverts_not_fatal() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = PrivacyTestHost::private(U256::from(42));
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0)); // index
+            let _ = interp.stack.push(U256::from(99)); // value
+
+            sstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::Revert),
+                "SSTORE to private slot should revert, not fatal halt"
+            );
+        }
+
+        #[test]
+        fn test_cstore_nonzero_public_slot_reverts_not_fatal() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = PrivacyTestHost::nonzero_public(U256::from(100));
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0)); // index
+            let _ = interp.stack.push(U256::from(42)); // value
+
+            cstore(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::Revert),
+                "CSTORE overwriting non-zero public slot should revert, not fatal halt"
+            );
+        }
+    }
 }
