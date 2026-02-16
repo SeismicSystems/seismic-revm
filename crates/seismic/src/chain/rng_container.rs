@@ -1,4 +1,4 @@
-use crate::precompiles::rng::{domain_sep_rng::RootRng};
+use crate::precompiles::rng::domain_sep_rng::RootRng;
 use revm::{
     precompile::PrecompileError,
     primitives::{Bytes, B256},
@@ -34,4 +34,3 @@ pub fn derive_rng_output(
     let rng_bytes = rng.derive_bytes(pers, requested_output_len);
     Ok(Bytes::from(rng_bytes))
 }
-

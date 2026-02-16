@@ -415,7 +415,8 @@ mod tests {
         let InitialAndFloorGas { initial_gas, .. } =
             calculate_initial_tx_gas(spec.into(), &input[..], false, 0, 0, 0);
 
-        let total_gas = initial_gas + calculate_gas_cost(bytes_requested as usize, personalization.len());
+        let total_gas =
+            initial_gas + calculate_gas_cost(bytes_requested as usize, personalization.len());
 
         Context::seismic_with_rng_key(keypair)
             .modify_tx_chained(|tx| {

@@ -95,12 +95,15 @@ fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -
 
 /// Calculate the gas cost for an RNG precompile call.
 /// Every call pays: BASE_COST + ceil(output_len / 32) * WORD_COST
-pub(crate) fn calculate_gas_cost(pers_len: usize, output_len: usize) -> u64 { 
+pub(crate) fn calculate_gas_cost(pers_len: usize, output_len: usize) -> u64 {
     calculate_init_cost(pers_len).saturating_add(calculate_fill_cost(output_len))
 }
 
 fn calculate_init_cost(pers_len: usize) -> u64 {
-     (pers_len as u64).div_ceil(32).saturating_mul(RNG_WORD_COST).saturating_add(RNG_BASE_COST)
+    (pers_len as u64)
+        .div_ceil(32)
+        .saturating_mul(RNG_WORD_COST)
+        .saturating_add(RNG_BASE_COST)
 }
 
 fn calculate_fill_cost(fill_len: usize) -> u64 {

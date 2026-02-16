@@ -3,7 +3,7 @@ use revm::{
     primitives::{Bytes, B256},
 };
 
-use super::rng_container::{derive_rng_output};
+use super::rng_container::derive_rng_output;
 
 #[derive(Clone, Debug, Default)]
 pub struct SeismicChain {

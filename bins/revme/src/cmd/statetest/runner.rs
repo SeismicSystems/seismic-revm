@@ -16,8 +16,9 @@ use revm::{
     Context, ExecuteCommitEvm,
 };
 use seismic_revm::{
-    DefaultSeismicContext, SeismicBuilder, SeismicHaltReason, SeismicHaltReason as HaltReason,
-    SeismicSpecId as SpecId, SeismicTransaction, precompiles::rng::domain_sep_rng::SchnorrkelKeypair,
+    precompiles::rng::domain_sep_rng::SchnorrkelKeypair, DefaultSeismicContext, SeismicBuilder,
+    SeismicHaltReason, SeismicHaltReason as HaltReason, SeismicSpecId as SpecId,
+    SeismicTransaction,
 };
 use serde_json::json;
 use statetest_types::{SpecName, Test, TestSuite, TestUnit};
@@ -476,12 +477,13 @@ fn debug_failed_test(ctx: DebugContext) {
         .with_bundle_update()
         .build();
 
-    let mut evm = Context::seismic_with_rng_key(SchnorrkelKeypair::from_bytes(&[0;96]).expect("safe"))
-        .with_db(&mut state)
-        .with_block(ctx.block)
-        .with_tx(ctx.tx)
-        .with_cfg(ctx.cfg)
-        .build_seismic_evm_with_inspector(TracerEip3155::buffered(stderr()).without_summary());
+    let mut evm =
+        Context::seismic_with_rng_key(SchnorrkelKeypair::from_bytes(&[0; 96]).expect("safe"))
+            .with_db(&mut state)
+            .with_block(ctx.block)
+            .with_tx(ctx.tx)
+            .with_cfg(ctx.cfg)
+            .build_seismic_evm_with_inspector(TracerEip3155::buffered(stderr()).without_summary());
 
     let exec_result = evm.inspect_tx_commit(ctx.tx);
 
