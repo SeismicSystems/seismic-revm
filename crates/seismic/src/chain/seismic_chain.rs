@@ -3,7 +3,7 @@ use revm::{
     primitives::{Bytes, B256},
 };
 
-use super::rng_container::{derive_rng_output, rng_gas_cost};
+use super::rng_container::{derive_rng_output};
 
 #[derive(Clone, Debug, Default)]
 pub struct SeismicChain {
@@ -37,10 +37,6 @@ impl SeismicChain {
 
     pub fn set_gas_remaining_all_frames(&mut self, gas: u64) {
         self.gas_remaining_all_frames = gas;
-    }
-
-    pub fn calculate_gas_cost(&self, requested_output_len: usize) -> u64 {
-        rng_gas_cost(requested_output_len)
     }
 
     pub fn process_rng(

@@ -1,4 +1,4 @@
-use crate::precompiles::rng::{domain_sep_rng::RootRng, precompile::calculate_gas_cost};
+use crate::precompiles::rng::{domain_sep_rng::RootRng};
 use revm::{
     precompile::PrecompileError,
     primitives::{Bytes, B256},
@@ -35,6 +35,3 @@ pub fn derive_rng_output(
     Ok(Bytes::from(rng_bytes))
 }
 
-pub fn rng_gas_cost(requested_output_len: usize) -> u64 {
-    calculate_gas_cost(requested_output_len)
-}

@@ -76,7 +76,7 @@ fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -
     let requested_output_len = requested_output_len as usize;
 
     // Compute the gas cost.
-    let gas_used = evmctx.chain().calculate_gas_cost(requested_output_len);
+    let gas_used = calculate_gas_cost(requested_output_len, pers.len());
     if gas_used > gas_limit {
         return Err(PrecompileError::OutOfGas);
     }
@@ -95,9 +95,16 @@ fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -
 
 /// Calculate the gas cost for an RNG precompile call.
 /// Every call pays: BASE_COST + ceil(output_len / 32) * WORD_COST
-pub(crate) fn calculate_gas_cost(output_len: usize) -> u64 {
-    let words = (output_len as u64).div_ceil(32);
-    RNG_BASE_COST + words * RNG_WORD_COST
+pub(crate) fn calculate_gas_cost(pers_len: usize, output_len: usize) -> u64 { 
+    calculate_init_cost(pers_len) + calculate_fill_cost(output_len)
+}
+
+fn calculate_init_cost(pers_len: usize) -> u64 {
+     (pers_len as u64).div_ceil(32).saturating_mul(RNG_WORD_COST).saturating_add(RNG_BASE_COST)
+}
+
+fn calculate_fill_cost(fill_len: usize) -> u64 {
+    (fill_len as u64).div_ceil(32).saturating_mul(RNG_WORD_COST)
 }
 
 // SAFETY: Indexing is validated by the length check above
@@ -216,8 +223,8 @@ mod tests {
         let output_with_pers = result_with_pers.unwrap();
         // cost = 3500 + ceil(32/32) * 5 = 3505
         assert_eq!(
-            output_with_pers.gas_used, 3505,
-            "Should consume exactly 3505 gas"
+            output_with_pers.gas_used, 3510,
+            "Should consume exactly 3510 gas"
         );
         assert!(
             output_with_pers.bytes.len() == 32,
@@ -254,7 +261,7 @@ mod tests {
 
         let output = result.unwrap();
         // cost = 3500 + ceil(32/32) * 5 = 3505
-        assert_eq!(output.gas_used, 3505, "Should consume exactly 3505 gas");
+        assert_eq!(output.gas_used, 3510, "Should consume exactly 3510 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
 
@@ -272,8 +279,8 @@ mod tests {
 
         let output = result.unwrap();
         assert_eq!(
-            output.gas_used, 3505,
-            "Should consume exactly 3505 gas (full cost, no caching)"
+            output.gas_used, 3510,
+            "Should consume exactly 3510 gas (full cost, no caching)"
         );
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
