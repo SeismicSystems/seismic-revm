@@ -298,38 +298,20 @@ mod tests {
         ctx
     }
 
-    fn assert_storage_access_error(
+    fn assert_storage_access_reverts(
         result: &ResultAndState<SeismicHaltReason>,
-        expected_reason: SeismicHaltReason,
-        starting_balance: u64,
-        gas_limit: u64,
-        gas_price: u64,
     ) {
         assert!(
-            matches!(
-                &result.result,
-                ExecutionResult::Halt { reason, .. } if *reason == expected_reason
-            ),
-            "Expected {:?}, received result: {:?}",
-            expected_reason,
+            matches!(&result.result, ExecutionResult::Revert { .. }),
+            "Expected Revert, received result: {:?}",
             result.result
         );
-
-        let expected = U256::from(starting_balance - gas_limit * gas_price);
-        assert_eq!(
-            result.state.get(&BENCH_CALLER).unwrap().info.balance,
-            expected,
-            "Caller balance after gas"
-        );
-
-        let final_nonce = result.state.get(&BENCH_CALLER).unwrap().info.nonce;
-        assert_eq!(final_nonce, 1, "Caller nonce incremented by 1");
     }
 
-    /// Tests that CSTORE halts with InvalidPublicStorageAccess when trying to
-    /// overwrite a non-zero public slot (x, public) where x != 0.
+    /// Tests that CSTORE reverts when trying to overwrite a non-zero public
+    /// slot (x, public) where x != 0.
     #[test]
-    fn cstore_on_nonzero_public_slot_halts() -> anyhow::Result<()> {
+    fn cstore_on_nonzero_public_slot_reverts() -> anyhow::Result<()> {
         let (bytecode, selector) = get_cstore_violation_bytecode();
         let (ctx, contract) = deploy_contract_with_bytecode(bytecode)?;
 
@@ -345,20 +327,13 @@ mod tests {
 
         let result = evm.replay()?;
 
-        assert_storage_access_error(
-            &result,
-            SeismicHaltReason::InvalidPublicStorageAccess,
-            balance,
-            gas_limit,
-            gas_price,
-        );
+        assert_storage_access_reverts(&result);
         Ok(())
     }
 
-    /// Tests that SSTORE halts with InvalidPrivateStorageAccess when trying to
-    /// write to a private slot.
+    /// Tests that SSTORE reverts when trying to write to a private slot.
     #[test]
-    fn sstore_on_private_slot_halts() -> anyhow::Result<()> {
+    fn sstore_on_private_slot_reverts() -> anyhow::Result<()> {
         let (bytecode, selector) = get_sstore_violation_bytecode();
         let (ctx, contract) = deploy_contract_with_bytecode(bytecode)?;
 
@@ -374,13 +349,7 @@ mod tests {
 
         let result = evm.replay()?;
 
-        assert_storage_access_error(
-            &result,
-            SeismicHaltReason::InvalidPrivateStorageAccess,
-            balance,
-            gas_limit,
-            gas_price,
-        );
+        assert_storage_access_reverts(&result);
         Ok(())
     }
 

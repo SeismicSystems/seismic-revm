@@ -1,4 +1,4 @@
-use crate::{check, SeismicHaltReason, SeismicHost};
+use crate::{check, SeismicHost};
 use revm::primitives::hardfork::SpecId::*;
 use revm::{
     context::host::LoadError,
@@ -46,10 +46,7 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
                     gas!(context.interpreter, COLD_SLOAD_COST_ADDITIONAL);
                 }
                 if storage.is_private {
-                    context.interpreter.halt_fatal();
-                    context
-                        .host
-                        .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+                    context.interpreter.halt(InstructionResult::Revert);
                     return;
                 }
 
@@ -63,10 +60,7 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             return context.interpreter.halt_fatal();
         };
         if storage.is_private {
-            context.interpreter.halt_fatal();
-            context
-                .host
-                .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+            context.interpreter.halt(InstructionResult::Revert);
             return;
         }
         *index = storage.data;
@@ -149,10 +143,7 @@ pub fn sstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
 
     // Privacy check: SSTORE cannot write to private slots
     if state_load.data.present_value.is_private {
-        context.interpreter.halt_fatal();
-        context
-            .host
-            .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+        context.interpreter.halt(InstructionResult::Revert);
         return;
     }
 
@@ -221,10 +212,7 @@ pub fn cstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             if !state_load.data.present_value.is_private
                 && !state_load.data.present_value.value.is_zero()
             {
-                context.interpreter.halt_fatal();
-                context
-                    .host
-                    .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
+                context.interpreter.halt(InstructionResult::Revert);
             }
         }
         Err(_) => context.interpreter.halt_fatal(),
@@ -732,7 +720,6 @@ mod tests {
     /// | CSTORE(y) | (y, private) | HALT        | (y, private) | (y, private) |
     mod semantics_tests {
         use super::*;
-        use crate::SeismicHaltReason;
         use revm::context::host::LoadError;
         use revm::context_interface::journaled_state::{AccountInfoLoad, AccountLoad, StateLoad};
         use revm::database::EmptyDB;
@@ -743,14 +730,12 @@ mod tests {
         /// A configurable mock host for testing storage semantics.
         struct MockStorageHost {
             storage_state: FlaggedStorage,
-            halt_reason: Option<SeismicHaltReason>,
         }
 
         impl MockStorageHost {
             fn new(value: U256, is_private: bool) -> Self {
                 Self {
                     storage_state: FlaggedStorage::new(value, is_private),
-                    halt_reason: None,
                 }
             }
 
@@ -788,9 +773,6 @@ mod tests {
                 unsafe { &mut ERR }
             }
 
-            fn set_halt_reason(&mut self, reason: SeismicHaltReason) {
-                self.halt_reason = Some(reason);
-            }
         }
 
         impl Host for MockStorageHost {
@@ -993,7 +975,7 @@ mod tests {
         }
 
         #[test]
-        fn test_sload_zero_private_halts() {
+        fn test_sload_zero_private_reverts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_private();
             let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
@@ -1006,16 +988,12 @@ mod tests {
 
             assert_eq!(
                 interp.bytecode.instruction_result(),
-                Some(InstructionResult::FatalExternalError)
-            );
-            assert_eq!(
-                host.halt_reason,
-                Some(SeismicHaltReason::InvalidPrivateStorageAccess)
+                Some(InstructionResult::Revert)
             );
         }
 
         #[test]
-        fn test_sload_nonzero_private_halts() {
+        fn test_sload_nonzero_private_reverts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_private(42);
             let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
@@ -1028,11 +1006,7 @@ mod tests {
 
             assert_eq!(
                 interp.bytecode.instruction_result(),
-                Some(InstructionResult::FatalExternalError)
-            );
-            assert_eq!(
-                host.halt_reason,
-                Some(SeismicHaltReason::InvalidPrivateStorageAccess)
+                Some(InstructionResult::Revert)
             );
         }
 
@@ -1137,7 +1111,7 @@ mod tests {
         }
 
         #[test]
-        fn test_sstore_zero_private_halts() {
+        fn test_sstore_zero_private_reverts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::zero_private();
             let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
@@ -1151,16 +1125,12 @@ mod tests {
 
             assert_eq!(
                 interp.bytecode.instruction_result(),
-                Some(InstructionResult::FatalExternalError)
-            );
-            assert_eq!(
-                host.halt_reason,
-                Some(SeismicHaltReason::InvalidPrivateStorageAccess)
+                Some(InstructionResult::Revert)
             );
         }
 
         #[test]
-        fn test_sstore_nonzero_private_halts() {
+        fn test_sstore_nonzero_private_reverts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_private(100);
             let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
@@ -1174,11 +1144,7 @@ mod tests {
 
             assert_eq!(
                 interp.bytecode.instruction_result(),
-                Some(InstructionResult::FatalExternalError)
-            );
-            assert_eq!(
-                host.halt_reason,
-                Some(SeismicHaltReason::InvalidPrivateStorageAccess)
+                Some(InstructionResult::Revert)
             );
         }
 
@@ -1201,7 +1167,7 @@ mod tests {
         }
 
         #[test]
-        fn test_cstore_nonzero_public_halts() {
+        fn test_cstore_nonzero_public_reverts() {
             let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
             let mut host = MockStorageHost::nonzero_public(100);
             let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
@@ -1215,11 +1181,7 @@ mod tests {
 
             assert_eq!(
                 interp.bytecode.instruction_result(),
-                Some(InstructionResult::FatalExternalError)
-            );
-            assert_eq!(
-                host.halt_reason,
-                Some(SeismicHaltReason::InvalidPublicStorageAccess)
+                Some(InstructionResult::Revert)
             );
         }
 
