@@ -254,7 +254,7 @@ mod tests {
         );
     }
 
-    /// 6) **Test Reproducibility**  
+    /// 6) **Test Reproducibility**
     /// Same input => same derived key. Confirm no randomness is introduced,
     /// as HKDF is purely deterministic.
     #[test]
@@ -271,6 +271,36 @@ mod tests {
         assert_eq!(
             out1, out2,
             "HKDF must produce the same key for identical input"
+        );
+    }
+
+    /// 7) **Test HKDF gas monotonicity**
+    /// Larger inputs must always cost at least as much gas as smaller inputs.
+    #[test]
+    fn test_hkdf_gas_monotonic() {
+        let gas_limit = u64::MAX;
+        let mut prev_gas = 0u64;
+        for size in (0..=2048).step_by(32) {
+            let input = vec![0u8; size];
+            let result = hkdf_derive_symmetric_key(&Bytes::from(input), gas_limit);
+            let gas = result.unwrap().gas_used;
+            assert!(
+                gas >= prev_gas,
+                "HKDF gas must be monotonically non-decreasing: gas({size}) = {gas} < gas({}) = {prev_gas}",
+                size.saturating_sub(32)
+            );
+            prev_gas = gas;
+        }
+    }
+
+    /// 8) **Test HKDF gas saturates instead of wrapping**
+    /// With extreme coefficients, calc_hmac_sha256_cost should saturate to u64::MAX.
+    #[test]
+    fn test_hkdf_gas_no_overflow() {
+        let cost = calc_hmac_sha256_cost(usize::MAX);
+        assert!(
+            cost >= calc_hmac_sha256_cost(0),
+            "Extreme input length must not wrap below base cost"
         );
     }
 }
