@@ -378,4 +378,47 @@ mod tests {
             other => panic!("Expected PrecompileError with length msg, got {:?}", other),
         }
     }
+
+    #[test]
+    fn test_rng_init_cost_monotonic() {
+        let mut prev = calculate_init_cost(0);
+        for len in 1..=1024 {
+            let cost = calculate_init_cost(len);
+            assert!(
+                cost >= prev,
+                "Init cost must be monotonically non-decreasing: cost({len}) = {cost} < cost({}) = {prev}",
+                len - 1
+            );
+            prev = cost;
+        }
+    }
+
+    #[test]
+    fn test_rng_fill_cost_monotonic() {
+        let mut prev = calculate_fill_cost(0);
+        for len in 1..=1024 {
+            let cost = calculate_fill_cost(len);
+            assert!(
+                cost >= prev,
+                "Fill cost must be monotonically non-decreasing: cost({len}) = {cost} < cost({}) = {prev}",
+                len - 1
+            );
+            prev = cost;
+        }
+    }
+
+    #[test]
+    fn test_rng_cost_no_overflow() {
+        let init = calculate_init_cost(usize::MAX);
+        assert!(
+            init >= calculate_init_cost(0),
+            "Extreme pers length must not wrap below base cost"
+        );
+
+        let fill = calculate_fill_cost(usize::MAX);
+        assert!(
+            fill >= calculate_fill_cost(0),
+            "Extreme fill length must not wrap below base cost"
+        );
+    }
 }
