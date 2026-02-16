@@ -175,7 +175,7 @@ mod tests {
 
         // Setup transaction and context
         let tx = SeismicTransaction::default().with_tx_hash(B256::from([0u8; 32]));
-        let context = Context::seismic().with_tx(tx);
+        let context = Context::seismic_with_random_rng_key().with_tx(tx);
 
         // Get precompile function
         let precompile = rng_precompile::<SeismicContext<EmptyDB>>;

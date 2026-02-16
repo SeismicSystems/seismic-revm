@@ -17,7 +17,7 @@ use revm::{
 };
 use seismic_revm::{
     DefaultSeismicContext, SeismicBuilder, SeismicHaltReason, SeismicHaltReason as HaltReason,
-    SeismicSpecId as SpecId, SeismicTransaction,
+    SeismicSpecId as SpecId, SeismicTransaction, precompiles::rng::domain_sep_rng::SchnorrkelKeypair,
 };
 use serde_json::json;
 use statetest_types::{SpecName, Test, TestSuite, TestUnit};
@@ -426,7 +426,7 @@ fn execute_single_test(ctx: TestExecutionContext) -> Result<(), TestErrorKind> {
         .with_bundle_update()
         .build();
 
-    let evm_context = Context::seismic()
+    let evm_context = Context::seismic_with_random_rng_key()
         .with_block(ctx.block)
         .with_tx(ctx.tx)
         .with_cfg(ctx.cfg)
@@ -476,7 +476,7 @@ fn debug_failed_test(ctx: DebugContext) {
         .with_bundle_update()
         .build();
 
-    let mut evm = Context::seismic()
+    let mut evm = Context::seismic_with_rng_key(SchnorrkelKeypair::from_bytes(&[0;96]).expect("safe"))
         .with_db(&mut state)
         .with_block(ctx.block)
         .with_tx(ctx.tx)

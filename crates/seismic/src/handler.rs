@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_revert_gas() {
-        let ctx = Context::seismic().modify_tx_chained(|tx| {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
             tx.base.gas_limit = 100;
         });
 
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_fatal_external_error_gas() {
-        let ctx = Context::seismic().modify_tx_chained(|tx| {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
             tx.base.gas_limit = 100;
         });
 

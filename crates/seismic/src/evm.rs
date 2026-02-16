@@ -268,7 +268,7 @@ mod tests {
     fn deploy_contract_with_bytecode(
         bytecode: Bytes,
     ) -> anyhow::Result<(SeismicContext<InMemoryDB>, Address)> {
-        let ctx = Context::seismic()
+        let ctx = Context::seismic_with_random_rng_key()
             .modify_tx_chained(|tx| {
                 tx.base.kind = TxKind::Create;
                 tx.base.data = bytecode.clone();

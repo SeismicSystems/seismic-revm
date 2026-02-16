@@ -7,7 +7,7 @@ use revm::{
     primitives::{Address, Bytes, FixedBytes, Log, TxKind, U256},
     Context, DatabaseCommit, DatabaseRef, ExecuteEvm, InspectEvm, MainBuilder, MainContext,
 };
-use seismic_revm::{DefaultSeismicContext, SeismicBuilder};
+use seismic_revm::{DefaultSeismicContext, SeismicBuilder, precompiles::rng::domain_sep_rng::SchnorrkelKeypair};
 use std::str::FromStr;
 
 use crate::cmd::semantics::{test_cases::TestStep, utils::verify_emitted_events};
@@ -126,7 +126,7 @@ impl EvmExecutor {
             .map_or(0, |account| account.nonce);
         let deploy_out = if self.evm_version == EVMVersion::Mercury {
             if trace {
-                let mut evm = Context::seismic()
+                let mut evm = Context::seismic_with_rng_key(SchnorrkelKeypair::from_bytes(&[0;96]).expect("safe"))
                     .with_db(self.db.clone())
                     .modify_tx_chained(|tx| {
                         tx.base.caller = self.config.caller;
@@ -143,7 +143,7 @@ impl EvmExecutor {
                     Errors::EVMError(format!("DEPLOY transaction error: {:?}", err.to_string()))
                 })?
             } else {
-                let mut evm = Context::seismic()
+                let mut evm = Context::seismic_with_rng_key(SchnorrkelKeypair::from_bytes(&[0;96]).expect("safe"))
                     .with_db(self.db.clone())
                     .modify_tx_chained(|tx| {
                         tx.base.caller = self.config.caller;
@@ -243,7 +243,7 @@ impl EvmExecutor {
             .map_or(0, |account| account.nonce);
         let out = if self.evm_version == EVMVersion::Mercury {
             if trace {
-                let mut evm = Context::seismic()
+                let mut evm = Context::seismic_with_rng_key(SchnorrkelKeypair::from_bytes(&[0;96]).expect("safe"))
                     .with_db(self.db.clone())
                     .modify_tx_chained(|tx| {
                         tx.base.caller = self.config.caller;
@@ -279,7 +279,7 @@ impl EvmExecutor {
                     ))
                 })?
             } else {
-                let mut evm = Context::seismic()
+                let mut evm = Context::seismic_with_rng_key(SchnorrkelKeypair::from_bytes(&[0;96]).expect("safe"))
                     .with_db(self.db.clone())
                     .modify_tx_chained(|tx| {
                         tx.base.caller = self.config.caller;
