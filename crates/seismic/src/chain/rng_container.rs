@@ -69,7 +69,7 @@ impl RngContainer {
     pub fn calculate_gas_cost(&self, pers: &[u8], requested_output_len: usize) -> u64 {
         match self.leaf_rng.as_ref() {
             Some(_) => calculate_fill_cost(requested_output_len),
-            None => calculate_init_cost(pers.len()) + calculate_fill_cost(requested_output_len),
+            None => calculate_init_cost(pers.len()).saturating_add(calculate_fill_cost(requested_output_len)),
         }
     }
 

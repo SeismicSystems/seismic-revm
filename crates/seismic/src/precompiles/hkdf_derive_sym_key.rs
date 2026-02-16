@@ -37,7 +37,7 @@ const SHA256_PER_WORD: u64 = 12;
 /// So each HMAC run costs about 2×(SHA256_BASE + SHA256_PER_WORD * (#words)).
 fn calc_hmac_sha256_cost(input_len: usize) -> u64 {
     let cost_single_sha256 = calc_linear_cost_u32(input_len, SHA256_BASE, SHA256_PER_WORD);
-    2 * cost_single_sha256
+    2u64.saturating_mul(cost_single_sha256)
 }
 
 /// For HKDF, we do:
@@ -97,7 +97,7 @@ const APPLICATION_INFO_BYTES: &[u8] = b"seismic_hkdf_105";
 ///   (rare in practice).
 pub fn hkdf_derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
     let extract_cost = calc_hmac_sha256_cost(input.len());
-    let total_cost = extract_cost + EXPAND_FIXED_COST;
+    let total_cost = extract_cost.saturating_add(EXPAND_FIXED_COST);
 
     if total_cost > gas_limit {
         return Err(PrecompileError::OutOfGas);
