@@ -2,28 +2,27 @@ use super::{
     plain_account::PlainStorage, AccountStatus, BundleAccount, PlainAccount,
     StorageWithOriginalValues, TransitionAccount,
 };
-use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{HashMap, U256};
+use primitives::{HashMap, StorageValueTr, U256};
 use state::AccountInfo;
 
 /// Cache account contains plain state that gets updated
 /// at every transaction when evm output is applied to CacheState.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CacheAccount {
+pub struct CacheAccount<SV: StorageValueTr = U256> {
     /// Account information and storage, if account exists.
-    pub account: Option<PlainAccount>,
+    pub account: Option<PlainAccount<SV>>,
     /// Account status flags.
     pub status: AccountStatus,
 }
 
-impl From<BundleAccount> for CacheAccount {
-    fn from(account: BundleAccount) -> Self {
+impl<SV: StorageValueTr> From<BundleAccount<SV>> for CacheAccount<SV> {
+    fn from(account: BundleAccount<SV>) -> Self {
         CacheAccount::from(&account)
     }
 }
 
-impl From<&BundleAccount> for CacheAccount {
-    fn from(account: &BundleAccount) -> Self {
+impl<SV: StorageValueTr> From<&BundleAccount<SV>> for CacheAccount<SV> {
+    fn from(account: &BundleAccount<SV>) -> Self {
         let storage = account
             .storage
             .iter()
@@ -39,9 +38,9 @@ impl From<&BundleAccount> for CacheAccount {
     }
 }
 
-impl CacheAccount {
+impl<SV: StorageValueTr> CacheAccount<SV> {
     /// Creates new account that is loaded from database.
-    pub fn new_loaded(info: AccountInfo, storage: PlainStorage) -> Self {
+    pub fn new_loaded(info: AccountInfo, storage: PlainStorage<SV>) -> Self {
         Self {
             account: Some(PlainAccount { info, storage }),
             status: AccountStatus::Loaded,
@@ -49,7 +48,7 @@ impl CacheAccount {
     }
 
     /// Creates new account that is loaded empty from database.
-    pub fn new_loaded_empty_eip161(storage: PlainStorage) -> Self {
+    pub fn new_loaded_empty_eip161(storage: PlainStorage<SV>) -> Self {
         Self {
             account: Some(PlainAccount::new_empty_with_storage(storage)),
             status: AccountStatus::LoadedEmptyEIP161,
@@ -65,7 +64,7 @@ impl CacheAccount {
     }
 
     /// Creates new account that is newly created.
-    pub fn new_newly_created(info: AccountInfo, storage: PlainStorage) -> Self {
+    pub fn new_newly_created(info: AccountInfo, storage: PlainStorage<SV>) -> Self {
         Self {
             account: Some(PlainAccount { info, storage }),
             status: AccountStatus::InMemoryChange,
@@ -81,7 +80,7 @@ impl CacheAccount {
     }
 
     /// Creates changed account.
-    pub fn new_changed(info: AccountInfo, storage: PlainStorage) -> Self {
+    pub fn new_changed(info: AccountInfo, storage: PlainStorage<SV>) -> Self {
         Self {
             account: Some(PlainAccount { info, storage }),
             status: AccountStatus::Changed,
@@ -101,7 +100,7 @@ impl CacheAccount {
     }
 
     /// Returns storage slot if it exists.
-    pub fn storage_slot(&self, slot: U256) -> Option<FlaggedStorage> {
+    pub fn storage_slot(&self, slot: U256) -> Option<SV> {
         self.account
             .as_ref()
             .and_then(|a| a.storage.get(&slot).cloned())
@@ -113,15 +112,15 @@ impl CacheAccount {
     }
 
     /// Dissolves account into components.
-    pub fn into_components(self) -> (Option<(AccountInfo, PlainStorage)>, AccountStatus) {
+    pub fn into_components(self) -> (Option<(AccountInfo, PlainStorage<SV>)>, AccountStatus) {
         (self.account.map(|a| a.into_components()), self.status)
     }
 
     /// Account got touched and before EIP161 state clear this account is considered created.
     pub fn touch_create_pre_eip161(
         &mut self,
-        storage: StorageWithOriginalValues,
-    ) -> Option<TransitionAccount> {
+        storage: StorageWithOriginalValues<SV>,
+    ) -> Option<TransitionAccount<SV>> {
         let previous_status = self.status;
 
         let had_no_info = self
@@ -149,7 +148,7 @@ impl CacheAccount {
     /// Touch empty account, related to EIP-161 state clear.
     ///
     /// This account returns the Transition that is used to create the BundleState.
-    pub fn touch_empty_eip161(&mut self) -> Option<TransitionAccount> {
+    pub fn touch_empty_eip161(&mut self) -> Option<TransitionAccount<SV>> {
         let previous_status = self.status;
 
         // Set account to None.
@@ -180,7 +179,7 @@ impl CacheAccount {
     /// Consumes self and make account as destroyed.
     ///
     /// Sets account as None and set status to Destroyer or DestroyedAgain.
-    pub fn selfdestruct(&mut self) -> Option<TransitionAccount> {
+    pub fn selfdestruct(&mut self) -> Option<TransitionAccount<SV>> {
         // Account should be None after selfdestruct so we can take it.
         let previous_info = self.account.take().map(|a| a.info);
         let previous_status = self.status;
@@ -205,8 +204,8 @@ impl CacheAccount {
     pub fn newly_created(
         &mut self,
         new_info: AccountInfo,
-        new_storage: StorageWithOriginalValues,
-    ) -> TransitionAccount {
+        new_storage: StorageWithOriginalValues<SV>,
+    ) -> TransitionAccount<SV> {
         let previous_status = self.status;
         let previous_info = self.account.take().map(|a| a.info);
 
@@ -235,7 +234,7 @@ impl CacheAccount {
     /// overflow or be zero.
     ///
     /// Note: Only if balance is zero we would return None as no transition would be made.
-    pub fn increment_balance(&mut self, balance: u128) -> Option<TransitionAccount> {
+    pub fn increment_balance(&mut self, balance: u128) -> Option<TransitionAccount<SV>> {
         if balance == 0 {
             return None;
         }
@@ -248,7 +247,7 @@ impl CacheAccount {
     fn account_info_change<T, F: FnOnce(&mut AccountInfo) -> T>(
         &mut self,
         change: F,
-    ) -> (T, TransitionAccount) {
+    ) -> (T, TransitionAccount<SV>) {
         let previous_status = self.status;
         let previous_info = self.account_info();
         let mut account = self.account.take().unwrap_or_default();
@@ -277,7 +276,7 @@ impl CacheAccount {
     /// Drain balance from account and return drained amount and transition.
     ///
     /// Used for DAO hardfork transition.
-    pub fn drain_balance(&mut self) -> (u128, TransitionAccount) {
+    pub fn drain_balance(&mut self) -> (u128, TransitionAccount<SV>) {
         self.account_info_change(|info| {
             let output = info.balance;
             info.balance = U256::ZERO;
@@ -291,8 +290,8 @@ impl CacheAccount {
     pub fn change(
         &mut self,
         new: AccountInfo,
-        storage: StorageWithOriginalValues,
-    ) -> TransitionAccount {
+        storage: StorageWithOriginalValues<SV>,
+    ) -> TransitionAccount<SV> {
         let previous_status = self.status;
         let (previous_info, mut this_storage) = if let Some(account) = self.account.take() {
             (Some(account.info), account.storage)

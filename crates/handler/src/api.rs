@@ -165,12 +165,13 @@ pub trait ExecuteCommitEvm: ExecuteEvm {
 impl<CTX, INSP, INST, PRECOMPILES> ExecuteEvm
     for Evm<CTX, INSP, INST, PRECOMPILES, EthFrame<EthInterpreter>>
 where
-    CTX: ContextTr<Journal: JournalTr<State = EvmState>> + ContextSetters,
+    CTX: ContextTr<Journal: JournalTr<State = EvmState<<CTX::Db as Database>::StorageValue>>>
+        + ContextSetters,
     INST: InstructionProvider<Context = CTX, InterpreterTypes = EthInterpreter>,
     PRECOMPILES: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
     type ExecutionResult = ExecutionResult<HaltReason>;
-    type State = EvmState;
+    type State = EvmState<<CTX::Db as Database>::StorageValue>;
     type Error = EVMError<<CTX::Db as Database>::Error, InvalidTransaction>;
     type Tx = <CTX as ContextTr>::Tx;
     type Block = <CTX as ContextTr>::Block;
@@ -192,7 +193,10 @@ where
     }
 
     #[inline]
-    fn replay(&mut self) -> Result<ResultAndState<HaltReason>, Self::Error> {
+    fn replay(
+        &mut self,
+    ) -> Result<ResultAndState<HaltReason, EvmState<<CTX::Db as Database>::StorageValue>>, Self::Error>
+    {
         MainnetHandler::default().run(self).map(|result| {
             let state = self.finalize();
             ResultAndState::new(result, state)
@@ -203,7 +207,10 @@ where
 impl<CTX, INSP, INST, PRECOMPILES> ExecuteCommitEvm
     for Evm<CTX, INSP, INST, PRECOMPILES, EthFrame<EthInterpreter>>
 where
-    CTX: ContextTr<Journal: JournalTr<State = EvmState>, Db: DatabaseCommit> + ContextSetters,
+    CTX: ContextTr<
+            Journal: JournalTr<State = EvmState<<CTX::Db as Database>::StorageValue>>,
+            Db: DatabaseCommit<<CTX::Db as Database>::StorageValue>,
+        > + ContextSetters,
     INST: InstructionProvider<Context = CTX, InterpreterTypes = EthInterpreter>,
     PRECOMPILES: PrecompileProvider<CTX, Output = InterpreterResult>,
 {

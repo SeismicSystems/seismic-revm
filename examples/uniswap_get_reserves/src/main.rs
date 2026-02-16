@@ -4,11 +4,12 @@
 use alloy_eips::BlockId;
 use alloy_provider::ProviderBuilder;
 use alloy_sol_types::{sol, SolCall};
+use core::convert::Infallible;
 use revm::{
     context::TxEnv,
     context_interface::result::{ExecutionResult, Output},
     database::{AlloyDB, CacheDB},
-    database_interface::{DatabaseRef, EmptyDB, WrapDatabaseAsync},
+    database_interface::{DatabaseRef, EmptyDBTyped, WrapDatabaseAsync},
     primitives::{address, StorageKey, TxKind, U256},
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
@@ -55,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
     let value = cache_db.storage_ref(pool_address, slot).unwrap();
 
     // Initialise empty in-memory-db
-    let mut cache_db = CacheDB::new(EmptyDB::default());
+    let mut cache_db = CacheDB::new(EmptyDBTyped::<Infallible>::default());
 
     // Insert basic account info which was generated via Web3DB with the corresponding address
     cache_db.insert_account_info(pool_address, acc_info);

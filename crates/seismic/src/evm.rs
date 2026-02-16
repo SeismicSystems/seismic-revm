@@ -3,17 +3,27 @@ use crate::{
     instructions::instruction_provider::SeismicInstructions,
     precompiles::{mercury_with_extra, SeismicPrecompiles},
 };
+use core::convert::Infallible;
 use revm::{
     context::{ContextError, ContextSetters, ContextTr, Evm, FrameStack},
+    database::CacheDB,
+    database_interface::EmptyDBTyped,
     handler::{
         instructions::InstructionProvider, EthFrame, EvmTr, FrameInitOrResult, FrameTr,
         ItemOrResult, PrecompileProvider,
     },
     inspector::{InspectorEvmTr, JournalExt},
-    interpreter::{interpreter::EthInterpreter, InterpreterResult},
+    interpreter::{interpreter::EthInterpreter, Host, InterpreterResult},
     precompile::Precompiles,
+    primitives::FlaggedStorage,
     Database, Inspector,
 };
+
+/// EmptyDB with FlaggedStorage for Seismic.
+pub type SeismicEmptyDB = EmptyDBTyped<Infallible, FlaggedStorage>;
+
+/// InMemoryDB with FlaggedStorage for Seismic.
+pub type SeismicInMemoryDB = CacheDB<SeismicEmptyDB, FlaggedStorage>;
 
 pub struct SeismicEvm<
     CTX,
@@ -23,7 +33,7 @@ pub struct SeismicEvm<
     F = EthFrame<EthInterpreter>,
 >(pub Evm<CTX, INSP, I, P, F>);
 
-impl<CTX: SeismicContextTr, INSP>
+impl<CTX: SeismicContextTr + Host<StorageValue = FlaggedStorage>, INSP>
     SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, SeismicPrecompiles<CTX>>
 {
     pub fn new(ctx: CTX, inspector: INSP) -> Self {
@@ -200,9 +210,10 @@ mod tests {
     };
     use anyhow::bail;
     use rand_core::RngCore;
-    use revm::context::result::{ExecutionResult, Output, ResultAndState};
+    use revm::context::result::{ExecResultAndState, ExecutionResult, Output};
+    use revm::state::EvmState;
     use revm::context::{BlockEnv, CfgEnv, Context, ContextTr, JournalTr, TxEnv};
-    use revm::database::{EmptyDB, InMemoryDB, BENCH_CALLER};
+    use revm::database::BENCH_CALLER;
     use revm::interpreter::gas::calculate_initial_tx_gas;
     use revm::interpreter::InitialAndFloorGas;
     use revm::precompile::u64_to_address;
@@ -256,13 +267,13 @@ mod tests {
 
     fn deploy_contract_with_bytecode(
         bytecode: Bytes,
-    ) -> anyhow::Result<(SeismicContext<InMemoryDB>, Address)> {
+    ) -> anyhow::Result<(SeismicContext<SeismicInMemoryDB>, Address)> {
         let ctx = Context::seismic()
             .modify_tx_chained(|tx| {
                 tx.base.kind = TxKind::Create;
                 tx.base.data = bytecode.clone();
             })
-            .with_db(InMemoryDB::default());
+            .with_db(SeismicInMemoryDB::default());
 
         let mut evm = ctx.build_seismic_evm();
         let receipt = evm.replay_commit()?;
@@ -278,12 +289,12 @@ mod tests {
     }
 
     fn prepare_call(
-        ctx: SeismicContext<InMemoryDB>,
+        ctx: SeismicContext<SeismicInMemoryDB>,
         contract: Address,
         selector: Bytes,
         gas_limit: u64,
         gas_price: u64,
-    ) -> SeismicContext<InMemoryDB> {
+    ) -> SeismicContext<SeismicInMemoryDB> {
         let mut ctx = ctx;
 
         ctx.modify_tx(|tx| {
@@ -299,7 +310,7 @@ mod tests {
     }
 
     fn assert_storage_access_error(
-        result: &ResultAndState<SeismicHaltReason>,
+        result: &ExecResultAndState<ExecutionResult<SeismicHaltReason>, EvmState<FlaggedStorage>>,
         expected_reason: SeismicHaltReason,
         starting_balance: u64,
         gas_limit: u64,
@@ -388,14 +399,7 @@ mod tests {
         spec: SeismicSpecId,
         bytes_requested: u32,
         personalization: Vec<u8>,
-    ) -> Context<
-        BlockEnv,
-        SeismicTransaction<TxEnv>,
-        CfgEnv<SeismicSpecId>,
-        EmptyDB,
-        Journal<EmptyDB>,
-        SeismicChain,
-    > {
+    ) -> SeismicContext<SeismicEmptyDB> {
         let mut input_data = bytes_requested.to_be_bytes().to_vec();
         input_data.extend(personalization.clone());
         let input = Bytes::from(input_data);
@@ -466,5 +470,75 @@ mod tests {
             expected_root_rng_state,
             "root rng state should be as expected"
         );
+    }
+
+    #[test]
+    fn test_insert_account_storage_private() {
+        use revm::database::CacheDB;
+        use revm::state::AccountInfo;
+
+        let account = Address::with_last_byte(42);
+        let nonce = 42;
+        let mut init_state = CacheDB::new(SeismicEmptyDB::default());
+        init_state.insert_account_info(
+            account,
+            AccountInfo {
+                nonce,
+                ..Default::default()
+            },
+        );
+
+        let (key, value) = (
+            U256::from(123),
+            FlaggedStorage::from(U256::from(456)).mark_private(),
+        );
+        let mut new_state = CacheDB::new(init_state);
+        new_state
+            .insert_account_storage(account, key, value)
+            .unwrap();
+
+        assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
+        assert_eq!(new_state.storage(account, key), Ok(value));
+    }
+
+    #[test]
+    fn test_replace_account_storage_private() {
+        use revm::database::CacheDB;
+        use revm::state::AccountInfo;
+
+        let account = Address::with_last_byte(42);
+        let nonce = 42;
+        let mut init_state = CacheDB::new(SeismicEmptyDB::default());
+        init_state.insert_account_info(
+            account,
+            AccountInfo {
+                nonce,
+                ..Default::default()
+            },
+        );
+
+        let (key0, value0) = (
+            U256::from(123),
+            FlaggedStorage::from(U256::from(456)).mark_private(),
+        );
+        let (key1, value1) = (
+            U256::from(789),
+            FlaggedStorage::from(U256::from(999)).mark_private(),
+        );
+        init_state
+            .insert_account_storage(account, key0, value0)
+            .unwrap();
+
+        let mut new_state = CacheDB::new(init_state);
+        new_state
+            .replace_account_storage(account, [(key1, value1)].into())
+            .unwrap();
+
+        assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
+        assert_eq!(
+            new_state.storage(account, key0),
+            Ok(FlaggedStorage::ZERO)
+        );
+        assert_eq!(new_state.storage(account, key1), Ok(value1));
     }
 }

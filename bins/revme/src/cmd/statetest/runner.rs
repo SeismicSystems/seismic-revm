@@ -11,13 +11,12 @@ use revm::{
         result::{EVMError, ExecutionResult, InvalidTransaction},
         Cfg,
     },
-    database_interface::EmptyDB,
     primitives::{Bytes, B256},
     Context, ExecuteCommitEvm,
 };
 use seismic_revm::{
-    DefaultSeismicContext, SeismicBuilder, SeismicHaltReason, SeismicHaltReason as HaltReason,
-    SeismicSpecId as SpecId, SeismicTransaction,
+    DefaultSeismicContext, SeismicBuilder, SeismicEmptyDB, SeismicHaltReason,
+    SeismicHaltReason as HaltReason, SeismicSpecId as SpecId, SeismicTransaction,
 };
 use serde_json::json;
 use statetest_types::{SpecName, Test, TestSuite, TestUnit};
@@ -134,7 +133,7 @@ struct TestExecutionContext<'a> {
     cfg: &'a CfgEnv<SpecId>,
     block: &'a BlockEnv,
     tx: &'a SeismicTransaction<TxEnv>,
-    cache_state: &'a database::CacheState,
+    cache_state: &'a database::CacheState<state::FlaggedStorage>,
     elapsed: &'a Arc<Mutex<Duration>>,
     trace: bool,
     print_json_outcome: bool,
@@ -148,7 +147,7 @@ struct DebugContext<'a> {
     cfg: &'a CfgEnv<SpecId>,
     block: &'a BlockEnv,
     tx: &'a SeismicTransaction<TxEnv>,
-    cache_state: &'a database::CacheState,
+    cache_state: &'a database::CacheState<state::FlaggedStorage>,
     error: &'a TestErrorKind,
 }
 
@@ -227,7 +226,7 @@ fn check_evm_execution(
         ExecutionResult<SeismicHaltReason>,
         EVMError<Infallible, InvalidTransaction>,
     >,
-    db: &mut State<EmptyDB>,
+    db: &mut State<SeismicEmptyDB, state::FlaggedStorage>,
     spec: SpecId,
     print_json_outcome: bool,
 ) -> Result<(), TestErrorKind> {
@@ -421,7 +420,7 @@ fn execute_single_test(ctx: TestExecutionContext) -> Result<(), TestErrorKind> {
     /*
     cache.set_state_clear_flag(ctx.cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
     */
-    let mut state = database::State::builder()
+    let mut state = database::StateBuilder::new_with_database(SeismicEmptyDB::default())
         .with_cached_prestate(cache)
         .with_bundle_update()
         .build();
@@ -471,7 +470,7 @@ fn debug_failed_test(ctx: DebugContext) {
     /*
     cache.set_state_clear_flag(ctx.cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
     */
-    let mut state = database::State::builder()
+    let mut state = database::StateBuilder::new_with_database(SeismicEmptyDB::default())
         .with_cached_prestate(cache)
         .with_bundle_update()
         .build();

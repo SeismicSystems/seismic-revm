@@ -6,7 +6,8 @@ use revm::{
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{CallInputs, Gas, InstructionResult, InterpreterResult},
     precompile::{PrecompileError, PrecompileOutput, PrecompileResult},
-    primitives::{address, hardfork::SpecId, Address, Bytes, U256},
+    primitives::{address, hardfork::SpecId, Address, Bytes, FlaggedStorage, StorageValueTr, U256},
+    Database,
 };
 use std::boxed::Box;
 use std::string::String;
@@ -36,6 +37,7 @@ impl CustomPrecompileProvider {
 impl<CTX> PrecompileProvider<CTX> for CustomPrecompileProvider
 where
     CTX: ContextTr<Cfg: Cfg<Spec = SpecId>>,
+    CTX::Db: Database<StorageValue = FlaggedStorage>,
 {
     type Output = InterpreterResult;
 
@@ -79,7 +81,10 @@ where
 fn run_custom_precompile<CTX: ContextTr>(
     context: &mut CTX,
     inputs: &CallInputs,
-) -> Result<InterpreterResult, String> {
+) -> Result<InterpreterResult, String>
+where
+    CTX::Db: Database<StorageValue = FlaggedStorage>,
+{
     let input_bytes = match &inputs.input {
         revm::interpreter::CallInput::SharedBuffer(range) => {
             if let Some(slice) = context.local().shared_memory_buffer_slice(range.clone()) {
@@ -138,7 +143,10 @@ fn run_custom_precompile<CTX: ContextTr>(
 }
 
 /// Handles reading from storage
-fn handle_read_storage<CTX: ContextTr>(context: &mut CTX, gas_limit: u64) -> PrecompileResult {
+fn handle_read_storage<CTX: ContextTr>(context: &mut CTX, gas_limit: u64) -> PrecompileResult
+where
+    CTX::Db: Database<StorageValue = FlaggedStorage>,
+{
     // Base gas cost for reading storage
     const BASE_GAS: u64 = 2_100;
 
@@ -156,7 +164,7 @@ fn handle_read_storage<CTX: ContextTr>(context: &mut CTX, gas_limit: u64) -> Pre
     // Return the value as output
     Ok(PrecompileOutput::new(
         BASE_GAS,
-        value.to_be_bytes_vec().into(),
+        value.value().to_be_bytes_vec().into(),
     ))
 }
 
@@ -165,7 +173,10 @@ fn handle_write_storage<CTX: ContextTr>(
     context: &mut CTX,
     input: &[u8],
     gas_limit: u64,
-) -> PrecompileResult {
+) -> PrecompileResult
+where
+    CTX::Db: Database<StorageValue = FlaggedStorage>,
+{
     // Base gas cost for the operation
     const BASE_GAS: u64 = 21_000;
     const SSTORE_GAS: u64 = 20_000;
@@ -180,7 +191,11 @@ fn handle_write_storage<CTX: ContextTr>(
     // Store the value in the precompile's storage
     context
         .journal_mut()
-        .sstore(CUSTOM_PRECOMPILE_ADDRESS, STORAGE_KEY, value)
+        .sstore(
+            CUSTOM_PRECOMPILE_ADDRESS,
+            STORAGE_KEY,
+            FlaggedStorage::from_u256(value),
+        )
         .map_err(|e| PrecompileError::Other(format!("Storage write failed: {e:?}")))?;
 
     // Get the caller address

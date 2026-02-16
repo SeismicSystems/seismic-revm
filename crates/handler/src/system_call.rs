@@ -23,7 +23,7 @@ use crate::{
     frame::EthFrame, instructions::InstructionProvider, ExecuteCommitEvm, ExecuteEvm, Handler,
     MainnetHandler, PrecompileProvider,
 };
-use context::{result::ExecResultAndState, ContextSetters, ContextTr, Evm, JournalTr, TxEnv};
+use context::{result::ExecResultAndState, ContextSetters, ContextTr, Database, Evm, JournalTr, TxEnv};
 use database_interface::DatabaseCommit;
 use interpreter::{interpreter::EthInterpreter, InterpreterResult};
 use primitives::{address, Address, Bytes, TxKind};
@@ -220,7 +220,10 @@ pub trait SystemCallCommitEvm: SystemCallEvm + ExecuteCommitEvm {
 impl<CTX, INSP, INST, PRECOMPILES> SystemCallEvm
     for Evm<CTX, INSP, INST, PRECOMPILES, EthFrame<EthInterpreter>>
 where
-    CTX: ContextTr<Journal: JournalTr<State = EvmState>, Tx: SystemCallTx> + ContextSetters,
+    CTX: ContextTr<
+            Journal: JournalTr<State = EvmState<<CTX::Db as Database>::StorageValue>>,
+            Tx: SystemCallTx,
+        > + ContextSetters,
     INST: InstructionProvider<Context = CTX, InterpreterTypes = EthInterpreter>,
     PRECOMPILES: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
@@ -244,8 +247,11 @@ where
 impl<CTX, INSP, INST, PRECOMPILES> SystemCallCommitEvm
     for Evm<CTX, INSP, INST, PRECOMPILES, EthFrame<EthInterpreter>>
 where
-    CTX: ContextTr<Journal: JournalTr<State = EvmState>, Db: DatabaseCommit, Tx: SystemCallTx>
-        + ContextSetters,
+    CTX: ContextTr<
+            Journal: JournalTr<State = EvmState<<CTX::Db as Database>::StorageValue>>,
+            Db: DatabaseCommit<<CTX::Db as Database>::StorageValue>,
+            Tx: SystemCallTx,
+        > + ContextSetters,
     INST: InstructionProvider<Context = CTX, InterpreterTypes = EthInterpreter>,
     PRECOMPILES: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
@@ -318,7 +324,7 @@ mod tests {
             output.state[&HISTORY_STORAGE_ADDRESS]
                 .storage
                 .get(&U256::from(0))
-                .map(|slot| slot.present_value.value)
+                .map(|slot| slot.present_value)
                 .unwrap_or_default(),
             U256::from_be_bytes(block_hash.0),
             "State is not updated {:?}",

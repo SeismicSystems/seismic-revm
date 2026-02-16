@@ -2,8 +2,7 @@ use super::{
     reverts::AccountInfoRevert, AccountRevert, AccountStatus, RevertToSlot, StorageSlot,
     StorageWithOriginalValues, TransitionAccount,
 };
-use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{HashMap, StorageKey, U256};
+use primitives::{HashMap, StorageKey, StorageValueTr, U256};
 use state::AccountInfo;
 
 /// Account information focused on creating of database changesets
@@ -18,7 +17,8 @@ use state::AccountInfo;
 /// On selfdestruct storage original value is ignored.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct BundleAccount {
+#[cfg_attr(feature = "serde", serde(bound = "SV: serde::Serialize + serde::de::DeserializeOwned"))]
+pub struct BundleAccount<SV: StorageValueTr = U256> {
     /// Current account information.
     pub info: Option<AccountInfo>,
     /// Original account information before modifications.
@@ -28,17 +28,17 @@ pub struct BundleAccount {
     /// If it is different we add it to changeset.
     ///
     /// If Account was destroyed we ignore original value and compare present state with StorageValue::ZERO.
-    pub storage: StorageWithOriginalValues,
+    pub storage: StorageWithOriginalValues<SV>,
     /// Account status.
     pub status: AccountStatus,
 }
 
-impl BundleAccount {
+impl<SV: StorageValueTr> BundleAccount<SV> {
     /// Create new BundleAccount.
     pub fn new(
         original_info: Option<AccountInfo>,
         present_info: Option<AccountInfo>,
-        storage: StorageWithOriginalValues,
+        storage: StorageWithOriginalValues<SV>,
         status: AccountStatus,
     ) -> Self {
         Self {
@@ -58,13 +58,13 @@ impl BundleAccount {
 
     /// Return storage slot if it exists.
     ///
-    /// In case we know that account is newly created or destroyed, return `Some(U256::ZERO)`
-    pub fn storage_slot(&self, slot: U256) -> Option<FlaggedStorage> {
+    /// In case we know that account is newly created or destroyed, return `Some(SV::ZERO)`
+    pub fn storage_slot(&self, slot: U256) -> Option<SV> {
         let slot = self.storage.get(&slot).map(|s| s.present_value);
         if slot.is_some() {
             slot
         } else if self.status.is_storage_known() {
-            Some(FlaggedStorage::ZERO)
+            Some(SV::ZERO)
         } else {
             None
         }
@@ -91,7 +91,7 @@ impl BundleAccount {
     }
 
     /// Revert account to previous state and return true if account can be removed.
-    pub fn revert(&mut self, revert: AccountRevert) -> bool {
+    pub fn revert(&mut self, revert: AccountRevert<SV>) -> bool {
         self.status = revert.previous_status;
 
         match revert.account {
@@ -104,7 +104,7 @@ impl BundleAccount {
                 } else {
                     // Set all storage to zero but preserve original values.
                     self.storage.iter_mut().for_each(|(_, v)| {
-                        v.present_value = FlaggedStorage::ZERO;
+                        v.present_value = SV::ZERO;
                     });
                     return false;
                 }
@@ -137,23 +137,23 @@ impl BundleAccount {
     /// If no revert is present, update is noop.
     pub fn update_and_create_revert(
         &mut self,
-        transition: TransitionAccount,
-    ) -> Option<AccountRevert> {
+        transition: TransitionAccount<SV>,
+    ) -> Option<AccountRevert<SV>> {
         let updated_info = transition.info;
         let updated_storage = transition.storage;
         let updated_status = transition.status;
 
         // The helper that extends this storage but preserves original value.
         let extend_storage =
-            |this_storage: &mut StorageWithOriginalValues,
-             storage_update: StorageWithOriginalValues| {
+            |this_storage: &mut StorageWithOriginalValues<SV>,
+             storage_update: StorageWithOriginalValues<SV>| {
                 for (key, value) in storage_update {
                     this_storage.entry(key).or_insert(value).present_value = value.present_value;
                 }
             };
 
         let previous_storage_from_update =
-            |updated_storage: &StorageWithOriginalValues| -> HashMap<StorageKey, RevertToSlot> {
+            |updated_storage: &StorageWithOriginalValues<SV>| -> HashMap<StorageKey, RevertToSlot<SV>> {
                 updated_storage
                     .iter()
                     .filter(|s| s.1.is_changed())

@@ -35,8 +35,8 @@ where
     BLOCK: Block,
     TX: SeismicTxTr,
     CFG: Cfg<Spec = SeismicSpecId>,
-    DB: Database,
-    JOURNAL: JournalTr<Database = DB, State = EvmState>,
+    DB: Database<StorageValue = revm::primitives::FlaggedStorage>,
+    JOURNAL: JournalTr<Database = DB, State = EvmState<revm::primitives::FlaggedStorage>>,
 {
     type Context = Self;
 

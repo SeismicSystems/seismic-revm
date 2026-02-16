@@ -5,9 +5,7 @@ use crate::{
 };
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
-use primitives::{
-    hardfork::SpecId, Address, Bytes, HashSet, Log, StorageKey, StorageValue, B256, U256,
-};
+use primitives::{hardfork::SpecId, Address, Bytes, HashSet, Log, StorageKey, B256, U256};
 use state::{Account, AccountInfo, Bytecode};
 use std::{borrow::Cow, vec::Vec};
 
@@ -36,59 +34,43 @@ pub trait JournalTr {
         &mut self,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<StorageValue>, <Self::Database as Database>::Error> {
+    ) -> Result<StateLoad<<Self::Database as Database>::StorageValue>, <Self::Database as Database>::Error> {
         // unwrapping is safe as we only can get DBError
         self.sload_skip_cold_load(address, key, false)
             .map_err(JournalLoadError::unwrap_db_error)
     }
 
-    /// Returns the private storage value from Journal state.
-    ///
-    /// Loads the storage from database if not found in Journal state.
-    fn cload(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        _skip_cold_load: bool,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
-
     /// Loads the storage value from Journal state.
+    #[allow(clippy::type_complexity)]
     fn sload_skip_cold_load(
         &mut self,
         _address: Address,
         _key: StorageKey,
         _skip_cold_load: bool,
-    ) -> Result<StateLoad<StorageValue>, JournalLoadError<<Self::Database as Database>::Error>>;
+    ) -> Result<StateLoad<<Self::Database as Database>::StorageValue>, JournalLoadError<<Self::Database as Database>::Error>>;
 
     /// Stores the storage value in Journal state.
+    #[allow(clippy::type_complexity)]
     fn sstore(
         &mut self,
         address: Address,
         key: StorageKey,
-        value: StorageValue,
-    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
+        value: <Self::Database as Database>::StorageValue,
+    ) -> Result<StateLoad<SStoreResult<<Self::Database as Database>::StorageValue>>, <Self::Database as Database>::Error> {
         // unwrapping is safe as we only can get DBError
         self.sstore_skip_cold_load(address, key, value, false)
             .map_err(JournalLoadError::unwrap_db_error)
     }
 
     /// Stores the storage value in Journal state.
-    fn cstore(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        value: StorageValue,
-        _skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
-
-    /// Stores the storage value in Journal state.
+    #[allow(clippy::type_complexity)]
     fn sstore_skip_cold_load(
         &mut self,
         _address: Address,
         _key: StorageKey,
-        _value: StorageValue,
+        _value: <Self::Database as Database>::StorageValue,
         _skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<<Self::Database as Database>::Error>>;
+    ) -> Result<StateLoad<SStoreResult<<Self::Database as Database>::StorageValue>>, JournalLoadError<<Self::Database as Database>::Error>>;
 
     /// Loads transient storage value.
     fn tload(&mut self, address: Address, key: StorageKey) -> U256;
@@ -166,13 +148,13 @@ pub trait JournalTr {
     fn load_account(
         &mut self,
         address: Address,
-    ) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error>;
+    ) -> Result<StateLoad<&mut Account<<Self::Database as Database>::StorageValue>>, <Self::Database as Database>::Error>;
 
     /// Loads the account code.
     fn load_account_code(
         &mut self,
         address: Address,
-    ) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error>;
+    ) -> Result<StateLoad<&mut Account<<Self::Database as Database>::StorageValue>>, <Self::Database as Database>::Error>;
 
     /// Loads the account delegated.
     fn load_account_delegated(
@@ -202,7 +184,7 @@ pub trait JournalTr {
         // SAFETY: Safe to unwrap as load_code will insert code if it is empty.
         let code = a.info.code.as_ref().unwrap().original_bytes();
 
-        Ok(StateLoad::new(code, a.is_cold, false))
+        Ok(StateLoad::new(code, a.is_cold))
     }
 
     /// Gets code hash of account.
@@ -212,10 +194,10 @@ pub trait JournalTr {
     ) -> Result<StateLoad<B256>, <Self::Database as Database>::Error> {
         let acc = self.load_account_code(address)?;
         if acc.is_empty() {
-            return Ok(StateLoad::new(B256::ZERO, acc.is_cold, false));
+            return Ok(StateLoad::new(B256::ZERO, acc.is_cold));
         }
         let hash = acc.info.code_hash;
-        Ok(StateLoad::new(hash, acc.is_cold, false))
+        Ok(StateLoad::new(hash, acc.is_cold))
     }
 
     /// Called at the end of the transaction to clean all residue data from journal.
@@ -366,8 +348,6 @@ pub struct StateLoad<T> {
     pub data: T,
     /// Is account is cold loaded
     pub is_cold: bool,
-    /// True if slot was tagged as private.
-    pub is_private: bool,
 }
 
 impl<T> Deref for StateLoad<T> {
@@ -386,12 +366,8 @@ impl<T> DerefMut for StateLoad<T> {
 
 impl<T> StateLoad<T> {
     /// Returns a new [`StateLoad`] with the given data and cold load status.
-    pub fn new(data: T, is_cold: bool, is_private: bool) -> Self {
-        Self {
-            data,
-            is_cold,
-            is_private,
-        }
+    pub fn new(data: T, is_cold: bool) -> Self {
+        Self { data, is_cold }
     }
 
     /// Maps the data of the [`StateLoad`] to a new value.
@@ -401,7 +377,7 @@ impl<T> StateLoad<T> {
     where
         F: FnOnce(T) -> B,
     {
-        StateLoad::new(f(self.data), self.is_cold, self.is_private)
+        StateLoad::new(f(self.data), self.is_cold)
     }
 }
 
@@ -444,7 +420,7 @@ impl<'a> AccountInfoLoad<'a> {
     where
         F: FnOnce(Cow<'a, AccountInfo>) -> O,
     {
-        StateLoad::new(f(self.account), self.is_cold, false)
+        StateLoad::new(f(self.account), self.is_cold)
     }
 }
 

@@ -1,6 +1,6 @@
 use super::{AccountRevert, AccountStatus, BundleAccount, StorageWithOriginalValues};
 use bytecode::Bytecode;
-use primitives::{hash_map, B256, U256};
+use primitives::{hash_map, StorageValueTr, B256, U256};
 use state::AccountInfo;
 
 /// Account Created when EVM state is merged to cache state.
@@ -9,7 +9,7 @@ use state::AccountInfo;
 /// It is used when block state gets merged to bundle state to
 /// create needed Reverts.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub struct TransitionAccount {
+pub struct TransitionAccount<SV: StorageValueTr = U256> {
     /// Account information, if account exists.
     pub info: Option<AccountInfo>,
     /// Current account status.
@@ -21,7 +21,7 @@ pub struct TransitionAccount {
     /// Mostly needed when previous status Loaded/LoadedEmpty.
     pub previous_status: AccountStatus,
     /// Storage contains both old and new account
-    pub storage: StorageWithOriginalValues,
+    pub storage: StorageWithOriginalValues<SV>,
     /// If there is transition that clears the storage we should mark it here and
     /// delete all storages in BundleState. This flag is needed if we have transition
     /// between Destroyed states from DestroyedChanged-> DestroyedAgain-> DestroyedChanged
@@ -30,9 +30,9 @@ pub struct TransitionAccount {
     pub storage_was_destroyed: bool,
 }
 
-impl TransitionAccount {
+impl<SV: StorageValueTr> TransitionAccount<SV> {
     /// Create new LoadedEmpty account.
-    pub fn new_empty_eip161(storage: StorageWithOriginalValues) -> Self {
+    pub fn new_empty_eip161(storage: StorageWithOriginalValues<SV>) -> Self {
         Self {
             info: Some(AccountInfo::default()),
             status: AccountStatus::InMemoryChange,
@@ -109,13 +109,13 @@ impl TransitionAccount {
     }
 
     /// Consume Self and create account revert from it.
-    pub fn create_revert(self) -> Option<AccountRevert> {
+    pub fn create_revert(self) -> Option<AccountRevert<SV>> {
         let mut previous_account = self.original_bundle_account();
         previous_account.update_and_create_revert(self)
     }
 
     /// Present bundle account
-    pub fn present_bundle_account(&self) -> BundleAccount {
+    pub fn present_bundle_account(&self) -> BundleAccount<SV> {
         BundleAccount {
             info: self.info.clone(),
             original_info: self.previous_info.clone(),
@@ -125,7 +125,7 @@ impl TransitionAccount {
     }
 
     /// Original bundle account
-    fn original_bundle_account(&self) -> BundleAccount {
+    fn original_bundle_account(&self) -> BundleAccount<SV> {
         BundleAccount {
             info: self.previous_info.clone(),
             original_info: self.previous_info.clone(),

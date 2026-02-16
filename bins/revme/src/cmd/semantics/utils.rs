@@ -1,7 +1,10 @@
 use context::result::{ExecutionResult, HaltReason, ResultAndState};
 use log::error;
 use primitives::HashMap;
-use revm::database::{CacheDB, EmptyDB};
+use seismic_revm::SeismicInMemoryDB;
+
+/// CacheDB using FlaggedStorage, compatible with both mainnet and Seismic EVM handlers.
+type FlaggedCacheDB = SeismicInMemoryDB;
 use revm::primitives::{Address, Bytes, FixedBytes, Log, LogData, U256};
 use seismic_revm::SeismicHaltReason;
 
@@ -308,7 +311,7 @@ pub(crate) fn verify_emitted_events(
 }
 
 pub(crate) fn verify_expected_balances(
-    mut db: CacheDB<EmptyDB>,
+    mut db: FlaggedCacheDB,
     expected: &HashMap<Address, U256>,
     deployed_contract_address: Address,
 ) -> Result<(), Errors> {
@@ -333,7 +336,7 @@ pub(crate) fn verify_expected_balances(
 }
 
 pub(crate) fn verify_storage_empty(
-    mut db: CacheDB<EmptyDB>,
+    mut db: FlaggedCacheDB,
     contract_address: Address,
     expected_empty: bool,
 ) -> Result<(), Errors> {
@@ -361,7 +364,7 @@ pub(crate) fn bytes_to_fixed(bytes: Bytes) -> FixedBytes<32> {
     fixed.into()
 }
 
-pub fn mainnet_to_seismic(raw: ResultAndState<HaltReason>) -> ResultAndState<SeismicHaltReason> {
+pub fn mainnet_to_seismic<S>(raw: ResultAndState<HaltReason, S>) -> ResultAndState<SeismicHaltReason, S> {
     let ResultAndState { result, state } = raw;
     let result = match result {
         ExecutionResult::Success {

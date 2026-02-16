@@ -4,14 +4,14 @@
 //!
 //! They are created when there is change to the state from loading (making it warm), changes to the balance,
 //! or removal of the storage slot. Check [`JournalEntryTr`] for more details.
-use primitives::alloy_primitives::FlaggedStorage;
-
-use primitives::{Address, StorageKey, StorageValue, KECCAK_EMPTY, PRECOMPILE3, U256};
+use primitives::{Address, StorageKey, StorageValue, StorageValueTr, KECCAK_EMPTY, PRECOMPILE3, U256};
 use state::{EvmState, TransientStorage};
 
 /// Trait for tracking and reverting state changes in the EVM.
 /// Journal entry contains information about state changes that can be reverted.
 pub trait JournalEntryTr {
+    /// The storage value type used by this journal entry.
+    type StorageValue: StorageValueTr;
     /// Creates a journal entry for when an account is accessed and marked as "warm" for gas metering
     fn account_warmed(address: Address) -> Self;
 
@@ -44,7 +44,7 @@ pub trait JournalEntryTr {
 
     /// Creates a journal entry for when a storage slot is modified
     /// Records the previous value for reverting
-    fn storage_changed(address: Address, key: U256, had_value: FlaggedStorage) -> Self;
+    fn storage_changed(address: Address, key: U256, had_value: Self::StorageValue) -> Self;
 
     /// Creates a journal entry for when a storage slot is accessed and marked as "warm" for gas metering
     /// This is called with SLOAD opcode.
@@ -82,7 +82,7 @@ pub trait JournalEntryTr {
     /// ```
     fn revert(
         self,
-        state: &mut EvmState,
+        state: &mut EvmState<Self::StorageValue>,
         transient_storage: Option<&mut TransientStorage>,
         is_spurious_dragon_enabled: bool,
     );
@@ -109,7 +109,7 @@ pub enum SelfdestructionRevertStatus {
 /// Journal entries that are used to track changes to the state and are used to revert it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum JournalEntry {
+pub enum JournalEntry<SV: StorageValueTr = U256> {
     /// Used to mark account that is warm inside EVM in regard to EIP-2929 AccessList.
     /// Action: We will add Account to state.
     /// Revert: we will remove account from state.
@@ -183,7 +183,7 @@ pub enum JournalEntry {
         /// Key of storage slot that is changed.
         key: StorageKey,
         /// Previous value of storage slot.
-        had_value: FlaggedStorage,
+        had_value: SV,
         /// Address of account that had its storage changed.
         address: Address,
     },
@@ -215,7 +215,9 @@ pub enum JournalEntry {
         address: Address,
     },
 }
-impl JournalEntryTr for JournalEntry {
+impl<SV: StorageValueTr> JournalEntryTr for JournalEntry<SV> {
+    type StorageValue = SV;
+
     fn account_warmed(address: Address) -> Self {
         JournalEntry::AccountWarmed { address }
     }
@@ -256,7 +258,7 @@ impl JournalEntryTr for JournalEntry {
         }
     }
 
-    fn storage_changed(address: Address, key: U256, had_value: FlaggedStorage) -> Self {
+    fn storage_changed(address: Address, key: U256, had_value: SV) -> Self {
         JournalEntry::StorageChanged {
             address,
             key,
@@ -290,7 +292,7 @@ impl JournalEntryTr for JournalEntry {
 
     fn revert(
         self,
-        state: &mut EvmState,
+        state: &mut EvmState<SV>,
         transient_storage: Option<&mut TransientStorage>,
         is_spurious_dragon_enabled: bool,
     ) {

@@ -25,9 +25,11 @@ pub mod eip7825;
 pub mod eip7907;
 pub mod hardfork;
 mod once_lock;
+pub mod storage_value;
 
 pub use constants::*;
 pub use once_lock::OnceLock;
+pub use storage_value::StorageValueTr;
 
 // Reexport alloy primitives.
 
@@ -44,6 +46,10 @@ pub type StorageKey = U256;
 /// Type alias for EVM storage values (256-bit unsigned integers).
 /// Used to store data values in smart contract storage slots.
 pub type StorageValue = U256;
+
+/// Type alias for EVM transient storage values (256-bit unsigned integers).
+/// Used for EIP-1153 transient storage, which is cleared after transaction execution.
+pub type TransientStorageValue = U256;
 
 /// Optimize short address access.
 pub const SHORT_ADDRESS_CAP: usize = 300;

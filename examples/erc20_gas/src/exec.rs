@@ -10,7 +10,9 @@ use revm::{
         PrecompileProvider,
     },
     interpreter::{interpreter::EthInterpreter, InterpreterResult},
+    primitives::U256,
     state::EvmState,
+    Database,
 };
 
 type Erc20Error<CTX> = EVMError<ContextTrDbError<CTX>, InvalidTransaction>;
@@ -20,10 +22,10 @@ type Erc20Error<CTX> = EVMError<ContextTrDbError<CTX>, InvalidTransaction>;
 /// This function does not commit the state to the database.
 pub fn transact_erc20evm<EVM>(
     evm: &mut EVM,
-) -> Result<(ExecutionResult<HaltReason>, EvmState), Erc20Error<EVM::Context>>
+) -> Result<(ExecutionResult<HaltReason>, EvmState<U256>), Erc20Error<EVM::Context>>
 where
     EVM: EvmTr<
-        Context: ContextTr<Journal: JournalTr<State = EvmState>>,
+        Context: ContextTr<Journal: JournalTr<State = EvmState<U256>>, Db: Database<StorageValue = U256>>,
         Precompiles: PrecompileProvider<EVM::Context, Output = InterpreterResult>,
         Instructions: InstructionProvider<
             Context = EVM::Context,
@@ -46,7 +48,10 @@ pub fn transact_erc20evm_commit<EVM>(
 ) -> Result<ExecutionResult<HaltReason>, Erc20Error<EVM::Context>>
 where
     EVM: EvmTr<
-        Context: ContextTr<Journal: JournalTr<State = EvmState>, Db: DatabaseCommit>,
+        Context: ContextTr<
+            Journal: JournalTr<State = EvmState<U256>>,
+            Db: Database<StorageValue = U256> + DatabaseCommit<U256>,
+        >,
         Precompiles: PrecompileProvider<EVM::Context, Output = InterpreterResult>,
         Instructions: InstructionProvider<
             Context = EVM::Context,

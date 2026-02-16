@@ -2,11 +2,14 @@ use context::result::{ExecutionResult, Output};
 use log::{debug, error};
 use primitives::hex::FromHex;
 use revm::{
-    database::{CacheDB, EmptyDB},
     inspector::inspectors::TracerEip3155,
     primitives::{Address, Bytes, FixedBytes, Log, TxKind, U256},
     Context, DatabaseCommit, DatabaseRef, ExecuteEvm, InspectEvm, MainBuilder, MainContext,
 };
+use seismic_revm::SeismicInMemoryDB;
+
+/// CacheDB using FlaggedStorage, compatible with both mainnet and Seismic EVM handlers.
+type FlaggedCacheDB = SeismicInMemoryDB;
 use seismic_revm::{DefaultSeismicContext, SeismicBuilder};
 use std::str::FromStr;
 
@@ -97,14 +100,14 @@ impl EvmConfig {
 }
 
 pub(crate) struct EvmExecutor {
-    db: CacheDB<EmptyDB>,
+    db: FlaggedCacheDB,
     pub config: EvmConfig,
     evm_version: EVMVersion,
     libraries: Vec<Address>,
 }
 
 impl EvmExecutor {
-    pub(crate) fn new(db: CacheDB<EmptyDB>, config: EvmConfig, evm_version: EVMVersion) -> Self {
+    pub(crate) fn new(db: FlaggedCacheDB, config: EvmConfig, evm_version: EVMVersion) -> Self {
         Self {
             db,
             config,

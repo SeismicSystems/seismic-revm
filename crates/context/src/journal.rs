@@ -20,7 +20,7 @@ use context_interface::{
 };
 use core::ops::{Deref, DerefMut};
 use database_interface::Database;
-use primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, StorageValue, B256, U256};
+use primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, B256, U256};
 use state::{Account, EvmState};
 use std::vec::Vec;
 
@@ -31,6 +31,10 @@ use std::vec::Vec;
 /// The journal contains every state change that happens within that call, making it possible to revert changes made in a specific call.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound = "DB: serde::Serialize + serde::de::DeserializeOwned, ENTRY: serde::Serialize + serde::de::DeserializeOwned, ENTRY::StorageValue: serde::Serialize + serde::de::DeserializeOwned")
+)]
 pub struct Journal<DB, ENTRY = JournalEntry>
 where
     ENTRY: JournalEntryTr,
@@ -89,9 +93,11 @@ impl<DB, ENTRY: JournalEntryTr + Clone> Journal<DB, ENTRY> {
     }
 }
 
-impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
+impl<DB: Database, ENTRY: JournalEntryTr<StorageValue = DB::StorageValue>> JournalTr
+    for Journal<DB, ENTRY>
+{
     type Database = DB;
-    type State = EvmState;
+    type State = EvmState<DB::StorageValue>;
 
     fn new(database: DB) -> Journal<DB, ENTRY> {
         Self {
@@ -108,34 +114,11 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self.database
     }
 
-    fn cload(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        _skip_cold_load: bool,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        self.inner
-            .cload(&mut self.database, address, key, false)
-            .map_err(JournalLoadError::unwrap_db_error)
-    }
-
-    fn cstore(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        value: U256,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
-        self.inner
-            .cstore(&mut self.database, address, key, value, skip_cold_load)
-            .map_err(JournalLoadError::unwrap_db_error)
-    }
-
     fn sload(
         &mut self,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<StorageValue>, <Self::Database as Database>::Error> {
+    ) -> Result<StateLoad<<DB as Database>::StorageValue>, <Self::Database as Database>::Error> {
         self.inner
             .sload(&mut self.database, address, key, false)
             .map_err(JournalLoadError::unwrap_db_error)
@@ -145,8 +128,8 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self,
         address: Address,
         key: StorageKey,
-        value: U256,
-    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
+        value: <DB as Database>::StorageValue,
+    ) -> Result<StateLoad<SStoreResult<<DB as Database>::StorageValue>>, <Self::Database as Database>::Error> {
         self.inner
             .sstore(&mut self.database, address, key, value, false)
             .map_err(JournalLoadError::unwrap_db_error)
@@ -254,7 +237,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
     }
 
     #[inline]
-    fn load_account(&mut self, address: Address) -> Result<StateLoad<&mut Account>, DB::Error> {
+    fn load_account(&mut self, address: Address) -> Result<StateLoad<&mut Account<DB::StorageValue>>, DB::Error> {
         self.inner.load_account(&mut self.database, address)
     }
 
@@ -262,7 +245,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
     fn load_account_code(
         &mut self,
         address: Address,
-    ) -> Result<StateLoad<&mut Account>, DB::Error> {
+    ) -> Result<StateLoad<&mut Account<DB::StorageValue>>, DB::Error> {
         self.inner.load_code(&mut self.database, address)
     }
 
@@ -334,7 +317,7 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         address: Address,
         key: StorageKey,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<StorageValue>, JournalLoadError<<Self::Database as Database>::Error>>
+    ) -> Result<StateLoad<<DB as Database>::StorageValue>, JournalLoadError<<Self::Database as Database>::Error>>
     {
         self.inner
             .sload(&mut self.database, address, key, skip_cold_load)
@@ -344,9 +327,9 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self,
         address: Address,
         key: StorageKey,
-        value: StorageValue,
+        value: <DB as Database>::StorageValue,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<<Self::Database as Database>::Error>>
+    ) -> Result<StateLoad<SStoreResult<<DB as Database>::StorageValue>>, JournalLoadError<<Self::Database as Database>::Error>>
     {
         self.inner
             .sstore(&mut self.database, address, key, value, skip_cold_load)

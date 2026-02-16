@@ -1,9 +1,9 @@
 use cargo_metadata::MetadataCommand;
 use evm_handler::{EvmConfig, EvmExecutor};
-use revm::{
-    database::{CacheDB, EmptyDB},
-    primitives::U256,
-};
+use revm::{database::CacheDB, primitives::U256};
+use seismic_revm::SeismicInMemoryDB;
+/// CacheDB using FlaggedStorage, compatible with both mainnet and Seismic EVM handlers.
+type FlaggedCacheDB = SeismicInMemoryDB;
 
 use log::{error, info, LevelFilter};
 use rayon::prelude::*;
@@ -272,8 +272,8 @@ impl Cmd {
         }
     }
 
-    fn prepare_database(&self, config: &EvmConfig) -> Result<CacheDB<EmptyDB>, Errors> {
-        let mut db = CacheDB::new(EmptyDB::default());
+    fn prepare_database(&self, config: &EvmConfig) -> Result<FlaggedCacheDB, Errors> {
+        let mut db = CacheDB::new(seismic_revm::SeismicEmptyDB::default());
         let account_info = AccountInfo {
             balance: U256::MAX,
             nonce: Default::default(),

@@ -14,23 +14,23 @@ pub use types::{EvmState, EvmStorage, TransientStorage};
 
 use bitflags::bitflags;
 use primitives::hardfork::SpecId;
-use primitives::{HashMap, StorageKey};
+use primitives::{HashMap, StorageKey, StorageValueTr, U256};
 
 /// Account type used inside Journal to track changed to state.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Account {
+pub struct Account<SV: StorageValueTr = U256> {
     /// Balance, nonce, and code
     pub info: AccountInfo,
     /// Transaction id, used to track when account was toched/loaded into journal.
     pub transaction_id: usize,
     /// Storage cache
-    pub storage: EvmStorage,
+    pub storage: EvmStorage<SV>,
     /// Account status flags
     pub status: AccountStatus,
 }
 
-impl Account {
+impl<SV: StorageValueTr> Account<SV> {
     /// Creates new account and mark it as non existing.
     pub fn new_not_existing(transaction_id: usize) -> Self {
         Self {
@@ -197,7 +197,7 @@ impl Account {
     /// Returns an iterator over the storage slots that have been changed.
     ///
     /// See also [EvmStorageSlot::is_changed].
-    pub fn changed_storage_slots(&self) -> impl Iterator<Item = (&StorageKey, &EvmStorageSlot)> {
+    pub fn changed_storage_slots(&self) -> impl Iterator<Item = (&StorageKey, &EvmStorageSlot<SV>)> {
         self.storage.iter().filter(|(_, slot)| slot.is_changed())
     }
 
@@ -210,7 +210,7 @@ impl Account {
     /// Populates storage from an iterator of storage slots and returns self for method chaining.
     pub fn with_storage<I>(mut self, storage_iter: I) -> Self
     where
-        I: Iterator<Item = (StorageKey, EvmStorageSlot)>,
+        I: Iterator<Item = (StorageKey, EvmStorageSlot<SV>)>,
     {
         for (key, slot) in storage_iter {
             self.storage.insert(key, slot);
@@ -256,7 +256,7 @@ impl Account {
     }
 }
 
-impl From<AccountInfo> for Account {
+impl<SV: StorageValueTr> From<AccountInfo> for Account<SV> {
     fn from(info: AccountInfo) -> Self {
         Self {
             info,
@@ -335,11 +335,11 @@ impl Default for AccountStatus {
 /// This type keeps track of the current value of a storage slot.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct EvmStorageSlot {
+pub struct EvmStorageSlot<SV: StorageValueTr = primitives::U256> {
     /// Original value of the storage slot.
-    pub original_value: FlaggedStorage,
+    pub original_value: SV,
     /// Present value of the storage slot.
-    pub present_value: FlaggedStorage,
+    pub present_value: SV,
     /// Represents if the storage slot is cold.
     /// Transaction id, used to track when storage slot was made warm.
     pub transaction_id: usize,
@@ -347,9 +347,9 @@ pub struct EvmStorageSlot {
     pub is_cold: bool,
 }
 
-impl EvmStorageSlot {
+impl<SV: StorageValueTr> EvmStorageSlot<SV> {
     /// Creates a new _unchanged_ `EvmStorageSlot` for the given value.
-    pub fn new(original: FlaggedStorage, transaction_id: usize) -> Self {
+    pub fn new(original: SV, transaction_id: usize) -> Self {
         Self {
             original_value: original,
             present_value: original,
@@ -359,11 +359,7 @@ impl EvmStorageSlot {
     }
 
     /// Creates a new _changed_ `EvmStorageSlot`.
-    pub fn new_changed(
-        original_value: FlaggedStorage,
-        present_value: FlaggedStorage,
-        transaction_id: usize,
-    ) -> Self {
+    pub fn new_changed(original_value: SV, present_value: SV, transaction_id: usize) -> Self {
         Self {
             original_value,
             present_value,
@@ -378,13 +374,13 @@ impl EvmStorageSlot {
 
     /// Returns the original value of the storage slot.
     #[inline]
-    pub fn original_value(&self) -> FlaggedStorage {
+    pub fn original_value(&self) -> SV {
         self.original_value
     }
 
     /// Returns the current value of the storage slot.
     #[inline]
-    pub fn present_value(&self) -> FlaggedStorage {
+    pub fn present_value(&self) -> SV {
         self.present_value
     }
 
@@ -421,7 +417,7 @@ mod tests {
 
     #[test]
     fn account_is_empty_balance() {
-        let mut account = Account::default();
+        let mut account = Account::<FlaggedStorage>::default();
         assert!(account.is_empty());
 
         account.info.balance = U256::from(1);
@@ -433,7 +429,7 @@ mod tests {
 
     #[test]
     fn account_is_empty_nonce() {
-        let mut account = Account::default();
+        let mut account = Account::<FlaggedStorage>::default();
         assert!(account.is_empty());
 
         account.info.nonce = 1;
@@ -445,7 +441,7 @@ mod tests {
 
     #[test]
     fn account_is_empty_code_hash() {
-        let mut account = Account::default();
+        let mut account = Account::<FlaggedStorage>::default();
         assert!(account.is_empty());
 
         account.info.code_hash = [1; 32].into();
@@ -460,7 +456,7 @@ mod tests {
 
     #[test]
     fn account_state() {
-        let mut account = Account::default();
+        let mut account = Account::<FlaggedStorage>::default();
 
         assert!(!account.is_touched());
         assert!(!account.is_selfdestructed());
@@ -480,7 +476,7 @@ mod tests {
 
     #[test]
     fn account_is_cold() {
-        let mut account = Account::default();
+        let mut account = Account::<FlaggedStorage>::default();
 
         // Account is not cold by default
         assert!(!account.status.contains(crate::AccountStatus::Cold));
@@ -501,7 +497,7 @@ mod tests {
     #[test]
     fn test_account_with_info() {
         let info = AccountInfo::default();
-        let account = Account::default().with_info(info.clone());
+        let account = Account::<FlaggedStorage>::default().with_info(info.clone());
 
         assert_eq!(account.info, info);
         assert_eq!(account.storage, HashMap::default());
@@ -510,7 +506,7 @@ mod tests {
 
     #[test]
     fn test_account_with_storage() {
-        let mut storage = HashMap::<StorageKey, EvmStorageSlot>::default();
+        let mut storage = HashMap::<StorageKey, EvmStorageSlot<FlaggedStorage>>::default();
         let key1 = StorageKey::from(1);
         let key2 = StorageKey::from(2);
         let slot1 = EvmStorageSlot::new(FlaggedStorage::from(10), 0);
@@ -519,7 +515,7 @@ mod tests {
         storage.insert(key1, slot1.clone());
         storage.insert(key2, slot2.clone());
 
-        let account = Account::default().with_storage(storage.clone().into_iter());
+        let account = Account::<FlaggedStorage>::default().with_storage(storage.clone().into_iter());
 
         assert_eq!(account.storage.len(), 2);
         assert_eq!(account.storage.get(&key1), Some(&slot1));
@@ -528,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_account_with_selfdestruct_mark() {
-        let account = Account::default().with_selfdestruct_mark();
+        let account = Account::<FlaggedStorage>::default().with_selfdestruct_mark();
 
         assert!(account.is_selfdestructed());
         assert!(!account.is_touched());
@@ -537,7 +533,7 @@ mod tests {
 
     #[test]
     fn test_account_with_touched_mark() {
-        let account = Account::default().with_touched_mark();
+        let account = Account::<FlaggedStorage>::default().with_touched_mark();
 
         assert!(!account.is_selfdestructed());
         assert!(account.is_touched());
@@ -546,7 +542,7 @@ mod tests {
 
     #[test]
     fn test_account_with_created_mark() {
-        let account = Account::default().with_created_mark();
+        let account = Account::<FlaggedStorage>::default().with_created_mark();
 
         assert!(!account.is_selfdestructed());
         assert!(!account.is_touched());
@@ -555,7 +551,7 @@ mod tests {
 
     #[test]
     fn test_account_with_cold_mark() {
-        let account = Account::default().with_cold_mark();
+        let account = Account::<FlaggedStorage>::default().with_cold_mark();
 
         assert!(account.status.contains(AccountStatus::Cold));
     }
@@ -584,7 +580,7 @@ mod tests {
     #[test]
     fn test_account_with_warm_mark() {
         // Start with a cold account
-        let cold_account = Account::default().with_cold_mark();
+        let cold_account = Account::<FlaggedStorage>::default().with_cold_mark();
         assert!(cold_account.status.contains(AccountStatus::Cold));
 
         // Use with_warm_mark to warm it
@@ -603,7 +599,7 @@ mod tests {
     #[test]
     fn test_account_with_warm() {
         // Start with a cold account
-        let cold_account = Account::default().with_cold_mark();
+        let cold_account = Account::<FlaggedStorage>::default().with_cold_mark();
         assert!(cold_account.status.contains(AccountStatus::Cold));
 
         // Use with_warm to warm it
@@ -622,11 +618,11 @@ mod tests {
 
         let slot_key = StorageKey::from(42);
         let slot_value = EvmStorageSlot::new(FlaggedStorage::from(123), 0);
-        let mut storage = HashMap::<StorageKey, EvmStorageSlot>::default();
+        let mut storage = HashMap::<StorageKey, EvmStorageSlot<FlaggedStorage>>::default();
         storage.insert(slot_key, slot_value.clone());
 
         // Chain multiple builder methods together
-        let account = Account::default()
+        let account = Account::<FlaggedStorage>::default()
             .with_info(info.clone())
             .with_storage(storage.into_iter())
             .with_created_mark()
@@ -644,7 +640,7 @@ mod tests {
 
     #[test]
     fn test_account_is_cold_transaction_id() {
-        let mut account = Account::default();
+        let mut account = Account::<FlaggedStorage>::default();
         // only case where it is warm.
         assert!(!account.is_cold_transaction_id(0));
 
@@ -653,5 +649,13 @@ mod tests {
         account.mark_cold();
         assert!(account.is_cold_transaction_id(0));
         assert!(account.is_cold_transaction_id(1));
+    }
+
+    #[test]
+    fn test_evm_storage_slot_u256() {
+        let slot = EvmStorageSlot::<U256>::new(U256::from(42), 0);
+        assert_eq!(slot.original_value(), U256::from(42));
+        assert_eq!(slot.present_value(), U256::from(42));
+        assert!(!slot.is_changed());
     }
 }

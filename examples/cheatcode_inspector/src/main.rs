@@ -27,7 +27,7 @@ use revm::{
         interpreter::EthInterpreter, CallInputs, CallOutcome, InterpreterResult, SStoreResult,
         SelfDestructResult, StateLoad,
     },
-    primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, StorageValue, B256, U256},
+    primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, B256, U256},
     state::{Account, Bytecode, EvmState},
     Context, Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
@@ -61,26 +61,6 @@ impl JournalTr for Backend {
     type Database = InMemoryDB;
     type State = EvmState;
 
-    fn cload(
-        &mut self,
-        address: Address,
-        key: U256,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
-        self.journaled_state.cload(address, key, skip_cold_load)
-    }
-
-    fn cstore(
-        &mut self,
-        address: Address,
-        key: U256,
-        value: U256,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
-        self.journaled_state
-            .cstore(address, key, value, skip_cold_load)
-    }
-
     fn new(database: InMemoryDB) -> Self {
         Self::new(SpecId::default(), database)
     }
@@ -97,7 +77,7 @@ impl JournalTr for Backend {
         &mut self,
         address: Address,
         key: StorageKey,
-    ) -> Result<StateLoad<StorageValue>, <Self::Database as Database>::Error> {
+    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
         self.journaled_state.sload(address, key)
     }
 
@@ -105,16 +85,16 @@ impl JournalTr for Backend {
         &mut self,
         address: Address,
         key: StorageKey,
-        value: StorageValue,
-    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
+        value: U256,
+    ) -> Result<StateLoad<SStoreResult<U256>>, <Self::Database as Database>::Error> {
         self.journaled_state.sstore(address, key, value)
     }
 
-    fn tload(&mut self, address: Address, key: StorageKey) -> StorageValue {
+    fn tload(&mut self, address: Address, key: StorageKey) -> U256 {
         self.journaled_state.tload(address, key)
     }
 
-    fn tstore(&mut self, address: Address, key: StorageKey, value: StorageValue) {
+    fn tstore(&mut self, address: Address, key: StorageKey, value: U256) {
         self.journaled_state.tstore(address, key, value)
     }
 
@@ -280,7 +260,7 @@ impl JournalTr for Backend {
         address: Address,
         key: StorageKey,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<StorageValue>, JournalLoadError<<Self::Database as Database>::Error>>
+    ) -> Result<StateLoad<U256>, JournalLoadError<<Self::Database as Database>::Error>>
     {
         self.journaled_state
             .sload_skip_cold_load(address, key, skip_cold_load)
@@ -290,9 +270,9 @@ impl JournalTr for Backend {
         &mut self,
         address: Address,
         key: StorageKey,
-        value: StorageValue,
+        value: U256,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<<Self::Database as Database>::Error>>
+    ) -> Result<StateLoad<SStoreResult<U256>>, JournalLoadError<<Self::Database as Database>::Error>>
     {
         self.journaled_state
             .sstore_skip_cold_load(address, key, value, skip_cold_load)
@@ -310,6 +290,8 @@ impl JournalTr for Backend {
 }
 
 impl JournalExt for Backend {
+    type StorageValue = U256;
+
     fn logs(&self) -> &[Log] {
         self.journaled_state.logs()
     }
@@ -612,7 +594,10 @@ where
 
 /// Mimics <https://github.com/foundry-rs/foundry/blob/25cc1ac68b5f6977f23d713c01ec455ad7f03d21/crates/evm/core/src/backend/mod.rs#L1968>
 /// Omits persistent accounts (accounts that should be kept persistent when switching forks) for simplicity.
-fn update_state<DB: Database>(state: &mut EvmState, db: &mut DB) -> Result<(), DB::Error> {
+fn update_state<DB: Database<StorageValue = U256>>(
+    state: &mut EvmState,
+    db: &mut DB,
+) -> Result<(), DB::Error> {
     for (addr, acc) in state.iter_mut() {
         acc.info = db.basic(*addr)?.unwrap_or_default();
         for (key, val) in acc.storage.iter_mut() {

@@ -133,10 +133,11 @@ mod tests {
     )]
 
     use super::*;
-    use crate::{api::default_ctx::SeismicContext, DefaultSeismicContext, SeismicBuilder};
+    use crate::{
+        api::default_ctx::SeismicContext, evm::SeismicEmptyDB, DefaultSeismicContext, SeismicBuilder,
+    };
     use revm::{
         context::{result::EVMError, Context},
-        database_interface::EmptyDB,
         handler::EthFrame,
         interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
         primitives::Bytes,
@@ -144,7 +145,7 @@ mod tests {
 
     /// Creates frame result.
     fn call_last_frame_return(
-        ctx: SeismicContext<EmptyDB>,
+        ctx: SeismicContext<SeismicEmptyDB>,
         instruction_result: InstructionResult,
         gas: Gas,
     ) -> Gas {

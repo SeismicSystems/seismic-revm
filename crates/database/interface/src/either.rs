@@ -2,15 +2,16 @@
 
 use crate::{Database, DatabaseCommit, DatabaseRef};
 use either::Either;
-use primitives::{Address, HashMap, StorageKey, B256};
+use primitives::{Address, HashMap, StorageKey, StorageValueTr, B256};
 use state::{Account, AccountInfo, Bytecode};
 
 impl<L, R> Database for Either<L, R>
 where
     L: Database,
-    R: Database<Error = L::Error>,
+    R: Database<Error = L::Error, StorageValue = L::StorageValue>,
 {
     type Error = L::Error;
+    type StorageValue = L::StorageValue;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         match self {
@@ -30,7 +31,7 @@ where
         &mut self,
         address: Address,
         index: StorageKey,
-    ) -> Result<state::FlaggedStorage, Self::Error> {
+    ) -> Result<Self::StorageValue, Self::Error> {
         match self {
             Self::Left(db) => db.storage(address, index),
             Self::Right(db) => db.storage(address, index),
@@ -45,12 +46,12 @@ where
     }
 }
 
-impl<L, R> DatabaseCommit for Either<L, R>
+impl<L, R, SV: StorageValueTr> DatabaseCommit<SV> for Either<L, R>
 where
-    L: DatabaseCommit,
-    R: DatabaseCommit,
+    L: DatabaseCommit<SV>,
+    R: DatabaseCommit<SV>,
 {
-    fn commit(&mut self, changes: HashMap<Address, Account>) {
+    fn commit(&mut self, changes: HashMap<Address, Account<SV>>) {
         match self {
             Self::Left(db) => db.commit(changes),
             Self::Right(db) => db.commit(changes),
@@ -61,9 +62,10 @@ where
 impl<L, R> DatabaseRef for Either<L, R>
 where
     L: DatabaseRef,
-    R: DatabaseRef<Error = L::Error>,
+    R: DatabaseRef<Error = L::Error, StorageValue = L::StorageValue>,
 {
     type Error = L::Error;
+    type StorageValue = L::StorageValue;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         match self {
@@ -83,7 +85,7 @@ where
         &self,
         address: Address,
         index: StorageKey,
-    ) -> Result<state::FlaggedStorage, Self::Error> {
+    ) -> Result<Self::StorageValue, Self::Error> {
         match self {
             Self::Left(db) => db.storage_ref(address, index),
             Self::Right(db) => db.storage_ref(address, index),

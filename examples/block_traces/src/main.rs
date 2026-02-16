@@ -9,7 +9,7 @@ use alloy_provider::{network::primitives::BlockTransactions, Provider, ProviderB
 use indicatif::ProgressBar;
 use revm::{
     context::TxEnv,
-    database::{AlloyDB, CacheDB, StateBuilder},
+    database::{AlloyDB, CacheDB},
     database_interface::WrapDatabaseAsync,
     inspector::{inspectors::TracerEip3155, InspectEvm},
     primitives::{TxKind, U256},
@@ -75,10 +75,9 @@ async fn main() -> anyhow::Result<()> {
     // SAFETY: This cannot fail since this is in the top-level tokio runtime
 
     let state_db = WrapDatabaseAsync::new(AlloyDB::new(client, prev_id)).unwrap();
-    let cache_db: CacheDB<_> = CacheDB::new(state_db);
-    let mut state = StateBuilder::new_with_database(cache_db).build();
+    let mut cache_db = CacheDB::new(state_db);
     let ctx = Context::mainnet()
-        .with_db(&mut state)
+        .with_db(&mut cache_db)
         .modify_block_chained(|b| {
             b.number = U256::from(block.header.number);
             b.beneficiary = block.header.beneficiary;

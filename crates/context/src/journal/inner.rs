@@ -9,11 +9,10 @@ use context_interface::{
 };
 use core::mem;
 use database_interface::Database;
-use primitives::alloy_primitives::FlaggedStorage;
 use primitives::{
     hardfork::SpecId::{self, *},
     hash_map::Entry,
-    Address, HashMap, Log, StorageKey, StorageValue, B256, KECCAK_EMPTY, U256,
+    Address, HashMap, Log, StorageKey, StorageValueTr, B256, KECCAK_EMPTY, U256,
 };
 use state::{Account, EvmState, EvmStorageSlot, TransientStorage};
 use std::vec::Vec;
@@ -22,9 +21,13 @@ use std::vec::Vec;
 /// Spec Id is a essential information for the Journal.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct JournalInner<ENTRY> {
+#[cfg_attr(
+    feature = "serde",
+    serde(bound = "ENTRY: serde::Serialize + serde::de::DeserializeOwned, ENTRY::StorageValue: serde::Serialize + serde::de::DeserializeOwned")
+)]
+pub struct JournalInner<ENTRY: JournalEntryTr> {
     /// The current state
-    pub state: EvmState,
+    pub state: EvmState<ENTRY::StorageValue>,
     /// Transient storage that is discarded after every transaction.
     ///
     /// See [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153).
@@ -65,29 +68,6 @@ impl<ENTRY: JournalEntryTr> Default for JournalInner<ENTRY> {
 }
 
 impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
-    /// Loads the private storage value from Journal state.
-    pub fn cload<DB: Database>(
-        &mut self,
-        db: &mut DB,
-        address: Address,
-        key: StorageKey,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<U256>, JournalLoadError<DB::Error>> {
-        self.load_inner(db, address, key, skip_cold_load, true)
-    }
-
-    /// Stores the private storage value in Journal state.
-    pub fn cstore<DB: Database>(
-        &mut self,
-        db: &mut DB,
-        address: Address,
-        key: StorageKey,
-        value: U256,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
-        self.store(db, address, key, value, skip_cold_load, true)
-    }
-
     /// Creates new [`JournalInner`].
     ///
     /// `warm_preloaded_addresses` is used to determine if address is considered warm loaded.
@@ -179,7 +159,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     /// Note: Precompile addresses and spec are preserved and initial state of
     /// warm_preloaded_addresses will contain precompiles addresses.
     #[inline]
-    pub fn finalize(&mut self) -> EvmState {
+    pub fn finalize(&mut self) -> EvmState<ENTRY::StorageValue> {
         // Clears all field from JournalInner. Doing it this way to avoid
         // missing any field.
         let Self {
@@ -212,7 +192,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
 
     /// Return reference to state.
     #[inline]
-    pub fn state(&mut self) -> &mut EvmState {
+    pub fn state(&mut self) -> &mut EvmState<ENTRY::StorageValue> {
         &mut self.state
     }
 
@@ -234,7 +214,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
 
     /// Mark account as touched.
     #[inline]
-    fn touch_account(journal: &mut Vec<ENTRY>, address: Address, account: &mut Account) {
+    fn touch_account(journal: &mut Vec<ENTRY>, address: Address, account: &mut Account<ENTRY::StorageValue>) {
         if !account.is_touched() {
             journal.push(ENTRY::account_touched(address));
             account.mark_touch();
@@ -249,7 +229,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     ///
     /// Panics if the account has not been loaded and is missing from the state set.
     #[inline]
-    pub fn account(&self, address: Address) -> &Account {
+    pub fn account(&self, address: Address) -> &Account<ENTRY::StorageValue> {
         self.state
             .get(&address)
             .expect("Account expected to be loaded") // Always assume that acc is already loaded
@@ -311,7 +291,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     ///
     /// Mark account as touched.
     #[inline]
-    pub fn balance_incr<DB: Database>(
+    pub fn balance_incr<DB: Database<StorageValue = ENTRY::StorageValue>>(
         &mut self,
         db: &mut DB,
         address: Address,
@@ -341,7 +321,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
 
     /// Transfers balance from two accounts. Returns error if sender balance is not enough.
     #[inline]
-    pub fn transfer<DB: Database>(
+    pub fn transfer<DB: Database<StorageValue = ENTRY::StorageValue>>(
         &mut self,
         db: &mut DB,
         from: Address,
@@ -512,7 +492,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     ///  * <https://github.com/ethereum/go-ethereum/blob/141cd425310b503c5678e674a8c3872cf46b7086/core/state/statedb.go#L449>
     ///  * <https://eips.ethereum.org/EIPS/eip-6780>
     #[inline]
-    pub fn selfdestruct<DB: Database>(
+    pub fn selfdestruct<DB: Database<StorageValue = ENTRY::StorageValue>>(
         &mut self,
         db: &mut DB,
         address: Address,
@@ -579,17 +559,16 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                     == SelfdestructionRevertStatus::RepeatedSelfdestruction,
             },
             is_cold,
-            is_private: false,
         })
     }
 
     /// Loads account into memory. return if it is cold or warm accessed
     #[inline]
-    pub fn load_account<DB: Database>(
+    pub fn load_account<DB: Database<StorageValue = ENTRY::StorageValue>>(
         &mut self,
         db: &mut DB,
         address: Address,
-    ) -> Result<StateLoad<&mut Account>, DB::Error> {
+    ) -> Result<StateLoad<&mut Account<ENTRY::StorageValue>>, DB::Error> {
         self.load_account_optional(db, address, false, [], false)
             .map_err(JournalLoadError::unwrap_db_error)
     }
@@ -602,7 +581,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     /// Returns information about the account (If it is empty or cold loaded) and if present the information
     /// about the delegated account (If it is cold loaded).
     #[inline]
-    pub fn load_account_delegated<DB: Database>(
+    pub fn load_account_delegated<DB: Database<StorageValue = ENTRY::StorageValue>>(
         &mut self,
         db: &mut DB,
         address: Address,
@@ -620,7 +599,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 is_empty,
             },
             account.is_cold,
-            false,
         );
 
         // load delegate code if account is EIP-7702
@@ -640,25 +618,25 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     /// In case of EIP-7702 delegated account will not be loaded,
     /// [`Self::load_account_delegated`] should be used instead.
     #[inline]
-    pub fn load_code<DB: Database>(
+    pub fn load_code<DB: Database<StorageValue = ENTRY::StorageValue>>(
         &mut self,
         db: &mut DB,
         address: Address,
-    ) -> Result<StateLoad<&mut Account>, DB::Error> {
+    ) -> Result<StateLoad<&mut Account<ENTRY::StorageValue>>, DB::Error> {
         self.load_account_optional(db, address, true, [], false)
             .map_err(JournalLoadError::unwrap_db_error)
     }
 
     /// Loads account. If account is already loaded it will be marked as warm.
     #[inline(never)]
-    pub fn load_account_optional<DB: Database>(
+    pub fn load_account_optional<DB: Database<StorageValue = ENTRY::StorageValue>>(
         &mut self,
         db: &mut DB,
         address: Address,
         load_code: bool,
         storage_keys: impl IntoIterator<Item = StorageKey>,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<&mut Account>, JournalLoadError<DB::Error>> {
+    ) -> Result<StateLoad<&mut Account<ENTRY::StorageValue>>, JournalLoadError<DB::Error>> {
         let load = match self.state.entry(address) {
             Entry::Occupied(entry) => {
                 let account = entry.into_mut();
@@ -690,7 +668,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 StateLoad {
                     data: account,
                     is_cold,
-                    is_private: false,
                 }
             }
             Entry::Vacant(vac) => {
@@ -710,7 +687,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 StateLoad {
                     data: vac.insert(account),
                     is_cold,
-                    is_private: false,
                 }
             }
         };
@@ -740,7 +716,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 address,
                 storage_key,
                 false,
-                false,
             )?;
         }
         Ok(load)
@@ -752,14 +727,16 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     ///
     /// Panics if the account is not present in the state.
     #[inline]
-    fn load_inner<DB: Database>(
+    /// Loads storage slot value.
+    ///
+    /// Returns the storage value.
+    pub fn sload<DB: Database<StorageValue = ENTRY::StorageValue>>(
         &mut self,
         db: &mut DB,
         address: Address,
         key: StorageKey,
         skip_cold_load: bool,
-        default_privacy: bool,
-    ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
+    ) -> Result<StateLoad<ENTRY::StorageValue>, JournalLoadError<DB::Error>> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
         // only if account is created in this tx we can assume that storage is empty.
@@ -771,49 +748,23 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             address,
             key,
             skip_cold_load,
-            default_privacy,
         )
     }
 
-    /// Loads public storage slot
-    pub fn sload<DB: Database>(
-        &mut self,
-        db: &mut DB,
-        address: Address,
-        key: StorageKey,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
-        self.load_inner(db, address, key, skip_cold_load, false)
-    }
-
-    /// Stores public storage value
-    #[inline]
-    pub fn sstore<DB: Database>(
-        &mut self,
-        db: &mut DB,
-        address: Address,
-        key: StorageKey,
-        value: U256,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
-        self.store(db, address, key, value, skip_cold_load, false)
-    }
-
-    /// Stores storage slot.
+    /// Stores storage slot value.
     ///
     /// And returns (original,present,new) slot value.
     ///
     /// **Note**: Account should already be present in our state.
     #[inline]
-    pub fn store<DB: Database>(
+    pub fn sstore<DB: Database<StorageValue = ENTRY::StorageValue>>(
         &mut self,
         db: &mut DB,
         address: Address,
         key: StorageKey,
-        new: StorageValue,
+        new_value: ENTRY::StorageValue,
         skip_cold_load: bool,
-        is_private: bool,
-    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
+    ) -> Result<StateLoad<SStoreResult<ENTRY::StorageValue>>, JournalLoadError<DB::Error>> {
         // assume that acc exists and load the slot.
         let present = self.sload(db, address, key, skip_cold_load)?;
         let acc = self.state.get_mut(&address).unwrap();
@@ -821,32 +772,30 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         // if there is no original value in dirty return present value, that is our original.
         let slot = acc.storage.get_mut(&key).unwrap();
 
+        let present_value = present.data;
         // new value is same as present, we don't need to do anything
-        let present_value = FlaggedStorage::new(present.data, present.is_private);
-        if present_value == FlaggedStorage::new(new, is_private) {
+        if present_value == new_value {
             return Ok(StateLoad::new(
                 SStoreResult {
                     original_value: slot.original_value(),
                     present_value,
-                    new_value: FlaggedStorage::new(new, is_private),
+                    new_value,
                 },
                 present.is_cold,
-                is_private,
             ));
         }
 
         self.journal
             .push(ENTRY::storage_changed(address, key, present_value));
         // insert value into present state.
-        slot.present_value = FlaggedStorage::new(new, is_private);
+        slot.present_value = new_value;
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value(),
                 present_value,
-                new_value: FlaggedStorage::new(new, is_private),
+                new_value,
             },
             present.is_cold,
-            is_private,
         ))
     }
 
@@ -905,28 +854,28 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
 }
 
 /// Loads storage slot with account.
+///
+/// For newly created accounts, storage defaults to SV::ZERO.
 #[inline]
-pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
-    account: &mut Account,
+pub fn sload_with_account<SV: StorageValueTr, DB: Database<StorageValue = SV>, ENTRY: JournalEntryTr<StorageValue = SV>>(
+    account: &mut Account<SV>,
     db: &mut DB,
     journal: &mut Vec<ENTRY>,
     transaction_id: usize,
     address: Address,
     key: StorageKey,
     skip_cold_load: bool,
-    default_privacy: bool,
-) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
+) -> Result<StateLoad<SV>, JournalLoadError<DB::Error>> {
     // only if account is created in this tx we can assume that storage is empty.
     let is_newly_created = account.is_created();
-    let (value, is_cold, is_private) = match account.storage.entry(key) {
+    let (value, is_cold) = match account.storage.entry(key) {
         Entry::Occupied(occ) => {
             let slot = occ.into_mut();
             let is_cold = slot.is_cold_transaction_id(transaction_id);
             if skip_cold_load && is_cold {
                 return Err(JournalLoadError::ColdLoadSkipped);
             }
-            let is_private = slot.present_value().is_private;
-            (slot.present_value.value, is_cold, is_private)
+            (slot.present_value, is_cold)
         }
         Entry::Vacant(vac) => {
             // if storage was cleared, we don't need to ping db.
@@ -934,15 +883,14 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
                 return Err(JournalLoadError::ColdLoadSkipped);
             }
             let value = if is_newly_created {
-                FlaggedStorage::ZERO.set_visibility(default_privacy)
+                SV::ZERO
             } else {
-                let v = db.storage(address, key)?;
-                v
+                db.storage(address, key)?
             };
 
             vac.insert(EvmStorageSlot::new(value, transaction_id));
 
-            (value.value, true, value.is_private)
+            (value, true)
         }
     };
 
@@ -951,5 +899,5 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
         journal.push(ENTRY::storage_warmed(address, key));
     }
 
-    Ok(StateLoad::new(value, is_cold, is_private))
+    Ok(StateLoad::new(value, is_cold))
 }

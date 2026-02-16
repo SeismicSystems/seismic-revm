@@ -31,7 +31,7 @@ pub struct CustomEvm<CTX, INSP>(
 
 impl<CTX, INSP> CustomEvm<CTX, INSP>
 where
-    CTX: ContextTr<Cfg: revm::context::Cfg<Spec = SpecId>>,
+    CTX: ContextTr<Cfg: revm::context::Cfg<Spec = SpecId>, Db: Database<StorageValue = revm::primitives::FlaggedStorage>>,
 {
     /// Creates a new instance of CustomEvm with the provided context and inspector.
     ///
@@ -60,7 +60,7 @@ where
 
 impl<CTX, INSP> EvmTr for CustomEvm<CTX, INSP>
 where
-    CTX: ContextTr<Cfg: revm::context::Cfg<Spec = SpecId>>,
+    CTX: ContextTr<Cfg: revm::context::Cfg<Spec = SpecId>, Db: Database<StorageValue = revm::primitives::FlaggedStorage>>,
 {
     type Context = CTX;
     type Instructions = EthInstructions<EthInterpreter, CTX>;
@@ -119,7 +119,7 @@ where
 
 impl<CTX, INSP> InspectorEvmTr for CustomEvm<CTX, INSP>
 where
-    CTX: ContextSetters<Cfg: revm::context::Cfg<Spec = SpecId>, Journal: JournalExt>,
+    CTX: ContextSetters<Cfg: revm::context::Cfg<Spec = SpecId>, Journal: JournalExt, Db: Database<StorageValue = revm::primitives::FlaggedStorage>>,
     INSP: Inspector<CTX, EthInterpreter>,
 {
     type Inspector = INSP;

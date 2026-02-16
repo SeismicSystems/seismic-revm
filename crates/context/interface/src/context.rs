@@ -4,7 +4,7 @@ use crate::{
     result::FromStringError, Block, Cfg, Database, Host, JournalTr, LocalContextTr, Transaction,
 };
 use auto_impl::auto_impl;
-use primitives::FlaggedStorage;
+use primitives::{StorageValueTr, U256};
 use std::string::String;
 
 /// Trait that defines the context of the EVM execution.
@@ -104,50 +104,50 @@ impl<DbError> From<DbError> for ContextError<DbError> {
 /// Represents the result of an `sstore` operation.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct SStoreResult {
+pub struct SStoreResult<SV: StorageValueTr = U256> {
     /// Value of the storage when it is first read
-    pub original_value: FlaggedStorage,
+    pub original_value: SV,
     /// Current value of the storage
-    pub present_value: FlaggedStorage,
+    pub present_value: SV,
     /// New value that is set
-    pub new_value: FlaggedStorage,
+    pub new_value: SV,
 }
 
-impl SStoreResult {
+impl<SV: StorageValueTr> SStoreResult<SV> {
     /// Returns `true` if the new value is equal to the present value.
     #[inline]
-    pub const fn is_new_eq_present(&self) -> bool {
-        self.new_value.const_eq(&self.present_value)
+    pub fn is_new_eq_present(&self) -> bool {
+        self.new_value == self.present_value
     }
 
     /// Returns `true` if the original value is equal to the present value.
     #[inline]
-    pub const fn is_original_eq_present(&self) -> bool {
-        self.original_value.const_eq(&self.present_value)
+    pub fn is_original_eq_present(&self) -> bool {
+        self.original_value == self.present_value
     }
 
     /// Returns `true` if the original value is equal to the new value.
     #[inline]
-    pub const fn is_original_eq_new(&self) -> bool {
-        self.original_value.const_eq(&self.new_value)
+    pub fn is_original_eq_new(&self) -> bool {
+        self.original_value == self.new_value
     }
 
     /// Returns `true` if the original value is zero.
     #[inline]
-    pub const fn is_original_zero(&self) -> bool {
-        self.original_value.const_is_zero()
+    pub fn is_original_zero(&self) -> bool {
+        self.original_value.is_zero()
     }
 
     /// Returns `true` if the present value is zero.
     #[inline]
-    pub const fn is_present_zero(&self) -> bool {
-        self.present_value.const_is_zero()
+    pub fn is_present_zero(&self) -> bool {
+        self.present_value.is_zero()
     }
 
     /// Returns `true` if the new value is zero.
     #[inline]
-    pub const fn is_new_zero(&self) -> bool {
-        self.new_value.const_is_zero()
+    pub fn is_new_zero(&self) -> bool {
+        self.new_value.is_zero()
     }
 }
 
@@ -171,4 +171,20 @@ pub trait ContextSetters: ContextTr {
     fn set_tx(&mut self, tx: Self::Tx);
     /// Set the block
     fn set_block(&mut self, block: Self::Block);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sstore_result_u256() {
+        let result = SStoreResult::<U256> {
+            original_value: U256::ZERO,
+            present_value: U256::ZERO,
+            new_value: U256::from(1),
+        };
+        assert!(!result.is_new_eq_present());
+        assert!(result.is_original_zero());
+    }
 }

@@ -17,10 +17,10 @@ pub mod transaction;
 
 pub use api::{
     builder::SeismicBuilder,
-    default_ctx::{DefaultSeismicContext, SeismicContext},
+    default_ctx::{DefaultSeismicContext, SeismicContext, SeismicJournal},
 };
 pub use chain::seismic_chain::SeismicChain;
-pub use evm::SeismicEvm;
+pub use evm::{SeismicEmptyDB, SeismicEvm, SeismicInMemoryDB};
 pub use instructions::seismic_host::SeismicHost;
 pub use result::SeismicHaltReason;
 pub use spec::*;

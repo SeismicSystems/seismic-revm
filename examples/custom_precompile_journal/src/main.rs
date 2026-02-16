@@ -9,13 +9,15 @@
 use example_custom_precompile_journal::{
     precompile_provider::CUSTOM_PRECOMPILE_ADDRESS, CustomEvm,
 };
+use core::convert::Infallible;
 use revm::{
     context::{result::InvalidTransaction, Context, ContextSetters, ContextTr, TxEnv},
     context_interface::result::EVMError,
-    database::InMemoryDB,
+    database::CacheDB,
+    database_interface::EmptyDBTyped,
     handler::{Handler, MainnetHandler},
     inspector::NoOpInspector,
-    primitives::{address, TxKind, U256},
+    primitives::{address, FlaggedStorage, TxKind, U256},
     state::AccountInfo,
     Database, MainContext,
 };
@@ -28,7 +30,8 @@ fn main() -> anyhow::Result<()> {
 
     // Setup initial accounts
     let user_address = address!("0000000000000000000000000000000000000001");
-    let mut db = InMemoryDB::default();
+    let mut db: CacheDB<EmptyDBTyped<Infallible, FlaggedStorage>, FlaggedStorage> =
+        CacheDB::default();
 
     // Give the user some ETH for gas
     let user_balance = U256::from(10).pow(U256::from(18)); // 1 ETH

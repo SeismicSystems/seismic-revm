@@ -11,6 +11,7 @@ use revm::{
     interpreter::interpreter_action::FrameInit,
     primitives::{hardfork::SpecId, U256},
     state::EvmState,
+    Database,
 };
 
 use crate::{erc_address_storage, token_operation, TOKEN, TREASURY};
@@ -40,7 +41,7 @@ impl<EVM, ERROR, FRAME> Default for Erc20MainnetHandler<EVM, ERROR, FRAME> {
 
 impl<EVM, ERROR, FRAME> Handler for Erc20MainnetHandler<EVM, ERROR, FRAME>
 where
-    EVM: EvmTr<Context: ContextTr<Journal: JournalTr<State = EvmState>>, Frame = FRAME>,
+    EVM: EvmTr<Context: ContextTr<Journal: JournalTr<State = EvmState<U256>>, Db: Database<StorageValue = U256>>, Frame = FRAME>,
     FRAME: FrameTr<FrameResult = FrameResult, FrameInit = FrameInit>,
     ERROR: EvmTrError<EVM>,
 {

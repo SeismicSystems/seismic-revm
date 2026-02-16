@@ -189,12 +189,12 @@ mod tests {
         clippy::useless_conversion
     )]
 
+    use crate::evm::SeismicEmptyDB;
     use crate::transaction::abstraction::SeismicTransaction;
     use crate::{DefaultSeismicContext, SeismicContext};
     use std::vec;
 
     use super::*;
-    use revm::database::EmptyDB;
     use revm::precompile::PrecompileError;
     use revm::primitives::{Bytes, B256};
     use revm::Context;
@@ -205,8 +205,8 @@ mod tests {
     ) -> (
         u64,
         Bytes,
-        SeismicContext<EmptyDB>,
-        StatefulPrecompileWithAddress<SeismicContext<EmptyDB>>,
+        SeismicContext<SeismicEmptyDB>,
+        StatefulPrecompileWithAddress<SeismicContext<SeismicEmptyDB>>,
     ) {
         let gas_limit = 6000;
 
@@ -225,7 +225,7 @@ mod tests {
         let context = Context::seismic().with_tx(tx);
 
         // Get precompile function
-        let precompile = rng_precompile::<SeismicContext<EmptyDB>>;
+        let precompile = rng_precompile::<SeismicContext<SeismicEmptyDB>>;
 
         (gas_limit, input, context, precompile())
     }

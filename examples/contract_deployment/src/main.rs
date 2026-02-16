@@ -8,7 +8,7 @@ use revm::{
     context_interface::result::{ExecutionResult, Output},
     database::CacheDB,
     database_interface::EmptyDB,
-    primitives::{hex, Bytes, FlaggedStorage, StorageValue, TxKind},
+    primitives::{hex, Bytes, StorageValue, TxKind, U256},
     ExecuteCommitEvm, ExecuteEvm, MainBuilder, MainContext,
 };
 
@@ -92,7 +92,7 @@ fn main() -> anyhow::Result<()> {
     println!("storage U256(0) at {address}:  {storage0:#?}");
     assert_eq!(
         storage0.present_value(),
-        FlaggedStorage::new_from_value(param),
+        U256::from(param),
         "{:#?}",
         output.result
     );

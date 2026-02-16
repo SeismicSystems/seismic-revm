@@ -9,9 +9,9 @@ use core::convert::Infallible;
 
 use auto_impl::auto_impl;
 use core::error::Error;
-use primitives::FlaggedStorage;
-use primitives::{address, Address, HashMap, StorageKey, B256, U256};
+use primitives::{address, Address, HashMap, StorageKey, StorageValueTr, B256, U256};
 use state::{Account, AccountInfo, Bytecode};
+
 use std::string::String;
 
 /// Address with all `0xff..ff` in it. Used for testing.
@@ -52,6 +52,9 @@ pub trait Database {
     /// The database error type.
     type Error: DBErrorMarker + Error;
 
+    /// The storage value type. Upstream uses `U256`, Seismic uses `FlaggedStorage`.
+    type StorageValue: StorageValueTr;
+
     /// Gets basic account information.
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error>;
 
@@ -59,7 +62,8 @@ pub trait Database {
     fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
     /// Get storage value of address at index.
-    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
+    fn storage(&mut self, address: Address, index: U256)
+        -> Result<Self::StorageValue, Self::Error>;
 
     /// Gets block hash by block number.
     fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error>;
@@ -67,9 +71,9 @@ pub trait Database {
 
 /// EVM database commit interface.
 #[auto_impl(&mut, Box)]
-pub trait DatabaseCommit {
+pub trait DatabaseCommit<SV: StorageValueTr = U256> {
     /// Commit changes to the database.
-    fn commit(&mut self, changes: HashMap<Address, Account>);
+    fn commit(&mut self, changes: HashMap<Address, Account<SV>>);
 }
 
 /// EVM database interface.
@@ -83,6 +87,9 @@ pub trait DatabaseRef {
     /// The database error type.
     type Error: DBErrorMarker + Error;
 
+    /// The storage value type. Upstream uses `U256`, Seismic uses `FlaggedStorage`.
+    type StorageValue: StorageValueTr;
+
     /// Gets basic account information.
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error>;
 
@@ -90,7 +97,8 @@ pub trait DatabaseRef {
     fn code_by_hash_ref(&self, code_hash: B256) -> Result<Bytecode, Self::Error>;
 
     /// Get storage value of address at index.
-    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error>;
+    fn storage_ref(&self, address: Address, index: U256)
+        -> Result<Self::StorageValue, Self::Error>;
 
     /// Gets block hash by block number.
     fn block_hash_ref(&self, number: u64) -> Result<B256, Self::Error>;
@@ -109,6 +117,7 @@ impl<F: DatabaseRef> From<F> for WrapDatabaseRef<F> {
 
 impl<T: DatabaseRef> Database for WrapDatabaseRef<T> {
     type Error = T::Error;
+    type StorageValue = T::StorageValue;
 
     #[inline]
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -121,7 +130,11 @@ impl<T: DatabaseRef> Database for WrapDatabaseRef<T> {
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
+    fn storage(
+        &mut self,
+        address: Address,
+        index: U256,
+    ) -> Result<Self::StorageValue, Self::Error> {
         self.0.storage_ref(address, index)
     }
 
@@ -131,15 +144,16 @@ impl<T: DatabaseRef> Database for WrapDatabaseRef<T> {
     }
 }
 
-impl<T: DatabaseRef + DatabaseCommit> DatabaseCommit for WrapDatabaseRef<T> {
+impl<T: DatabaseRef + DatabaseCommit<SV>, SV: StorageValueTr> DatabaseCommit<SV> for WrapDatabaseRef<T> {
     #[inline]
-    fn commit(&mut self, changes: HashMap<Address, Account>) {
+    fn commit(&mut self, changes: HashMap<Address, Account<SV>>) {
         self.0.commit(changes)
     }
 }
 
 impl<T: DatabaseRef> DatabaseRef for WrapDatabaseRef<T> {
     type Error = T::Error;
+    type StorageValue = T::StorageValue;
 
     #[inline]
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -156,7 +170,7 @@ impl<T: DatabaseRef> DatabaseRef for WrapDatabaseRef<T> {
         &self,
         address: Address,
         index: StorageKey,
-    ) -> Result<state::FlaggedStorage, Self::Error> {
+    ) -> Result<Self::StorageValue, Self::Error> {
         self.0.storage_ref(address, index)
     }
 

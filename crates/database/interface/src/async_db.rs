@@ -1,8 +1,7 @@
 //! Async database interface.
 use crate::{DBErrorMarker, Database, DatabaseRef};
 use core::{error::Error, future::Future};
-use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{Address, StorageKey, B256};
+use primitives::{Address, StorageKey, StorageValueTr, B256};
 use state::{AccountInfo, Bytecode};
 use tokio::runtime::{Handle, Runtime};
 
@@ -14,6 +13,9 @@ use tokio::runtime::{Handle, Runtime};
 pub trait DatabaseAsync {
     /// The database error type
     type Error: Send + DBErrorMarker + Error;
+
+    /// The storage value type.
+    type StorageValue: StorageValueTr + Send;
 
     /// Gets basic account information.
     fn basic_async(
@@ -32,7 +34,7 @@ pub trait DatabaseAsync {
         &mut self,
         address: Address,
         index: StorageKey,
-    ) -> impl Future<Output = Result<FlaggedStorage, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<Self::StorageValue, Self::Error>> + Send;
 
     /// Gets block hash by block number.
     fn block_hash_async(
@@ -49,6 +51,9 @@ pub trait DatabaseAsync {
 pub trait DatabaseAsyncRef {
     /// The database error type
     type Error: Send + DBErrorMarker + Error;
+
+    /// The storage value type.
+    type StorageValue: StorageValueTr + Send;
 
     /// Gets basic account information.
     fn basic_async_ref(
@@ -67,7 +72,7 @@ pub trait DatabaseAsyncRef {
         &self,
         address: Address,
         index: StorageKey,
-    ) -> impl Future<Output = Result<FlaggedStorage, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<Self::StorageValue, Self::Error>> + Send;
 
     /// Gets block hash by block number.
     fn block_hash_async_ref(
@@ -122,6 +127,7 @@ impl<T> WrapDatabaseAsync<T> {
 
 impl<T: DatabaseAsync> Database for WrapDatabaseAsync<T> {
     type Error = T::Error;
+    type StorageValue = T::StorageValue;
 
     #[inline]
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -138,7 +144,7 @@ impl<T: DatabaseAsync> Database for WrapDatabaseAsync<T> {
         &mut self,
         address: Address,
         index: StorageKey,
-    ) -> Result<FlaggedStorage, Self::Error> {
+    ) -> Result<T::StorageValue, Self::Error> {
         self.rt.block_on(self.db.storage_async(address, index))
     }
 
@@ -150,6 +156,7 @@ impl<T: DatabaseAsync> Database for WrapDatabaseAsync<T> {
 
 impl<T: DatabaseAsyncRef> DatabaseRef for WrapDatabaseAsync<T> {
     type Error = T::Error;
+    type StorageValue = T::StorageValue;
 
     #[inline]
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
@@ -166,7 +173,7 @@ impl<T: DatabaseAsyncRef> DatabaseRef for WrapDatabaseAsync<T> {
         &self,
         address: Address,
         index: StorageKey,
-    ) -> Result<FlaggedStorage, Self::Error> {
+    ) -> Result<T::StorageValue, Self::Error> {
         self.rt.block_on(self.db.storage_async_ref(address, index))
     }
 

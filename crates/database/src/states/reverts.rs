@@ -6,33 +6,33 @@ use core::{
     cmp::Ordering,
     ops::{Deref, DerefMut},
 };
-use primitives::alloy_primitives::FlaggedStorage;
-use primitives::{Address, HashMap, StorageKey};
+use primitives::{Address, HashMap, StorageKey, StorageValueTr, U256};
 use state::AccountInfo;
 use std::vec::Vec;
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).
 #[derive(Clone, Debug, Default, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Reverts(Vec<Vec<(Address, AccountRevert)>>);
+#[cfg_attr(feature = "serde", serde(bound = "SV: serde::Serialize + serde::de::DeserializeOwned"))]
+pub struct Reverts<SV: StorageValueTr = U256>(Vec<Vec<(Address, AccountRevert<SV>)>>);
 
-impl Deref for Reverts {
-    type Target = Vec<Vec<(Address, AccountRevert)>>;
+impl<SV: StorageValueTr> Deref for Reverts<SV> {
+    type Target = Vec<Vec<(Address, AccountRevert<SV>)>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for Reverts {
+impl<SV: StorageValueTr> DerefMut for Reverts<SV> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl Reverts {
+impl<SV: StorageValueTr> Reverts<SV> {
     /// Creates new reverts.
-    pub fn new(reverts: Vec<Vec<(Address, AccountRevert)>>) -> Self {
+    pub fn new(reverts: Vec<Vec<(Address, AccountRevert<SV>)>>) -> Self {
         Self(reverts)
     }
 
@@ -44,14 +44,14 @@ impl Reverts {
     }
 
     /// Extends reverts with other reverts.
-    pub fn extend(&mut self, other: Reverts) {
+    pub fn extend(&mut self, other: Reverts<SV>) {
         self.0.extend(other.0);
     }
 
     /// Generates a [`PlainStateReverts`].
     ///
     /// Note that account are sorted by address.
-    pub fn to_plain_state_reverts(&self) -> PlainStateReverts {
+    pub fn to_plain_state_reverts(&self) -> PlainStateReverts<SV> {
         let mut state_reverts = PlainStateReverts::with_capacity(self.0.len());
         for reverts in &self.0 {
             // Pessimistically pre-allocate assuming _all_ accounts changed.
@@ -119,12 +119,12 @@ impl Reverts {
     ///
     /// Note that account are sorted by address.
     #[deprecated = "Use `to_plain_state_reverts` instead"]
-    pub fn into_plain_state_reverts(self) -> PlainStateReverts {
+    pub fn into_plain_state_reverts(self) -> PlainStateReverts<SV> {
         self.to_plain_state_reverts()
     }
 }
 
-impl PartialEq for Reverts {
+impl<SV: StorageValueTr> PartialEq for Reverts<SV> {
     fn eq(&self, other: &Self) -> bool {
         self.content_eq(other)
     }
@@ -142,18 +142,19 @@ impl PartialEq for Reverts {
 /// And we need to be able to read it from database.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AccountRevert {
+#[cfg_attr(feature = "serde", serde(bound = "SV: serde::Serialize + serde::de::DeserializeOwned"))]
+pub struct AccountRevert<SV: StorageValueTr = U256> {
     /// Account information revert.
     pub account: AccountInfoRevert,
     /// Storage slots to revert.
-    pub storage: HashMap<StorageKey, RevertToSlot>,
+    pub storage: HashMap<StorageKey, RevertToSlot<SV>>,
     /// Previous account status before the change.
     pub previous_status: AccountStatus,
     /// Whether to wipe the storage.
     pub wipe_storage: bool,
 }
 
-impl AccountRevert {
+impl<SV: StorageValueTr> AccountRevert<SV> {
     /// The approximate size of changes needed to store this account revert.
     ///
     /// `1 + storage_reverts_len`
@@ -166,12 +167,12 @@ impl AccountRevert {
     pub fn new_selfdestructed_again(
         status: AccountStatus,
         account: AccountInfoRevert,
-        mut previous_storage: StorageWithOriginalValues,
-        updated_storage: StorageWithOriginalValues,
+        mut previous_storage: StorageWithOriginalValues<SV>,
+        updated_storage: StorageWithOriginalValues<SV>,
     ) -> Self {
         // Take present storage values as the storages that we are going to revert to.
         // As those values got destroyed.
-        let mut previous_storage: HashMap<StorageKey, RevertToSlot> = previous_storage
+        let mut previous_storage: HashMap<StorageKey, RevertToSlot<SV>> = previous_storage
             .drain()
             .map(|(key, value)| (key, RevertToSlot::Some(value.present_value)))
             .collect();
@@ -191,8 +192,8 @@ impl AccountRevert {
     /// Creates revert for states that were before selfdestruct.
     pub fn new_selfdestructed_from_bundle(
         account_info_revert: AccountInfoRevert,
-        bundle_account: &mut BundleAccount,
-        updated_storage: &StorageWithOriginalValues,
+        bundle_account: &mut BundleAccount<SV>,
+        updated_storage: &StorageWithOriginalValues<SV>,
     ) -> Option<Self> {
         match bundle_account.status {
             AccountStatus::InMemoryChange
@@ -216,7 +217,7 @@ impl AccountRevert {
     pub fn new_selfdestructed(
         status: AccountStatus,
         account: AccountInfoRevert,
-        mut storage: StorageWithOriginalValues,
+        mut storage: StorageWithOriginalValues<SV>,
     ) -> Self {
         // Zero all present storage values and save present values to AccountRevert.
         let previous_storage = storage
@@ -247,14 +248,14 @@ impl AccountRevert {
 }
 
 /// Implements partial ordering for AccountRevert
-impl PartialOrd for AccountRevert {
+impl<SV: StorageValueTr> PartialOrd for AccountRevert<SV> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 /// Implements total ordering for AccountRevert
-impl Ord for AccountRevert {
+impl<SV: StorageValueTr> Ord for AccountRevert<SV> {
     fn cmp(&self, other: &Self) -> Ordering {
         // First compare accounts
         if let Some(ord) = self.account.partial_cmp(&other.account) {
@@ -317,19 +318,20 @@ pub enum AccountInfoRevert {
 /// Because if it is destroyed, previous values can be found in database or it can be zero.
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum RevertToSlot {
+#[cfg_attr(feature = "serde", serde(bound = "SV: serde::Serialize + serde::de::DeserializeOwned"))]
+pub enum RevertToSlot<SV: StorageValueTr = U256> {
     /// Revert to this value.
-    Some(FlaggedStorage),
+    Some(SV),
     /// Storage was destroyed.
     Destroyed,
 }
 
-impl RevertToSlot {
+impl<SV: StorageValueTr> RevertToSlot<SV> {
     /// Returns the previous value to set on revert.
-    pub fn to_previous_value(self) -> FlaggedStorage {
+    pub fn to_previous_value(self) -> SV {
         match self {
             RevertToSlot::Some(value) => value,
-            RevertToSlot::Destroyed => FlaggedStorage::ZERO,
+            RevertToSlot::Destroyed => SV::ZERO,
         }
     }
 }

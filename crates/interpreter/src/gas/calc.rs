@@ -3,12 +3,12 @@ use crate::{num_words, tri, SStoreResult, SelfDestructResult, StateLoad};
 use context_interface::{
     journaled_state::AccountLoad, transaction::AccessListItemTr as _, Transaction, TransactionType,
 };
-use primitives::{eip7702, hardfork::SpecId, U256};
+use primitives::{eip7702, hardfork::SpecId, StorageValueTr, U256};
 
 /// `SSTORE` opcode refund calculation.
 #[allow(clippy::collapsible_else_if)]
 #[inline]
-pub fn sstore_refund(spec_id: SpecId, vals: &SStoreResult) -> i64 {
+pub fn sstore_refund<SV: StorageValueTr>(spec_id: SpecId, vals: &SStoreResult<SV>) -> i64 {
     if spec_id.is_enabled_in(SpecId::ISTANBUL) {
         // EIP-3529: Reduction in refunds
         let sstore_clears_schedule = if spec_id.is_enabled_in(SpecId::LONDON) {
@@ -195,7 +195,7 @@ pub const fn sstore_cost_static(spec_id: SpecId) -> u64 {
 
 /// Dynamic gas cost for sstore.
 #[inline]
-pub const fn sstore_cost_dynamic(spec_id: SpecId, vals: &SStoreResult, is_cold: bool) -> u64 {
+pub fn sstore_cost_dynamic<SV: StorageValueTr>(spec_id: SpecId, vals: &SStoreResult<SV>, is_cold: bool) -> u64 {
     sstore_cost(spec_id, vals, is_cold) - sstore_cost_static(spec_id)
 }
 
@@ -213,16 +213,16 @@ pub const fn static_sstore_cost(spec_id: SpecId) -> u64 {
 
 /// Dynamic gas cost for sstore.
 #[inline]
-pub const fn dyn_sstore_cost(spec_id: SpecId, vals: &SStoreResult, is_cold: bool) -> u64 {
+pub fn dyn_sstore_cost<SV: StorageValueTr>(spec_id: SpecId, vals: &SStoreResult<SV>, is_cold: bool) -> u64 {
     sstore_cost(spec_id, vals, is_cold) - static_sstore_cost(spec_id)
 }
 
 /// `SSTORE` opcode cost calculation.
 #[inline]
-pub const fn sstore_cost(spec_id: SpecId, vals: &SStoreResult, is_cold: bool) -> u64 {
+pub fn sstore_cost<SV: StorageValueTr>(spec_id: SpecId, vals: &SStoreResult<SV>, is_cold: bool) -> u64 {
     if spec_id.is_enabled_in(SpecId::BERLIN) {
         // Berlin specification logic
-        let mut gas_cost = istanbul_sstore_cost::<WARM_STORAGE_READ_COST, WARM_SSTORE_RESET>(vals);
+        let mut gas_cost = istanbul_sstore_cost::<WARM_STORAGE_READ_COST, WARM_SSTORE_RESET, SV>(vals);
 
         if is_cold {
             gas_cost += COLD_SLOAD_COST;
@@ -230,7 +230,7 @@ pub const fn sstore_cost(spec_id: SpecId, vals: &SStoreResult, is_cold: bool) ->
         gas_cost
     } else if spec_id.is_enabled_in(SpecId::ISTANBUL) {
         // Istanbul logic
-        istanbul_sstore_cost::<ISTANBUL_SLOAD_GAS, SSTORE_RESET>(vals)
+        istanbul_sstore_cost::<ISTANBUL_SLOAD_GAS, SSTORE_RESET, SV>(vals)
     } else {
         // Frontier logic
         frontier_sstore_cost(vals)
@@ -239,8 +239,8 @@ pub const fn sstore_cost(spec_id: SpecId, vals: &SStoreResult, is_cold: bool) ->
 
 /// EIP-2200: Structured Definitions for Net Gas Metering
 #[inline]
-const fn istanbul_sstore_cost<const SLOAD_GAS: u64, const SSTORE_RESET_GAS: u64>(
-    vals: &SStoreResult,
+fn istanbul_sstore_cost<const SLOAD_GAS: u64, const SSTORE_RESET_GAS: u64, SV: StorageValueTr>(
+    vals: &SStoreResult<SV>,
 ) -> u64 {
     if vals.is_new_eq_present() {
         SLOAD_GAS
@@ -255,7 +255,7 @@ const fn istanbul_sstore_cost<const SLOAD_GAS: u64, const SSTORE_RESET_GAS: u64>
 
 /// Frontier sstore cost just had two cases set and reset values.
 #[inline]
-const fn frontier_sstore_cost(vals: &SStoreResult) -> u64 {
+fn frontier_sstore_cost<SV: StorageValueTr>(vals: &SStoreResult<SV>) -> u64 {
     if vals.is_present_zero() && !vals.is_new_zero() {
         SSTORE_SET
     } else {

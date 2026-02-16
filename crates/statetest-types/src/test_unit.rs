@@ -67,7 +67,7 @@ impl TestUnit {
     /// # Returns
     ///
     /// A [`CacheState`] object containing the pre-state accounts and storages.
-    pub fn state(&self) -> CacheState {
+    pub fn state(&self) -> CacheState<revm::state::FlaggedStorage> {
         let mut cache_state = CacheState::new(false);
         for (address, info) in &self.pre {
             let code_hash = keccak256(&info.code);

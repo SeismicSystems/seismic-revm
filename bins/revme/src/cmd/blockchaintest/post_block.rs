@@ -1,6 +1,6 @@
 use context::{Block, ContextTr};
 use database::State;
-use primitives::{hardfork::SpecId, ONE_ETHER, ONE_GWEI};
+use primitives::{hardfork::SpecId, StorageValueTr, ONE_ETHER, ONE_GWEI};
 use revm::{handler::EvmTr, Database, SystemCallCommitEvm};
 use statetest_types::blockchain::Withdrawal;
 
@@ -15,8 +15,9 @@ use statetest_types::blockchain::Withdrawal;
 pub fn post_block_transition<
     'a,
     DB: Database + 'a,
+    SV: StorageValueTr,
     EVM: SystemCallCommitEvm<Error: core::fmt::Debug>
-        + EvmTr<Context: ContextTr<Db = &'a mut State<DB>>>,
+        + EvmTr<Context: ContextTr<Db = &'a mut State<DB, SV>>>,
 >(
     evm: &mut EVM,
     block: impl Block,

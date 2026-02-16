@@ -428,7 +428,7 @@ where
 
             // Increment sender nonce and account balance for the mint amount. Deposits
             // always persist the mint amount, even if the transaction fails.
-            let acc: &mut revm::state::Account = evm.ctx().journal_mut().load_account(caller)?.data;
+            let acc = evm.ctx().journal_mut().load_account(caller)?.data;
 
             let old_balance = acc.info.balance;
 

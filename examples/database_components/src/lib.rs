@@ -41,6 +41,7 @@ impl<SE, BHE> DBErrorMarker for DatabaseComponentError<SE, BHE> {}
 
 impl<S: State, BH: BlockHash> Database for DatabaseComponents<S, BH> {
     type Error = DatabaseComponentError<S::Error, BH::Error>;
+    type StorageValue = FlaggedStorage;
 
     fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         self.state.basic(address).map_err(Self::Error::State)
@@ -52,7 +53,11 @@ impl<S: State, BH: BlockHash> Database for DatabaseComponents<S, BH> {
             .map_err(Self::Error::State)
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
+    fn storage(
+        &mut self,
+        address: Address,
+        index: U256,
+    ) -> Result<Self::StorageValue, Self::Error> {
         self.state
             .storage(address, index)
             .map_err(Self::Error::State)
@@ -67,6 +72,7 @@ impl<S: State, BH: BlockHash> Database for DatabaseComponents<S, BH> {
 
 impl<S: StateRef, BH: BlockHashRef> DatabaseRef for DatabaseComponents<S, BH> {
     type Error = DatabaseComponentError<S::Error, BH::Error>;
+    type StorageValue = FlaggedStorage;
 
     fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
         self.state.basic(address).map_err(Self::Error::State)
@@ -78,7 +84,11 @@ impl<S: StateRef, BH: BlockHashRef> DatabaseRef for DatabaseComponents<S, BH> {
             .map_err(Self::Error::State)
     }
 
-    fn storage_ref(&self, address: Address, index: U256) -> Result<FlaggedStorage, Self::Error> {
+    fn storage_ref(
+        &self,
+        address: Address,
+        index: U256,
+    ) -> Result<Self::StorageValue, Self::Error> {
         self.state
             .storage(address, index)
             .map_err(Self::Error::State)

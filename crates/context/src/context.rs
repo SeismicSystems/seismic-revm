@@ -1,5 +1,7 @@
 //! This module contains [`Context`] struct and implements [`ContextTr`] trait for it.
-use crate::{block::BlockEnv, cfg::CfgEnv, journal::Journal, tx::TxEnv, LocalContext};
+use crate::{
+    block::BlockEnv, cfg::CfgEnv, entry::JournalEntry, journal::Journal, tx::TxEnv, LocalContext,
+};
 use context_interface::{
     context::{ContextError, ContextSetters, SStoreResult, SelfDestructResult, StateLoad},
     host::LoadError,
@@ -8,7 +10,7 @@ use context_interface::{
 };
 use database_interface::{Database, DatabaseRef, EmptyDB, WrapDatabaseRef};
 use derive_where::derive_where;
-use primitives::{hardfork::SpecId, Address, Log, StorageKey, StorageValue, B256, U256};
+use primitives::{hardfork::SpecId, Address, Log, StorageKey, TransientStorageValue, B256, U256};
 
 /// EVM context contains data that EVM needs for execution.
 #[derive_where(Clone, Debug; BLOCK, CFG, CHAIN, TX, DB, JOURNAL, <DB as Database>::Error, LOCAL)]
@@ -208,11 +210,13 @@ where
 
     /// Creates a new context with a new database type.
     ///
-    /// This will create a new [`Journal`] object.
+    /// This will create a new [`Journal`] object with a [`JournalEntry`] that
+    /// matches the database's [`StorageValue`](Database::StorageValue) type.
     pub fn with_db<ODB: Database>(
         self,
         db: ODB,
-    ) -> Context<BLOCK, TX, CFG, ODB, Journal<ODB>, CHAIN, LOCAL> {
+    ) -> Context<BLOCK, TX, CFG, ODB, Journal<ODB, JournalEntry<ODB::StorageValue>>, CHAIN, LOCAL>
+    {
         let spec = self.cfg.spec().into();
         let mut journaled_state = Journal::new(db);
         journaled_state.set_spec_id(spec);
@@ -231,8 +235,15 @@ where
     pub fn with_ref_db<ODB: DatabaseRef>(
         self,
         db: ODB,
-    ) -> Context<BLOCK, TX, CFG, WrapDatabaseRef<ODB>, Journal<WrapDatabaseRef<ODB>>, CHAIN, LOCAL>
-    {
+    ) -> Context<
+        BLOCK,
+        TX,
+        CFG,
+        WrapDatabaseRef<ODB>,
+        Journal<WrapDatabaseRef<ODB>, JournalEntry<ODB::StorageValue>>,
+        CHAIN,
+        LOCAL,
+    > {
         let spec = self.cfg.spec().into();
         let mut journaled_state = Journal::new(WrapDatabaseRef(db));
         journaled_state.set_spec_id(spec);
@@ -453,6 +464,8 @@ impl<
         LOCAL: LocalContextTr,
     > Host for Context<BLOCK, TX, CFG, DB, JOURNAL, CHAIN, LOCAL>
 {
+    type StorageValue = <DB as Database>::StorageValue;
+
     /* Block */
 
     fn basefee(&self) -> U256 {
@@ -532,36 +545,13 @@ impl<
     /* Journal */
 
     /// Gets the transient storage value of `address` at `index`.
-    fn tload(&mut self, address: Address, index: StorageKey) -> StorageValue {
+    fn tload(&mut self, address: Address, index: StorageKey) -> TransientStorageValue {
         self.journal_mut().tload(address, index)
     }
 
     /// Sets the transient storage value of `address` at `index`.
-    fn tstore(&mut self, address: Address, index: StorageKey, value: StorageValue) {
+    fn tstore(&mut self, address: Address, index: StorageKey, value: TransientStorageValue) {
         self.journal_mut().tstore(address, index, value)
-    }
-
-    fn cload(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<U256>, LoadError> {
-        self.journal_mut()
-            .cload(address, key, skip_cold_load)
-            .map_err(|_e| LoadError::DBError)
-    }
-
-    fn cstore(
-        &mut self,
-        address: Address,
-        key: StorageKey,
-        value: StorageValue,
-        skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, LoadError> {
-        self.journal_mut()
-            .cstore(address, key, value, skip_cold_load)
-            .map_err(|_e| LoadError::DBError)
     }
 
     /// Emits a log owned by `address` with given `LogData`.
@@ -587,9 +577,9 @@ impl<
         &mut self,
         address: Address,
         key: StorageKey,
-        value: StorageValue,
+        value: <DB as Database>::StorageValue,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<SStoreResult>, LoadError> {
+    ) -> Result<StateLoad<SStoreResult<<DB as Database>::StorageValue>>, LoadError> {
         self.journal_mut()
             .sstore_skip_cold_load(address, key, value, skip_cold_load)
             .map_err(|e| {
@@ -606,7 +596,7 @@ impl<
         address: Address,
         key: StorageKey,
         skip_cold_load: bool,
-    ) -> Result<StateLoad<StorageValue>, LoadError> {
+    ) -> Result<StateLoad<<DB as Database>::StorageValue>, LoadError> {
         self.journal_mut()
             .sload_skip_cold_load(address, key, skip_cold_load)
             .map_err(|e| {

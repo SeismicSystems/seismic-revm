@@ -22,7 +22,7 @@ use revm::{
 // Type alias for Seismic context
 pub trait SeismicContextTr:
     ContextTr<
-    Journal: JournalTr<State = EvmState>,
+    Journal: JournalTr<State = EvmState<revm::primitives::FlaggedStorage>>,
     Tx: SeismicTxTr,
     Cfg: Cfg<Spec = SeismicSpecId>,
     Chain = SeismicChain,
@@ -32,7 +32,7 @@ pub trait SeismicContextTr:
 
 impl<T> SeismicContextTr for T where
     T: ContextTr<
-        Journal: JournalTr<State = EvmState>,
+        Journal: JournalTr<State = EvmState<revm::primitives::FlaggedStorage>>,
         Tx: SeismicTxTr,
         Cfg: Cfg<Spec = SeismicSpecId>,
         Chain = SeismicChain,
@@ -51,7 +51,7 @@ where
 {
     type Tx = <CTX as ContextTr>::Tx;
     type Block = <CTX as ContextTr>::Block;
-    type State = EvmState;
+    type State = EvmState<revm::primitives::FlaggedStorage>;
     type Error = SeismicError<CTX>;
     type ExecutionResult = ExecutionResult<SeismicHaltReason>;
 
@@ -83,7 +83,7 @@ where
 impl<CTX, INSP, PRECOMPILE> ExecuteCommitEvm
     for SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, PRECOMPILE>
 where
-    CTX: SeismicContextTr<Db: DatabaseCommit> + ContextSetters,
+    CTX: SeismicContextTr<Db: DatabaseCommit<revm::primitives::FlaggedStorage>> + ContextSetters,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
     fn commit(&mut self, state: Self::State) {
@@ -114,7 +114,7 @@ where
 impl<CTX, INSP, PRECOMPILE> InspectCommitEvm
     for SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, PRECOMPILE>
 where
-    CTX: SeismicContextTr<Journal: JournalExt, Db: DatabaseCommit> + ContextSetters,
+    CTX: SeismicContextTr<Journal: JournalExt, Db: DatabaseCommit<revm::primitives::FlaggedStorage>> + ContextSetters,
     INSP: Inspector<CTX, EthInterpreter>,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
 {

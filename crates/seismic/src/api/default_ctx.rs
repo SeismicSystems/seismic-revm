@@ -1,9 +1,14 @@
-use crate::{transaction::abstraction::SeismicTransaction, SeismicChain, SeismicSpecId};
+use crate::{
+    evm::SeismicEmptyDB, transaction::abstraction::SeismicTransaction, SeismicChain, SeismicSpecId,
+};
 use revm::{
     context::{BlockEnv, CfgEnv, TxEnv},
-    database_interface::EmptyDB,
-    Context, Journal, MainContext,
+    primitives::FlaggedStorage,
+    Context, Journal, JournalEntry, MainContext,
 };
+
+/// Type alias for a Seismic journal using FlaggedStorage entries.
+pub type SeismicJournal<DB> = Journal<DB, JournalEntry<FlaggedStorage>>;
 
 /// Type alias for the default context type of the SeismicEvm.
 pub type SeismicContext<DB> = Context<
@@ -11,21 +16,22 @@ pub type SeismicContext<DB> = Context<
     SeismicTransaction<TxEnv>,
     CfgEnv<SeismicSpecId>,
     DB,
-    Journal<DB>,
+    SeismicJournal<DB>,
     SeismicChain,
 >;
 
 /// Trait that allows for a default context to be created.
 pub trait DefaultSeismicContext {
     /// Create a default context.
-    fn seismic() -> SeismicContext<EmptyDB>;
+    fn seismic() -> SeismicContext<SeismicEmptyDB>;
     /// Create a context with a specific RNG keypair.
-    fn seismic_with_rng_key(rng_keypair: schnorrkel::Keypair) -> SeismicContext<EmptyDB>;
+    fn seismic_with_rng_key(rng_keypair: schnorrkel::Keypair) -> SeismicContext<SeismicEmptyDB>;
 }
 
-impl DefaultSeismicContext for SeismicContext<EmptyDB> {
+impl DefaultSeismicContext for SeismicContext<SeismicEmptyDB> {
     fn seismic() -> Self {
         Context::mainnet()
+            .with_db(SeismicEmptyDB::new())
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
             .with_chain(SeismicChain::default())
@@ -33,6 +39,7 @@ impl DefaultSeismicContext for SeismicContext<EmptyDB> {
 
     fn seismic_with_rng_key(rng_keypair: schnorrkel::Keypair) -> Self {
         Context::mainnet()
+            .with_db(SeismicEmptyDB::new())
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
             .with_chain(SeismicChain::with_live_rng_key(Some(rng_keypair)))

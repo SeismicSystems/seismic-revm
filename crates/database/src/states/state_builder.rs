@@ -1,11 +1,11 @@
 use super::{cache::CacheState, state::DBBox, BundleState, State, TransitionState};
-use database_interface::{DBErrorMarker, Database, DatabaseRef, EmptyDB, WrapDatabaseRef};
-use primitives::B256;
-use std::collections::BTreeMap;
+use database_interface::{DBErrorMarker, Database, DatabaseRef, EmptyDBTyped, WrapDatabaseRef};
+use primitives::{StorageValueTr, B256, U256};
+use std::{collections::BTreeMap, convert::Infallible};
 
 /// Allows building of State and initializing it with different options.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StateBuilder<DB> {
+pub struct StateBuilder<DB, SV: StorageValueTr = U256> {
     /// Database that we use to fetch data from
     database: DB,
     /// Enabled state clear flag that is introduced in Spurious Dragon hardfork
@@ -14,9 +14,9 @@ pub struct StateBuilder<DB> {
     with_state_clear: bool,
     /// If there is prestate that we want to use,
     /// this would mean that we have additional state layer between evm and disk/database.
-    with_bundle_prestate: Option<BundleState>,
+    with_bundle_prestate: Option<BundleState<SV>>,
     /// This will initialize cache to this state.
-    with_cache_prestate: Option<CacheState>,
+    with_cache_prestate: Option<CacheState<SV>>,
     /// Do we want to create reverts and update bundle state?
     ///
     /// Default is false.
@@ -31,7 +31,7 @@ pub struct StateBuilder<DB> {
     with_block_hashes: BTreeMap<u64, B256>,
 }
 
-impl StateBuilder<EmptyDB> {
+impl StateBuilder<EmptyDBTyped<Infallible>> {
     /// Creates a new builder with an empty database.
     ///
     /// If you want to instantiate it with a specific database, use
@@ -41,13 +41,13 @@ impl StateBuilder<EmptyDB> {
     }
 }
 
-impl<DB: Database + Default> Default for StateBuilder<DB> {
+impl<DB: Database + Default, SV: StorageValueTr> Default for StateBuilder<DB, SV> {
     fn default() -> Self {
         Self::new_with_database(DB::default())
     }
 }
 
-impl<DB: Database> StateBuilder<DB> {
+impl<DB: Database, SV: StorageValueTr> StateBuilder<DB, SV> {
     /// Create a new builder with the given database.
     pub fn new_with_database(database: DB) -> Self {
         Self {
@@ -62,7 +62,7 @@ impl<DB: Database> StateBuilder<DB> {
     }
 
     /// Set the database.
-    pub fn with_database<ODB: Database>(self, database: ODB) -> StateBuilder<ODB> {
+    pub fn with_database<ODB: Database>(self, database: ODB) -> StateBuilder<ODB, SV> {
         // Cast to the different database.
         // Note that we return different type depending on the database NewDBError.
         StateBuilder {
@@ -80,15 +80,15 @@ impl<DB: Database> StateBuilder<DB> {
     pub fn with_database_ref<ODB: DatabaseRef>(
         self,
         database: ODB,
-    ) -> StateBuilder<WrapDatabaseRef<ODB>> {
+    ) -> StateBuilder<WrapDatabaseRef<ODB>, SV> {
         self.with_database(WrapDatabaseRef(database))
     }
 
     /// With boxed version of database.
     pub fn with_database_boxed<Error: DBErrorMarker + core::error::Error>(
         self,
-        database: DBBox<'_, Error>,
-    ) -> StateBuilder<DBBox<'_, Error>> {
+        database: DBBox<'_, Error, SV>,
+    ) -> StateBuilder<DBBox<'_, Error, SV>, SV> {
         self.with_database(database)
     }
 
@@ -109,7 +109,7 @@ impl<DB: Database> StateBuilder<DB> {
     /// And State after not finding data inside StateCache will try to find it inside BundleState.
     ///
     /// On update Bundle state will be changed and updated.
-    pub fn with_bundle_prestate(self, bundle: BundleState) -> Self {
+    pub fn with_bundle_prestate(self, bundle: BundleState<SV>) -> Self {
         Self {
             with_bundle_prestate: Some(bundle),
             ..self
@@ -134,7 +134,7 @@ impl<DB: Database> StateBuilder<DB> {
     /// And will ignore `without_state_clear` flag as cache contains its own state_clear flag.
     ///
     /// This is useful for testing.
-    pub fn with_cached_prestate(self, cache: CacheState) -> Self {
+    pub fn with_cached_prestate(self, cache: CacheState<SV>) -> Self {
         Self {
             with_cache_prestate: Some(cache),
             ..self
@@ -159,7 +159,7 @@ impl<DB: Database> StateBuilder<DB> {
     }
 
     /// Builds the State with the configured settings.
-    pub fn build(mut self) -> State<DB> {
+    pub fn build(mut self) -> State<DB, SV> {
         let use_preloaded_bundle = if self.with_cache_prestate.is_some() {
             self.with_bundle_prestate = None;
             false

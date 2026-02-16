@@ -5,7 +5,8 @@ use clap::Parser;
 use context::ContextTr;
 use context_interface::block::BlobExcessGasAndPrice;
 use database::states::bundle_state::BundleRetention;
-use database::{EmptyDB, State};
+use database::State;
+use seismic_revm::SeismicEmptyDB;
 use inspector::inspectors::TracerEip3155;
 use primitives::{hardfork::SpecId, hex, Address, HashMap, U256};
 use revm::handler::EvmTr;
@@ -298,7 +299,7 @@ struct DebugInfo {
 impl DebugInfo {
     /// Capture current state from the State database
     fn capture_committed_state(
-        state: &State<EmptyDB>,
+        state: &State<SeismicEmptyDB, revm::state::FlaggedStorage>,
     ) -> HashMap<Address, (AccountInfo, HashMap<U256, FlaggedStorage>)> {
         let mut committed_state = HashMap::new();
 
@@ -319,7 +320,7 @@ impl DebugInfo {
 
 /// Validate post state against expected values
 fn validate_post_state(
-    state: &mut State<EmptyDB>,
+    state: &mut State<SeismicEmptyDB, revm::state::FlaggedStorage>,
     expected_post_state: &BTreeMap<Address, Account>,
     debug_info: &DebugInfo,
     print_env_on_error: bool,
@@ -437,7 +438,7 @@ fn validate_post_state(
 /// Print comprehensive error information including environment and state comparison
 fn print_error_with_state(
     debug_info: &DebugInfo,
-    current_state: &State<EmptyDB>,
+    current_state: &State<SeismicEmptyDB, revm::state::FlaggedStorage>,
     expected_post_state: Option<&BTreeMap<Address, Account>>,
 ) {
     eprintln!("\n========== TEST EXECUTION ERROR ==========");
@@ -650,7 +651,7 @@ fn execute_blockchain_test(
     }
 
     // Create database with initial state
-    let mut state = State::builder().build();
+    let mut state = database::StateBuilder::new_with_database(SeismicEmptyDB::default()).build();
 
     // Capture pre-state for debug info
     let mut pre_state_debug = HashMap::new();

@@ -210,8 +210,8 @@ mod tests {
     )]
 
     use super::*;
+    use crate::evm::SeismicEmptyDB;
     use revm::{
-        database::EmptyDB,
         interpreter::{CallScheme, CallValue},
         primitives::{hex, U256},
     };
@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn test_cancun_precompiles_in_mercury() {
         assert_eq!(
-            mercury::<SeismicContext<EmptyDB>>()
+            mercury::<SeismicContext<SeismicEmptyDB>>()
                 .0
                 .difference(Precompiles::prague())
                 .len(),
@@ -232,10 +232,10 @@ mod tests {
     #[test]
     fn test_default_precompiles_is_latest() {
         let latest =
-            SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::default())
+            SeismicPrecompiles::<SeismicContext<SeismicEmptyDB>>::new_with_spec(SeismicSpecId::default())
                 .inner
                 .precompiles;
-        let default = SeismicPrecompiles::<SeismicContext<EmptyDB>>::default()
+        let default = SeismicPrecompiles::<SeismicContext<SeismicEmptyDB>>::default()
             .inner
             .precompiles;
         assert_eq!(latest.len(), default.len());
@@ -261,8 +261,8 @@ mod tests {
     #[test]
     fn test_seismic_precompiles_rng() {
         let mut precompiles =
-            SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
-        let mut context = SeismicContext::<EmptyDB>::seismic();
+            SeismicPrecompiles::<SeismicContext<SeismicEmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
+        let mut context = SeismicContext::<SeismicEmptyDB>::seismic();
         let rng_address = *precompiles
             .stateful_precompiles
             .addresses()
@@ -334,7 +334,7 @@ mod tests {
     fn test_seismic_precompiles_warm_addresses() {
         // Setup the SeismicPrecompiles
         let precompiles =
-            SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
+            SeismicPrecompiles::<SeismicContext<SeismicEmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
 
         // Get all warm addresses
         let warm_addresses: Vec<Address> = precompiles.warm_addresses().collect();

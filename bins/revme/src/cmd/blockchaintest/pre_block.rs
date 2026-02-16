@@ -2,7 +2,7 @@
 
 use context::{Block, ContextTr};
 use database::State;
-use primitives::{address, hardfork::SpecId, Address, B256};
+use primitives::{address, hardfork::SpecId, Address, StorageValueTr, B256};
 use revm::{handler::EvmTr, Database, SystemCallCommitEvm};
 
 /// Pre block state transition
@@ -13,8 +13,9 @@ use revm::{handler::EvmTr, Database, SystemCallCommitEvm};
 pub fn pre_block_transition<
     'a,
     DB: Database + 'a,
+    SV: StorageValueTr,
     EVM: SystemCallCommitEvm<Error: core::fmt::Debug>
-        + EvmTr<Context: ContextTr<Db = &'a mut State<DB>>>,
+        + EvmTr<Context: ContextTr<Db = &'a mut State<DB, SV>>>,
 >(
     evm: &mut EVM,
     spec: SpecId,

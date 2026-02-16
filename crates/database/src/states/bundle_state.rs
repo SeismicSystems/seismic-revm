@@ -6,7 +6,7 @@ use super::{
 };
 use bytecode::Bytecode;
 use core::{mem, ops::RangeInclusive};
-use primitives::{alloy_primitives::FlaggedStorage, StorageKey};
+use primitives::{StorageKey, StorageValueTr};
 use primitives::{hash_map::Entry, Address, HashMap, HashSet, B256, KECCAK_EMPTY, U256};
 use state::AccountInfo;
 use std::{
@@ -16,16 +16,16 @@ use std::{
 
 /// This builder is used to help to facilitate the initialization of `BundleState` struct
 #[derive(Debug)]
-pub struct BundleBuilder {
+pub struct BundleBuilder<SV: StorageValueTr = U256> {
     states: HashSet<Address>,
     state_original: HashMap<Address, AccountInfo>,
     state_present: HashMap<Address, AccountInfo>,
-    state_storage: HashMap<Address, HashMap<U256, (FlaggedStorage, FlaggedStorage)>>,
+    state_storage: HashMap<Address, HashMap<U256, (SV, SV)>>,
 
     reverts: BTreeSet<(u64, Address)>,
     revert_range: RangeInclusive<u64>,
     revert_account: HashMap<(u64, Address), Option<Option<AccountInfo>>>,
-    revert_storage: HashMap<(u64, Address), Vec<(StorageKey, FlaggedStorage)>>,
+    revert_storage: HashMap<(u64, Address), Vec<(StorageKey, SV)>>,
 
     contracts: HashMap<B256, Bytecode>,
 }
@@ -52,7 +52,7 @@ impl OriginalValuesKnown {
     }
 }
 
-impl Default for BundleBuilder {
+impl<SV: StorageValueTr> Default for BundleBuilder<SV> {
     fn default() -> Self {
         BundleBuilder {
             states: HashSet::default(),
@@ -68,7 +68,7 @@ impl Default for BundleBuilder {
     }
 }
 
-impl BundleBuilder {
+impl<SV: StorageValueTr> BundleBuilder<SV> {
     /// Creates builder instance.
     ///
     /// `revert_range` indicates the size of BundleState `reverts` field.
@@ -118,7 +118,7 @@ impl BundleBuilder {
     pub fn state_storage(
         mut self,
         address: Address,
-        storage: HashMap<StorageKey, (FlaggedStorage, FlaggedStorage)>,
+        storage: HashMap<StorageKey, (SV, SV)>,
     ) -> Self {
         self.set_state_storage(address, storage);
         self
@@ -155,7 +155,7 @@ impl BundleBuilder {
         mut self,
         block_number: u64,
         address: Address,
-        storage: Vec<(StorageKey, FlaggedStorage)>,
+        storage: Vec<(StorageKey, SV)>,
     ) -> Self {
         self.set_revert_storage(block_number, address, storage);
         self
@@ -199,7 +199,7 @@ impl BundleBuilder {
     pub fn set_state_storage(
         &mut self,
         address: Address,
-        storage: HashMap<StorageKey, (FlaggedStorage, FlaggedStorage)>,
+        storage: HashMap<StorageKey, (SV, SV)>,
     ) -> &mut Self {
         self.states.insert(address);
         self.state_storage.insert(address, storage);
@@ -229,7 +229,7 @@ impl BundleBuilder {
         &mut self,
         block_number: u64,
         address: Address,
-        storage: Vec<(StorageKey, FlaggedStorage)>,
+        storage: Vec<(StorageKey, SV)>,
     ) -> &mut Self {
         self.reverts.insert((block_number, address));
         self.revert_storage.insert((block_number, address), storage);
@@ -243,7 +243,7 @@ impl BundleBuilder {
     }
 
     /// Creates `BundleState` instance based on collected information.
-    pub fn build(mut self) -> BundleState {
+    pub fn build(mut self) -> BundleState<SV> {
         let mut state_size = 0;
         let state = self
             .states
@@ -343,7 +343,7 @@ impl BundleBuilder {
     /// Mutable getter for `state_storage` field
     pub fn get_state_storage_mut(
         &mut self,
-    ) -> &mut HashMap<Address, HashMap<U256, (FlaggedStorage, FlaggedStorage)>> {
+    ) -> &mut HashMap<Address, HashMap<U256, (SV, SV)>> {
         &mut self.state_storage
     }
 
@@ -367,7 +367,7 @@ impl BundleBuilder {
     /// Mutable getter for `revert_storage` field
     pub fn get_revert_storage_mut(
         &mut self,
-    ) -> &mut HashMap<(u64, Address), Vec<(U256, FlaggedStorage)>> {
+    ) -> &mut HashMap<(u64, Address), Vec<(U256, SV)>> {
         &mut self.revert_storage
     }
 
@@ -404,9 +404,10 @@ impl BundleRetention {
 /// And can be used to revert BundleState to the state before transition.
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct BundleState {
+#[cfg_attr(feature = "serde", serde(bound = "SV: serde::Serialize + serde::de::DeserializeOwned"))]
+pub struct BundleState<SV: StorageValueTr = U256> {
     /// Account state
-    pub state: HashMap<Address, BundleAccount>,
+    pub state: HashMap<Address, BundleAccount<SV>>,
     /// All created contracts in this block.
     pub contracts: HashMap<B256, Bytecode>,
     /// Changes to revert
@@ -414,16 +415,16 @@ pub struct BundleState {
     /// **Note**: Inside vector is *not* sorted by address.
     ///
     /// But it is unique by address.
-    pub reverts: Reverts,
+    pub reverts: Reverts<SV>,
     /// The size of the plain state in the bundle state
     pub state_size: usize,
     /// The size of reverts in the bundle state
     pub reverts_size: usize,
 }
 
-impl BundleState {
+impl<SV: StorageValueTr> BundleState<SV> {
     /// Returns builder instance for further manipulation.
-    pub fn builder(revert_range: RangeInclusive<u64>) -> BundleBuilder {
+    pub fn builder(revert_range: RangeInclusive<u64>) -> BundleBuilder<SV> {
         BundleBuilder::new(revert_range)
     }
 
@@ -434,7 +435,7 @@ impl BundleState {
                 Address,
                 Option<AccountInfo>,
                 Option<AccountInfo>,
-                HashMap<StorageKey, (FlaggedStorage, FlaggedStorage)>,
+                HashMap<StorageKey, (SV, SV)>,
             ),
         >,
         reverts: impl IntoIterator<
@@ -442,7 +443,7 @@ impl BundleState {
                 Item = (
                     Address,
                     Option<Option<AccountInfo>>,
-                    impl IntoIterator<Item = (StorageKey, FlaggedStorage)>,
+                    impl IntoIterator<Item = (StorageKey, SV)>,
                 ),
             >,
         >,
@@ -514,7 +515,7 @@ impl BundleState {
     }
 
     /// Returns reference to the state.
-    pub fn state(&self) -> &HashMap<Address, BundleAccount> {
+    pub fn state(&self) -> &HashMap<Address, BundleAccount<SV>> {
         &self.state
     }
 
@@ -529,7 +530,7 @@ impl BundleState {
     }
 
     /// Gets account from state.
-    pub fn account(&self, address: &Address) -> Option<&BundleAccount> {
+    pub fn account(&self, address: &Address) -> Option<&BundleAccount<SV>> {
         self.state.get(address)
     }
 
@@ -545,7 +546,7 @@ impl BundleState {
     /// be retained.
     pub fn apply_transitions_and_create_reverts(
         &mut self,
-        transitions: TransitionState,
+        transitions: TransitionState<SV>,
         retention: BundleRetention,
     ) {
         let include_reverts = retention.includes_reverts();
@@ -597,7 +598,7 @@ impl BundleState {
 
     /// Generate a [`StateChangeset`] from the bundle state without consuming
     /// it.
-    pub fn to_plain_state(&self, is_value_known: OriginalValuesKnown) -> StateChangeset {
+    pub fn to_plain_state(&self, is_value_known: OriginalValuesKnown) -> StateChangeset<SV> {
         // Pessimistically pre-allocate assuming _all_ accounts changed.
         let state_len = self.state.len();
         let mut accounts = Vec::with_capacity(state_len);
@@ -620,8 +621,7 @@ impl BundleState {
             for (&key, &slot) in account.storage.iter() {
                 // If storage was destroyed that means that storage was wiped.
                 // In that case we need to check if present storage value is different then ZERO.
-                // TODO(Seismic): do we need to check visibility here?
-                let destroyed_and_not_zero = was_destroyed && !slot.present_value.value.is_zero();
+                let destroyed_and_not_zero = was_destroyed && !slot.present_value.value().is_zero();
 
                 // If account is not destroyed check if original values was changed,
                 // so we can update it.
@@ -661,7 +661,7 @@ impl BundleState {
 
     /// Converts the bundle state into a [`StateChangeset`].
     #[deprecated = "Use `to_plain_state` instead"]
-    pub fn into_plain_state(self, is_value_known: OriginalValuesKnown) -> StateChangeset {
+    pub fn into_plain_state(self, is_value_known: OriginalValuesKnown) -> StateChangeset<SV> {
         self.to_plain_state(is_value_known)
     }
 
@@ -670,7 +670,7 @@ impl BundleState {
     pub fn to_plain_state_and_reverts(
         &self,
         is_value_known: OriginalValuesKnown,
-    ) -> (StateChangeset, PlainStateReverts) {
+    ) -> (StateChangeset<SV>, PlainStateReverts<SV>) {
         (
             self.to_plain_state(is_value_known),
             self.reverts.to_plain_state_reverts(),
@@ -683,14 +683,14 @@ impl BundleState {
     pub fn into_plain_state_and_reverts(
         self,
         is_value_known: OriginalValuesKnown,
-    ) -> (StateChangeset, PlainStateReverts) {
+    ) -> (StateChangeset<SV>, PlainStateReverts<SV>) {
         self.to_plain_state_and_reverts(is_value_known)
     }
 
     /// Extends the bundle with other state.
     ///
     /// Updates the `other` state only if `other` is not flagged as destroyed.
-    pub fn extend_state(&mut self, other_state: HashMap<Address, BundleAccount>) {
+    pub fn extend_state(&mut self, other_state: HashMap<Address, BundleAccount<SV>>) {
         for (address, other_account) in other_state {
             match self.state.entry(address) {
                 Entry::Occupied(mut entry) => {
@@ -771,7 +771,7 @@ impl BundleState {
     }
 
     /// Takes first N raw reverts from the [BundleState].
-    pub fn take_n_reverts(&mut self, reverts_to_take: usize) -> Reverts {
+    pub fn take_n_reverts(&mut self, reverts_to_take: usize) -> Reverts<SV> {
         // Split is done as [0, num) and [num, len].
         if reverts_to_take > self.reverts.len() {
             return self.take_all_reverts();
@@ -787,7 +787,7 @@ impl BundleState {
     }
 
     /// Returns and clears all reverts from [BundleState].
-    pub fn take_all_reverts(&mut self) -> Reverts {
+    pub fn take_all_reverts(&mut self) -> Reverts<SV> {
         self.reverts_size = 0;
         mem::take(&mut self.reverts)
     }
@@ -856,7 +856,7 @@ impl BundleState {
     /// It adds changes from the given state but does not override any existing changes.
     ///
     /// Reverts are not updated.
-    pub fn prepend_state(&mut self, mut other: BundleState) {
+    pub fn prepend_state(&mut self, mut other: BundleState<SV>) {
         // Take this bundle
         let this_bundle = mem::take(self);
         // Extend other bundle state with this
@@ -885,7 +885,7 @@ mod tests {
             code: None,
         };
 
-        let mut bundle_state = BundleState::default();
+        let mut bundle_state = BundleState::<U256>::default();
 
         // Have transition from loaded to all other states
 
@@ -936,8 +936,8 @@ mod tests {
                         code: None,
                     }),
                     HashMap::from_iter([
-                        (slot1(), (U256::from(0).into(), U256::from(10).into())),
-                        (slot2(), (U256::from(0).into(), U256::from(15).into())),
+                        (slot1(), (U256::from(0), U256::from(10))),
+                        (slot2(), (U256::from(0), U256::from(15))),
                     ]),
                 ),
                 (
@@ -957,8 +957,8 @@ mod tests {
                     account1(),
                     Some(None),
                     vec![
-                        (slot1(), U256::from(0).into()),
-                        (slot2(), U256::from(0).into()),
+                        (slot1(), U256::from(0)),
+                        (slot2(), U256::from(0)),
                     ],
                 ),
                 (account2(), Some(None), vec![]),
@@ -980,7 +980,7 @@ mod tests {
                     code_hash: KECCAK_EMPTY,
                     code: None,
                 }),
-                HashMap::from_iter([(slot1(), (U256::from(0).into(), U256::from(15).into()))]),
+                HashMap::from_iter([(slot1(), (U256::from(0), U256::from(15)))]),
             )],
             vec![vec![(
                 account1(),
@@ -990,7 +990,7 @@ mod tests {
                     code_hash: KECCAK_EMPTY,
                     code: None,
                 })),
-                vec![(slot1(), U256::from(10).into())],
+                vec![(slot1(), U256::from(10))],
             )]],
             vec![],
         )
@@ -1010,7 +1010,7 @@ mod tests {
             )
             .state_storage(
                 account1(),
-                HashMap::from_iter([(slot1(), (U256::from(0).into(), U256::from(10).into()))]),
+                HashMap::from_iter([(slot1(), (U256::from(0), U256::from(10)))]),
             )
             .state_address(account2())
             .state_present_account_info(
@@ -1024,7 +1024,7 @@ mod tests {
             )
             .revert_address(0, account1())
             .revert_account_info(0, account1(), Some(None))
-            .revert_storage(0, account1(), vec![(slot1(), U256::from(0).into())])
+            .revert_storage(0, account1(), vec![(slot1(), U256::from(0))])
             .revert_account_info(0, account2(), Some(None))
             .build()
     }
@@ -1043,7 +1043,7 @@ mod tests {
             )
             .state_storage(
                 account1(),
-                HashMap::from_iter([(slot1(), (U256::from(0).into(), U256::from(15).into()))]),
+                HashMap::from_iter([(slot1(), (U256::from(0), U256::from(15)))]),
             )
             .revert_address(0, account1())
             .revert_account_info(
@@ -1056,7 +1056,7 @@ mod tests {
                     code: None,
                 })),
             )
-            .revert_storage(0, account1(), vec![(slot1(), U256::from(10).into())])
+            .revert_storage(0, account1(), vec![(slot1(), U256::from(10))])
             .build()
     }
 
@@ -1125,7 +1125,7 @@ mod tests {
         revert1
             .1
             .storage
-            .insert(slot2(), RevertToSlot::Some(U256::from(15).into()));
+            .insert(slot2(), RevertToSlot::Some(U256::from(15)));
 
         assert_eq!(
             b1.reverts.as_ref(),
@@ -1156,7 +1156,7 @@ mod tests {
 
     #[test]
     fn test_multi_reverts_with_delete() {
-        let mut state = BundleBuilder::new(0..=3)
+        let mut state = BundleBuilder::<U256>::new(0..=3)
             .revert_address(0, account1())
             .revert_account_info(2, account1(), Some(Some(AccountInfo::default())))
             .revert_account_info(3, account1(), Some(None))
@@ -1186,7 +1186,7 @@ mod tests {
             .revert_address(2, account2())
             .revert_account_info(0, account1(), Some(None))
             .revert_account_info(2, account2(), None)
-            .revert_storage(0, account1(), vec![(slot1(), U256::from(10).into())])
+            .revert_storage(0, account1(), vec![(slot1(), U256::from(10))])
             .build();
 
         assert_eq!(state.reverts.len(), 4);
@@ -1255,11 +1255,11 @@ mod tests {
             ..Default::default()
         };
 
-        let present_state = BundleState::builder(2..=2)
+        let present_state = BundleState::<U256>::builder(2..=2)
             .state_present_account_info(address1, account1_changed.clone())
             .build();
         assert_eq!(present_state.reverts.len(), 1);
-        let previous_state = BundleState::builder(1..=1)
+        let previous_state = BundleState::<U256>::builder(1..=1)
             .state_present_account_info(address1, account1)
             .state_present_account_info(address2, account2.clone())
             .build();
@@ -1332,7 +1332,7 @@ mod tests {
         assert!(builder.get_revert_storage_mut().is_empty());
         builder
             .get_revert_storage_mut()
-            .insert((0, account1()), vec![(slot1(), U256::from(0).into())]);
+            .insert((0, account1()), vec![(slot1(), U256::from(0))]);
         assert!(builder
             .get_revert_storage_mut()
             .contains_key(&(0, account1())));

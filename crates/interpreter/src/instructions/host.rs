@@ -9,6 +9,7 @@ use crate::{
 };
 use context_interface::host::LoadError;
 use core::cmp::min;
+use primitives::StorageValueTr;
 use primitives::{hardfork::SpecId::*, Bytes, Log, LogData, B256, BLOCK_HASH_HISTORY, U256};
 
 use crate::InstructionContext;
@@ -245,7 +246,7 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionConte
                     gas!(context.interpreter, COLD_SLOAD_COST_ADDITIONAL);
                 }
 
-                *index = storage.data;
+                *index = storage.data.value();
             }
             Err(LoadError::ColdLoadSkipped) => context.interpreter.halt_oog(),
             Err(LoadError::DBError) => context.interpreter.halt_fatal(),
@@ -254,7 +255,7 @@ pub fn sload<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionConte
         let Some(storage) = context.host.sload(target, *index) else {
             return context.interpreter.halt_fatal();
         };
-        *index = storage.data;
+        *index = storage.data.value();
     };
 }
 
@@ -288,18 +289,19 @@ pub fn sstore<WIRE: InterpreterTypes, H: Host + ?Sized>(context: InstructionCont
         gas::static_sstore_cost(context.interpreter.runtime_flag.spec_id())
     );
 
+    let storage_value = H::StorageValue::from_u256(value);
     let state_load = if spec_id.is_enabled_in(BERLIN) {
         let skip_cold = context.interpreter.gas.remaining() < COLD_SLOAD_COST_ADDITIONAL;
         let res = context
             .host
-            .sstore_skip_cold_load(target, index, value, skip_cold);
+            .sstore_skip_cold_load(target, index, storage_value, skip_cold);
         match res {
             Ok(load) => load,
             Err(LoadError::ColdLoadSkipped) => return context.interpreter.halt_oog(),
             Err(LoadError::DBError) => return context.interpreter.halt_fatal(),
         }
     } else {
-        let Some(load) = context.host.sstore(target, index, value) else {
+        let Some(load) = context.host.sstore(target, index, storage_value) else {
             return context.interpreter.halt_fatal();
         };
         load
