@@ -9,14 +9,18 @@ use revm::{
 use std::boxed::Box;
 
 use crate::{
-    instructions::confidential_storage::{
-        cload_instruction, cstore_instruction, seismic_sload_instruction,
-        seismic_sstore_instruction,
+    instructions::{
+        block_info::timestampms_instruction,
+        confidential_storage::{
+            cload_instruction, cstore_instruction, seismic_sload_instruction,
+            seismic_sstore_instruction,
+        },
     },
     SeismicHost,
 };
 
-/// Custom opcodes for CLOAD and CSTORE
+/// Custom opcodes
+pub const TIMESTAMPMS: u8 = 0x4B;
 pub const CLOAD: u8 = 0xB0;
 pub const CSTORE: u8 = 0xB1;
 
@@ -41,6 +45,7 @@ where
     pub fn new_mainnet() -> Self {
         let mut table = instruction_table::<WIRE, HOST>();
 
+        table[TIMESTAMPMS as usize] = timestampms_instruction();
         // NOTE: static_gas is 0 because gas is dynamic for these
         table[CLOAD as usize] = cload_instruction();
         table[CSTORE as usize] = cstore_instruction();
@@ -211,7 +216,8 @@ mod tests {
 
         // Verify all standard opcodes remain unchanged (except our custom ones)
         for i in 0..256 {
-            if i != CLOAD as usize
+            if i != TIMESTAMPMS as usize
+                && i != CLOAD as usize
                 && i != CSTORE as usize
                 && i != SLOAD as usize
                 && i != SSTORE as usize
