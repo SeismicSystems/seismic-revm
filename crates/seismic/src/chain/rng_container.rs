@@ -3,8 +3,6 @@ use revm::{
     precompile::PrecompileError,
     primitives::{Bytes, B256},
 };
-use schnorrkel::ExpansionMode;
-
 /// Derives random bytes for the RNG precompile.
 ///
 /// Each call is fully stateless: a fresh `RootRng` is constructed from the
@@ -19,16 +17,10 @@ pub fn derive_rng_output(
     pers: &[u8],
     requested_output_len: usize,
     tx_hash: &B256,
-    live_key: Option<schnorrkel::Keypair>,
+    live_key: schnorrkel::Keypair,
     total_gas_remaining: u64,
 ) -> Result<Bytes, PrecompileError> {
-    let key = live_key.unwrap_or_else(|| {
-        schnorrkel::MiniSecretKey::generate()
-            .expand(ExpansionMode::Uniform)
-            .into()
-    });
-
-    let mut rng = RootRng::new(key);
+    let mut rng = RootRng::new(live_key);
     rng.append_tx(tx_hash);
     rng.append_gas_left(total_gas_remaining);
     let rng_bytes = rng.derive_bytes(pers, requested_output_len);

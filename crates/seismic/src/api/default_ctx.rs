@@ -28,14 +28,14 @@ impl DefaultSeismicContext for SeismicContext<EmptyDB> {
         Context::mainnet()
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
-            .with_chain(SeismicChain::default())
+            .with_chain(SeismicChain::with_random_rng_key())
     }
 
     fn seismic_with_rng_key(rng_keypair: schnorrkel::Keypair) -> Self {
         Context::mainnet()
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
-            .with_chain(SeismicChain::with_live_rng_key(Some(rng_keypair)))
+            .with_chain(SeismicChain::with_live_rng_key(rng_keypair))
     }
 }
 

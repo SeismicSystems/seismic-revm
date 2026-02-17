@@ -2,12 +2,13 @@ use revm::{
     precompile::PrecompileError,
     primitives::{Bytes, B256},
 };
+use schnorrkel::ExpansionMode;
 
 use super::rng_container::derive_rng_output;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct SeismicChain {
-    live_rng_key: Option<schnorrkel::Keypair>,
+    live_rng_key: schnorrkel::Keypair,
     /// Total remaining gas across all active call frames, set before precompile dispatch.
     gas_remaining_all_frames: u64,
 }
@@ -15,12 +16,21 @@ pub struct SeismicChain {
 impl SeismicChain {
     pub fn new(root_vrf_key: schnorrkel::Keypair) -> Self {
         Self {
-            live_rng_key: Some(root_vrf_key),
+            live_rng_key: root_vrf_key,
             gas_remaining_all_frames: 0,
         }
     }
 
-    pub fn with_live_rng_key(live_rng_key: Option<schnorrkel::Keypair>) -> Self {
+    pub fn with_random_rng_key() -> Self {
+        Self {
+            live_rng_key: schnorrkel::MiniSecretKey::generate()
+                .expand(ExpansionMode::Uniform)
+                .into(),
+            gas_remaining_all_frames: 0,
+        }
+    }
+
+    pub fn with_live_rng_key(live_rng_key: schnorrkel::Keypair) -> Self {
         Self {
             live_rng_key,
             gas_remaining_all_frames: 0,
@@ -28,7 +38,7 @@ impl SeismicChain {
     }
 
     pub fn set_rng_key(&mut self, root_vrf_key: schnorrkel::Keypair) {
-        self.live_rng_key = Some(root_vrf_key);
+        self.live_rng_key = root_vrf_key;
     }
 
     pub fn gas_remaining_all_frames(&self) -> u64 {
@@ -137,12 +147,14 @@ mod tests {
     #[test]
     fn test_simulation_mode_non_deterministic() {
         // No live key = simulation mode (random key per call)
-        let chain = SeismicChain::default();
+        let chain1 = SeismicChain::with_random_rng_key();
+        let chain2 = SeismicChain::with_random_rng_key();
+
         let tx_hash = B256::from([1u8; 32]);
         let pers = b"test_pers";
 
-        let output1 = chain.process_rng(pers, 32, &tx_hash, 1000).unwrap();
-        let output2 = chain.process_rng(pers, 32, &tx_hash, 1000).unwrap();
+        let output1 = chain1.process_rng(pers, 32, &tx_hash, 1000).unwrap();
+        let output2 = chain2.process_rng(pers, 32, &tx_hash, 1000).unwrap();
 
         assert_ne!(
             output1, output2,
