@@ -6,9 +6,10 @@ concurrency:
 
 on:
   push:
-    branches: [seismic, "release/**"]
+    # TODO(samlaf): change reth-sdk back to seismic once we merge reth-sdk into seismic
+    branches: [reth-sdk, "release/**"]
   pull_request:
-    branches: [seismic, "release/**"]
+    branches: [reth-sdk, "release/**"]
 
 jobs:
   test:
