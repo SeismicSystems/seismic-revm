@@ -6,7 +6,7 @@ use revm::{
     primitives::{Address, Bytes, Log, StorageKey, StorageValue, B256, U256},
 };
 
-use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
+use crate::api::exec::SeismicContextTr;
 
 // Extend Host with an associated Db type and error() method
 pub trait SeismicHost: Host {
@@ -18,10 +18,6 @@ pub trait SeismicHost: Host {
         E: Into<ContextError<<Self::Db as Database>::Error>>,
     {
         *self.ctx_error() = Err(error.into());
-    }
-
-    fn set_halt_reason(&mut self, reason: SeismicHaltReason) {
-        *self.ctx_error() = Err(ContextError::Custom(reason.to_string()));
     }
 }
 
