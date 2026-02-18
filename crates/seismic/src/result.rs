@@ -1,7 +1,10 @@
 use core::fmt;
 use std::convert::Infallible;
 
-use revm::context_interface::{context::ContextError, result::HaltReason};
+use revm::{
+    context_interface::{context::ContextError, result::HaltReason},
+    primitives::Bytes,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -14,6 +17,15 @@ pub enum SeismicHaltReason {
 }
 
 impl SeismicHaltReason {
+    /// Returns the reason encoded as bytes for inclusion in revert output.
+    pub fn revert_bytes(&self) -> Bytes {
+        match self {
+            Self::InvalidPublicStorageAccess => Bytes::from_static(b"InvalidPublicStorageAccess"),
+            Self::InvalidPrivateStorageAccess => Bytes::from_static(b"InvalidPrivateStorageAccess"),
+            Self::Base(_) => Bytes::new(),
+        }
+    }
+
     pub fn try_from_error_string(error_str: &str) -> Option<Self> {
         match () {
             _ if error_str.contains("InvalidPublicStorageAccess") => {
