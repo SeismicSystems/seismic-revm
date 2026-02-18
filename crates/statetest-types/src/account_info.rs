@@ -1,7 +1,7 @@
 use revm::primitives::{Bytes, HashMap, StorageKey, U256};
 use serde::Deserialize;
 
-use crate::deserializer::deserialize_str_as_u64;
+use crate::deserializer::{deserialize_storage, deserialize_str_as_u64};
 
 /// Account information
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
@@ -15,5 +15,6 @@ pub struct AccountInfo {
     #[serde(deserialize_with = "deserialize_str_as_u64")]
     pub nonce: u64,
     /// Account storage (key-value pairs)
+    #[serde(deserialize_with = "deserialize_storage")]
     pub storage: HashMap<StorageKey, revm::state::FlaggedStorage>,
 }

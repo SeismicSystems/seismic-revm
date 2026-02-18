@@ -921,18 +921,20 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
     let (value, is_cold, is_private) = match account.storage.entry(key) {
         Entry::Occupied(occ) => {
             let slot = occ.into_mut();
+            // skip load if account is cold.
             let is_cold = slot.is_cold_transaction_id(transaction_id);
             if skip_cold_load && is_cold {
                 return Err(JournalLoadError::ColdLoadSkipped);
             }
+            slot.mark_warm_with_transaction_id(transaction_id);
             let is_private = slot.present_value().is_private;
             (slot.present_value.value, is_cold, is_private)
         }
         Entry::Vacant(vac) => {
-            // if storage was cleared, we don't need to ping db.
             if skip_cold_load {
                 return Err(JournalLoadError::ColdLoadSkipped);
             }
+            // if storage was cleared, we don't need to ping db.
             let value = if is_newly_created {
                 FlaggedStorage::ZERO.set_visibility(default_privacy)
             } else {

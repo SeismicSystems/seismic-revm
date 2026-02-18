@@ -61,6 +61,9 @@ impl TrieAccount {
                     .map(|(k, v)| {
                         (
                             k.to_be_bytes::<32>(),
+                            // Seismic hack: we calculate the trie root without the is_private flag, to match ethereum and get the same state roots.
+                            // Note that the state roots calculated here won't be the same as the ones in seismic-revm, but they will be the same as the ones in stock-revm,
+                            // which is what we want for making sure public seismic is compatible with stock-revm.
                             alloy_rlp::encode_fixed_size(&v.value),
                         )
                     }),
