@@ -10,6 +10,7 @@ on:
     branches: [reth-sdk, "release/**"]
   pull_request:
     branches: [reth-sdk, "release/**"]
+  workflow_dispatch:
 
 jobs:
   test:
