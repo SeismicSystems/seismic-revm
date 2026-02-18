@@ -125,13 +125,21 @@ fn skip_test(path: &Path) -> bool {
         | "CALLBlake2f_MaxRounds.json"
 
         // SEISMIC SKIPS:
-        // These tests fail because they query they call random low addresses where our seismic precompiles live.
+        // TODO(samlaf): we probably want to find a better solution here.. for example skipping all_opcodes doesn't feel good.
+        // What would be nice is if we could somehow dynamically change opcodes or precompile addresses, so that we could run tests
+        // with precompiles at higher address ranges for example.
+
+        // These tests fail because they call random low addresses where our seismic precompiles live.
         // Since precompiles are pre-warmed, the gas cost is cheaper on seismic-revm than in stock-revm.
         | "randomStatetest649.json"
         | "failed_tx_xcf416c53_Paris.json"
-        // This test fails because it expects certain opcodes to be undefined, which seismic actually uses
-        // for timestampms/cstore/cload.
+        // This test iterates addresses 1..0x101 and expects non-precompile addresses to behave as
+        // empty accounts, but Seismic adds precompiles at 0x64-0x69 (RNG, ECDH, AES, HKDF, Sign).
+        | "precompile_absence.json"
+        // These tests fail because they expect certain opcodes to be undefined, which seismic actually
+        // uses for timestampms/cstore/cload.
         | "undefinedOpcodeFirstByte.json"
+        | "all_opcodes.json"
     )
 }
 

@@ -144,8 +144,8 @@ run_tests() {
     echo "Running main stable statetests..."
     $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$MAIN_STABLE_DIR/state_tests"
 
-    # echo "Running main develop statetests..."
-    # $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$MAIN_DEVELOP_DIR/state_tests" --no-fail-fast
+    echo "Running main develop statetests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$MAIN_DEVELOP_DIR/state_tests"
     
     echo "Running main static statetests..."
     # timestamp-in-seconds: Ethereum test fixtures provide timestamps in seconds,
