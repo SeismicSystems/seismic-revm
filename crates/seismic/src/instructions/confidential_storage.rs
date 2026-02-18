@@ -750,12 +750,28 @@ mod tests {
     /// | CSTORE(y) | (y, private) | HALT        | (y, private) | (y, private) |
     mod semantics_tests {
         use super::*;
+        use crate::SeismicHaltReason;
         use revm::context::host::LoadError;
         use revm::context_interface::journaled_state::{AccountInfoLoad, AccountLoad, StateLoad};
         use revm::database::EmptyDB;
         use revm::database_interface::Database;
+        use revm::interpreter::interpreter_types::LoopControl;
         use revm::interpreter::Host;
         use revm::primitives::{Log, B256};
+
+        /// Asserts that the interpreter reverted with the expected reason in output bytes.
+        fn assert_revert_with_reason(
+            interp: &mut Interpreter<EthInterpreter>,
+            expected: SeismicHaltReason,
+        ) {
+            assert_eq!(
+                interp.bytecode.instruction_result(),
+                Some(InstructionResult::Revert)
+            );
+            let action = interp.bytecode.action().as_ref().unwrap();
+            let result = action.clone().into_result_return().unwrap();
+            assert_eq!(result.output, expected.revert_bytes());
+        }
 
         /// A configurable mock host for testing storage semantics.
         struct MockStorageHost {
@@ -1015,10 +1031,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_eq!(
-                interp.bytecode.instruction_result(),
-                Some(InstructionResult::Revert)
-            );
+            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPrivateStorageAccess);
         }
 
         #[test]
@@ -1033,10 +1046,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_eq!(
-                interp.bytecode.instruction_result(),
-                Some(InstructionResult::Revert)
-            );
+            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPrivateStorageAccess);
         }
 
         // CLOAD tests
@@ -1152,10 +1162,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_eq!(
-                interp.bytecode.instruction_result(),
-                Some(InstructionResult::Revert)
-            );
+            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPrivateStorageAccess);
         }
 
         #[test]
@@ -1171,10 +1178,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_eq!(
-                interp.bytecode.instruction_result(),
-                Some(InstructionResult::Revert)
-            );
+            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPrivateStorageAccess);
         }
 
         // CSTORE tests
@@ -1208,10 +1212,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_eq!(
-                interp.bytecode.instruction_result(),
-                Some(InstructionResult::Revert)
-            );
+            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPublicStorageAccess);
         }
 
         #[test]
