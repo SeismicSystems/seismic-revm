@@ -140,6 +140,8 @@ fn skip_test(path: &Path) -> bool {
         // uses for timestampms/cstore/cload.
         | "undefinedOpcodeFirstByte.json"
         | "all_opcodes.json"
+        // We support the p256 opcode starting at MERCURY SeismicSpecId, which maps to Prague, so its fine for this precompile to exist before Osaka.
+        | "precompile_before_fork.json"
     )
 }
 

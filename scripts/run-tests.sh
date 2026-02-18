@@ -152,8 +152,8 @@ run_tests() {
     # but Seismic's TIMESTAMP opcode normally divides by 1000 (assuming ms from host).
     $RUST_RUNNER run $CARGO_OPTS -p revme --features timestamp-in-seconds -- statetest "$MAIN_STATIC_DIR/state_tests"
 
-    # echo "Running devnet statetests..."
-    # $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$DEVNET_DIR/state_tests"
+    echo "Running devnet statetests..."
+    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$DEVNET_DIR/state_tests"
 
     # echo "Running legacy tests..."
     # $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$LEGACY_DIR/Cancun/GeneralStateTests"
