@@ -298,12 +298,20 @@ mod tests {
         ctx
     }
 
-    fn assert_storage_access_reverts(result: &ResultAndState<SeismicHaltReason>) {
-        assert!(
-            matches!(&result.result, ExecutionResult::Revert { .. }),
-            "Expected Revert, received result: {:?}",
-            result.result
-        );
+    fn assert_storage_access_reverts(
+        result: &ResultAndState<SeismicHaltReason>,
+        expected_reason: SeismicHaltReason,
+    ) {
+        match &result.result {
+            ExecutionResult::Revert { output, .. } => {
+                assert_eq!(
+                    *output,
+                    expected_reason.revert_bytes(),
+                    "Revert output should contain the reason"
+                );
+            }
+            other => panic!("Expected Revert, received result: {:?}", other),
+        }
     }
 
     /// Tests that CSTORE reverts when trying to overwrite a non-zero public
@@ -325,7 +333,7 @@ mod tests {
 
         let result = evm.replay()?;
 
-        assert_storage_access_reverts(&result);
+        assert_storage_access_reverts(&result, SeismicHaltReason::InvalidPublicStorageAccess);
         Ok(())
     }
 
@@ -347,7 +355,7 @@ mod tests {
 
         let result = evm.replay()?;
 
-        assert_storage_access_reverts(&result);
+        assert_storage_access_reverts(&result, SeismicHaltReason::InvalidPrivateStorageAccess);
         Ok(())
     }
 

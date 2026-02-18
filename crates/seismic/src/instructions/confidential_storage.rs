@@ -7,11 +7,29 @@ use revm::{
             CALL_STIPEND, COLD_SLOAD_COST_ADDITIONAL, CSTORE_FIXED_GAS, ISTANBUL_SLOAD_GAS,
             WARM_STORAGE_READ_COST,
         },
-        interpreter_types::{InputsTr, InterpreterTypes, RuntimeFlag, StackTr},
+        interpreter_types::{InputsTr, InterpreterTypes, LoopControl, RuntimeFlag, StackTr},
         popn, popn_top, require_non_staticcall, Instruction, InstructionContext, InstructionResult,
-        _count, gas,
+        Interpreter, InterpreterAction, _count, gas,
     },
 };
+
+/// Reverts the interpreter with a reason encoded in the output bytes.
+///
+/// Unlike `halt_fatal()`, this produces a regular revert that callers can catch
+/// and handle. The reason is included in the revert output bytes, similar to
+/// Solidity's `revert CustomError()`.
+fn halt_with_revert_reason<WIRE: InterpreterTypes>(
+    interpreter: &mut Interpreter<WIRE>,
+    reason: SeismicHaltReason,
+) {
+    interpreter
+        .bytecode
+        .set_action(InterpreterAction::new_return(
+            InstructionResult::Revert,
+            reason.revert_bytes(),
+            interpreter.gas,
+        ));
+}
 
 /// Implements the SLOAD instruction.
 ///
@@ -46,10 +64,10 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
                     gas!(context.interpreter, COLD_SLOAD_COST_ADDITIONAL);
                 }
                 if storage.is_private {
-                    context.interpreter.halt_fatal();
-                    context
-                        .host
-                        .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+                    halt_with_revert_reason(
+                        context.interpreter,
+                        SeismicHaltReason::InvalidPrivateStorageAccess,
+                    );
                     return;
                 }
 
@@ -63,10 +81,10 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             return context.interpreter.halt_fatal();
         };
         if storage.is_private {
-            context.interpreter.halt_fatal();
-            context
-                .host
-                .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+            halt_with_revert_reason(
+                context.interpreter,
+                SeismicHaltReason::InvalidPrivateStorageAccess,
+            );
             return;
         }
         *index = storage.data;
@@ -149,10 +167,10 @@ pub fn sstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
 
     // Privacy check: SSTORE cannot write to private slots
     if state_load.data.present_value.is_private {
-        context.interpreter.halt_fatal();
-        context
-            .host
-            .set_halt_reason(SeismicHaltReason::InvalidPrivateStorageAccess);
+        halt_with_revert_reason(
+            context.interpreter,
+            SeismicHaltReason::InvalidPrivateStorageAccess,
+        );
         return;
     }
 
@@ -221,10 +239,10 @@ pub fn cstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             if !state_load.data.present_value.is_private
                 && !state_load.data.present_value.value.is_zero()
             {
-                context.interpreter.halt_fatal();
-                context
-                    .host
-                    .set_halt_reason(SeismicHaltReason::InvalidPublicStorageAccess);
+                halt_with_revert_reason(
+                    context.interpreter,
+                    SeismicHaltReason::InvalidPublicStorageAccess,
+                );
             }
         }
         Err(_) => context.interpreter.halt_fatal(),
