@@ -3,7 +3,7 @@
 //! This module contains structures for deserializing blockchain test JSON files
 //! from the Ethereum test suite.
 
-use crate::{deserialize_maybe_empty, AccountInfo, TestAuthorization};
+use crate::{deserialize_maybe_empty, deserializer::deserialize_btree_storage, AccountInfo, TestAuthorization};
 use revm::{
     context::{transaction::AccessList, BlockEnv, TxEnv},
     context_interface::block::BlobExcessGasAndPrice,
@@ -210,6 +210,7 @@ pub struct Account {
     /// Nonce
     pub nonce: U256,
     /// Storage
+    #[serde(deserialize_with = "deserialize_btree_storage")]
     pub storage: BTreeMap<U256, revm::state::FlaggedStorage>,
 }
 

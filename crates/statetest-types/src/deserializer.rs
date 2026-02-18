@@ -45,3 +45,18 @@ where
         .map(|(key, value)| (key, FlaggedStorage::public(value)))
         .collect())
 }
+
+/// Same as [`deserialize_storage`] but returns a [`BTreeMap`] instead of a [`HashMap`].
+pub fn deserialize_btree_storage<'de, D>(
+    deserializer: D,
+) -> Result<std::collections::BTreeMap<U256, FlaggedStorage>, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    let map: std::collections::BTreeMap<U256, U256> =
+        std::collections::BTreeMap::deserialize(deserializer)?;
+    Ok(map
+        .into_iter()
+        .map(|(key, value)| (key, FlaggedStorage::public(value)))
+        .collect())
+}
