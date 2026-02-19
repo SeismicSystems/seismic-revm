@@ -11,6 +11,7 @@ use super::rng_container::RngContainer;
 pub struct SeismicChain {
     rng_container: RngContainer,
     live_rng_key: Option<schnorrkel::Keypair>,
+    used_erc20_gas: bool,
 }
 
 impl SeismicChain {
@@ -18,6 +19,7 @@ impl SeismicChain {
         Self {
             rng_container: RngContainer::new(root_vrf_key.clone()),
             live_rng_key: Some(root_vrf_key),
+            used_erc20_gas: false,
         }
     }
 
@@ -25,6 +27,7 @@ impl SeismicChain {
         Self {
             rng_container: RngContainer::default(),
             live_rng_key,
+            used_erc20_gas: false,
         }
     }
 
@@ -42,6 +45,18 @@ impl SeismicChain {
 
     pub fn reset_rng(&mut self) {
         self.rng_container.reset_rng();
+    }
+
+    pub fn set_used_erc20_gas(&mut self) {
+        self.used_erc20_gas = true;
+    }
+
+    pub fn used_erc20_gas(&self) -> bool {
+        self.used_erc20_gas
+    }
+
+    pub fn reset_erc20_gas(&mut self) {
+        self.used_erc20_gas = false;
     }
 
     pub fn maybe_append_entropy(&mut self, mode: RngMode) {

@@ -121,28 +121,36 @@ where
             is_nonce_check_disabled,
         )?;
 
-        if tx.kind().is_call() {
-            caller_account.info.nonce = caller_account.info.nonce.saturating_add(1);
-        }
-
-        // Touch account so we know it is changed.
-        caller_account.mark_touch();
-
         let max_balance_spending = tx.max_balance_spending()?;
         let effective_balance_spending = tx
             .effective_balance_spending(basefee, blob_price)
             .expect("effective balance is always smaller than max balance so it can't overflow");
+        let gas_balance_spending = effective_balance_spending - value;
+        let eth_balance = caller_account.info.balance;
 
-        let account_balance_slot = erc_address_storage(caller);
-        context.journal_mut().load_account(TOKEN)?.data.mark_touch();
+        // Preamble: mark touch and bump nonce (common to all paths).
+        caller_account.mark_touch();
+        if tx.kind().is_call() {
+            caller_account.info.nonce = caller_account.info.nonce.saturating_add(1);
+        }
 
-        let account_balance = context
-            .journal_mut()
-            .sload(TOKEN, account_balance_slot)
-            .map(|v| v.data)
-            .unwrap_or_default();
+        if !is_balance_check_disabled && eth_balance >= max_balance_spending {
+            // Native ETH path (standard mainnet behavior).
+            let old_balance = eth_balance;
+            caller_account.info.balance = eth_balance.saturating_sub(gas_balance_spending);
+            journal.caller_accounting_journal_entry(tx.caller(), old_balance, tx.kind().is_call());
+            // used_erc20_gas flag remains false (default).
+        } else if !is_balance_check_disabled {
+            // ERC20 fallback path: tx and journal borrows end above (NLL).
+            let account_balance_slot = erc_address_storage(caller);
+            context.journal_mut().load_account(TOKEN)?.data.mark_touch();
 
-        if !is_balance_check_disabled {
+            let account_balance = context
+                .journal_mut()
+                .sload(TOKEN, account_balance_slot)
+                .map(|v| v.data)
+                .unwrap_or_default();
+
             if max_balance_spending > account_balance {
                 return Err(InvalidTransaction::LackOfFundForMaxFee {
                     fee: Box::new(max_balance_spending),
@@ -152,9 +160,10 @@ where
             }
 
             // Subtract max balance spending minus the value (value is transferred during execution).
-            let gas_balance_spending = effective_balance_spending - value;
             token_operation::<EVM::Context, ERROR>(context, caller, TREASURY, gas_balance_spending)?;
+            context.chain_mut().set_used_erc20_gas();
         }
+        // is_balance_check_disabled: preamble (touch + nonce) already done, no deduction needed.
 
         Ok(())
     }
@@ -168,20 +177,25 @@ where
         if context.cfg().is_balance_check_disabled() {
             return Ok(());
         }
-        let basefee = context.block().basefee() as u128;
-        let caller = context.tx().caller();
-        let effective_gas_price = context.tx().effective_gas_price(basefee);
-        let gas = exec_result.gas();
 
-        let reimbursement = effective_gas_price
-            .saturating_mul((gas.remaining() + gas.refunded() as u64) as u128);
-
-        token_operation::<EVM::Context, ERROR>(
-            context,
-            TREASURY,
-            caller,
-            U256::from(reimbursement),
-        )?;
+        if context.chain().used_erc20_gas() {
+            // ERC20 path: return unused gas from TREASURY → caller in tokens.
+            let basefee = context.block().basefee() as u128;
+            let caller = context.tx().caller();
+            let effective_gas_price = context.tx().effective_gas_price(basefee);
+            let gas = exec_result.gas();
+            let reimbursement = effective_gas_price
+                .saturating_mul((gas.remaining() + gas.refunded() as u64) as u128);
+            token_operation::<EVM::Context, ERROR>(
+                context,
+                TREASURY,
+                caller,
+                U256::from(reimbursement),
+            )?;
+        } else {
+            // Native ETH path: standard balance_incr.
+            post_execution::reimburse_caller(evm.ctx(), exec_result.gas(), U256::ZERO)?;
+        }
 
         Ok(())
     }
@@ -195,26 +209,30 @@ where
         if context.cfg().is_balance_check_disabled() {
             return Ok(());
         }
-        let tx = context.tx();
-        let beneficiary = context.block().beneficiary();
-        let basefee = context.block().basefee() as u128;
-        let effective_gas_price = tx.effective_gas_price(basefee);
-        let gas = exec_result.gas();
 
-        let coinbase_gas_price =
-            if SpecId::from(context.cfg().spec()).is_enabled_in(SpecId::LONDON) {
-                effective_gas_price.saturating_sub(basefee)
-            } else {
-                effective_gas_price
-            };
-
-        let reward = coinbase_gas_price.saturating_mul(gas.used() as u128);
-        token_operation::<EVM::Context, ERROR>(
-            context,
-            TREASURY,
-            beneficiary,
-            U256::from(reward),
-        )?;
+        if context.chain().used_erc20_gas() {
+            // ERC20 path: pay beneficiary from TREASURY in tokens.
+            let basefee = context.block().basefee() as u128;
+            let beneficiary = context.block().beneficiary();
+            let effective_gas_price = context.tx().effective_gas_price(basefee);
+            let gas = exec_result.gas();
+            let coinbase_gas_price =
+                if SpecId::from(context.cfg().spec()).is_enabled_in(SpecId::LONDON) {
+                    effective_gas_price.saturating_sub(basefee)
+                } else {
+                    effective_gas_price
+                };
+            let reward = coinbase_gas_price.saturating_mul(gas.used() as u128);
+            token_operation::<EVM::Context, ERROR>(
+                context,
+                TREASURY,
+                beneficiary,
+                U256::from(reward),
+            )?;
+        } else {
+            // Native ETH path: standard balance_incr.
+            post_execution::reward_beneficiary(evm.ctx(), exec_result.gas())?;
+        }
 
         Ok(())
     }
@@ -244,6 +262,7 @@ where
                     evm.ctx().local_mut().clear();
                     evm.frame_stack().clear();
                     evm.ctx().chain_mut().reset_rng();
+                    evm.ctx().chain_mut().reset_erc20_gas();
 
                     return Ok(ExecutionResult::Halt {
                         reason: seismic_reason,
@@ -261,8 +280,9 @@ where
         evm.ctx().journal_mut().commit_tx();
         evm.ctx().local_mut().clear();
         evm.frame_stack().clear();
-        // ...and we also reset the RNG
+        // ...and we also reset the RNG and ERC20 gas flag
         evm.ctx().chain_mut().reset_rng();
+        evm.ctx().chain_mut().reset_erc20_gas();
 
         Ok(exec_result)
     }
@@ -282,8 +302,9 @@ where
         evm.ctx().local_mut().clear();
         evm.ctx().journal_mut().discard_tx();
         evm.frame_stack().clear();
-        // ...except we also reset the RNG
+        // ...except we also reset the RNG and ERC20 gas flag
         evm.ctx().chain_mut().reset_rng();
+        evm.ctx().chain_mut().reset_erc20_gas();
         Err(error)
     }
 }
