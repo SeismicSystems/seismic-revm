@@ -20,6 +20,7 @@
 pub mod aes;
 pub mod ecdh_derive_sym_key;
 pub mod hkdf_derive_sym_key;
+pub mod mpt_verify;
 pub mod rng;
 pub mod secp256k1_sign;
 pub mod stateful_precompile;
@@ -96,6 +97,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
             aes::aes_gcm_enc::AES_GCM_ENC,
             aes::aes_gcm_dec::AES_GCM_DEC,
             secp256k1_sign::SECP256K1_SIGN,
+            mpt_verify::MPT_VERIFY,
         ]);
         Box::new(precompiles)
     });
@@ -225,7 +227,7 @@ mod tests {
                 .0
                 .difference(Precompiles::prague())
                 .len(),
-            6
+            7
         )
     }
 

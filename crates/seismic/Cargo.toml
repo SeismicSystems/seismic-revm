@@ -32,14 +32,18 @@ once_cell = { version = "1.21", features = ["alloc"] }
 # Optional
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 
-# seismic 
+# seismic
 schnorrkel = { version = "0.11.2", default-features = false }
 merlin = { version = "3.0.0", default-features = false }
 rand_core = { version = "0.6.4", default-features = false }
 hkdf = { version = "0.12", default-features = false }
 seismic-enclave = { workspace = true}
-sha2 = { workspace = true } 
+sha2 = { workspace = true }
 secp256k1 = { workspace = true, features = ["recovery"] }
+
+# MPT verification precompile
+trie-db = "0.31"
+reference-trie = "0.29"
 
 [dev-dependencies]
 anyhow.workspace = true
@@ -47,6 +51,10 @@ indicatif.workspace = true
 rstest.workspace = true
 alloy-sol-types.workspace = true
 serde_json = { workspace = true, features = ["alloc"] }
+# MPT verification precompile tests
+hash-db = "0.16"
+memory-db = "0.34"
+keccak-hasher = "0.16"
 
 [features]
 default = ["std", "c-kzg", "portable", "blst"]
