@@ -4,7 +4,7 @@ use context::TxEnv;
 use database::State;
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use inspector::{inspectors::TracerEip3155, InspectCommitEvm};
-use primitives::U256;
+use primitives::{hardfork::SpecId, U256};
 use revm::{
     context::{block::BlockEnv, cfg::CfgEnv},
     context_interface::{
@@ -17,11 +17,10 @@ use revm::{
 };
 use seismic_revm::{
     DefaultSeismicContext, SeismicBuilder, SeismicHaltReason, SeismicHaltReason as HaltReason,
-    SeismicSpecId as SpecId, SeismicTransaction,
+    SeismicSpecId, SeismicTransaction,
 };
 use serde_json::json;
 use statetest_types::{SpecName, Test, TestSuite, TestUnit};
-
 use std::{
     convert::Infallible,
     fmt::Debug,
@@ -124,6 +123,25 @@ fn skip_test(path: &Path) -> bool {
         | "static_Call50000_sha256.json"
         | "loopMul.json"
         | "CALLBlake2f_MaxRounds.json"
+
+        // SEISMIC SKIPS:
+        // TODO(samlaf): we probably want to find a better solution here.. for example skipping all_opcodes doesn't feel good.
+        // What would be nice is if we could somehow dynamically change opcodes or precompile addresses, so that we could run tests
+        // with precompiles at higher address ranges for example.
+
+        // These tests fail because they call random low addresses where our seismic precompiles live.
+        // Since precompiles are pre-warmed, the gas cost is cheaper on seismic-revm than in stock-revm.
+        | "randomStatetest649.json"
+        | "failed_tx_xcf416c53_Paris.json"
+        // This test iterates addresses 1..0x101 and expects non-precompile addresses to behave as
+        // empty accounts, but Seismic adds precompiles at 0x64-0x69 (RNG, ECDH, AES, HKDF, Sign).
+        | "precompile_absence.json"
+        // These tests fail because they expect certain opcodes to be undefined, which seismic actually
+        // uses for timestampms/cstore/cload.
+        | "undefinedOpcodeFirstByte.json"
+        | "all_opcodes.json"
+        // We support the p256 opcode starting at MERCURY SeismicSpecId, which maps to Prague, so its fine for this precompile to exist before Osaka.
+        | "precompile_before_fork.json"
     )
 }
 
@@ -131,7 +149,7 @@ struct TestExecutionContext<'a> {
     name: &'a str,
     unit: &'a TestUnit,
     test: &'a Test,
-    cfg: &'a CfgEnv<SpecId>,
+    cfg: &'a CfgEnv<SeismicSpecId>,
     block: &'a BlockEnv,
     tx: &'a SeismicTransaction<TxEnv>,
     cache_state: &'a database::CacheState,
@@ -145,7 +163,7 @@ struct DebugContext<'a> {
     path: &'a str,
     index: usize,
     test: &'a Test,
-    cfg: &'a CfgEnv<SpecId>,
+    cfg: &'a CfgEnv<SeismicSpecId>,
     block: &'a BlockEnv,
     tx: &'a SeismicTransaction<TxEnv>,
     cache_state: &'a database::CacheState,
@@ -157,7 +175,7 @@ fn build_json_output(
     test_name: &str,
     exec_result: &Result<ExecutionResult<HaltReason>, EVMError<Infallible, InvalidTransaction>>,
     validation: &TestValidationResult,
-    spec: SpecId,
+    spec: SeismicSpecId,
     error: Option<String>,
 ) -> serde_json::Value {
     json!({
@@ -228,7 +246,7 @@ fn check_evm_execution(
         EVMError<Infallible, InvalidTransaction>,
     >,
     db: &mut State<EmptyDB>,
-    spec: SpecId,
+    spec: SeismicSpecId,
     print_json_outcome: bool,
 ) -> Result<(), TestErrorKind> {
     let validation = compute_test_roots(exec_result, db);
@@ -319,7 +337,7 @@ pub fn execute_test_suite(
         let cache_state = unit.state();
 
         // Setup base configuration
-        let mut cfg: CfgEnv<SpecId> = CfgEnv::default();
+        let mut cfg = CfgEnv::<SeismicSpecId>::default();
         cfg.chain_id = unit
             .env
             .current_chain_id
@@ -329,23 +347,21 @@ pub fn execute_test_suite(
 
         // Post and execution
         for (spec_name, tests) in &unit.post {
-            // Skip Constantinople spec
-            if *spec_name == SpecName::Constantinople {
+            // Seismic's only hardfork is MERCURY, which is tied to Prague, so we skip all other specs.
+            if *spec_name != SpecName::Prague {
                 continue;
             }
 
-            cfg.spec = SpecId::MERCURY;
+            cfg.spec = SeismicSpecId::MERCURY;
 
-            /*
             // Configure max blobs per spec
-            if cfg.spec.is_enabled_in(SpecId::OSAKA) {
+            if cfg.spec.into_eth_spec().is_enabled_in(SpecId::OSAKA) {
                 cfg.set_max_blobs_per_tx(6);
-            } else if cfg.spec.is_enabled_in(SpecId::PRAGUE) {
+            } else if cfg.spec.into_eth_spec().is_enabled_in(SpecId::PRAGUE) {
                 cfg.set_max_blobs_per_tx(9);
             } else {
                 cfg.set_max_blobs_per_tx(6);
             }
-            */
 
             // Setup block environment for this spec
             let block = unit.block_env(&cfg);
@@ -416,11 +432,13 @@ pub fn execute_test_suite(
 
 fn execute_single_test(ctx: TestExecutionContext) -> Result<(), TestErrorKind> {
     // Prepare state
-    #[allow(unused_mut)]
     let mut cache = ctx.cache_state.clone();
-    /*
-    cache.set_state_clear_flag(ctx.cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
-    */
+    cache.set_state_clear_flag(
+        ctx.cfg
+            .spec
+            .into_eth_spec()
+            .is_enabled_in(SpecId::SPURIOUS_DRAGON),
+    );
     let mut state = database::State::builder()
         .with_cached_prestate(cache)
         .with_bundle_update()
@@ -466,11 +484,13 @@ fn debug_failed_test(ctx: DebugContext) {
     println!("\nTraces:");
 
     // Re-run with tracing
-    #[allow(unused_mut)]
     let mut cache = ctx.cache_state.clone();
-    /*
-    cache.set_state_clear_flag(ctx.cfg.spec.is_enabled_in(SpecId::SPURIOUS_DRAGON));
-    */
+    cache.set_state_clear_flag(
+        ctx.cfg
+            .spec
+            .into_eth_spec()
+            .is_enabled_in(SpecId::SPURIOUS_DRAGON),
+    );
     let mut state = database::State::builder()
         .with_cached_prestate(cache)
         .with_bundle_update()

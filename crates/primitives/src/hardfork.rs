@@ -96,6 +96,7 @@ impl SpecId {
 
 /// String identifiers for hardforks.
 pub mod name {
+    /// String identifier for the Frontier hardfork
     pub const FRONTIER: &str = "Frontier";
     /// String identifier for the Frontier Thawing hardfork
     pub const FRONTIER_THAWING: &str = "Frontier Thawing";

@@ -148,7 +148,9 @@ run_tests() {
     $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$MAIN_DEVELOP_DIR/state_tests"
     
     echo "Running main static statetests..."
-    $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$MAIN_STATIC_DIR/state_tests"
+    # timestamp-in-seconds: Ethereum test fixtures provide timestamps in seconds,
+    # but Seismic's TIMESTAMP opcode normally divides by 1000 (assuming ms from host).
+    $RUST_RUNNER run $CARGO_OPTS -p revme --features timestamp-in-seconds -- statetest "$MAIN_STATIC_DIR/state_tests"
 
     echo "Running devnet statetests..."
     $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$DEVNET_DIR/state_tests"
@@ -157,13 +159,15 @@ run_tests() {
     $RUST_RUNNER run $CARGO_OPTS -p revme -- statetest "$LEGACY_DIR/Cancun/GeneralStateTests"
 
     echo "Running main develop blockchain tests..."
-    $RUST_RUNNER run $CARGO_OPTS -p revme -- btest "$MAIN_DEVELOP_DIR/blockchain_tests"
+    # timestamp-in-seconds: Ethereum test fixtures provide timestamps in seconds,
+    # but Seismic's TIMESTAMP opcode normally divides by 1000 (assuming ms from host).
+    $RUST_RUNNER run $CARGO_OPTS -p revme --features timestamp-in-seconds -- btest "$MAIN_DEVELOP_DIR/blockchain_tests"
 
     echo "Running main static blockchain tests..."
-    $RUST_RUNNER run $CARGO_OPTS -p revme -- btest "$MAIN_STATIC_DIR/blockchain_tests"
+    $RUST_RUNNER run $CARGO_OPTS -p revme --features timestamp-in-seconds -- btest "$MAIN_STATIC_DIR/blockchain_tests"
 
     echo "Running main stable blockchain tests..."
-    $RUST_RUNNER run $CARGO_OPTS -p revme -- btest "$MAIN_STABLE_DIR/blockchain_tests"
+    $RUST_RUNNER run $CARGO_OPTS -p revme --features timestamp-in-seconds -- btest "$MAIN_STABLE_DIR/blockchain_tests"
 }
 
 ##############################
