@@ -328,6 +328,16 @@ mod tests {
         let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
         let mut evm = call_ctx.build_seismic_evm();
+        // Set ERC20 token balance for gas payment
+        let token_slot = crate::handler::erc_address_storage(BENCH_CALLER);
+        evm.ctx()
+            .db_mut()
+            .insert_account_storage(
+                crate::handler::TOKEN,
+                token_slot,
+                revm::primitives::FlaggedStorage::new_from_value(U256::from(balance)),
+            )
+            .unwrap();
         let account = evm.ctx().journal_mut().load_account(BENCH_CALLER).unwrap();
         account.data.info.balance = U256::from(balance);
 
@@ -350,6 +360,16 @@ mod tests {
         let call_ctx = prepare_call(ctx, contract, selector, gas_limit, gas_price);
 
         let mut evm = call_ctx.build_seismic_evm();
+        // Set ERC20 token balance for gas payment
+        let token_slot = crate::handler::erc_address_storage(BENCH_CALLER);
+        evm.ctx()
+            .db_mut()
+            .insert_account_storage(
+                crate::handler::TOKEN,
+                token_slot,
+                revm::primitives::FlaggedStorage::new_from_value(U256::from(balance)),
+            )
+            .unwrap();
         let account = evm.ctx().journal_mut().load_account(BENCH_CALLER).unwrap();
         account.data.info.balance = U256::from(balance);
 
