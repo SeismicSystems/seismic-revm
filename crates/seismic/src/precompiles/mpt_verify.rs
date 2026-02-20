@@ -162,9 +162,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
             }
             let value = input
                 .get(offset..offset + val_len)
-                .ok_or_else(|| {
-                    PrecompileError::Other("input too short for value".into())
-                })?
+                .ok_or_else(|| PrecompileError::Other("input too short for value".into()))?
                 .to_vec();
             offset += val_len;
 
@@ -185,9 +183,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
         input
             .get(offset..offset + 4)
             .and_then(|s| s.try_into().ok())
-            .ok_or_else(|| {
-                PrecompileError::Other("input too short: missing proof_count".into())
-            })?,
+            .ok_or_else(|| PrecompileError::Other("input too short: missing proof_count".into()))?,
     ) as u64;
     offset += 4;
 
@@ -211,9 +207,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                 .get(offset..offset + 4)
                 .and_then(|s| s.try_into().ok())
                 .ok_or_else(|| {
-                    PrecompileError::Other(
-                        "truncated proof node: missing length prefix".into(),
-                    )
+                    PrecompileError::Other("truncated proof node: missing length prefix".into())
                 })?,
         ) as usize;
         offset += 4;
@@ -228,9 +222,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
         proof_nodes.push(
             input
                 .get(offset..offset + node_len)
-                .ok_or_else(|| {
-                    PrecompileError::Other("truncated proof node".into())
-                })?
+                .ok_or_else(|| PrecompileError::Other("truncated proof node".into()))?
                 .to_vec(),
         );
         offset += node_len;
