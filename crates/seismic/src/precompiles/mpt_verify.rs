@@ -93,10 +93,18 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
     }
 
     // Parse root
-    let root: [u8; 32] = input[0..32].try_into().expect("slice is 32 bytes");
+    let root: [u8; 32] = input
+        .get(0..32)
+        .and_then(|s| s.try_into().ok())
+        .ok_or_else(|| PrecompileError::Other("input too short for root".into()))?;
 
     // Parse item count
-    let item_count = u32::from_be_bytes(input[32..36].try_into().expect("slice is 4 bytes"));
+    let item_count = u32::from_be_bytes(
+        input
+            .get(32..36)
+            .and_then(|s| s.try_into().ok())
+            .ok_or_else(|| PrecompileError::Other("input too short for item_count".into()))?,
+    );
     if item_count == 0 {
         return Err(PrecompileError::Other("item_count must be > 0".into()));
     }
@@ -114,11 +122,18 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                 input.len() - offset
             )));
         }
-        let key = input[offset..offset + 32].to_vec();
+        let key = input
+            .get(offset..offset + 32)
+            .ok_or_else(|| {
+                PrecompileError::Other(format!("input too short for key at offset {offset}"))
+            })?
+            .to_vec();
         offset += 32;
 
         // Read has_value flag
-        let has_value = input[offset];
+        let has_value = *input.get(offset).ok_or_else(|| {
+            PrecompileError::Other(format!("input too short for has_value at offset {offset}"))
+        })?;
         offset += 1;
 
         if has_value == 0x01 {
@@ -129,9 +144,12 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                 ));
             }
             let val_len = u32::from_be_bytes(
-                input[offset..offset + 4]
-                    .try_into()
-                    .expect("slice is 4 bytes"),
+                input
+                    .get(offset..offset + 4)
+                    .and_then(|s| s.try_into().ok())
+                    .ok_or_else(|| {
+                        PrecompileError::Other("input too short: missing value length".into())
+                    })?,
             ) as usize;
             offset += 4;
 
@@ -142,7 +160,12 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                     input.len() - offset
                 )));
             }
-            let value = input[offset..offset + val_len].to_vec();
+            let value = input
+                .get(offset..offset + val_len)
+                .ok_or_else(|| {
+                    PrecompileError::Other("input too short for value".into())
+                })?
+                .to_vec();
             offset += val_len;
 
             items.push((key, Some(value)));
@@ -159,9 +182,12 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
         ));
     }
     let proof_count = u32::from_be_bytes(
-        input[offset..offset + 4]
-            .try_into()
-            .expect("slice is 4 bytes"),
+        input
+            .get(offset..offset + 4)
+            .and_then(|s| s.try_into().ok())
+            .ok_or_else(|| {
+                PrecompileError::Other("input too short: missing proof_count".into())
+            })?,
     ) as u64;
     offset += 4;
 
@@ -181,9 +207,14 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
             ));
         }
         let node_len = u32::from_be_bytes(
-            input[offset..offset + 4]
-                .try_into()
-                .expect("slice is 4 bytes"),
+            input
+                .get(offset..offset + 4)
+                .and_then(|s| s.try_into().ok())
+                .ok_or_else(|| {
+                    PrecompileError::Other(
+                        "truncated proof node: missing length prefix".into(),
+                    )
+                })?,
         ) as usize;
         offset += 4;
 
@@ -194,7 +225,14 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                 input.len() - offset
             )));
         }
-        proof_nodes.push(input[offset..offset + node_len].to_vec());
+        proof_nodes.push(
+            input
+                .get(offset..offset + node_len)
+                .ok_or_else(|| {
+                    PrecompileError::Other("truncated proof node".into())
+                })?
+                .to_vec(),
+        );
         offset += node_len;
     }
 
@@ -204,7 +242,9 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
 
     // Success: return 0x01 left-padded to 32 bytes
     let mut output = vec![0u8; 32];
-    output[31] = 0x01;
+    if let Some(byte) = output.get_mut(31) {
+        *byte = 0x01;
+    }
 
     Ok(PrecompileOutput::new(gas_cost, output.into()))
 }
