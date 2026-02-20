@@ -25,6 +25,10 @@ pub const TOKEN: Address = address!("0x215dfD51D1e6C05C1f7e322c0f9ddc607300e053"
 /// TODO: replace with the actual Seismic treasury address.
 pub const TREASURY: Address = address!("0x0000000000000000000000000000000000000169");
 
+/// Divisor to convert 18-decimal wei amounts to 6-decimal USDC amounts.
+/// USDC uses 6 decimals while ETH/wei uses 18, so we divide by 10^(18-6) = 10^12.
+const WEI_TO_USDC_DIVISOR: U256 = U256::from_limbs([1_000_000_000_000u64, 0, 0, 0]);
+
 /// Returns the ERC20 `balances` mapping storage slot for `address`.
 /// Implements standard Solidity mapping layout: keccak256(abi.encode(address, slot_index=4))
 pub(crate) fn erc_address_storage(addr: Address) -> U256 {
@@ -151,16 +155,21 @@ where
                 .map(|v| v.data)
                 .unwrap_or_default();
 
-            if max_balance_spending > account_balance {
+            // Scale wei (18 decimals) → USDC (6 decimals) for comparison and deduction.
+            // Use ceiling division for the check so we don't under-require.
+            let max_spending_usdc =
+                (max_balance_spending + WEI_TO_USDC_DIVISOR - U256::from(1)) / WEI_TO_USDC_DIVISOR;
+            if max_spending_usdc > account_balance {
                 return Err(InvalidTransaction::LackOfFundForMaxFee {
-                    fee: Box::new(max_balance_spending),
+                    fee: Box::new(max_spending_usdc),
                     balance: Box::new(account_balance),
                 }
                 .into());
             }
 
-            // Subtract max balance spending minus the value (value is transferred during execution).
-            token_operation::<EVM::Context, ERROR>(context, caller, TREASURY, gas_balance_spending)?;
+            // Subtract gas spending (scaled to USDC) — value is transferred during execution.
+            let gas_spending_usdc = gas_balance_spending / WEI_TO_USDC_DIVISOR;
+            token_operation::<EVM::Context, ERROR>(context, caller, TREASURY, gas_spending_usdc)?;
             context.chain_mut().set_used_erc20_gas();
         }
         // is_balance_check_disabled: preamble (touch + nonce) already done, no deduction needed.
@@ -184,13 +193,15 @@ where
             let caller = context.tx().caller();
             let effective_gas_price = context.tx().effective_gas_price(basefee);
             let gas = exec_result.gas();
-            let reimbursement = effective_gas_price
+            let reimbursement_wei = effective_gas_price
                 .saturating_mul((gas.remaining() + gas.refunded() as u64) as u128);
+            // Scale wei → USDC (round down; treasury keeps dust).
+            let reimbursement_usdc = U256::from(reimbursement_wei) / WEI_TO_USDC_DIVISOR;
             token_operation::<EVM::Context, ERROR>(
                 context,
                 TREASURY,
                 caller,
-                U256::from(reimbursement),
+                reimbursement_usdc,
             )?;
         } else {
             // Native ETH path: standard balance_incr.
@@ -222,12 +233,14 @@ where
                 } else {
                     effective_gas_price
                 };
-            let reward = coinbase_gas_price.saturating_mul(gas.used() as u128);
+            let reward_wei = coinbase_gas_price.saturating_mul(gas.used() as u128);
+            // Scale wei → USDC (round down; treasury keeps dust).
+            let reward_usdc = U256::from(reward_wei) / WEI_TO_USDC_DIVISOR;
             token_operation::<EVM::Context, ERROR>(
                 context,
                 TREASURY,
                 beneficiary,
-                U256::from(reward),
+                reward_usdc,
             )?;
         } else {
             // Native ETH path: standard balance_incr.
