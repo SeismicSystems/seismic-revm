@@ -154,7 +154,9 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
 
     // Parse proof count
     if offset + 4 > input.len() {
-        return Err(PrecompileError::Other("input too short: missing proof_count".into()));
+        return Err(PrecompileError::Other(
+            "input too short: missing proof_count".into(),
+        ));
     }
     let proof_count = u32::from_be_bytes(
         input[offset..offset + 4]
