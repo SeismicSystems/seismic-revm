@@ -242,6 +242,13 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::identity_op
+)]
 mod tests {
     use super::*;
     use hash_db::Hasher;
