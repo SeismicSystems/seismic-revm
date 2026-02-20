@@ -89,8 +89,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
             "input too short: expected at least {} bytes, got {}",
             MIN_INPUT_LENGTH,
             input.len()
-        ))
-        .into());
+        )));
     }
 
     // Parse root
@@ -99,7 +98,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
     // Parse item count
     let item_count = u32::from_be_bytes(input[32..36].try_into().expect("slice is 4 bytes"));
     if item_count == 0 {
-        return Err(PrecompileError::Other("item_count must be > 0".into()).into());
+        return Err(PrecompileError::Other("item_count must be > 0".into()));
     }
 
     // Parse items: (key, Option<value>)
@@ -113,8 +112,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                 "input too short for item at offset {}: need at least 33 more bytes, got {}",
                 offset,
                 input.len() - offset
-            ))
-            .into());
+            )));
         }
         let key = input[offset..offset + 32].to_vec();
         offset += 32;
@@ -126,9 +124,9 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
         if has_value == 0x01 {
             // Inclusion: read value length + value
             if offset + 4 > input.len() {
-                return Err(
-                    PrecompileError::Other("input too short: missing value length".into()).into(),
-                );
+                return Err(PrecompileError::Other(
+                    "input too short: missing value length".into(),
+                ));
             }
             let val_len = u32::from_be_bytes(
                 input[offset..offset + 4]
@@ -142,8 +140,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                     "input too short: expected {} value bytes, only {} remaining",
                     val_len,
                     input.len() - offset
-                ))
-                .into());
+                )));
             }
             let value = input[offset..offset + val_len].to_vec();
             offset += val_len;
@@ -157,7 +154,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
 
     // Parse proof count
     if offset + 4 > input.len() {
-        return Err(PrecompileError::Other("input too short: missing proof_count".into()).into());
+        return Err(PrecompileError::Other("input too short: missing proof_count".into()));
     }
     let proof_count = u32::from_be_bytes(
         input[offset..offset + 4]
@@ -170,7 +167,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
     let gas_cost =
         BASE_COST + (item_count as u64) * PER_ITEM_COST + proof_count * PER_PROOF_NODE_COST;
     if gas_cost > gas_limit {
-        return Err(PrecompileError::OutOfGas.into());
+        return Err(PrecompileError::OutOfGas);
     }
 
     // Parse proof nodes
@@ -179,8 +176,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
         if offset + 4 > input.len() {
             return Err(PrecompileError::Other(
                 "truncated proof node: missing length prefix".into(),
-            )
-            .into());
+            ));
         }
         let node_len = u32::from_be_bytes(
             input[offset..offset + 4]
@@ -194,8 +190,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                 "truncated proof node: expected {} bytes, only {} remaining",
                 node_len,
                 input.len() - offset
-            ))
-            .into());
+            )));
         }
         proof_nodes.push(input[offset..offset + node_len].to_vec());
         offset += node_len;
