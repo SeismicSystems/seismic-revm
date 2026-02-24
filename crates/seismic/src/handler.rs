@@ -29,12 +29,21 @@ pub const TREASURY: Address = address!("0x00000000000000000000000000000000000001
 /// USDC uses 6 decimals while ETH/wei uses 18, so we divide by 10^(18-6) = 10^12.
 const WEI_TO_USDC_DIVISOR: U256 = U256::from_limbs([1_000_000_000_000u64, 0, 0, 0]);
 
-/// Returns the ERC20 `balances` mapping storage slot for `address`.
-/// Implements standard Solidity mapping layout: keccak256(abi.encode(address, slot_index=4))
+/// Returns the Solady ERC20 `_balances` storage slot for `address`.
+/// Matches the Solady `_BALANCE_SLOT_SEED` (`0x87a211a2`) layout:
+///   mstore(0x0c, 0x87a211a2)
+///   mstore(0x00, owner)
+///   slot := keccak256(0x0c, 0x20)
+/// This produces: keccak256(addr[20 bytes] ++ 0x0000000000000087a211a2[12 bytes])
 pub(crate) fn erc_address_storage(addr: Address) -> U256 {
-    let mut buf = [0u8; 64];
-    buf[12..32].copy_from_slice(addr.as_slice()); // address padded to 32 bytes
-    buf[63] = 4; // U256::from(4) in big-endian
+    let mut buf = [0u8; 32];
+    buf[0..20].copy_from_slice(addr.as_slice()); // address (20 bytes)
+    // bytes 20..28 stay zero
+    // Solady _BALANCE_SLOT_SEED = 0x87a211a2
+    buf[28] = 0x87;
+    buf[29] = 0xa2;
+    buf[30] = 0x11;
+    buf[31] = 0xa2;
     keccak256(buf).into()
 }
 
