@@ -245,6 +245,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
             root_b256,
             key_nibbles.clone(),
             expected_value.clone(),
+            false,
             proof_nodes,
         )
         .map_err(|e| PrecompileError::Other(format!("proof verification failed: {e}")))?;
@@ -286,7 +287,7 @@ mod tests {
         }
         let mut builder = HashBuilder::default();
         for (key, value) in &map {
-            builder.add_leaf(Nibbles::unpack(key), value);
+            builder.add_leaf(Nibbles::unpack(key), value, false);
         }
         let root = builder.root();
         (root, map)
@@ -305,7 +306,7 @@ mod tests {
         let retainer = ProofRetainer::new(targets.clone());
         let mut builder = HashBuilder::default().with_proof_retainer(retainer);
         for (key, value) in entries {
-            builder.add_leaf(Nibbles::unpack(key), value);
+            builder.add_leaf(Nibbles::unpack(key), value, false);
         }
         let _root = builder.root();
         let proof_nodes = builder.take_proof_nodes();

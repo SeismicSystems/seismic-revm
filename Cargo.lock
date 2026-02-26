@@ -553,8 +553,7 @@ dependencies = [
 [[package]]
 name = "alloy-trie"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3412d52bb97c6c6cc27ccc28d4e6e8cf605469101193b50b0bd5813b1f990b5"
+source = "git+https://github.com/SeismicSystems/seismic-trie.git?rev=d8425918ced1d62043c3a64b382d6fa1d8c25518#d8425918ced1d62043c3a64b382d6fa1d8c25518"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
