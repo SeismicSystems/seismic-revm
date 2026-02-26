@@ -130,6 +130,10 @@ thiserror = "2.0"
 triehash = "0.8"
 walkdir = "2.5"
 
+# MPT verification (alloy-trie)
+alloy-trie = "0.9"
+nybbles = "0.4"
+
 [workspace.package]
 license = "MIT"
 authors = ["Dragan Rakita <dragan0rakita@gmail.com>"]

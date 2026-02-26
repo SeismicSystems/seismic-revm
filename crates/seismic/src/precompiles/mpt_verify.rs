@@ -1,19 +1,15 @@
 //! MPT (Merkle Patricia Trie) proof verification precompile.
 //!
 //! Verifies an MPT inclusion/exclusion proof for one or more key-value pairs
-//! against a given root. Used to verify Summit consensus state proofs on-chain
-//! via EIP-4788.
-//!
-//! The caller provides the expected values alongside keys. The precompile
-//! verifies the proof is valid using `trie_db::proof::verify_proof`. This
-//! matches Summit's `getStateProof` RPC endpoint which returns shared proofs
-//! for multiple keys.
+//! against a given root. Each key carries its own proof (root-to-leaf trie
+//! nodes), matching the per-key proof format of Ethereum's `eth_getProof`
+//! endpoint. Verification uses `alloy_trie::proof::verify_proof`.
 
+use alloy_primitives::{Bytes, B256};
+use nybbles::Nibbles;
 use revm::precompile::{
     u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult,
 };
-
-type Layout = reference_trie::ExtensionLayout;
 
 /// Address of the MPT verify precompile.
 pub const MPT_VERIFY_ADDRESS: u64 = 106;
@@ -53,6 +49,8 @@ const PER_PROOF_NODE_COST: u64 = 500;
 /// # MPT Verify
 ///
 /// Verifies an MPT proof for one or more key-value pairs against a root.
+/// Each key carries its own per-key proof (root-to-leaf trie nodes),
+/// compatible with Ethereum's `eth_getProof` format.
 ///
 /// ## Input layout
 ///
@@ -65,9 +63,10 @@ const PER_PROOF_NODE_COST: u64 = 500;
 ///   If has_value == 0x01:
 ///     [0..4]          : value_len — u32 big-endian
 ///     [4..4+L]        : value bytes
-/// [next 4 bytes]      : proof_count — u32 big-endian, number of proof nodes
-/// [rest]              : proof_nodes — length-prefixed proof nodes:
-///                         For each node: [0..4] u32 BE node length, [4..4+L] node bytes
+///   [next 4 bytes]    : proof_node_count — u32 big-endian for this key
+///   For each proof node:
+///     [0..4]          : node_len — u32 big-endian
+///     [4..4+L]        : node bytes
 /// ```
 ///
 /// ## Output layout
@@ -97,6 +96,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
         .get(0..32)
         .and_then(|s| s.try_into().ok())
         .ok_or_else(|| PrecompileError::Other("input too short for root".into()))?;
+    let root_b256 = B256::from(root);
 
     // Parse item count
     let item_count = u32::from_be_bytes(
@@ -109,9 +109,13 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
         return Err(PrecompileError::Other("item_count must be > 0".into()));
     }
 
-    // Parse items: (key, Option<value>)
+    // Parse items with per-key proofs and calculate total proof nodes for gas
     let mut offset = 36usize;
-    let mut items: Vec<(Vec<u8>, Option<Vec<u8>>)> = Vec::with_capacity(item_count as usize);
+    let mut total_proof_nodes: u64 = 0;
+
+    // Collect parsed items: (key_nibbles, expected_value, proof_nodes)
+    let mut items: Vec<(Nibbles, Option<Vec<u8>>, Vec<Bytes>)> =
+        Vec::with_capacity(item_count as usize);
 
     for _ in 0..item_count {
         // Read key (32 bytes)
@@ -122,13 +126,15 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                 input.len() - offset
             )));
         }
-        let key = input
+        let key: [u8; 32] = input
             .get(offset..offset + 32)
+            .and_then(|s| s.try_into().ok())
             .ok_or_else(|| {
                 PrecompileError::Other(format!("input too short for key at offset {offset}"))
-            })?
-            .to_vec();
+            })?;
         offset += 32;
+
+        let key_nibbles = Nibbles::unpack(B256::from(key));
 
         // Read has_value flag
         let has_value = *input.get(offset).ok_or_else(|| {
@@ -136,7 +142,7 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
         })?;
         offset += 1;
 
-        if has_value == 0x01 {
+        let expected_value = if has_value == 0x01 {
             // Inclusion: read value length + value
             if offset + 4 > input.len() {
                 return Err(PrecompileError::Other(
@@ -165,72 +171,84 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
                 .ok_or_else(|| PrecompileError::Other("input too short for value".into()))?
                 .to_vec();
             offset += val_len;
-
-            items.push((key, Some(value)));
+            Some(value)
         } else {
-            // Exclusion: no value
-            items.push((key, None));
-        }
-    }
+            None
+        };
 
-    // Parse proof count
-    if offset + 4 > input.len() {
-        return Err(PrecompileError::Other(
-            "input too short: missing proof_count".into(),
-        ));
-    }
-    let proof_count = u32::from_be_bytes(
-        input
-            .get(offset..offset + 4)
-            .and_then(|s| s.try_into().ok())
-            .ok_or_else(|| PrecompileError::Other("input too short: missing proof_count".into()))?,
-    ) as u64;
-    offset += 4;
-
-    // Calculate and check gas
-    let gas_cost =
-        BASE_COST + (item_count as u64) * PER_ITEM_COST + proof_count * PER_PROOF_NODE_COST;
-    if gas_cost > gas_limit {
-        return Err(PrecompileError::OutOfGas);
-    }
-
-    // Parse proof nodes
-    let mut proof_nodes: Vec<Vec<u8>> = Vec::with_capacity(proof_count as usize);
-    for _ in 0..proof_count {
+        // Read per-key proof node count
         if offset + 4 > input.len() {
             return Err(PrecompileError::Other(
-                "truncated proof node: missing length prefix".into(),
+                "input too short: missing proof_node_count".into(),
             ));
         }
-        let node_len = u32::from_be_bytes(
+        let proof_node_count = u32::from_be_bytes(
             input
                 .get(offset..offset + 4)
                 .and_then(|s| s.try_into().ok())
                 .ok_or_else(|| {
-                    PrecompileError::Other("truncated proof node: missing length prefix".into())
+                    PrecompileError::Other("input too short: missing proof_node_count".into())
                 })?,
         ) as usize;
         offset += 4;
 
-        if offset + node_len > input.len() {
-            return Err(PrecompileError::Other(format!(
-                "truncated proof node: expected {} bytes, only {} remaining",
-                node_len,
-                input.len() - offset
-            )));
+        total_proof_nodes += proof_node_count as u64;
+
+        // Read proof nodes for this key
+        let mut proof_nodes: Vec<Bytes> = Vec::with_capacity(proof_node_count);
+        for _ in 0..proof_node_count {
+            if offset + 4 > input.len() {
+                return Err(PrecompileError::Other(
+                    "truncated proof node: missing length prefix".into(),
+                ));
+            }
+            let node_len = u32::from_be_bytes(
+                input
+                    .get(offset..offset + 4)
+                    .and_then(|s| s.try_into().ok())
+                    .ok_or_else(|| {
+                        PrecompileError::Other(
+                            "truncated proof node: missing length prefix".into(),
+                        )
+                    })?,
+            ) as usize;
+            offset += 4;
+
+            if offset + node_len > input.len() {
+                return Err(PrecompileError::Other(format!(
+                    "truncated proof node: expected {} bytes, only {} remaining",
+                    node_len,
+                    input.len() - offset
+                )));
+            }
+            proof_nodes.push(Bytes::copy_from_slice(
+                input
+                    .get(offset..offset + node_len)
+                    .ok_or_else(|| PrecompileError::Other("truncated proof node".into()))?,
+            ));
+            offset += node_len;
         }
-        proof_nodes.push(
-            input
-                .get(offset..offset + node_len)
-                .ok_or_else(|| PrecompileError::Other("truncated proof node".into()))?
-                .to_vec(),
-        );
-        offset += node_len;
+
+        items.push((key_nibbles, expected_value, proof_nodes));
     }
 
-    // Verify proof using trie_db
-    trie_db::proof::verify_proof::<Layout, _, _, _>(&root, &proof_nodes, &items)
+    // Calculate and check gas
+    let gas_cost =
+        BASE_COST + (item_count as u64) * PER_ITEM_COST + total_proof_nodes * PER_PROOF_NODE_COST;
+    if gas_cost > gas_limit {
+        return Err(PrecompileError::OutOfGas);
+    }
+
+    // Verify each key's proof individually using alloy-trie
+    for (key_nibbles, expected_value, proof_nodes) in &items {
+        alloy_trie::proof::verify_proof(
+            root_b256,
+            key_nibbles.clone(),
+            expected_value.clone(),
+            proof_nodes,
+        )
         .map_err(|e| PrecompileError::Other(format!("proof verification failed: {e}")))?;
+    }
 
     // Success: return 0x01 left-padded to 32 bytes
     let mut output = vec![0u8; 32];
@@ -251,46 +269,68 @@ pub fn mpt_verify(input: &[u8], gas_limit: u64) -> PrecompileResult {
 )]
 mod tests {
     use super::*;
-    use hash_db::Hasher;
-    use memory_db::{HashKey, MemoryDB};
+    use alloy_primitives::keccak256;
+    use alloy_trie::proof::ProofRetainer;
+    use alloy_trie::HashBuilder;
     use revm::precompile::PrecompileError;
-    use revm::primitives::Bytes;
+    use revm::primitives::Bytes as RevmBytes;
+    use std::collections::BTreeMap;
 
-    type KeccakHasher = keccak_hasher::KeccakHasher;
-    type TestTrieMemDB = MemoryDB<KeccakHasher, HashKey<KeccakHasher>, Vec<u8>>;
-
-    /// Helper: build a trie, insert entries, return (root, memdb).
-    fn build_test_trie(entries: &[(&[u8], &[u8])]) -> ([u8; 32], TestTrieMemDB) {
-        let mut memdb = TestTrieMemDB::default();
-        let mut root = Default::default();
-        {
-            use trie_db::{TrieDBMutBuilder, TrieMut};
-            let mut trie = TrieDBMutBuilder::<Layout>::new(&mut memdb, &mut root).build();
-            for (key, value) in entries {
-                trie.insert(key, value).expect("insert failed");
-            }
+    /// Helper: build a trie, insert entries (already-hashed keys), return root
+    /// and the entries map for proof generation.
+    fn build_test_trie(entries: &[(&[u8], &[u8])]) -> (B256, BTreeMap<B256, Vec<u8>>) {
+        let mut map = BTreeMap::new();
+        for (key, value) in entries {
+            let k = B256::from_slice(key);
+            map.insert(k, value.to_vec());
         }
-        (root, memdb)
+        let mut builder = HashBuilder::default();
+        for (key, value) in &map {
+            builder.add_leaf(Nibbles::unpack(key), value);
+        }
+        let root = builder.root();
+        (root, map)
     }
 
-    /// Helper: generate proof for given keys.
-    fn generate_proof(memdb: &TestTrieMemDB, root: &[u8; 32], keys: &[&[u8]]) -> Vec<Vec<u8>> {
-        let key_vecs: Vec<Vec<u8>> = keys.iter().map(|k| k.to_vec()).collect();
-        let key_refs: Vec<&Vec<u8>> = key_vecs.iter().collect();
-        trie_db::proof::generate_proof::<_, Layout, _, _>(memdb, root, key_refs)
-            .expect("proof generation failed")
+    /// Helper: generate per-key proofs for given (already-hashed) keys.
+    fn generate_per_key_proofs(
+        entries: &BTreeMap<B256, Vec<u8>>,
+        keys: &[&[u8]],
+    ) -> Vec<Vec<Vec<u8>>> {
+        let targets: Vec<Nibbles> = keys
+            .iter()
+            .map(|k| Nibbles::unpack(B256::from_slice(k)))
+            .collect();
+
+        let retainer = ProofRetainer::new(targets.clone());
+        let mut builder = HashBuilder::default().with_proof_retainer(retainer);
+        for (key, value) in entries {
+            builder.add_leaf(Nibbles::unpack(key), value);
+        }
+        let _root = builder.root();
+        let proof_nodes = builder.take_proof_nodes();
+
+        targets
+            .iter()
+            .map(|target| {
+                proof_nodes
+                    .matching_nodes_sorted(target)
+                    .into_iter()
+                    .map(|(_, node)| node.to_vec())
+                    .collect()
+            })
+            .collect()
     }
 
-    /// Helper: encode precompile input from root, items, and proof nodes.
+    /// Helper: encode precompile input with per-key proofs.
     fn encode_input(
         root: &[u8; 32],
-        items: &[(Vec<u8>, Option<Vec<u8>>)],
-        proof_nodes: &[Vec<u8>],
+        items: &[(Vec<u8>, Option<Vec<u8>>, Vec<Vec<u8>>)],
     ) -> Vec<u8> {
         let mut input = Vec::new();
         input.extend_from_slice(root);
         input.extend_from_slice(&(items.len() as u32).to_be_bytes());
-        for (key, value) in items {
+        for (key, value, proof_nodes) in items {
             input.extend_from_slice(key);
             match value {
                 Some(v) => {
@@ -302,30 +342,30 @@ mod tests {
                     input.push(0x00);
                 }
             }
-        }
-        input.extend_from_slice(&(proof_nodes.len() as u32).to_be_bytes());
-        for node in proof_nodes {
-            input.extend_from_slice(&(node.len() as u32).to_be_bytes());
-            input.extend_from_slice(node);
+            input.extend_from_slice(&(proof_nodes.len() as u32).to_be_bytes());
+            for node in proof_nodes {
+                input.extend_from_slice(&(node.len() as u32).to_be_bytes());
+                input.extend_from_slice(node);
+            }
         }
         input
     }
 
     /// Helper: hash a logical key with keccak256.
     fn hash_key(logical_key: &[u8]) -> [u8; 32] {
-        KeccakHasher::hash(logical_key)
+        keccak256(logical_key).into()
     }
 
     #[test]
     fn test_single_key_inclusion() {
         let hashed_key = hash_key(b"epoch");
         let value = 42u64.to_be_bytes().to_vec();
-        let (root, memdb) = build_test_trie(&[(&hashed_key, &value)]);
-        let proof = generate_proof(&memdb, &root, &[&hashed_key]);
+        let (root, entries) = build_test_trie(&[(&hashed_key, &value)]);
+        let proofs = generate_per_key_proofs(&entries, &[&hashed_key]);
 
-        let items = vec![(hashed_key.to_vec(), Some(value))];
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let items = vec![(hashed_key.to_vec(), Some(value), proofs[0].clone())];
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_ok(), "Expected success, got {:?}", result.err());
 
         let output = result.unwrap();
@@ -336,14 +376,14 @@ mod tests {
     fn test_single_key_exclusion() {
         let hashed_key_present = hash_key(b"epoch");
         let value = 42u64.to_be_bytes().to_vec();
-        let (root, memdb) = build_test_trie(&[(&hashed_key_present, &value)]);
+        let (root, entries) = build_test_trie(&[(&hashed_key_present, &value)]);
 
         let hashed_key_absent = hash_key(b"nonexistent");
-        let proof = generate_proof(&memdb, &root, &[&hashed_key_absent]);
+        let proofs = generate_per_key_proofs(&entries, &[&hashed_key_absent]);
 
-        let items = vec![(hashed_key_absent.to_vec(), None)];
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let items = vec![(hashed_key_absent.to_vec(), None, proofs[0].clone())];
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_ok(), "Expected success, got {:?}", result.err());
     }
 
@@ -361,27 +401,29 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.as_slice(), v.as_slice()))
             .collect();
-        let (root, memdb) = build_test_trie(&trie_entries);
+        let (root, entries) = build_test_trie(&trie_entries);
 
         // Prove keys 1, 3
         let query_keys: Vec<&[u8]> = vec![
             keys_and_values[1].0.as_slice(),
             keys_and_values[3].0.as_slice(),
         ];
-        let proof = generate_proof(&memdb, &root, &query_keys);
+        let proofs = generate_per_key_proofs(&entries, &query_keys);
 
         let items = vec![
             (
                 keys_and_values[1].0.to_vec(),
                 Some(keys_and_values[1].1.clone()),
+                proofs[0].clone(),
             ),
             (
                 keys_and_values[3].0.to_vec(),
                 Some(keys_and_values[3].1.clone()),
+                proofs[1].clone(),
             ),
         ];
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_ok(), "Expected success, got {:?}", result.err());
     }
 
@@ -389,18 +431,18 @@ mod tests {
     fn test_mixed_inclusion_exclusion() {
         let hashed_key = hash_key(b"epoch");
         let value = 42u64.to_be_bytes().to_vec();
-        let (root, memdb) = build_test_trie(&[(&hashed_key, &value)]);
+        let (root, entries) = build_test_trie(&[(&hashed_key, &value)]);
 
         let hashed_key_absent = hash_key(b"missing");
         let query_keys: Vec<&[u8]> = vec![&hashed_key, &hashed_key_absent];
-        let proof = generate_proof(&memdb, &root, &query_keys);
+        let proofs = generate_per_key_proofs(&entries, &query_keys);
 
         let items = vec![
-            (hashed_key.to_vec(), Some(value)),
-            (hashed_key_absent.to_vec(), None),
+            (hashed_key.to_vec(), Some(value), proofs[0].clone()),
+            (hashed_key_absent.to_vec(), None, proofs[1].clone()),
         ];
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_ok(), "Expected success, got {:?}", result.err());
     }
 
@@ -408,19 +450,19 @@ mod tests {
     fn test_invalid_proof() {
         let hashed_key = hash_key(b"epoch");
         let value = 42u64.to_be_bytes().to_vec();
-        let (root, memdb) = build_test_trie(&[(&hashed_key, &value)]);
-        let mut proof = generate_proof(&memdb, &root, &[&hashed_key]);
+        let (root, entries) = build_test_trie(&[(&hashed_key, &value)]);
+        let mut proofs = generate_per_key_proofs(&entries, &[&hashed_key]);
 
         // Tamper with a proof node
-        if let Some(node) = proof.first_mut() {
+        if let Some(node) = proofs[0].first_mut() {
             if !node.is_empty() {
                 node[0] ^= 0xFF;
             }
         }
 
-        let items = vec![(hashed_key.to_vec(), Some(value))];
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let items = vec![(hashed_key.to_vec(), Some(value), proofs[0].clone())];
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_err(), "Should fail with tampered proof");
     }
 
@@ -428,13 +470,13 @@ mod tests {
     fn test_wrong_root() {
         let hashed_key = hash_key(b"epoch");
         let value = 42u64.to_be_bytes().to_vec();
-        let (root, memdb) = build_test_trie(&[(&hashed_key, &value)]);
-        let proof = generate_proof(&memdb, &root, &[&hashed_key]);
+        let (_root, entries) = build_test_trie(&[(&hashed_key, &value)]);
+        let proofs = generate_per_key_proofs(&entries, &[&hashed_key]);
 
         let wrong_root = [0xFF; 32];
-        let items = vec![(hashed_key.to_vec(), Some(value))];
-        let input = encode_input(&wrong_root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let items = vec![(hashed_key.to_vec(), Some(value), proofs[0].clone())];
+        let input = encode_input(&wrong_root, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_err(), "Should fail with wrong root");
     }
 
@@ -442,13 +484,13 @@ mod tests {
     fn test_wrong_value() {
         let hashed_key = hash_key(b"epoch");
         let value = 42u64.to_be_bytes().to_vec();
-        let (root, memdb) = build_test_trie(&[(&hashed_key, &value)]);
-        let proof = generate_proof(&memdb, &root, &[&hashed_key]);
+        let (root, entries) = build_test_trie(&[(&hashed_key, &value)]);
+        let proofs = generate_per_key_proofs(&entries, &[&hashed_key]);
 
         let wrong_value = 99u64.to_be_bytes().to_vec();
-        let items = vec![(hashed_key.to_vec(), Some(wrong_value))];
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let items = vec![(hashed_key.to_vec(), Some(wrong_value), proofs[0].clone())];
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_err(), "Should fail with wrong value");
     }
 
@@ -456,15 +498,20 @@ mod tests {
     fn test_claim_inclusion_for_absent_key() {
         let hashed_key = hash_key(b"epoch");
         let value = 42u64.to_be_bytes().to_vec();
-        let (root, memdb) = build_test_trie(&[(&hashed_key, &value)]);
+        let (_root, entries) = build_test_trie(&[(&hashed_key, &value)]);
 
         let hashed_key_absent = hash_key(b"nonexistent");
-        let proof = generate_proof(&memdb, &root, &[&hashed_key_absent]);
+        let proofs = generate_per_key_proofs(&entries, &[&hashed_key_absent]);
+        let (root, _) = build_test_trie(&[(&hashed_key, &value)]);
 
         // Claim inclusion for absent key with fake value
-        let items = vec![(hashed_key_absent.to_vec(), Some(vec![1, 2, 3]))];
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let items = vec![(
+            hashed_key_absent.to_vec(),
+            Some(vec![1, 2, 3]),
+            proofs[0].clone(),
+        )];
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(
             result.is_err(),
             "Should fail when claiming inclusion for absent key"
@@ -475,12 +522,12 @@ mod tests {
     fn test_out_of_gas() {
         let hashed_key = hash_key(b"epoch");
         let value = 42u64.to_be_bytes().to_vec();
-        let (root, memdb) = build_test_trie(&[(&hashed_key, &value)]);
-        let proof = generate_proof(&memdb, &root, &[&hashed_key]);
+        let (root, entries) = build_test_trie(&[(&hashed_key, &value)]);
+        let proofs = generate_per_key_proofs(&entries, &[&hashed_key]);
 
-        let items = vec![(hashed_key.to_vec(), Some(value))];
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100);
+        let items = vec![(hashed_key.to_vec(), Some(value), proofs[0].clone())];
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100);
         assert!(result.is_err());
 
         match result.err() {
@@ -492,7 +539,7 @@ mod tests {
     #[test]
     fn test_invalid_input_length() {
         let input = vec![0u8; 30];
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_err());
 
         match result.err() {
@@ -507,7 +554,7 @@ mod tests {
     fn test_zero_item_count() {
         let mut input = vec![0u8; 32]; // root
         input.extend_from_slice(&0u32.to_be_bytes()); // item_count = 0
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_err());
 
         match result.err() {
@@ -527,11 +574,11 @@ mod tests {
         input.extend_from_slice(&1u32.to_be_bytes()); // 1 item
         input.extend_from_slice(&key);
         input.push(0x00); // exclusion
-        input.extend_from_slice(&1u32.to_be_bytes()); // 1 proof node
+        input.extend_from_slice(&1u32.to_be_bytes()); // 1 proof node for this key
         input.extend_from_slice(&100u32.to_be_bytes()); // claims 100 bytes
         input.extend_from_slice(&[0u8; 10]); // only 10 bytes
 
-        let result = mpt_verify(&Bytes::from(input), 100_000);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000);
         assert!(result.is_err());
 
         match result.err() {
@@ -546,13 +593,13 @@ mod tests {
     fn test_gas_calculation() {
         let hashed_key = hash_key(b"epoch");
         let value = 42u64.to_be_bytes().to_vec();
-        let (root, memdb) = build_test_trie(&[(&hashed_key, &value)]);
-        let proof = generate_proof(&memdb, &root, &[&hashed_key]);
-        let proof_count = proof.len() as u64;
+        let (root, entries) = build_test_trie(&[(&hashed_key, &value)]);
+        let proofs = generate_per_key_proofs(&entries, &[&hashed_key]);
+        let proof_count = proofs[0].len() as u64;
 
-        let items = vec![(hashed_key.to_vec(), Some(value))];
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 100_000).unwrap();
+        let items = vec![(hashed_key.to_vec(), Some(value), proofs[0].clone())];
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 100_000).unwrap();
 
         let expected_gas = BASE_COST + 1 * PER_ITEM_COST + proof_count * PER_PROOF_NODE_COST;
         assert_eq!(result.gas_used, expected_gas);
@@ -573,7 +620,7 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.as_slice(), v.as_slice()))
             .collect();
-        let (root, memdb) = build_test_trie(&trie_entries);
+        let (root, entry_map) = build_test_trie(&trie_entries);
 
         // Prove every 13th key
         let query_indices: Vec<usize> = (0..100).step_by(13).collect();
@@ -581,14 +628,21 @@ mod tests {
             .iter()
             .map(|&i| entries[i].0.as_slice())
             .collect();
-        let proof = generate_proof(&memdb, &root, &query_keys);
+        let proofs = generate_per_key_proofs(&entry_map, &query_keys);
 
-        let items: Vec<(Vec<u8>, Option<Vec<u8>>)> = query_indices
+        let items: Vec<(Vec<u8>, Option<Vec<u8>>, Vec<Vec<u8>>)> = query_indices
             .iter()
-            .map(|&i| (entries[i].0.to_vec(), Some(entries[i].1.clone())))
+            .enumerate()
+            .map(|(idx, &i)| {
+                (
+                    entries[i].0.to_vec(),
+                    Some(entries[i].1.clone()),
+                    proofs[idx].clone(),
+                )
+            })
             .collect();
-        let input = encode_input(&root, &items, &proof);
-        let result = mpt_verify(&Bytes::from(input), 1_000_000);
+        let input = encode_input(&root.0, &items);
+        let result = mpt_verify(&RevmBytes::from(input), 1_000_000);
         assert!(result.is_ok(), "Expected success, got {:?}", result.err());
     }
 }
