@@ -652,7 +652,7 @@ mod tests {
 
         let mut new_state = CacheDB::new(init_state);
         new_state
-            .replace_account_storage(account, [(key1, value1)].into())
+            .replace_account_storage(account, HashMap::from_iter([(key1, value1)]))
             .unwrap();
 
         assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
