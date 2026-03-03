@@ -119,9 +119,9 @@ pub(crate) fn extract_functions_from_source(
 ) -> Result<HashMap<String, Vec<String>>, Errors> {
     let content = fs::read_to_string(path)?;
 
-    let mut contract_functions: HashMap<String, Vec<String>> = HashMap::new();
+    let mut contract_functions: HashMap<String, Vec<String>> = HashMap::default();
     //parent --> child
-    let mut inheritance_map: HashMap<String, Vec<String>> = HashMap::new();
+    let mut inheritance_map: HashMap<String, Vec<String>> = HashMap::default();
     let mut current_contract = String::new();
     let mut collecting_functions = false;
 
