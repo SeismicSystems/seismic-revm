@@ -300,12 +300,12 @@ impl DebugInfo {
     fn capture_committed_state(
         state: &State<EmptyDB>,
     ) -> HashMap<Address, (AccountInfo, HashMap<U256, FlaggedStorage>)> {
-        let mut committed_state = HashMap::new();
+        let mut committed_state = HashMap::default();
 
         // Access the cache state to get all accounts
         for (address, cache_account) in &state.cache.accounts {
             if let Some(plain_account) = &cache_account.account {
-                let mut storage = HashMap::new();
+                let mut storage = HashMap::default();
                 for (key, value) in &plain_account.storage {
                     storage.insert(*key, *value);
                 }
@@ -394,7 +394,7 @@ fn validate_post_state(
             .account
             .as_ref()
             .map(|a| &a.storage)
-            .unwrap_or(&HashMap::new())
+            .unwrap_or(&HashMap::default())
             .iter()
         {
             let slot = *slot;
@@ -653,7 +653,7 @@ fn execute_blockchain_test(
     let mut state = State::builder().build();
 
     // Capture pre-state for debug info
-    let mut pre_state_debug = HashMap::new();
+    let mut pre_state_debug = HashMap::default();
 
     // Insert genesis state into database
     let genesis_state = test_case.pre.clone().into_genesis_state();
