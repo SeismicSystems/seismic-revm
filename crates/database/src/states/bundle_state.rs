@@ -619,9 +619,13 @@ impl BundleState {
 
             for (&key, &slot) in account.storage.iter() {
                 // If storage was destroyed that means that storage was wiped.
-                // In that case we need to check if present storage value is different then ZERO.
-                // TODO(Seismic): do we need to check visibility here?
-                let destroyed_and_not_zero = was_destroyed && !slot.present_value.value.is_zero();
+                // In that case we need to check if present storage value is different then ZERO
+                // or carries confidential metadata that must be preserved.
+                // Equivalent to `!slot.present_value.is_zero()`, kept explicit so the
+                // privacy check remains visible and doesn't silently change if
+                // FlaggedStorage::is_zero() is ever modified.
+                let destroyed_and_not_zero = was_destroyed
+                    && (!slot.present_value.value.is_zero() || slot.present_value.is_private);
 
                 // If account is not destroyed check if original values was changed,
                 // so we can update it.
