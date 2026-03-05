@@ -136,6 +136,7 @@ mod tests {
     use crate::{api::default_ctx::SeismicContext, DefaultSeismicContext, SeismicBuilder};
     use revm::{
         context::{result::EVMError, Context},
+        context_interface::context::ContextError,
         database_interface::EmptyDB,
         handler::EthFrame,
         interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
@@ -191,5 +192,59 @@ mod tests {
         assert_eq!(gas.remaining(), 0);
         assert_eq!(gas.spent(), 100);
         assert_eq!(gas.refunded(), 0);
+    }
+
+    /// Regression test: custom halt path must call discard_tx() so that
+    /// transaction_id advances and warm slot/account tracking is reset.
+    /// Without discard_tx(), slots warmed in a halted tx would remain warm
+    /// for the next tx, causing incorrect (cheaper) gas accounting.
+    #[test]
+    fn test_custom_halt_discards_tx_and_advances_transaction_id() {
+        let ctx = Context::seismic().modify_tx_chained(|tx| {
+            tx.base.gas_limit = 100;
+        });
+
+        let mut evm = ctx.build_seismic_evm();
+
+        let tx_id_before = evm.ctx().journal().inner.transaction_id;
+
+        // Inject a custom error that triggers the SeismicHaltReason path.
+        *evm.ctx().error() = Err(ContextError::Custom(
+            "InvalidPrivateStorageAccess".to_string(),
+        ));
+
+        let frame_result = FrameResult::Call(CallOutcome::new(
+            InterpreterResult {
+                result: InstructionResult::Stop,
+                output: Bytes::new(),
+                gas: Gas::new(90),
+            },
+            0..0,
+        ));
+
+        let mut handler =
+            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
+
+        let result = handler.execution_result(&mut evm, frame_result).unwrap();
+
+        // Should produce a Halt with the correct reason.
+        assert!(
+            matches!(
+                result,
+                ExecutionResult::Halt {
+                    reason: SeismicHaltReason::InvalidPrivateStorageAccess,
+                    ..
+                }
+            ),
+            "Expected Halt with InvalidPrivateStorageAccess, got: {result:?}"
+        );
+
+        // transaction_id must have advanced, proving discard_tx() was called.
+        let tx_id_after = evm.ctx().journal().inner.transaction_id;
+        assert_eq!(
+            tx_id_after,
+            tx_id_before + 1,
+            "transaction_id should advance after custom halt (discard_tx must be called)"
+        );
     }
 }
