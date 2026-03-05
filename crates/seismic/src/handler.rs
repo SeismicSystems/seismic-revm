@@ -65,8 +65,9 @@ where
                 if let Some(seismic_reason) =
                     SeismicHaltReason::try_from_error_string(&e.to_string())
                 {
-                    // Same as catch error, except don't discard tx
+                    // Same as catch error
                     evm.ctx().local_mut().clear();
+                    evm.ctx().journal_mut().discard_tx();
                     evm.frame_stack().clear();
                     evm.ctx().chain_mut().reset_rng();
 
