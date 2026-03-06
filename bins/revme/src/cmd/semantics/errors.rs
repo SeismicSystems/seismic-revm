@@ -1,8 +1,71 @@
+use std::fmt;
 use std::io::Error as IoError;
 
 use primitives::Bytes;
 
 use crate::cmd::semantics::test_cases::TestCase;
+
+/// Reason a test file was skipped during processing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkipReason {
+    /// Test uses multi-source layout (`==== Source:`)
+    MultiSource,
+    /// Test requires `allowNonExistingFunctions: true`
+    NonExistingFunctions,
+    /// Test requires `revertStrings: debug`
+    DebugRevertStrings,
+    /// Test requires via-IR but `--unsafe-via-ir` was not passed
+    ViaIrUnsafeRequired,
+    /// Test requires via-IR but `--skip-via-ir` was passed
+    ViaIrSkipped,
+    /// Test opts out of via-IR (`compileViaYul: false`) but `--via-ir` is forced
+    ViaIrOptOut,
+    /// Test requires EOF but `--eof` was not passed
+    EofNotEnabled,
+}
+
+impl fmt::Display for SkipReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::MultiSource => write!(f, "unsupported: multi-source files (==== Source:)"),
+            Self::NonExistingFunctions => write!(f, "unsupported: allowNonExistingFunctions"),
+            Self::DebugRevertStrings => write!(f, "unsupported: revertStrings: debug"),
+            Self::ViaIrUnsafeRequired => {
+                write!(f, "via-IR required (use --unsafe-via-ir to enable)")
+            }
+            Self::ViaIrSkipped => write!(f, "via-IR required (excluded by --skip-via-ir)"),
+            Self::ViaIrOptOut => write!(f, "via-IR opt-out (excluded by --via-ir)"),
+            Self::EofNotEnabled => write!(f, "EOF required (use --eof to enable)"),
+        }
+    }
+}
+
+impl SkipReason {
+    /// All variants, used for iterating when printing summaries.
+    pub const ALL: [SkipReason; 7] = [
+        Self::MultiSource,
+        Self::NonExistingFunctions,
+        Self::DebugRevertStrings,
+        Self::ViaIrUnsafeRequired,
+        Self::ViaIrSkipped,
+        Self::ViaIrOptOut,
+        Self::EofNotEnabled,
+    ];
+
+    /// Stable index for use with `SkipCounts`.
+    pub fn index(self) -> usize {
+        match self {
+            Self::MultiSource => 0,
+            Self::NonExistingFunctions => 1,
+            Self::DebugRevertStrings => 2,
+            Self::ViaIrUnsafeRequired => 3,
+            Self::ViaIrSkipped => 4,
+            Self::ViaIrOptOut => 5,
+            Self::EofNotEnabled => 6,
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum Errors {
     #[error("The specified path does not exist")]
@@ -23,8 +86,8 @@ pub enum Errors {
     Io(#[from] IoError),
     #[error("Invalid Test Format")]
     InvalidTestFormat,
-    #[error("Unhandled Test Format: === Source:")]
-    UnhandledTestFormat,
+    #[error("Skipped: {0}")]
+    Skipped(SkipReason),
     #[error("Invalid function signature")]
     InvalidFunctionSignature,
     #[error("Invalid Test Output")]
