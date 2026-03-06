@@ -93,18 +93,18 @@ pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     Ok(test_files)
 }
 
-pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
+pub(crate) fn extract_compile_via_yul(content: &str) -> Option<bool> {
     let parts: Vec<&str> = content.split("// ====").collect();
     if parts.len() < 2 {
-        return false;
+        return None;
     }
 
     for line in parts[1].lines() {
         if let Some(flag_part) = line.trim().strip_prefix("// compileViaYul:") {
-            return flag_part.trim() == "true";
+            return Some(flag_part.trim() == "true");
         }
     }
-    false
+    None
 }
 
 pub(crate) fn needs_eof(content: &str) -> bool {
