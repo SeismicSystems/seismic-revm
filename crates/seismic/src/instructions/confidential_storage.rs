@@ -3,13 +3,13 @@ use revm::primitives::hardfork::SpecId::*;
 use revm::{
     context::host::LoadError,
     interpreter::{
+        _count, gas,
         gas::{
             CALL_STIPEND, COLD_SLOAD_COST_ADDITIONAL, CSTORE_FIXED_GAS, ISTANBUL_SLOAD_GAS,
             WARM_STORAGE_READ_COST,
         },
         interpreter_types::{InputsTr, InterpreterTypes, RuntimeFlag, StackTr},
         popn, popn_top, require_non_staticcall, Instruction, InstructionContext, InstructionResult,
-        _count, gas,
     },
 };
 
