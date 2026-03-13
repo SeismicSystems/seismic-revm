@@ -15,6 +15,10 @@ pub mod result;
 pub mod spec;
 pub mod transaction;
 
+/// The address that receives the base fee (instead of burning it).
+pub const BASE_FEE_RECIPIENT: revm::primitives::Address =
+    revm::primitives::address!("0x1111000000000000000000000000000000000001");
+
 pub use api::{
     builder::SeismicBuilder,
     default_ctx::{DefaultSeismicContext, SeismicContext},

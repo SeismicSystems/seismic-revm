@@ -1,17 +1,18 @@
 //!Handler related to Seismic chain
-use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
+use crate::{api::exec::SeismicContextTr, SeismicHaltReason, BASE_FEE_RECIPIENT};
 use revm::{
     context::{
         result::{ExecutionResult, InvalidTransaction},
         ContextTr, JournalTr, LocalContextTr, Transaction,
     },
-    context_interface::{context::ContextError, result::FromStringError},
+    context_interface::{context::ContextError, result::FromStringError, Block},
     handler::{
         handler::EvmTrError, post_execution, EthFrame, EvmTr, FrameResult, FrameTr, Handler,
         MainnetHandler,
     },
     inspector::{Inspector, InspectorEvmTr, InspectorHandler},
     interpreter::{interpreter::EthInterpreter, interpreter_action::FrameInit},
+    primitives::U256,
 };
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
@@ -43,6 +44,28 @@ where
     type Evm = EVM;
     type Error = ERROR;
     type HaltReason = SeismicHaltReason;
+
+    /// Rewards the beneficiary with the priority fee, then redirects the base fee
+    /// to `BASE_FEE_RECIPIENT` instead of burning it.
+    #[inline]
+    fn reward_beneficiary(
+        &self,
+        evm: &mut Self::Evm,
+        frame_result: &mut <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
+    ) -> Result<(), Self::Error> {
+        // Pay priority fee to coinbase (standard behavior)
+        self.mainnet.reward_beneficiary(evm, frame_result)?;
+
+        // Send the base fee to BASE_FEE_RECIPIENT instead of burning it
+        let basefee = evm.ctx().block().basefee() as u128;
+        let gas_used = frame_result.gas().used() as u128;
+        let base_fee_amount = U256::from(basefee.saturating_mul(gas_used));
+
+        evm.ctx()
+            .journal_mut()
+            .balance_incr(BASE_FEE_RECIPIENT, base_fee_amount)
+            .map_err(From::from)
+    }
 
     /// Processes the final execution output.
     ///
@@ -191,5 +214,78 @@ mod tests {
         assert_eq!(gas.remaining(), 0);
         assert_eq!(gas.spent(), 100);
         assert_eq!(gas.refunded(), 0);
+    }
+
+    #[test]
+    fn test_reward_beneficiary_sends_base_fee() {
+        use revm::{
+            database::InMemoryDB,
+            primitives::{Address, U256},
+        };
+
+        let basefee = 10u64;
+        let gas_limit = 100u64;
+        let gas_remaining = 70u64;
+        let gas_used = gas_limit - gas_remaining;
+
+        let coinbase = Address::with_last_byte(0xBB);
+        let caller = Address::with_last_byte(0xCC);
+
+        let ctx = Context::seismic()
+            .modify_block_chained(|block| {
+                block.basefee = basefee;
+                block.beneficiary = coinbase;
+            })
+            .modify_tx_chained(|tx| {
+                tx.base.gas_limit = gas_limit;
+                tx.base.gas_price = 20; // priority fee = gas_price - basefee = 10
+                tx.base.caller = caller;
+            })
+            .with_db(InMemoryDB::default());
+
+        let mut evm = ctx.build_seismic_evm();
+
+        let mut gas = Gas::new(gas_limit);
+        let _ = gas.record_cost(gas_used);
+
+        let mut exec_result = FrameResult::Call(CallOutcome::new(
+            InterpreterResult {
+                result: InstructionResult::Return,
+                output: Bytes::new(),
+                gas,
+            },
+            0..0,
+        ));
+
+        let handler =
+            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
+
+        handler
+            .reward_beneficiary(&mut evm, &mut exec_result)
+            .unwrap();
+
+        // Check that BASE_FEE_RECIPIENT got basefee * gas_used
+        let expected_base_fee = U256::from(basefee as u128 * gas_used as u128);
+        let recipient_account = evm
+            .ctx()
+            .journal_mut()
+            .load_account(crate::BASE_FEE_RECIPIENT)
+            .unwrap();
+        assert_eq!(
+            recipient_account.data.info.balance, expected_base_fee,
+            "BASE_FEE_RECIPIENT should receive basefee * gas_used"
+        );
+
+        // Check that coinbase got the priority fee portion (gas_price - basefee) * gas_used
+        let expected_coinbase_reward = U256::from(10u128 * gas_used as u128); // priority fee = 20 - 10 = 10
+        let coinbase_account = evm
+            .ctx()
+            .journal_mut()
+            .load_account(coinbase)
+            .unwrap();
+        assert_eq!(
+            coinbase_account.data.info.balance, expected_coinbase_reward,
+            "coinbase should receive priority_fee * gas_used"
+        );
     }
 }
