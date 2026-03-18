@@ -29,9 +29,7 @@ impl SeismicRevertReason {
     pub fn revert_bytes(&self) -> Bytes {
         match self {
             Self::InvalidPublicStorageAccess => Bytes::from_static(b"InvalidPublicStorageAccess"),
-            Self::InvalidPrivateStorageAccess => {
-                Bytes::from_static(b"InvalidPrivateStorageAccess")
-            }
+            Self::InvalidPrivateStorageAccess => Bytes::from_static(b"InvalidPrivateStorageAccess"),
         }
     }
 }

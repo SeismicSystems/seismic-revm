@@ -1032,7 +1032,10 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_revert_with_reason(&mut interp, SeismicRevertReason::InvalidPrivateStorageAccess);
+            assert_revert_with_reason(
+                &mut interp,
+                SeismicRevertReason::InvalidPrivateStorageAccess,
+            );
         }
 
         #[test]
@@ -1047,7 +1050,10 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_revert_with_reason(&mut interp, SeismicRevertReason::InvalidPrivateStorageAccess);
+            assert_revert_with_reason(
+                &mut interp,
+                SeismicRevertReason::InvalidPrivateStorageAccess,
+            );
         }
 
         // CLOAD tests
@@ -1163,7 +1169,10 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_revert_with_reason(&mut interp, SeismicRevertReason::InvalidPrivateStorageAccess);
+            assert_revert_with_reason(
+                &mut interp,
+                SeismicRevertReason::InvalidPrivateStorageAccess,
+            );
         }
 
         #[test]
@@ -1179,7 +1188,10 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_revert_with_reason(&mut interp, SeismicRevertReason::InvalidPrivateStorageAccess);
+            assert_revert_with_reason(
+                &mut interp,
+                SeismicRevertReason::InvalidPrivateStorageAccess,
+            );
         }
 
         // CSTORE tests

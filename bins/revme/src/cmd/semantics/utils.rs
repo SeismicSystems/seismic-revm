@@ -358,4 +358,3 @@ pub(crate) fn bytes_to_fixed(bytes: Bytes) -> FixedBytes<32> {
     fixed.copy_from_slice(slice);
     fixed.into()
 }
-

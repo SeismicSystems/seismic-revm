@@ -196,9 +196,7 @@ mod tests {
         let tx_id_before = evm.ctx().journal().inner.transaction_id;
 
         // Inject a context error that triggers the catch_error path.
-        *evm.ctx().error() = Err(ContextError::Custom(
-            "some error".to_string(),
-        ));
+        *evm.ctx().error() = Err(ContextError::Custom("some error".to_string()));
 
         let frame_result = FrameResult::Call(CallOutcome::new(
             InterpreterResult {
@@ -214,7 +212,9 @@ mod tests {
 
         // execution_result returns Err for context errors, which the
         // execution loop passes to catch_error.
-        let err = handler.execution_result(&mut evm, frame_result).unwrap_err();
+        let err = handler
+            .execution_result(&mut evm, frame_result)
+            .unwrap_err();
         let _ = handler.catch_error(&mut evm, err);
 
         // transaction_id must have advanced, proving discard_tx() was called.

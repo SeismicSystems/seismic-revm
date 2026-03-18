@@ -5,6 +5,7 @@ use database::State;
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use inspector::{inspectors::TracerEip3155, InspectCommitEvm};
 use primitives::U256;
+use revm::context_interface::result::HaltReason;
 use revm::{
     context::{block::BlockEnv, cfg::CfgEnv},
     context_interface::{
@@ -15,7 +16,6 @@ use revm::{
     primitives::{Bytes, B256},
     Context, ExecuteCommitEvm,
 };
-use revm::context_interface::result::HaltReason;
 use seismic_revm::{
     DefaultSeismicContext, SeismicBuilder, SeismicSpecId as SpecId, SeismicTransaction,
 };
@@ -223,10 +223,7 @@ fn check_evm_execution(
     test: &Test,
     expected_output: Option<&Bytes>,
     test_name: &str,
-    exec_result: &Result<
-        ExecutionResult<HaltReason>,
-        EVMError<Infallible, InvalidTransaction>,
-    >,
+    exec_result: &Result<ExecutionResult<HaltReason>, EVMError<Infallible, InvalidTransaction>>,
     db: &mut State<EmptyDB>,
     spec: SpecId,
     print_json_outcome: bool,
