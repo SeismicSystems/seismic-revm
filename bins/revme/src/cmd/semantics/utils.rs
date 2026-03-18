@@ -1,9 +1,7 @@
-use context::result::{ExecutionResult, HaltReason, ResultAndState};
 use log::error;
 use primitives::HashMap;
 use revm::database::{CacheDB, EmptyDB};
 use revm::primitives::{Address, Bytes, FixedBytes, Log, LogData, U256};
-use seismic_revm::SeismicHaltReason;
 
 use crate::cmd::semantics::Errors;
 use std::{
@@ -361,29 +359,3 @@ pub(crate) fn bytes_to_fixed(bytes: Bytes) -> FixedBytes<32> {
     fixed.into()
 }
 
-pub fn mainnet_to_seismic(raw: ResultAndState<HaltReason>) -> ResultAndState<SeismicHaltReason> {
-    let ResultAndState { result, state } = raw;
-    let result = match result {
-        ExecutionResult::Success {
-            reason,
-            output,
-            logs,
-            gas_used,
-            gas_refunded,
-        } => ExecutionResult::Success {
-            reason,
-            output,
-            logs,
-            gas_used,
-            gas_refunded,
-        },
-        ExecutionResult::Revert { output, gas_used } => {
-            ExecutionResult::Revert { output, gas_used }
-        }
-        ExecutionResult::Halt { reason, gas_used } => ExecutionResult::Halt {
-            reason: SeismicHaltReason::from(reason),
-            gas_used,
-        },
-    };
-    ResultAndState { result, state }
-}

@@ -1,4 +1,4 @@
-use crate::{check, SeismicHaltReason, SeismicHost};
+use crate::{check, SeismicHost, SeismicRevertReason};
 use revm::primitives::hardfork::SpecId::*;
 use revm::{
     context::host::LoadError,
@@ -19,9 +19,9 @@ use revm::{
 /// Unlike `halt_fatal()`, this produces a regular revert that callers can catch
 /// and handle. The reason is included in the revert output bytes, similar to
 /// Solidity's `revert CustomError()`.
-fn halt_with_revert_reason<WIRE: InterpreterTypes>(
+fn revert_with_reason<WIRE: InterpreterTypes>(
     interpreter: &mut Interpreter<WIRE>,
-    reason: SeismicHaltReason,
+    reason: SeismicRevertReason,
 ) {
     interpreter
         .bytecode
@@ -65,9 +65,9 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
                     gas!(context.interpreter, COLD_SLOAD_COST_ADDITIONAL);
                 }
                 if storage.is_private {
-                    halt_with_revert_reason(
+                    revert_with_reason(
                         context.interpreter,
-                        SeismicHaltReason::InvalidPrivateStorageAccess,
+                        SeismicRevertReason::InvalidPrivateStorageAccess,
                     );
                     return;
                 }
@@ -82,9 +82,9 @@ pub fn sload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             return context.interpreter.halt_fatal();
         };
         if storage.is_private {
-            halt_with_revert_reason(
+            revert_with_reason(
                 context.interpreter,
-                SeismicHaltReason::InvalidPrivateStorageAccess,
+                SeismicRevertReason::InvalidPrivateStorageAccess,
             );
             return;
         }
@@ -168,9 +168,9 @@ pub fn sstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
 
     // Privacy check: SSTORE cannot write to private slots
     if state_load.data.present_value.is_private {
-        halt_with_revert_reason(
+        revert_with_reason(
             context.interpreter,
-            SeismicHaltReason::InvalidPrivateStorageAccess,
+            SeismicRevertReason::InvalidPrivateStorageAccess,
         );
         return;
     }
@@ -240,9 +240,9 @@ pub fn cstore<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
             if !state_load.data.present_value.is_private
                 && !state_load.data.present_value.value.is_zero()
             {
-                halt_with_revert_reason(
+                revert_with_reason(
                     context.interpreter,
-                    SeismicHaltReason::InvalidPublicStorageAccess,
+                    SeismicRevertReason::InvalidPublicStorageAccess,
                 );
             }
         }
@@ -751,7 +751,7 @@ mod tests {
     /// | CSTORE(y) | (y, private) | HALT        | (y, private) | (y, private) |
     mod semantics_tests {
         use super::*;
-        use crate::SeismicHaltReason;
+        use crate::SeismicRevertReason;
         use revm::context::host::LoadError;
         use revm::context_interface::journaled_state::{AccountInfoLoad, AccountLoad, StateLoad};
         use revm::database::EmptyDB;
@@ -763,7 +763,7 @@ mod tests {
         /// Asserts that the interpreter reverted with the expected reason in output bytes.
         fn assert_revert_with_reason(
             interp: &mut Interpreter<EthInterpreter>,
-            expected: SeismicHaltReason,
+            expected: SeismicRevertReason,
         ) {
             assert_eq!(
                 interp.bytecode.instruction_result(),
@@ -1032,7 +1032,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPrivateStorageAccess);
+            assert_revert_with_reason(&mut interp, SeismicRevertReason::InvalidPrivateStorageAccess);
         }
 
         #[test]
@@ -1047,7 +1047,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPrivateStorageAccess);
+            assert_revert_with_reason(&mut interp, SeismicRevertReason::InvalidPrivateStorageAccess);
         }
 
         // CLOAD tests
@@ -1163,7 +1163,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPrivateStorageAccess);
+            assert_revert_with_reason(&mut interp, SeismicRevertReason::InvalidPrivateStorageAccess);
         }
 
         #[test]
@@ -1179,7 +1179,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPrivateStorageAccess);
+            assert_revert_with_reason(&mut interp, SeismicRevertReason::InvalidPrivateStorageAccess);
         }
 
         // CSTORE tests
@@ -1213,7 +1213,7 @@ mod tests {
                 host: &mut host,
             });
 
-            assert_revert_with_reason(&mut interp, SeismicHaltReason::InvalidPublicStorageAccess);
+            assert_revert_with_reason(&mut interp, SeismicRevertReason::InvalidPublicStorageAccess);
         }
 
         #[test]

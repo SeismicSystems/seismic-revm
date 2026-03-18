@@ -15,9 +15,9 @@ use revm::{
     primitives::{Bytes, B256},
     Context, ExecuteCommitEvm,
 };
+use revm::context_interface::result::HaltReason;
 use seismic_revm::{
-    DefaultSeismicContext, SeismicBuilder, SeismicHaltReason, SeismicHaltReason as HaltReason,
-    SeismicSpecId as SpecId, SeismicTransaction,
+    DefaultSeismicContext, SeismicBuilder, SeismicSpecId as SpecId, SeismicTransaction,
 };
 use serde_json::json;
 use statetest_types::{SpecName, Test, TestSuite, TestUnit};
@@ -224,7 +224,7 @@ fn check_evm_execution(
     expected_output: Option<&Bytes>,
     test_name: &str,
     exec_result: &Result<
-        ExecutionResult<SeismicHaltReason>,
+        ExecutionResult<HaltReason>,
         EVMError<Infallible, InvalidTransaction>,
     >,
     db: &mut State<EmptyDB>,

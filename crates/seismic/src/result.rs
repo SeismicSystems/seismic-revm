@@ -1,78 +1,46 @@
 use core::fmt;
-use std::convert::Infallible;
 
-use revm::{
-    context_interface::{context::ContextError, result::HaltReason},
-    primitives::Bytes,
-};
+use revm::primitives::Bytes;
 
+/// Seismic-specific EVM revert reasons.
+///
+/// These are injected as standard EVM reverts (`InstructionResult::Revert`) with
+/// the reason encoded in the revert output bytes. This means:
+///
+/// - **Callers can catch them**: an outer contract using try/catch will see a revert
+///   with `revert_bytes()` as output, rather than a halt which returns no data.
+/// - **RPC surfaces them clearly**: `eth_call` returns `"execution reverted: <reason>"`
+///   with the reason bytes as data, giving developers a clear error message.
+/// - **Gas is preserved**: only gas actually consumed is charged, unlike a halt which
+///   burns all gas allocated to the frame.
+///
+/// See `revert_with_reason()` in `confidential_storage.rs` for the injection point.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum SeismicHaltReason {
-    Base(HaltReason),
-    /// Invalid Private Storage Access: Cannot access private storage with public instructions
+pub enum SeismicRevertReason {
+    /// SLOAD/SSTORE on a private storage slot.
     InvalidPrivateStorageAccess,
-    /// Invalid Public Storage Access: Cannot access public storage with private instructions
+    /// CSTORE on a non-zero public storage slot.
     InvalidPublicStorageAccess,
 }
 
-impl SeismicHaltReason {
+impl SeismicRevertReason {
     /// Returns the reason encoded as bytes for inclusion in revert output.
     pub fn revert_bytes(&self) -> Bytes {
         match self {
             Self::InvalidPublicStorageAccess => Bytes::from_static(b"InvalidPublicStorageAccess"),
-            Self::InvalidPrivateStorageAccess => Bytes::from_static(b"InvalidPrivateStorageAccess"),
-            Self::Base(_) => Bytes::new(),
-        }
-    }
-
-    pub fn try_from_error_string(error_str: &str) -> Option<Self> {
-        match () {
-            _ if error_str.contains("InvalidPublicStorageAccess") => {
-                Some(Self::InvalidPublicStorageAccess)
+            Self::InvalidPrivateStorageAccess => {
+                Bytes::from_static(b"InvalidPrivateStorageAccess")
             }
-            _ if error_str.contains("InvalidPrivateStorageAccess") => {
-                Some(Self::InvalidPrivateStorageAccess)
-            }
-            _ => None,
-        }
-    }
-
-    pub fn try_from_error_string_exact(error_str: &str) -> Option<Self> {
-        match error_str {
-            "FatalExternalError: InvalidPublicStorageAccess" => {
-                Some(Self::InvalidPublicStorageAccess)
-            }
-            "FatalExternalError: InvalidPrivateStorageAccess" => {
-                Some(Self::InvalidPrivateStorageAccess)
-            }
-            _ => None,
         }
     }
 }
 
-impl From<HaltReason> for SeismicHaltReason {
-    fn from(value: HaltReason) -> Self {
-        Self::Base(value)
-    }
-}
-
-impl fmt::Display for SeismicHaltReason {
+impl fmt::Display for SeismicRevertReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SeismicHaltReason::Base(_) => write!(f, "Base error"),
-            SeismicHaltReason::InvalidPrivateStorageAccess => {
-                write!(f, "InvalidPrivateStorageAccess")
-            }
-            SeismicHaltReason::InvalidPublicStorageAccess => {
-                write!(f, "InvalidPublicStorageAccess")
-            }
+            Self::InvalidPrivateStorageAccess => write!(f, "InvalidPrivateStorageAccess"),
+            Self::InvalidPublicStorageAccess => write!(f, "InvalidPublicStorageAccess"),
         }
-    }
-}
-
-impl From<SeismicHaltReason> for ContextError<Infallible> {
-    fn from(reason: SeismicHaltReason) -> Self {
-        ContextError::Custom(reason.to_string())
     }
 }
