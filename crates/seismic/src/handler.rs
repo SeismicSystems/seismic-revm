@@ -1,11 +1,14 @@
 //!Handler related to Seismic chain
-use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
+use crate::api::exec::SeismicContextTr;
 use revm::{
     context::{
         result::{ExecutionResult, InvalidTransaction},
-        ContextTr, JournalTr, LocalContextTr, Transaction,
+        ContextTr, JournalTr, LocalContextTr,
     },
-    context_interface::{context::ContextError, result::FromStringError},
+    context_interface::{
+        context::ContextError,
+        result::{FromStringError, HaltReason},
+    },
     handler::{
         handler::EvmTrError, post_execution, EthFrame, EvmTr, FrameResult, FrameTr, Handler,
         MainnetHandler,
@@ -42,17 +45,14 @@ where
 {
     type Evm = EVM;
     type Error = ERROR;
-    type HaltReason = SeismicHaltReason;
+    type HaltReason = HaltReason;
 
     /// Processes the final execution output.
     ///
-    /// This method, retrieves the final state from the journal, converts internal results to the external output format.
-    /// Internal state is cleared and EVM is prepared for the next transaction.
-    ///
-    /// Seismic Addendum
-    /// Given that we can't yet pass instruction_result which aren't in the InstructionResult enum,
-    /// We leverage context_error to bubble up our instruction set specific errors! We also clear
-    /// the rng state on returns that won't go through catch_error.
+    /// This method retrieves the final state from the journal, converts internal results
+    /// to the external output format. Internal state is cleared and EVM is prepared for
+    /// the next transaction. We also clear the rng state on returns that won't go through
+    /// catch_error.
     #[inline]
     fn execution_result(
         &mut self,
@@ -62,20 +62,6 @@ where
         match core::mem::replace(evm.ctx().error(), Ok(())) {
             Err(ContextError::Db(e)) => return Err(e.into()),
             Err(ContextError::Custom(e)) => {
-                if let Some(seismic_reason) =
-                    SeismicHaltReason::try_from_error_string(&e.to_string())
-                {
-                    // Same as catch error
-                    evm.ctx().local_mut().clear();
-                    evm.ctx().journal_mut().discard_tx();
-                    evm.frame_stack().clear();
-                    evm.ctx().chain_mut().reset_rng();
-
-                    return Ok(ExecutionResult::Halt {
-                        reason: seismic_reason,
-                        gas_used: evm.ctx().tx().gas_limit(),
-                    });
-                }
                 return Err(Self::Error::from_string(e));
             }
             Ok(_) => (),
@@ -195,12 +181,12 @@ mod tests {
         assert_eq!(gas.refunded(), 0);
     }
 
-    /// Regression test: custom halt path must call discard_tx() so that
+    /// Regression test: catch_error must call discard_tx() so that
     /// transaction_id advances and warm slot/account tracking is reset.
-    /// Without discard_tx(), slots warmed in a halted tx would remain warm
+    /// Without discard_tx(), slots warmed in a failed tx would remain warm
     /// for the next tx, causing incorrect (cheaper) gas accounting.
     #[test]
-    fn test_custom_halt_discards_tx_and_advances_transaction_id() {
+    fn test_catch_error_discards_tx_and_advances_transaction_id() {
         let ctx = Context::seismic().modify_tx_chained(|tx| {
             tx.base.gas_limit = 100;
         });
@@ -209,10 +195,8 @@ mod tests {
 
         let tx_id_before = evm.ctx().journal().inner.transaction_id;
 
-        // Inject a custom error that triggers the SeismicHaltReason path.
-        *evm.ctx().error() = Err(ContextError::Custom(
-            "InvalidPrivateStorageAccess".to_string(),
-        ));
+        // Inject a context error that triggers the catch_error path.
+        *evm.ctx().error() = Err(ContextError::Custom("some error".to_string()));
 
         let frame_result = FrameResult::Call(CallOutcome::new(
             InterpreterResult {
@@ -226,26 +210,19 @@ mod tests {
         let mut handler =
             SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
 
-        let result = handler.execution_result(&mut evm, frame_result).unwrap();
-
-        // Should produce a Halt with the correct reason.
-        assert!(
-            matches!(
-                result,
-                ExecutionResult::Halt {
-                    reason: SeismicHaltReason::InvalidPrivateStorageAccess,
-                    ..
-                }
-            ),
-            "Expected Halt with InvalidPrivateStorageAccess, got: {result:?}"
-        );
+        // execution_result returns Err for context errors, which the
+        // execution loop passes to catch_error.
+        let err = handler
+            .execution_result(&mut evm, frame_result)
+            .unwrap_err();
+        let _ = handler.catch_error(&mut evm, err);
 
         // transaction_id must have advanced, proving discard_tx() was called.
         let tx_id_after = evm.ctx().journal().inner.transaction_id;
         assert_eq!(
             tx_id_after,
             tx_id_before + 1,
-            "transaction_id should advance after custom halt (discard_tx must be called)"
+            "transaction_id should advance after catch_error (discard_tx must be called)"
         );
     }
 }

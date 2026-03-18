@@ -1,12 +1,12 @@
 use std::convert::Infallible;
 
 use alloy_rlp::{RlpEncodable, RlpMaxEncodedLen};
+use context::result::HaltReason;
 use context::result::{EVMError, ExecutionResult, InvalidTransaction};
 use database::{EmptyDB, PlainAccount, State};
 use hash_db::Hasher;
 use plain_hasher::PlainHasher;
 use revm::primitives::{keccak256, Address, Log, B256, U256};
-use seismic_revm::SeismicHaltReason as HaltReason;
 use triehash::sec_trie_root;
 
 pub struct TestValidationResult {

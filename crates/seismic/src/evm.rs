@@ -195,7 +195,7 @@ mod tests {
     use crate::precompiles::rng::precompile::{calculate_fill_cost, calculate_init_cost};
     use crate::transaction::abstraction::SeismicTransaction;
     use crate::{
-        DefaultSeismicContext, SeismicBuilder, SeismicChain, SeismicContext, SeismicHaltReason,
+        DefaultSeismicContext, SeismicBuilder, SeismicChain, SeismicContext, SeismicRevertReason,
         SeismicSpecId,
     };
     use anyhow::bail;
@@ -299,8 +299,8 @@ mod tests {
     }
 
     fn assert_storage_access_reverts(
-        result: &ResultAndState<SeismicHaltReason>,
-        expected_reason: SeismicHaltReason,
+        result: &ResultAndState,
+        expected_reason: SeismicRevertReason,
     ) {
         match &result.result {
             ExecutionResult::Revert { output, .. } => {
@@ -333,7 +333,7 @@ mod tests {
 
         let result = evm.replay()?;
 
-        assert_storage_access_reverts(&result, SeismicHaltReason::InvalidPublicStorageAccess);
+        assert_storage_access_reverts(&result, SeismicRevertReason::InvalidPublicStorageAccess);
         Ok(())
     }
 
@@ -355,7 +355,7 @@ mod tests {
 
         let result = evm.replay()?;
 
-        assert_storage_access_reverts(&result, SeismicHaltReason::InvalidPrivateStorageAccess);
+        assert_storage_access_reverts(&result, SeismicRevertReason::InvalidPrivateStorageAccess);
         Ok(())
     }
 
