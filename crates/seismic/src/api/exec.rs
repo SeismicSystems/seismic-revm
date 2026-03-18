@@ -1,7 +1,7 @@
 use crate::{
     evm::SeismicEvm, handler::SeismicHandler,
     instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr,
-    SeismicChain, SeismicHaltReason, SeismicSpecId,
+    SeismicChain, SeismicSpecId,
 };
 use revm::{
     context::{
@@ -9,7 +9,7 @@ use revm::{
         ContextSetters,
     },
     context_interface::{
-        result::{EVMError, ExecutionResult},
+        result::{EVMError, ExecutionResult, HaltReason},
         Cfg, ContextTr, Database, JournalTr,
     },
     handler::{EthFrame, Handler, PrecompileProvider},
@@ -53,7 +53,7 @@ where
     type Block = <CTX as ContextTr>::Block;
     type State = EvmState;
     type Error = SeismicError<CTX>;
-    type ExecutionResult = ExecutionResult<SeismicHaltReason>;
+    type ExecutionResult = ExecutionResult<HaltReason>;
 
     fn set_block(&mut self, block: Self::Block) {
         self.0.ctx.set_block(block);
