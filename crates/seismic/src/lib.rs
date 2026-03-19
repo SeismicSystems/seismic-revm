@@ -22,6 +22,6 @@ pub use api::{
 pub use chain::seismic_chain::SeismicChain;
 pub use evm::SeismicEvm;
 pub use instructions::seismic_host::SeismicHost;
-pub use result::SeismicHaltReason;
+pub use result::SeismicRevertReason;
 pub use spec::*;
 pub use transaction::abstraction::SeismicTransaction;

@@ -19,7 +19,7 @@ fn create_test_account(status: AccountStatus) -> Account {
         },
         transaction_id: 0,
         status,
-        storage: EvmStorage::new(),
+        storage: EvmStorage::default(),
     }
 }
 

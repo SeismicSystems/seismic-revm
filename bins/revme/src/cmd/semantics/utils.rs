@@ -1,9 +1,7 @@
-use context::result::{ExecutionResult, HaltReason, ResultAndState};
 use log::error;
 use primitives::HashMap;
 use revm::database::{CacheDB, EmptyDB};
 use revm::primitives::{Address, Bytes, FixedBytes, Log, LogData, U256};
-use seismic_revm::SeismicHaltReason;
 
 use crate::cmd::semantics::Errors;
 use std::{
@@ -93,18 +91,18 @@ pub(crate) fn find_test_files(dir: &Path) -> Result<Vec<PathBuf>, Errors> {
     Ok(test_files)
 }
 
-pub(crate) fn extract_compile_via_yul(content: &str) -> bool {
+pub(crate) fn extract_compile_via_yul(content: &str) -> Option<bool> {
     let parts: Vec<&str> = content.split("// ====").collect();
     if parts.len() < 2 {
-        return false;
+        return None;
     }
 
     for line in parts[1].lines() {
         if let Some(flag_part) = line.trim().strip_prefix("// compileViaYul:") {
-            return flag_part.trim() == "true";
+            return Some(flag_part.trim() == "true");
         }
     }
-    false
+    None
 }
 
 pub(crate) fn needs_eof(content: &str) -> bool {
@@ -119,9 +117,9 @@ pub(crate) fn extract_functions_from_source(
 ) -> Result<HashMap<String, Vec<String>>, Errors> {
     let content = fs::read_to_string(path)?;
 
-    let mut contract_functions: HashMap<String, Vec<String>> = HashMap::new();
+    let mut contract_functions: HashMap<String, Vec<String>> = HashMap::default();
     //parent --> child
-    let mut inheritance_map: HashMap<String, Vec<String>> = HashMap::new();
+    let mut inheritance_map: HashMap<String, Vec<String>> = HashMap::default();
     let mut current_contract = String::new();
     let mut collecting_functions = false;
 
@@ -359,31 +357,4 @@ pub(crate) fn bytes_to_fixed(bytes: Bytes) -> FixedBytes<32> {
     let mut fixed = [0u8; 32];
     fixed.copy_from_slice(slice);
     fixed.into()
-}
-
-pub fn mainnet_to_seismic(raw: ResultAndState<HaltReason>) -> ResultAndState<SeismicHaltReason> {
-    let ResultAndState { result, state } = raw;
-    let result = match result {
-        ExecutionResult::Success {
-            reason,
-            output,
-            logs,
-            gas_used,
-            gas_refunded,
-        } => ExecutionResult::Success {
-            reason,
-            output,
-            logs,
-            gas_used,
-            gas_refunded,
-        },
-        ExecutionResult::Revert { output, gas_used } => {
-            ExecutionResult::Revert { output, gas_used }
-        }
-        ExecutionResult::Halt { reason, gas_used } => ExecutionResult::Halt {
-            reason: SeismicHaltReason::from(reason),
-            gas_used,
-        },
-    };
-    ResultAndState { result, state }
 }

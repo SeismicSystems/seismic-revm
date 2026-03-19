@@ -1,11 +1,14 @@
 //!Handler related to Seismic chain
-use crate::{api::exec::SeismicContextTr, SeismicHaltReason};
+use crate::api::exec::SeismicContextTr;
 use revm::{
     context::{
         result::{ExecutionResult, InvalidTransaction},
-        ContextTr, JournalTr, LocalContextTr, Transaction,
+        ContextTr, JournalTr, LocalContextTr,
     },
-    context_interface::{context::ContextError, result::FromStringError},
+    context_interface::{
+        context::ContextError,
+        result::{FromStringError, HaltReason},
+    },
     handler::{
         handler::EvmTrError, post_execution, EthFrame, EvmTr, FrameResult, FrameTr, Handler,
         MainnetHandler,
@@ -42,7 +45,7 @@ where
 {
     type Evm = EVM;
     type Error = ERROR;
-    type HaltReason = SeismicHaltReason;
+    type HaltReason = HaltReason;
 
     /// Processes the final execution output.
     ///
@@ -63,17 +66,6 @@ where
         match core::mem::replace(evm.ctx().error(), Ok(())) {
             Err(ContextError::Db(e)) => return Err(e.into()),
             Err(ContextError::Custom(e)) => {
-                if let Some(seismic_reason) =
-                    SeismicHaltReason::try_from_error_string(&e.to_string())
-                {
-                    evm.ctx().local_mut().clear();
-                    evm.frame_stack().clear();
-
-                    return Ok(ExecutionResult::Halt {
-                        reason: seismic_reason,
-                        gas_used: evm.ctx().tx().gas_limit(),
-                    });
-                }
                 return Err(Self::Error::from_string(e));
             }
             Ok(_) => (),
@@ -128,6 +120,7 @@ mod tests {
     use crate::{api::default_ctx::SeismicContext, DefaultSeismicContext, SeismicBuilder};
     use revm::{
         context::{result::EVMError, Context},
+        context_interface::context::ContextError,
         database_interface::EmptyDB,
         handler::EthFrame,
         interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
@@ -183,5 +176,50 @@ mod tests {
         assert_eq!(gas.remaining(), 0);
         assert_eq!(gas.spent(), 100);
         assert_eq!(gas.refunded(), 0);
+    }
+
+    /// Regression test: catch_error must call discard_tx() so that
+    /// transaction_id advances and warm slot/account tracking is reset.
+    /// Without discard_tx(), slots warmed in a failed tx would remain warm
+    /// for the next tx, causing incorrect (cheaper) gas accounting.
+    #[test]
+    fn test_catch_error_discards_tx_and_advances_transaction_id() {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
+            tx.base.gas_limit = 100;
+        });
+
+        let mut evm = ctx.build_seismic_evm();
+
+        let tx_id_before = evm.ctx().journal().inner.transaction_id;
+
+        // Inject a context error that triggers the catch_error path.
+        *evm.ctx().error() = Err(ContextError::Custom("some error".to_string()));
+
+        let frame_result = FrameResult::Call(CallOutcome::new(
+            InterpreterResult {
+                result: InstructionResult::Stop,
+                output: Bytes::new(),
+                gas: Gas::new(90),
+            },
+            0..0,
+        ));
+
+        let mut handler =
+            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
+
+        // execution_result returns Err for context errors, which the
+        // execution loop passes to catch_error.
+        let err = handler
+            .execution_result(&mut evm, frame_result)
+            .unwrap_err();
+        let _ = handler.catch_error(&mut evm, err);
+
+        // transaction_id must have advanced, proving discard_tx() was called.
+        let tx_id_after = evm.ctx().journal().inner.transaction_id;
+        assert_eq!(
+            tx_id_after,
+            tx_id_before + 1,
+            "transaction_id should advance after catch_error (discard_tx must be called)"
+        );
     }
 }

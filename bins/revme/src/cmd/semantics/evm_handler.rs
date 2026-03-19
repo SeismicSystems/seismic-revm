@@ -17,7 +17,7 @@ use crate::cmd::semantics::{test_cases::TestStep, utils::verify_emitted_events};
 use super::{
     compiler_evm_versions::EVMVersion,
     test_cases::{ExpectedOutputs, TestCase},
-    utils::{mainnet_to_seismic, verify_expected_balances, verify_storage_empty},
+    utils::{verify_expected_balances, verify_storage_empty},
     Errors,
 };
 
@@ -194,7 +194,7 @@ impl EvmExecutor {
                     Errors::EVMError(format!("DEPLOY transaction error: {:?}", err.to_string()))
                 })?
             };
-            mainnet_to_seismic(raw)
+            raw
         };
 
         let (contract_address, logs) = match deploy_out.clone().result {
@@ -391,7 +391,7 @@ impl EvmExecutor {
                     ))
                 })?
             };
-            mainnet_to_seismic(raw)
+            raw
         };
 
         let logs = match out.clone().result {

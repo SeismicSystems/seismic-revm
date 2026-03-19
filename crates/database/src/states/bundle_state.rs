@@ -619,9 +619,13 @@ impl BundleState {
 
             for (&key, &slot) in account.storage.iter() {
                 // If storage was destroyed that means that storage was wiped.
-                // In that case we need to check if present storage value is different then ZERO.
-                // TODO(Seismic): do we need to check visibility here?
-                let destroyed_and_not_zero = was_destroyed && !slot.present_value.value.is_zero();
+                // In that case we need to check if present storage value is different then ZERO
+                // or carries confidential metadata that must be preserved.
+                // Equivalent to `!slot.present_value.is_zero()`, kept explicit so the
+                // privacy check remains visible and doesn't silently change if
+                // FlaggedStorage::is_zero() is ever modified.
+                let destroyed_and_not_zero = was_destroyed
+                    && (!slot.present_value.value.is_zero() || slot.present_value.is_private);
 
                 // If account is not destroyed check if original values was changed,
                 // so we can update it.
@@ -1343,5 +1347,63 @@ mod tests {
             .get_contracts_mut()
             .insert(B256::default(), Bytecode::default());
         assert!(builder.get_contracts_mut().contains_key(&B256::default()));
+    }
+
+    #[test]
+    fn selfdestruct_to_plain_state_preserves_private_zero_slot() {
+        let address = account1();
+        let slot = slot1();
+
+        // Build a bundle with a destroyed account that has a private zero slot.
+        let mut bundle = BundleState::default();
+        let storage = HashMap::from_iter([(
+            slot,
+            StorageSlot::new_changed(
+                FlaggedStorage::from(U256::from(1)),
+                FlaggedStorage::new(U256::ZERO, true),
+            ),
+        )]);
+        let account = BundleAccount {
+            info: Some(AccountInfo {
+                nonce: 1,
+                ..Default::default()
+            }),
+            original_info: Some(AccountInfo {
+                nonce: 1,
+                ..Default::default()
+            }),
+            storage,
+            status: AccountStatus::DestroyedChanged,
+        };
+        bundle.state.insert(address, account);
+
+        // Verify the bundle account was marked as destroyed.
+        let bundle_account = bundle.state.get(&address).unwrap();
+        assert!(bundle_account.was_destroyed());
+
+        // Verify the slot exists in bundle with private zero.
+        let stored_slot = bundle_account.storage.get(&slot).unwrap();
+        assert_eq!(
+            stored_slot.present_value,
+            FlaggedStorage::new(U256::ZERO, true)
+        );
+
+        // The private zero slot must be preserved in plain state conversion.
+        let plain = bundle.to_plain_state(OriginalValuesKnown::Yes);
+        let storage_change = plain
+            .storage
+            .iter()
+            .find(|c| c.address == address)
+            .expect("destroyed account must be present in plain storage changes");
+        assert!(storage_change.wipe_storage);
+        assert!(
+            !storage_change.storage.is_empty(),
+            "private zero slot must not be omitted from StateChangeset after selfdestruct flow"
+        );
+        assert_eq!(storage_change.storage[0].0, slot);
+        assert_eq!(
+            storage_change.storage[0].1,
+            FlaggedStorage::new(U256::ZERO, true)
+        );
     }
 }
