@@ -73,7 +73,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         key: StorageKey,
         skip_cold_load: bool,
     ) -> Result<StateLoad<U256>, JournalLoadError<DB::Error>> {
-        self.load_inner(db, address, key, skip_cold_load, true)
+        self.load_inner(db, address, key, skip_cold_load)
     }
 
     /// Stores the private storage value in Journal state.
@@ -740,7 +740,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 address,
                 storage_key,
                 false,
-                false,
             )?;
         }
         Ok(load)
@@ -758,7 +757,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         address: Address,
         key: StorageKey,
         skip_cold_load: bool,
-        default_privacy: bool,
     ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
@@ -771,7 +769,6 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             address,
             key,
             skip_cold_load,
-            default_privacy,
         )
     }
 
@@ -783,7 +780,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         key: StorageKey,
         skip_cold_load: bool,
     ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
-        self.load_inner(db, address, key, skip_cold_load, false)
+        self.load_inner(db, address, key, skip_cold_load)
     }
 
     /// Stores public storage value
@@ -914,7 +911,6 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
     address: Address,
     key: StorageKey,
     skip_cold_load: bool,
-    default_privacy: bool,
 ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
     // only if account is created in this tx we can assume that storage is empty.
     let is_newly_created = account.is_created();
@@ -934,7 +930,7 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
                 return Err(JournalLoadError::ColdLoadSkipped);
             }
             let value = if is_newly_created {
-                FlaggedStorage::ZERO.set_visibility(default_privacy)
+                FlaggedStorage::ZERO
             } else {
                 let v = db.storage(address, key)?;
                 v
