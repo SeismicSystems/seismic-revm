@@ -1,8 +1,6 @@
 use super::constants::*;
 use crate::{num_words, tri, SStoreResult, SelfDestructResult, StateLoad};
-use context_interface::{
-    journaled_state::AccountLoad, Transaction,
-};
+use context_interface::{journaled_state::AccountLoad, Transaction};
 use primitives::{eip7702, hardfork::SpecId, U256};
 
 /// `SSTORE` opcode refund calculation.

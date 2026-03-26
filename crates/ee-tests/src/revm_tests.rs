@@ -295,7 +295,13 @@ fn test_disable_balance_check() {
 fn test_access_list_ignored() {
     // Bytecode: SLOAD slot 0, discard result, stop.
     // PUSH1 0x00  SLOAD  POP  STOP
-    const SLOAD_BYTECODE: &[u8] = &[opcode::PUSH1, 0x00, opcode::SLOAD, opcode::POP, opcode::STOP];
+    const SLOAD_BYTECODE: &[u8] = &[
+        opcode::PUSH1,
+        0x00,
+        opcode::SLOAD,
+        opcode::POP,
+        opcode::STOP,
+    ];
 
     // --- Run without access list ---
     let mut evm_no_al = Context::mainnet()
