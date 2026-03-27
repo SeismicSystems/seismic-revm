@@ -1,5 +1,5 @@
 //!Handler related to Seismic chain
-use crate::api::exec::SeismicContextTr;
+use crate::{api::exec::SeismicContextTr, transaction::abstraction::SeismicTxTr};
 use revm::{
     context::{
         result::{ExecutionResult, InvalidTransaction},
@@ -8,13 +8,18 @@ use revm::{
     context_interface::{
         context::ContextError,
         result::{FromStringError, HaltReason},
+        transaction::Transaction,
     },
     handler::{
         handler::EvmTrError, post_execution, EthFrame, EvmTr, FrameResult, FrameTr, Handler,
         MainnetHandler,
     },
     inspector::{Inspector, InspectorEvmTr, InspectorHandler},
-    interpreter::{interpreter::EthInterpreter, interpreter_action::FrameInit},
+    interpreter::{
+        interpreter::EthInterpreter, interpreter_action::FrameInit, CallOutcome, Gas,
+        InitialAndFloorGas, InstructionResult, InterpreterResult,
+    },
+    primitives::Bytes,
 };
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
@@ -46,6 +51,34 @@ where
     type Evm = EVM;
     type Error = ERROR;
     type HaltReason = HaltReason;
+
+    /// Overrides the execution phase to short-circuit when a transaction's calldata
+    /// decryption has failed. In this case, bytecode execution is skipped and a Revert
+    /// is returned with all execution gas unspent (only intrinsic gas is charged).
+    ///
+    /// The validate and pre_execution phases still run normally, ensuring the sender's
+    /// balance is deducted and nonce is incremented. The post_execution phase reimburses
+    /// the unused execution gas and credits the coinbase.
+    #[inline]
+    fn execution(
+        &mut self,
+        evm: &mut Self::Evm,
+        init_and_floor_gas: &InitialAndFloorGas,
+    ) -> Result<FrameResult, Self::Error> {
+        if evm.ctx().tx().decryption_failed() {
+            // All gas beyond intrinsic is returned to the sender.
+            let execution_gas = evm.ctx().tx().gas_limit() - init_and_floor_gas.initial_gas;
+            return Ok(FrameResult::Call(CallOutcome::new(
+                InterpreterResult {
+                    result: InstructionResult::Revert,
+                    output: Bytes::new(),
+                    gas: Gas::new(execution_gas),
+                },
+                0..0,
+            )));
+        }
+        self.mainnet.execution(evm, init_and_floor_gas)
+    }
 
     /// Processes the final execution output.
     ///

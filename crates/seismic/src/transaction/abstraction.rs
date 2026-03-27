@@ -22,6 +22,11 @@ pub trait SeismicTxTr: Transaction {
 
     /// rng mode for this transaction
     fn rng_mode(&self) -> RngMode;
+
+    /// Whether this transaction failed calldata decryption.
+    /// When true, the handler skips bytecode execution and returns a Revert,
+    /// charging only intrinsic gas.
+    fn decryption_failed(&self) -> bool;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -31,6 +36,10 @@ pub struct SeismicTransaction<T: Transaction> {
     /// tx hash of the transaction. Used for domain separation in the RNG.
     pub tx_hash: B256,
     pub rng_mode: RngMode,
+    /// When true, the handler skips bytecode execution and returns a Revert,
+    /// charging only intrinsic gas. Set by the block executor when calldata
+    /// decryption fails.
+    pub decryption_failed: bool,
 }
 
 impl<T: Transaction> SeismicTransaction<T> {
@@ -39,6 +48,7 @@ impl<T: Transaction> SeismicTransaction<T> {
             base,
             tx_hash: B256::ZERO,
             rng_mode: RngMode::Execution,
+            decryption_failed: false,
         }
     }
 
@@ -49,6 +59,11 @@ impl<T: Transaction> SeismicTransaction<T> {
 
     pub fn with_rng_mode(mut self, rng_mode: RngMode) -> Self {
         self.rng_mode = rng_mode;
+        self
+    }
+
+    pub fn with_decryption_failed(mut self, failed: bool) -> Self {
+        self.decryption_failed = failed;
         self
     }
 }
@@ -78,6 +93,7 @@ impl Default for SeismicTransaction<TxEnv> {
             base: TxEnv::default(),
             tx_hash: B256::ZERO,
             rng_mode: RngMode::Execution,
+            decryption_failed: false,
         }
     }
 }
@@ -168,5 +184,9 @@ impl<T: Transaction> SeismicTxTr for SeismicTransaction<T> {
 
     fn rng_mode(&self) -> RngMode {
         self.rng_mode
+    }
+
+    fn decryption_failed(&self) -> bool {
+        self.decryption_failed
     }
 }
