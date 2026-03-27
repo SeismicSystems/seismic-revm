@@ -4,7 +4,7 @@
 
 use crate::{EvmTr, PrecompileProvider};
 use bytecode::Bytecode;
-use context_interface::transaction::{AccessListItemTr, AuthorizationTr};
+use context_interface::transaction::AuthorizationTr;
 use context_interface::ContextTr;
 use context_interface::{
     journaled_state::JournalTr,
@@ -13,7 +13,6 @@ use context_interface::{
     Block, Cfg, Database,
 };
 use core::cmp::Ordering;
-use primitives::StorageKey;
 use primitives::{eip7702, hardfork::SpecId, KECCAK_EMPTY, U256};
 use state::AccountInfo;
 use std::boxed::Box;
@@ -49,19 +48,11 @@ pub fn load_accounts<
         context.journal_mut().warm_coinbase_account(coinbase);
     }
 
-    // Load access list
-    let (tx, journal) = context.tx_journal_mut();
-    // legacy is only tx type that does not have access list.
-    if tx.tx_type() != TransactionType::Legacy {
-        if let Some(access_list) = tx.access_list() {
-            for item in access_list {
-                journal.warm_account_and_storage(
-                    *item.address(),
-                    item.storage_slots().map(|i| StorageKey::from_be_bytes(i.0)),
-                )?;
-            }
-        }
-    }
+    // SEISMIC: Access lists are intentionally ignored to prevent metadata leakage.
+    // EIP-2930 access lists reveal which storage keys a transaction intends to access,
+    // which can expose sensitive access patterns for private storage slots.
+    // The access_list field is retained on transactions for Ethereum compatibility,
+    // but its contents are never applied.
 
     Ok(())
 }

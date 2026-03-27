@@ -4,8 +4,9 @@ use crate::TestdataConfig;
 use revm::{
     bytecode::opcode,
     context::{ContextTr, TxEnv},
+    context_interface::transaction::{AccessList, AccessListItem},
     database::{BenchmarkDB, BENCH_CALLER, BENCH_TARGET},
-    primitives::{address, b256, hardfork::SpecId, Bytes, TxKind, KECCAK_EMPTY, U256},
+    primitives::{address, b256, hardfork::SpecId, Bytes, TxKind, B256, KECCAK_EMPTY, U256},
     state::{AccountStatus, Bytecode},
     Context, ExecuteEvm, MainBuilder, MainContext,
 };
@@ -282,4 +283,65 @@ fn test_disable_balance_check() {
     let returned_balance = U256::from_be_slice(result.output().unwrap().as_ref());
     let expected_balance = U256::ZERO;
     assert_eq!(returned_balance, expected_balance);
+}
+
+/// SEISMIC: Verifies that EIP-2930 access lists are ignored.
+///
+/// Access lists normally pre-warm storage slots so that subsequent SLOADs cost
+/// WARM_STORAGE_READ_COST (100) instead of COLD_SLOAD_COST (2100). Since Seismic
+/// ignores access lists to prevent metadata leakage of private storage keys,
+/// a transaction with an access list should use exactly the same gas as one without.
+#[test]
+fn test_access_list_ignored() {
+    // Bytecode: SLOAD slot 0, discard result, stop.
+    // PUSH1 0x00  SLOAD  POP  STOP
+    const SLOAD_BYTECODE: &[u8] = &[
+        opcode::PUSH1,
+        0x00,
+        opcode::SLOAD,
+        opcode::POP,
+        opcode::STOP,
+    ];
+
+    // --- Run without access list ---
+    let mut evm_no_al = Context::mainnet()
+        .modify_cfg_chained(|cfg| cfg.spec = SpecId::BERLIN)
+        .with_db(BenchmarkDB::new_bytecode(Bytecode::new_legacy(
+            SLOAD_BYTECODE.into(),
+        )))
+        .build_mainnet();
+
+    let result_no_al = evm_no_al
+        .transact_one(TxEnv::builder_for_bench().build_fill())
+        .unwrap();
+    assert!(result_no_al.is_success());
+
+    // --- Run with access list that includes BENCH_TARGET + slot 0 ---
+    let mut evm_with_al = Context::mainnet()
+        .modify_cfg_chained(|cfg| cfg.spec = SpecId::BERLIN)
+        .with_db(BenchmarkDB::new_bytecode(Bytecode::new_legacy(
+            SLOAD_BYTECODE.into(),
+        )))
+        .build_mainnet();
+
+    let result_with_al = evm_with_al
+        .transact_one(
+            TxEnv::builder_for_bench()
+                .access_list(AccessList(vec![AccessListItem {
+                    address: BENCH_TARGET,
+                    storage_keys: vec![B256::ZERO],
+                }]))
+                .build_fill(),
+        )
+        .unwrap();
+    assert!(result_with_al.is_success());
+
+    // Both transactions should use identical gas because the access list is ignored.
+    // On standard Ethereum, the access-list tx would use less gas (warm SLOAD = 100
+    // vs cold SLOAD = 2100), plus the intrinsic access-list gas charges.
+    assert_eq!(
+        result_no_al.gas_used(),
+        result_with_al.gas_used(),
+        "access list should have no effect on gas usage"
+    );
 }
