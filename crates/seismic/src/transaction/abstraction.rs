@@ -24,8 +24,6 @@ pub trait SeismicTxTr: Transaction {
     fn rng_mode(&self) -> RngMode;
 
     /// Whether this transaction failed calldata decryption.
-    /// When true, the handler skips bytecode execution and returns a Revert,
-    /// charging only intrinsic gas.
     fn decryption_failed(&self) -> bool;
 }
 
@@ -36,9 +34,7 @@ pub struct SeismicTransaction<T: Transaction> {
     /// tx hash of the transaction. Used for domain separation in the RNG.
     pub tx_hash: B256,
     pub rng_mode: RngMode,
-    /// When true, the handler skips bytecode execution and returns a Revert,
-    /// charging only intrinsic gas. Set by the block executor when calldata
-    /// decryption fails.
+    /// Whether this transaction failed decryption. Used for handling execution and metering.
     pub decryption_failed: bool,
 }
 
