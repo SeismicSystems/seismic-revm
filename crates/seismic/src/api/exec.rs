@@ -12,9 +12,12 @@ use revm::{
         result::{EVMError, ExecutionResult, HaltReason},
         Cfg, ContextTr, Database, JournalTr,
     },
-    handler::{EthFrame, Handler, PrecompileProvider},
-    inspector::{InspectCommitEvm, InspectEvm, Inspector, InspectorHandler, JournalExt},
+    handler::{system_call::SystemCallEvm, EthFrame, Handler, PrecompileProvider, SystemCallTx},
+    inspector::{
+        InspectCommitEvm, InspectEvm, InspectSystemCallEvm, Inspector, InspectorHandler, JournalExt,
+    },
     interpreter::{interpreter::EthInterpreter, InterpreterResult},
+    primitives::{Address, Bytes},
     state::EvmState,
     DatabaseCommit, ExecuteCommitEvm, ExecuteEvm,
 };
@@ -118,4 +121,49 @@ where
     INSP: Inspector<CTX, EthInterpreter>,
     PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
 {
+}
+
+impl<CTX, INSP, PRECOMPILE> SystemCallEvm
+    for SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, PRECOMPILE>
+where
+    CTX: SeismicContextTr<Tx: SystemCallTx> + ContextSetters,
+    PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
+{
+    fn system_call_one_with_caller(
+        &mut self,
+        caller: Address,
+        system_contract_address: Address,
+        data: Bytes,
+    ) -> Result<Self::ExecutionResult, Self::Error> {
+        self.0.ctx.set_tx(CTX::Tx::new_system_tx_with_caller(
+            caller,
+            system_contract_address,
+            data,
+        ));
+        let mut h = SeismicHandler::<_, _, EthFrame<EthInterpreter>>::new();
+        h.run_system_call(self)
+    }
+}
+
+impl<CTX, INSP, PRECOMPILE> InspectSystemCallEvm
+    for SeismicEvm<CTX, INSP, SeismicInstructions<EthInterpreter, CTX>, PRECOMPILE>
+where
+    CTX: SeismicContextTr<Journal: JournalExt, Tx: SystemCallTx> + ContextSetters,
+    INSP: Inspector<CTX, EthInterpreter>,
+    PRECOMPILE: PrecompileProvider<CTX, Output = InterpreterResult>,
+{
+    fn inspect_one_system_call_with_caller(
+        &mut self,
+        caller: Address,
+        system_contract_address: Address,
+        data: Bytes,
+    ) -> Result<Self::ExecutionResult, Self::Error> {
+        self.0.ctx.set_tx(CTX::Tx::new_system_tx_with_caller(
+            caller,
+            system_contract_address,
+            data,
+        ));
+        let mut h = SeismicHandler::<_, _, EthFrame<EthInterpreter>>::new();
+        h.inspect_run_system_call(self)
+    }
 }
