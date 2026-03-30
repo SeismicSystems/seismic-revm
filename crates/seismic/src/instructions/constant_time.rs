@@ -70,10 +70,10 @@ fn ct_eq(a: &U256, b: &U256) -> bool {
 #[inline]
 fn ct_lt_limbs(al: &[u64; 4], bl: &[u64; 4]) -> bool {
     let mut borrow: u64 = 0;
-    for i in 0..4 {
+    for (&a, &b) in al.iter().zip(bl.iter()) {
         let wide = core::hint::black_box(
-            (al[i] as u128)
-                .wrapping_sub(bl[i] as u128)
+            (a as u128)
+                .wrapping_sub(b as u128)
                 .wrapping_sub(borrow as u128),
         );
         borrow = (wide >> 127) as u64;
@@ -180,6 +180,7 @@ pub fn ct_iszero_instruction<WIRE: InterpreterTypes, H: Host + ?Sized>() -> Inst
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
     use revm::{
