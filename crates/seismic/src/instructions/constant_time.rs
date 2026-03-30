@@ -207,10 +207,7 @@ mod tests {
     }
 
     // Helper to run a unary opcode on one value.
-    fn run_unary(
-        f: fn(InstructionContext<'_, DummyHost, EthInterpreter>),
-        a: U256,
-    ) -> U256 {
+    fn run_unary(f: fn(InstructionContext<'_, DummyHost, EthInterpreter>), a: U256) -> U256 {
         let mut interp = TestInterp::default();
         assert!(interp.stack.push(a));
         let ctx = InstructionContext {
