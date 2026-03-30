@@ -258,4 +258,90 @@ mod tests {
             "transaction_id should advance after catch_error (discard_tx must be called)"
         );
     }
+
+    /// When `decryption_failed` is set on the transaction, the execution phase
+    /// should short-circuit with a Revert and return all execution gas as
+    /// remaining (only intrinsic gas is consumed).
+    #[test]
+    fn test_decryption_failed_skips_execution_and_returns_all_execution_gas() {
+        let gas_limit: u64 = 100_000;
+        let intrinsic_gas: u64 = 21_000;
+
+        let ctx = Context::seismic().modify_tx_chained(|tx| {
+            tx.base.gas_limit = gas_limit;
+            tx.decryption_failed = true;
+        });
+
+        let mut evm = ctx.build_seismic_evm();
+
+        let mut handler =
+            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
+
+        let init_and_floor_gas = InitialAndFloorGas::new(intrinsic_gas, 0);
+        let result = handler.execution(&mut evm, &init_and_floor_gas).unwrap();
+
+        let gas = result.gas();
+        let execution_budget = gas_limit - intrinsic_gas;
+        assert_eq!(
+            gas.remaining(),
+            execution_budget,
+            "all execution gas should be remaining (returned to sender)"
+        );
+        assert_eq!(gas.spent(), 0, "no execution gas should be spent");
+
+        // Verify it's a Revert
+        match &result {
+            FrameResult::Call(outcome) => {
+                assert_eq!(
+                    outcome.result.result,
+                    InstructionResult::Revert,
+                    "should be a Revert"
+                );
+                assert!(
+                    outcome.result.output.is_empty(),
+                    "revert output should be empty"
+                );
+            }
+            _ => panic!("expected FrameResult::Call"),
+        }
+    }
+
+    /// When `decryption_failed` is NOT set, execution should proceed normally
+    /// (delegating to the mainnet handler). This verifies the flag check doesn't
+    /// accidentally short-circuit normal transactions.
+    #[test]
+    fn test_decryption_not_failed_proceeds_normally() {
+        let ctx = Context::seismic().modify_tx_chained(|tx| {
+            tx.base.gas_limit = 100;
+            // decryption_failed defaults to false
+        });
+
+        let mut evm = ctx.build_seismic_evm();
+
+        let mut handler =
+            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
+
+        let init_and_floor_gas = InitialAndFloorGas::new(21, 0);
+        // Normal execution — this will attempt to run a transaction against
+        // the empty DB, which may fail, but the point is it does NOT take
+        // the decryption_failed short-circuit path.
+        let result = handler.execution(&mut evm, &init_and_floor_gas);
+
+        // If execution reached the mainnet handler (not short-circuited),
+        // the result might be Ok or Err depending on the empty state, but
+        // it should NOT be the specific Revert-with-full-gas pattern from
+        // the decryption_failed path.
+        if let Ok(frame_result) = result {
+            let gas = frame_result.gas();
+            // Normal execution would consume some gas, not return full budget
+            let execution_budget = 100 - 21;
+            // If it returned full budget as remaining, that means it hit the
+            // decryption_failed path (which it shouldn't)
+            if gas.remaining() == execution_budget && gas.spent() == 0 {
+                panic!("normal tx should not take the decryption_failed short-circuit path");
+            }
+        }
+        // Any other result (error, different gas values) means normal execution
+        // was attempted, which is correct.
+    }
 }
