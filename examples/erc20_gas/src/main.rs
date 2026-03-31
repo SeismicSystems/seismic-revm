@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
         .insert_account_storage(
             TOKEN,
             balance_slot,
-            FlaggedStorage::new_from_value(hundred_tokens * U256::from(2)),
+            FlaggedStorage::from(hundred_tokens * U256::from(2)),
         )
         .unwrap();
     cache_db.insert_account_info(
