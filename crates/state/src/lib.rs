@@ -513,8 +513,8 @@ mod tests {
         let mut storage = HashMap::<StorageKey, EvmStorageSlot>::default();
         let key1 = StorageKey::from(1);
         let key2 = StorageKey::from(2);
-        let slot1 = EvmStorageSlot::new(FlaggedStorage::from(10), 0);
-        let slot2 = EvmStorageSlot::new(FlaggedStorage::from(20).into(), 0);
+        let slot1 = EvmStorageSlot::new(FlaggedStorage::from(U256::from(10)), 0);
+        let slot2 = EvmStorageSlot::new(FlaggedStorage::from(U256::from(20)).into(), 0);
 
         storage.insert(key1, slot1.clone());
         storage.insert(key2, slot2.clone());
@@ -621,7 +621,7 @@ mod tests {
         };
 
         let slot_key = StorageKey::from(42);
-        let slot_value = EvmStorageSlot::new(FlaggedStorage::from(123), 0);
+        let slot_value = EvmStorageSlot::new(FlaggedStorage::from(U256::from(123)), 0);
         let mut storage = HashMap::<StorageKey, EvmStorageSlot>::default();
         storage.insert(slot_key, slot_value.clone());
 
