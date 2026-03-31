@@ -84,7 +84,7 @@ impl SeismicChain {
         let mut data = [0u8; 64];
         data[..32].copy_from_slice(self.tx_hash_accumulator.as_ref());
         data[32..].copy_from_slice(tx_hash.as_ref());
-        self.tx_hash_accumulator = keccak256(&data);
+        self.tx_hash_accumulator = keccak256(data);
     }
 
     pub fn process_rng(
