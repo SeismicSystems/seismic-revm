@@ -48,6 +48,18 @@ impl RootRng {
         Self::new(get_unsecure_sample_schnorrkel_keypair())
     }
 
+    /// Append the parent block hash to the domain separation data.
+    pub fn append_parent_block_hash(&mut self, hash: &B256) {
+        self.domain_data.extend_from_slice(b"block");
+        self.domain_data.extend_from_slice(hash.as_ref());
+    }
+
+    /// Append the transaction hash accumulator to the domain separation data.
+    pub fn append_tx_hash_accumulator(&mut self, acc: &B256) {
+        self.domain_data.extend_from_slice(b"acc");
+        self.domain_data.extend_from_slice(acc.as_ref());
+    }
+
     /// Append a transaction hash to the domain separation data.
     pub fn append_tx(&mut self, tx_hash: &B256) {
         self.domain_data.extend_from_slice(b"tx");
