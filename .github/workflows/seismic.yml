@@ -99,8 +99,8 @@ jobs:
         run: |
           TEMP_DIR=$(mktemp -d)
           # Temporarily checking out the test--new-storage-opcode-semantics branch that fixes storage opcode semantic tests.
-          # TODO(samlaf): switch back to seismic (default) branch after we merge https://github.com/SeismicSystems/seismic-solidity/pull/130
-          git clone -b update-precompile-semantic-test https://github.com/SeismicSystems/seismic-solidity.git "$TEMP_DIR/seismic-solidity"
+          # TODO(samlaf): switch back to seismic (default) branch after we merge https://github.com/SeismicSystems/seismic-solidity/pull/251
+          git clone -b test--update-rng-precompile-semantic-test https://github.com/SeismicSystems/seismic-solidity.git "$TEMP_DIR/seismic-solidity"
           echo "SEISMIC_SOLIDITY_PATH=$TEMP_DIR/seismic-solidity" >> $GITHUB_ENV
           echo "seismic-solidity cloned to: $TEMP_DIR/seismic-solidity"
       - name: Install latest ssolc release
