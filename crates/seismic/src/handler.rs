@@ -264,7 +264,7 @@ mod tests {
         let gas_limit: u64 = 100_000;
         let intrinsic_gas: u64 = 21_000;
 
-        let ctx = Context::seismic().modify_tx_chained(|tx| {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
             tx.base.gas_limit = gas_limit;
             tx.decryption_failed = true;
         });
@@ -308,7 +308,7 @@ mod tests {
     /// accidentally short-circuit normal transactions.
     #[test]
     fn test_decryption_not_failed_proceeds_normally() {
-        let ctx = Context::seismic().modify_tx_chained(|tx| {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
             tx.base.gas_limit = 100;
             // decryption_failed defaults to false
         });
