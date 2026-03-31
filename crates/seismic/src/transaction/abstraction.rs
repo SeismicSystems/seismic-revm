@@ -9,6 +9,9 @@ use revm::{
 pub trait SeismicTxTr: Transaction {
     /// tx hash of the transaction
     fn tx_hash(&self) -> B256;
+
+    /// Whether this transaction failed calldata decryption.
+    fn decryption_failed(&self) -> bool;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,6 +20,8 @@ pub struct SeismicTransaction<T: Transaction> {
     pub base: T,
     /// tx hash of the transaction. Used for domain separation in the RNG.
     pub tx_hash: B256,
+    /// Whether this transaction failed decryption. Used for handling execution and metering.
+    pub decryption_failed: bool,
 }
 
 impl<T: Transaction> SeismicTransaction<T> {
@@ -24,11 +29,17 @@ impl<T: Transaction> SeismicTransaction<T> {
         Self {
             base,
             tx_hash: B256::ZERO,
+            decryption_failed: false,
         }
     }
 
     pub fn with_tx_hash(mut self, tx_hash: B256) -> Self {
         self.tx_hash = tx_hash;
+        self
+    }
+
+    pub fn with_decryption_failed(mut self, failed: bool) -> Self {
+        self.decryption_failed = failed;
         self
     }
 }
@@ -57,6 +68,7 @@ impl Default for SeismicTransaction<TxEnv> {
         Self {
             base: TxEnv::default(),
             tx_hash: B256::ZERO,
+            decryption_failed: false,
         }
     }
 }
@@ -143,5 +155,9 @@ impl<T: Transaction> Transaction for SeismicTransaction<T> {
 impl<T: Transaction> SeismicTxTr for SeismicTransaction<T> {
     fn tx_hash(&self) -> B256 {
         self.tx_hash
+    }
+
+    fn decryption_failed(&self) -> bool {
+        self.decryption_failed
     }
 }
