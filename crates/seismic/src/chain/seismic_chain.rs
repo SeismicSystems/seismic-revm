@@ -247,7 +247,7 @@ mod tests {
         let mut expected_data = [0u8; 64];
         expected_data[..32].copy_from_slice(acc_after_tx1.as_ref());
         expected_data[32..].copy_from_slice(tx1.as_ref());
-        assert_eq!(acc_after_tx1_twice, keccak256(&expected_data));
+        assert_eq!(acc_after_tx1_twice, keccak256(expected_data));
     }
 
     #[test]
