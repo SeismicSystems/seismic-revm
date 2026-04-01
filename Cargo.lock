@@ -257,7 +257,7 @@ dependencies = [
 [[package]]
 name = "alloy-primitives"
 version = "1.4.1"
-source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=68313cb636365501a699c47865807158544eace1#68313cb636365501a699c47865807158544eace1"
+source = "git+https://github.com/SeismicSystems/seismic-alloy-core.git?rev=994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7#994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7"
 dependencies = [
  "alloy-rlp",
  "arbitrary",
@@ -4807,7 +4807,7 @@ dependencies = [
 [[package]]
 name = "seismic-enclave"
 version = "0.1.0"
-source = "git+https://github.com/SeismicSystems/enclave.git?rev=c6bc2ae15b619af1d0ec5e739a90b6f51dd7eb84#c6bc2ae15b619af1d0ec5e739a90b6f51dd7eb84"
+source = "git+https://github.com/SeismicSystems/enclave.git?rev=f90b02f38a6190e8b2ff2d051d9043f3480cd3ac#f90b02f38a6190e8b2ff2d051d9043f3480cd3ac"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -4818,6 +4818,7 @@ dependencies = [
  "secp256k1 0.30.0",
  "serde",
  "sha2",
+ "tracing",
 ]
 
 [[package]]
