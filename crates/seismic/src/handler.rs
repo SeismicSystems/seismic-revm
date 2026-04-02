@@ -1,26 +1,85 @@
 //!Handler related to Seismic chain
 use crate::{api::exec::SeismicContextTr, transaction::abstraction::SeismicTxTr};
 use revm::{
-    context::{
-        result::{ExecutionResult, InvalidTransaction},
-        ContextTr, JournalTr, LocalContextTr,
-    },
-    context_interface::{
+    Database, context::{
+        Block as _, Cfg as _, ContextTr, JournalTr, LocalContextTr, result::{ExecutionResult, InvalidTransaction}
+    }, context_interface::{
         context::ContextError,
         result::{FromStringError, HaltReason},
         transaction::Transaction,
-    },
-    handler::{
-        handler::EvmTrError, post_execution, EthFrame, EvmTr, FrameResult, FrameTr, Handler,
-        MainnetHandler,
-    },
-    inspector::{Inspector, InspectorEvmTr, InspectorHandler},
-    interpreter::{
-        interpreter::EthInterpreter, interpreter_action::FrameInit, CallOutcome, Gas,
-        InitialAndFloorGas, InstructionResult, InterpreterResult,
-    },
-    primitives::Bytes,
+    }, handler::{
+        EthFrame, EvmTr, FrameResult, FrameTr, Handler, MainnetHandler, handler::EvmTrError, post_execution, pre_execution::validate_account_nonce_and_code
+    }, inspector::{Inspector, InspectorEvmTr, InspectorHandler}, interpreter::{
+        CallOutcome, Gas, InitialAndFloorGas, InstructionResult, InterpreterResult, interpreter::EthInterpreter, interpreter_action::FrameInit
+    }, primitives::{Address, Bytes, U256, address, hardfork::SpecId, keccak256}
 };
+
+
+
+/// ERC20 token address used for gas payment on Seismic.
+/// TODO: replace with the actual Seismic token contract address.
+pub const TOKEN: Address = address!("0x215dfD51D1e6C05C1f7e322c0f9ddc607300e053");
+
+/// Treasury address: collects gas payments and disburses reimbursements/rewards.
+/// TODO: replace with the actual Seismic treasury address.
+pub const TREASURY: Address = address!("0x0000000000000000000000000000000000000169");
+
+/// Divisor to convert 18-decimal wei amounts to 6-decimal USDC amounts.
+/// USDC uses 6 decimals while ETH/wei uses 18, so we divide by 10^(18-6) = 10^12.
+const WEI_TO_USDC_DIVISOR: U256 = U256::from_limbs([1_000_000_000_000u64, 0, 0, 0]);
+
+/// Returns the Solady ERC20 `_balances` storage slot for `address`.
+/// Matches the Solady `_BALANCE_SLOT_SEED` (`0x87a211a2`) layout:
+///   mstore(0x0c, 0x87a211a2)
+///   mstore(0x00, owner)
+///   slot := keccak256(0x0c, 0x20)
+/// This produces: keccak256(addr[20 bytes] ++ 0x0000000000000087a211a2[12 bytes])
+pub(crate) fn erc_address_storage(addr: Address) -> U256 {
+    let mut buf = [0u8; 32];
+    buf[0..20].copy_from_slice(addr.as_slice()); // address (20 bytes)
+    // bytes 20..28 stay zero
+    // Solady _BALANCE_SLOT_SEED = 0x87a211a2
+    buf[28] = 0x87;
+    buf[29] = 0xa2;
+    buf[30] = 0x11;
+    buf[31] = 0xa2;
+    keccak256(buf).into()
+}
+
+/// Transfers `amount` ERC20 tokens from `sender` to `recipient` via journal sload/sstore.
+fn token_operation<CTX, ERROR>(
+    context: &mut CTX,
+    sender: Address,
+    recipient: Address,
+    amount: U256,
+) -> Result<(), ERROR>
+where
+    CTX: ContextTr,
+    ERROR: From<InvalidTransaction> + From<<CTX::Db as Database>::Error>,
+{
+    let sender_slot = erc_address_storage(sender);
+    let sender_balance = context.journal_mut().sload(TOKEN, sender_slot)?.data;
+
+    if sender_balance < amount {
+        return Err(InvalidTransaction::LackOfFundForMaxFee {
+            fee: Box::new(amount),
+            balance: Box::new(sender_balance),
+        }
+        .into());
+    }
+
+    context
+        .journal_mut()
+        .sstore(TOKEN, sender_slot, sender_balance.saturating_sub(amount))?;
+
+    let recipient_slot = erc_address_storage(recipient);
+    let recipient_balance = context.journal_mut().sload(TOKEN, recipient_slot)?.data;
+    context
+        .journal_mut()
+        .sstore(TOKEN, recipient_slot, recipient_balance.saturating_add(amount))?;
+
+    Ok(())
+}
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
     pub mainnet: MainnetHandler<EVM, ERROR, FRAME>,
@@ -51,6 +110,153 @@ where
     type Evm = EVM;
     type Error = ERROR;
     type HaltReason = HaltReason;
+
+        fn validate_against_state_and_deduct_caller(&self, evm: &mut Self::Evm) -> Result<(), ERROR> {
+        let context = evm.ctx();
+        let basefee = context.block().basefee() as u128;
+        let blob_price = context.block().blob_gasprice().unwrap_or_default();
+        let is_balance_check_disabled = context.cfg().is_balance_check_disabled();
+        let is_eip3607_disabled = context.cfg().is_eip3607_disabled();
+        let is_nonce_check_disabled = context.cfg().is_nonce_check_disabled();
+        let caller = context.tx().caller();
+        let value = context.tx().value();
+
+        let (tx, journal) = context.tx_journal_mut();
+
+        // Load caller's account.
+        let caller_account = journal.load_account_code(tx.caller())?.data;
+
+        validate_account_nonce_and_code(
+            &mut caller_account.info,
+            tx.nonce(),
+            is_eip3607_disabled,
+            is_nonce_check_disabled,
+        )?;
+
+        let max_balance_spending = tx.max_balance_spending()?;
+        let effective_balance_spending = tx
+            .effective_balance_spending(basefee, blob_price)
+            .expect("effective balance is always smaller than max balance so it can't overflow");
+        let gas_balance_spending = effective_balance_spending - value;
+        let eth_balance = caller_account.info.balance;
+
+        // Preamble: mark touch and bump nonce (common to all paths).
+        caller_account.mark_touch();
+        if tx.kind().is_call() {
+            caller_account.info.nonce = caller_account.info.nonce.saturating_add(1);
+        }
+
+        if !is_balance_check_disabled && eth_balance >= max_balance_spending {
+            // Native ETH path (standard mainnet behavior).
+            let old_balance = eth_balance;
+            caller_account.info.balance = eth_balance.saturating_sub(gas_balance_spending);
+            journal.caller_accounting_journal_entry(tx.caller(), old_balance, tx.kind().is_call());
+            // used_erc20_gas flag remains false (default).
+        } else if !is_balance_check_disabled {
+            // ERC20 fallback path: tx and journal borrows end above (NLL).
+            let account_balance_slot = erc_address_storage(caller);
+            context.journal_mut().load_account(TOKEN)?.data.mark_touch();
+
+            let account_balance = context
+                .journal_mut()
+                .sload(TOKEN, account_balance_slot)
+                .map(|v| v.data)
+                .unwrap_or_default();
+
+            // Scale wei (18 decimals) → USDC (6 decimals) for comparison and deduction.
+            // Use ceiling division for the check so we don't under-require.
+            let max_spending_usdc =
+                (max_balance_spending + WEI_TO_USDC_DIVISOR - U256::from(1)) / WEI_TO_USDC_DIVISOR;
+            if max_spending_usdc > account_balance {
+                return Err(InvalidTransaction::LackOfFundForMaxFee {
+                    fee: Box::new(max_spending_usdc),
+                    balance: Box::new(account_balance),
+                }
+                .into());
+            }
+
+            // Subtract gas spending (scaled to USDC) — value is transferred during execution.
+            let gas_spending_usdc = gas_balance_spending / WEI_TO_USDC_DIVISOR;
+            token_operation::<EVM::Context, ERROR>(context, caller, TREASURY, gas_spending_usdc)?;
+            context.chain_mut().set_used_erc20_gas();
+        }
+        // is_balance_check_disabled: preamble (touch + nonce) already done, no deduction needed.
+
+        Ok(())
+    }
+
+    fn reimburse_caller(
+        &self,
+        evm: &mut Self::Evm,
+        exec_result: &mut <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
+    ) -> Result<(), Self::Error> {
+        let context = evm.ctx();
+        if context.cfg().is_balance_check_disabled() {
+            return Ok(());
+        }
+
+        if context.chain().used_erc20_gas() {
+            // ERC20 path: return unused gas from TREASURY → caller in tokens.
+            let basefee = context.block().basefee() as u128;
+            let caller = context.tx().caller();
+            let effective_gas_price = context.tx().effective_gas_price(basefee);
+            let gas = exec_result.gas();
+            let reimbursement_wei = effective_gas_price
+                .saturating_mul((gas.remaining() + gas.refunded() as u64) as u128);
+            // Scale wei → USDC (round down; treasury keeps dust).
+            let reimbursement_usdc = U256::from(reimbursement_wei) / WEI_TO_USDC_DIVISOR;
+            token_operation::<EVM::Context, ERROR>(
+                context,
+                TREASURY,
+                caller,
+                reimbursement_usdc,
+            )?;
+        } else {
+            // Native ETH path: standard balance_incr.
+            post_execution::reimburse_caller(evm.ctx(), exec_result.gas(), U256::ZERO)?;
+        }
+
+        Ok(())
+    }
+
+    fn reward_beneficiary(
+        &self,
+        evm: &mut Self::Evm,
+        exec_result: &mut <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
+    ) -> Result<(), Self::Error> {
+        let context = evm.ctx();
+        if context.cfg().is_balance_check_disabled() {
+            return Ok(());
+        }
+
+        if context.chain().used_erc20_gas() {
+            // ERC20 path: pay beneficiary from TREASURY in tokens.
+            let basefee = context.block().basefee() as u128;
+            let beneficiary = context.block().beneficiary();
+            let effective_gas_price = context.tx().effective_gas_price(basefee);
+            let gas = exec_result.gas();
+            let coinbase_gas_price =
+                if SpecId::from(context.cfg().spec()).is_enabled_in(SpecId::LONDON) {
+                    effective_gas_price.saturating_sub(basefee)
+                } else {
+                    effective_gas_price
+                };
+            let reward_wei = coinbase_gas_price.saturating_mul(gas.used() as u128);
+            // Scale wei → USDC (round down; treasury keeps dust).
+            let reward_usdc = U256::from(reward_wei) / WEI_TO_USDC_DIVISOR;
+            token_operation::<EVM::Context, ERROR>(
+                context,
+                TREASURY,
+                beneficiary,
+                reward_usdc,
+            )?;
+        } else {
+            // Native ETH path: standard balance_incr.
+            post_execution::reward_beneficiary(evm.ctx(), exec_result.gas())?;
+        }
+
+        Ok(())
+    }
 
     /// Overrides the execution phase to short-circuit when a transaction's calldata
     /// decryption has failed. In this case, bytecode execution is skipped and a Revert
@@ -109,6 +315,7 @@ where
         evm.ctx().journal_mut().commit_tx();
         evm.ctx().local_mut().clear();
         evm.frame_stack().clear();
+        evm.ctx().chain_mut().reset_erc20_gas();
 
         Ok(exec_result)
     }
@@ -126,6 +333,7 @@ where
         evm.ctx().local_mut().clear();
         evm.ctx().journal_mut().discard_tx();
         evm.frame_stack().clear();
+        evm.ctx().chain_mut().reset_erc20_gas();
         Err(error)
     }
 }
