@@ -76,7 +76,7 @@ fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -
     let requested_output_len = requested_output_len as usize;
 
     // Compute the gas cost.
-    let gas_used = calculate_gas_cost(requested_output_len, pers.len());
+    let gas_used = calculate_gas_cost(pers.len(), requested_output_len);
     if gas_used > gas_limit {
         return Err(PrecompileError::OutOfGas);
     }
