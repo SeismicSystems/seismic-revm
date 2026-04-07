@@ -1,5 +1,5 @@
 use revm::{
-    bytecode::opcode::{SLOAD, SSTORE},
+    bytecode::opcode::{EQ, GT, ISZERO, LT, SGT, SLOAD, SLT, SSTORE},
     handler::instructions::InstructionProvider,
     interpreter::{
         instructions::{instruction_table, InstructionTable},
@@ -9,9 +9,15 @@ use revm::{
 use std::boxed::Box;
 
 use crate::{
-    instructions::confidential_storage::{
-        cload_instruction, cstore_instruction, seismic_sload_instruction,
-        seismic_sstore_instruction,
+    instructions::{
+        confidential_storage::{
+            cload_instruction, cstore_instruction, seismic_sload_instruction,
+            seismic_sstore_instruction,
+        },
+        constant_time::{
+            ct_eq_instruction, ct_gt_instruction, ct_iszero_instruction, ct_lt_instruction,
+            ct_sgt_instruction, ct_slt_instruction,
+        },
     },
     SeismicHost,
 };
@@ -46,6 +52,15 @@ where
         table[CSTORE as usize] = cstore_instruction();
         table[SLOAD as usize] = seismic_sload_instruction();
         table[SSTORE as usize] = seismic_sstore_instruction();
+
+        // Constant-time comparison opcodes to prevent timing side channels
+        // on confidential storage values.
+        table[EQ as usize] = ct_eq_instruction();
+        table[LT as usize] = ct_lt_instruction();
+        table[GT as usize] = ct_gt_instruction();
+        table[SLT as usize] = ct_slt_instruction();
+        table[SGT as usize] = ct_sgt_instruction();
+        table[ISZERO as usize] = ct_iszero_instruction();
 
         Self {
             instruction_table: Box::new(table),
@@ -215,6 +230,12 @@ mod tests {
                 && i != CSTORE as usize
                 && i != SLOAD as usize
                 && i != SSTORE as usize
+                && i != EQ as usize
+                && i != LT as usize
+                && i != GT as usize
+                && i != SLT as usize
+                && i != SGT as usize
+                && i != ISZERO as usize
             {
                 assert!(
                     custom_table[i].equal(&standard_table[i]),
