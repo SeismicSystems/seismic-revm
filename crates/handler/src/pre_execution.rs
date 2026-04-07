@@ -7,10 +7,8 @@ use bytecode::Bytecode;
 use context_interface::transaction::AuthorizationTr;
 use context_interface::ContextTr;
 use context_interface::{
-    journaled_state::JournalTr,
-    result::InvalidTransaction,
-    transaction::{Transaction, TransactionType},
-    Block, Cfg, Database,
+    journaled_state::JournalTr, result::InvalidTransaction, transaction::Transaction, Block, Cfg,
+    Database,
 };
 use core::cmp::Ordering;
 use primitives::{eip7702, hardfork::SpecId, KECCAK_EMPTY, U256};
@@ -176,8 +174,8 @@ pub fn apply_eip7702_auth_list<
     context: &mut CTX,
 ) -> Result<u64, ERROR> {
     let tx = context.tx();
-    // Return if there is no auth list.
-    if tx.tx_type() != TransactionType::Eip7702 {
+    // Return if there is no auth list (7702 or Seismic tx).
+    if tx.authorization_list_len() == 0 {
         return Ok(0);
     }
 
