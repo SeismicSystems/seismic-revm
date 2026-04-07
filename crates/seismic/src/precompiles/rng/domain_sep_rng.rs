@@ -1,192 +1,128 @@
-//! This module provides a domain separation RNG for the Seismic chain.
-//! It uses the Merlin transcript to generate a root RNG that is used to derive
-//! a leaf RNG for each transaction.
-//! The Merlin transcript is initialized with a hash of the block environment.
-//! The Merlin transcript is then forked for each transaction
-//! The leaf RNG is then used to generate random bytes.
+//! Domain-separated RNG using HKDF-SHA256 with a Schnorrkel key.
 //!
-//! This module is heavily inspired Oasis Network's RNG implementation.
-use merlin::{Transcript, TranscriptRng};
-use rand_core::{CryptoRng, OsRng, RngCore};
+//! For each precompile call, random bytes are derived via:
+//! ```text
+//! HKDF-SHA256(
+//!   ikm  = schnorrkel_keypair.secret.to_bytes(),  // 64-byte expanded secret key
+//!   salt = b"seismic rng context",
+//!   info = domain_data || b"pers" || pers
+//! ) → output bytes
+//! ```
+//!
+//! Each call constructs a fresh `RootRng`, appends tx_hash + gas_left,
+//! then derives output. There is no persistent state between calls.
+use hkdf::Hkdf;
 use revm::primitives::B256;
 pub use schnorrkel::keys::Keypair as SchnorrkelKeypair;
 use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
-use std::{cell::RefCell, rc::Rc};
+use sha2::Sha256;
 
-/// RNG domain separation context.
-const RNG_CONTEXT: &[u8] = b"seismic rng context";
+/// RNG domain separation salt.
+const RNG_SALT: &[u8] = b"seismic rng context";
 
-/// A root RNG that can be used to derive domain-separated leaf RNGs.
+/// A stateless RNG that derives output bytes via HKDF-SHA256.
+///
+/// Constructed fresh for each precompile call. Domain separation data
+/// (tx hash, gas left) is appended before derivation.
 pub struct RootRng {
-    inner: Rc<RefCell<Inner>>,
-}
-
-struct Inner {
-    /// The VRF key for the block
-    root_vrf_key: SchnorrkelKeypair,
-    /// Merlin transcript for initializing the RNG.
-    transcript: Transcript,
-    /// A transcript-based RNG (when initialized).
-    rng: Option<TranscriptRng>,
-    /// the transcript used to initialize the rng, saved for cloning
-    cloning_transcript: Option<Transcript>,
-    /// number of forks, saved for cloning
-    num_forks: u64,
-}
-
-impl Clone for RootRng {
-    #[allow(clippy::unwrap_used)] // cloning_transcript is always set when rng is Some
-    fn clone(&self) -> Self {
-        let inner = self.inner.borrow_mut();
-        let rng_copy: Option<TranscriptRng>;
-        let root_vrf = inner.root_vrf_key.clone();
-        if inner.rng.is_some() {
-            // make a new rng with the same transcript and vrf key
-            let cloning_transcript = inner.cloning_transcript.as_ref().unwrap().clone();
-
-            let mut rng = root_vrf
-                .vrf_create_hash(cloning_transcript)
-                .make_merlin_rng(&[]);
-
-            // fast foward the rng to the same point as the original
-            // By assumption, fork() is the only place root TranscriptRng is used
-            for _ in 0..inner.num_forks {
-                let mut bytes = [0u8; 32];
-                rng.fill_bytes(&mut bytes);
-            }
-
-            rng_copy = Some(rng);
-        } else {
-            rng_copy = None;
-        }
-
-        let new_inner = Inner {
-            root_vrf_key: root_vrf,
-            transcript: inner.transcript.clone(),
-            rng: rng_copy,
-            cloning_transcript: inner.cloning_transcript.clone(),
-            num_forks: inner.num_forks,
-        };
-
-        Self {
-            inner: Rc::new(RefCell::new(new_inner)),
-        }
-    }
+    /// The 64-byte expanded secret key from the schnorrkel keypair.
+    key_bytes: [u8; 64],
+    /// Accumulated domain separation info (tx hashes, gas values, etc.).
+    domain_data: Vec<u8>,
 }
 
 impl RootRng {
-    /// Create a new root RNG.
-    pub fn new(root_vrf_key: SchnorrkelKeypair) -> Self {
+    /// Create a new root RNG from a schnorrkel keypair.
+    pub fn new(keypair: SchnorrkelKeypair) -> Self {
+        let key_bytes = keypair.secret.to_bytes();
         Self {
-            inner: Rc::new(RefCell::new(Inner {
-                root_vrf_key,
-                transcript: Transcript::new(RNG_CONTEXT),
-                rng: None,
-                cloning_transcript: None,
-                num_forks: 0,
-            })),
+            key_bytes,
+            domain_data: Vec::new(),
         }
     }
 
-    pub fn get_root_vrf_key(&self) -> SchnorrkelKeypair {
-        self.inner.borrow().root_vrf_key.clone()
-    }
-
-    /// A default rng for testing that loads a sample keypair.
-    /// We do not implement the Default trait becuase
+    /// A default RNG for testing that loads a sample keypair.
+    /// We do not implement the Default trait because
     /// it might be misleading or error-prone.
     pub fn test_default() -> Self {
         Self::new(get_unsecure_sample_schnorrkel_keypair())
     }
 
-    /// Append local entropy to the root RNG.
+    /// Append the parent block hash to the domain separation data.
+    pub fn append_parent_block_hash(&mut self, hash: &B256) {
+        self.domain_data.extend_from_slice(b"block");
+        self.domain_data.extend_from_slice(hash.as_ref());
+    }
+
+    /// Append the transaction hash accumulator to the domain separation data.
+    pub fn append_tx_hash_accumulator(&mut self, acc: &B256) {
+        self.domain_data.extend_from_slice(b"acc");
+        self.domain_data.extend_from_slice(acc.as_ref());
+    }
+
+    /// Append a transaction hash to the domain separation data.
+    pub fn append_tx(&mut self, tx_hash: &B256) {
+        self.domain_data.extend_from_slice(b"tx");
+        self.domain_data.extend_from_slice(tx_hash.as_ref());
+    }
+
+    /// Append the remaining gas to the domain separation data.
+    pub fn append_gas_left(&mut self, gas_left: u64) {
+        self.domain_data.extend_from_slice(b"gas");
+        self.domain_data.extend_from_slice(&gas_left.to_le_bytes());
+    }
+
+    /// Derive `len` random bytes using HKDF-SHA256 with the given personalization.
     ///
-    /// # Non-determinism
+    /// The HKDF info parameter is: `domain_data || b"pers" || pers`.
+    /// This is a stateless operation — same inputs always produce the same output.
     ///
-    /// Using this method will result in the RNG being non-deterministic.
-    pub fn append_local_entropy(&self) {
-        let mut bytes = [0u8; 32];
-        OsRng.fill_bytes(&mut bytes);
+    /// For outputs larger than 255 * 32 = 8160 bytes (the HKDF-SHA256 limit),
+    /// this uses counter-mode chunking internally.
+    pub fn derive_bytes(&self, pers: &[u8], len: usize) -> Vec<u8> {
+        let hkdf = Hkdf::<Sha256>::new(Some(RNG_SALT), &self.key_bytes);
 
-        let mut inner = self.inner.borrow_mut();
-        inner.transcript.append_message(b"local-rng", &bytes);
-    }
+        // Build info: domain_data || b"pers" || pers
+        let mut info = Vec::with_capacity(self.domain_data.len() + 4 + pers.len());
+        info.extend_from_slice(&self.domain_data);
+        info.extend_from_slice(b"pers");
+        info.extend_from_slice(pers);
 
-    /// Append an observed transaction hash to RNG transcript.
-    pub fn append_tx(&self, tx_hash: &B256) {
-        let mut inner = self.inner.borrow_mut();
-        inner.transcript.append_message(b"tx", tx_hash.as_ref());
-    }
+        // HKDF-Expand has a max output of 255 * HashLen (8160 bytes for SHA-256).
+        // For larger outputs, use counter-mode chunking.
+        const MAX_HKDF_OUTPUT: usize = 255 * 32;
 
-    /// Append an observed subcontext to RNG transcript.
-    pub fn append_subcontext(&self) {
-        let mut inner = self.inner.borrow_mut();
-        inner.transcript.append_message(b"subctx", &[]);
-    }
+        if len <= MAX_HKDF_OUTPUT {
+            let mut output = vec![0u8; len];
+            // SAFETY: len <= MAX_HKDF_OUTPUT so expand cannot fail
+            #[allow(clippy::expect_used)]
+            hkdf.expand(&info, &mut output)
+                .expect("HKDF expand cannot fail for len <= 8160");
+            output
+        } else {
+            // Counter-mode: chunk the output into MAX_HKDF_OUTPUT-sized pieces,
+            // each with a unique counter suffix in info.
+            let mut output = Vec::with_capacity(len);
+            let mut chunk_idx: u32 = 0;
+            while output.len() < len {
+                let remaining = len - output.len();
+                let chunk_len = remaining.min(MAX_HKDF_OUTPUT);
+                let mut chunk = vec![0u8; chunk_len];
 
-    /// Create an independent leaf RNG using this RNG as its parent.
-    pub fn fork(&self, pers: &[u8]) -> LeafRng {
-        let mut inner = self.inner.borrow_mut();
+                let mut chunk_info = Vec::with_capacity(info.len() + 4 /* counter */);
+                chunk_info.extend_from_slice(&info);
+                chunk_info.extend_from_slice(&chunk_idx.to_le_bytes());
 
-        // Ensure the RNG is initialized and initialize it if not.
-        if inner.rng.is_none() {
-            // Initialize the root RNG.
-            inner.cloning_transcript = Some(inner.transcript.clone());
-            let root_key = inner.root_vrf_key.clone();
+                // SAFETY: chunk_len <= MAX_HKDF_OUTPUT
+                #[allow(clippy::expect_used)]
+                hkdf.expand(&chunk_info, &mut chunk)
+                    .expect("HKDF expand cannot fail for chunk_len <= 8160");
 
-            let rng = root_key
-                .vrf_create_hash(&mut inner.transcript)
-                .make_merlin_rng(&[]);
-
-            inner.rng = Some(rng);
+                output.extend_from_slice(&chunk);
+                chunk_idx += 1;
+            }
+            output.truncate(len);
+            output
         }
-
-        // Generate the leaf RNG.
-        inner.transcript.append_message(b"fork", pers);
-
-        let rng_builder = inner.transcript.build_rng();
-        // SAFETY: rng is initialized in the block above if it was None
-        #[allow(clippy::expect_used)]
-        let parent_rng = inner.rng.as_mut().expect("rng must be initialized");
-        let rng = rng_builder.finalize(parent_rng);
-
-        // Increment the number of forks
-        inner.num_forks += 1;
-
-        LeafRng(rng)
-    }
-
-    #[cfg(test)]
-    pub fn state_snapshot(&self) -> ([u8; 32], bool, bool, u64) {
-        let inner = self.inner.borrow_mut();
-        (
-            inner.root_vrf_key.clone().public.to_bytes(),
-            inner.rng.is_none(),
-            inner.cloning_transcript.is_none(),
-            inner.num_forks,
-        )
     }
 }
-
-/// A leaf RNG.
-pub struct LeafRng(TranscriptRng);
-
-impl RngCore for LeafRng {
-    fn next_u32(&mut self) -> u32 {
-        self.0.next_u32()
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        self.0.next_u64()
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.0.fill_bytes(dest)
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
-        self.0.try_fill_bytes(dest)
-    }
-}
-
-impl CryptoRng for LeafRng {}

@@ -7,7 +7,6 @@
 
 use super::*;
 use domain_sep_rng::RootRng;
-use rand_core::RngCore;
 use revm::primitives::B256;
 use schnorrkel::{keys::Keypair as SchnorrkelKeypair, ExpansionMode};
 use std::str::FromStr;
@@ -18,239 +17,122 @@ fn hex_to_hash_bytes(input: &str) -> B256 {
 
 #[test]
 fn test_rng_basic() {
+    // First derivation with empty pers
     let root_rng = RootRng::test_default();
+    let bytes1 = root_rng.derive_bytes(&[], 32);
 
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1);
+    // Same RNG, same pers — should produce the same output (stateless derivation)
+    let bytes1_again = root_rng.derive_bytes(&[], 32);
+    assert_eq!(
+        bytes1, bytes1_again,
+        "same inputs should produce same output"
+    );
 
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes1_1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1_1);
+    // Create second root RNG using the same keypair — should produce the same output
+    let root_rng2 = RootRng::test_default();
+    let bytes2 = root_rng2.derive_bytes(&[], 32);
+    assert_eq!(
+        bytes1, bytes2,
+        "rng should be deterministic across instances"
+    );
 
-    assert_ne!(bytes1, bytes1_1, "rng should apply domain separation");
+    // Different personalization should produce different output
+    let bytes3 = root_rng.derive_bytes(b"domsep", 32);
+    assert_ne!(
+        bytes1, bytes3,
+        "different pers should produce different output"
+    );
 
-    // Create second root RNG using the same context so the ephemeral key is shared.
-    let root_rng = RootRng::test_default();
-
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes2 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes2);
-
-    assert_eq!(bytes1, bytes2, "rng should be deterministic");
-
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes2_1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes2_1);
-
-    assert_ne!(bytes2, bytes2_1, "rng should apply domain separation");
-    assert_eq!(bytes1_1, bytes2_1, "rng should be deterministic");
-
-    // Create third root RNG using the same context, but with different personalization.
-    let root_rng = RootRng::test_default();
-
-    let mut leaf_rng = root_rng.fork(b"domsep");
-    let mut bytes3 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes3);
-
-    assert_ne!(bytes2, bytes3, "rng should apply domain separation");
-
-    // Create another root RNG using the same context, but with different history.
-    let root_rng = RootRng::test_default();
-    root_rng.append_tx(&hex_to_hash_bytes(
+    // Appending a tx hash should change the output
+    let mut root_rng3 = RootRng::test_default();
+    root_rng3.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
+    let bytes4 = root_rng3.derive_bytes(&[], 32);
+    assert_ne!(bytes1, bytes4, "tx hash should change output");
 
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes4 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes4);
-
-    assert_ne!(bytes2, bytes4, "rng should apply domain separation");
-
-    // Create another root RNG using the same context, but with different history.
-    let root_rng = RootRng::test_default();
-    root_rng.append_tx(&hex_to_hash_bytes(
+    // Different tx hash should produce different output
+    let mut root_rng4 = RootRng::test_default();
+    root_rng4.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
+    let bytes5 = root_rng4.derive_bytes(&[], 32);
+    assert_ne!(
+        bytes4, bytes5,
+        "different tx hash should produce different output"
+    );
 
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes5 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes5);
-
-    assert_ne!(bytes4, bytes5, "rng should apply domain separation");
-
-    // Create another root RNG using the same context, but with same history as four.
-    let root_rng = RootRng::test_default();
-    root_rng.append_tx(&hex_to_hash_bytes(
+    // Same tx hash as root_rng3 should produce the same output
+    let mut root_rng5 = RootRng::test_default();
+    root_rng5.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
+    let bytes6 = root_rng5.derive_bytes(&[], 32);
+    assert_eq!(bytes4, bytes6, "same tx hash should be deterministic");
 
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes6 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes6);
-
-    assert_eq!(bytes4, bytes6, "rng should be deterministic");
-
-    // Create another root RNG using the same context, but with different history.
-    let root_rng = RootRng::test_default();
-    root_rng.append_tx(&hex_to_hash_bytes(
+    // Multiple tx hashes should produce different output than single
+    let mut root_rng6 = RootRng::test_default();
+    root_rng6.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
-    root_rng.append_tx(&hex_to_hash_bytes(
+    root_rng6.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
-
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes7 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes7);
-
-    assert_ne!(bytes4, bytes7, "rng should apply domain separation");
-
-    // Create another root RNG using the same context, but with different init point.
-    let root_rng = RootRng::test_default();
-    root_rng.append_tx(&hex_to_hash_bytes(
-        "0000000000000000000000000000000000000000000000000000000000000001",
-    ));
-    let _ = root_rng.fork(&[]); // Force init.
-    root_rng.append_tx(&hex_to_hash_bytes(
-        "0000000000000000000000000000000000000000000000000000000000000002",
-    ));
-
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes8 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes8);
-
-    assert_ne!(bytes7, bytes8, "rng should apply domain separation");
-    assert_ne!(bytes6, bytes8, "rng should apply domain separation");
+    let bytes7 = root_rng6.derive_bytes(&[], 32);
+    assert_ne!(bytes4, bytes7, "multiple tx hashes should change output");
 }
 
 #[test]
-fn test_rng_local_entropy() {
-    let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate()
-        .expand(ExpansionMode::Uniform)
-        .into();
-    let root_rng = RootRng::new(eph_rng_keypair.clone());
+fn test_rng_gas_domain_separation() {
+    let mut root_rng1 = RootRng::test_default();
+    root_rng1.append_tx(&B256::from([1u8; 32]));
+    root_rng1.append_gas_left(1000);
+    let bytes1 = root_rng1.derive_bytes(&[], 32);
 
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1);
-
-    // Create second root RNG using the same context, but mix in local entropy.
-    let root_rng = RootRng::test_default();
-    root_rng.append_local_entropy();
-
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes2 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes2);
-
-    assert_ne!(bytes1, bytes2, "rng should apply domain separation");
-}
-
-#[test]
-fn test_rng_parent_fork_propagation() {
-    let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate()
-        .expand(ExpansionMode::Uniform)
-        .into();
-    let root_rng = RootRng::new(eph_rng_keypair.clone());
-
-    let mut leaf_rng = root_rng.fork(b"a");
-    let mut bytes1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1);
-
-    let mut leaf_rng = root_rng.fork(b"a");
-    let mut bytes1_1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1_1);
-
-    // Create second root RNG.
-    let root_rng = RootRng::test_default();
-
-    let mut leaf_rng = root_rng.fork(b"b");
-    let mut bytes2 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes2);
-
-    let mut leaf_rng = root_rng.fork(b"a");
-    let mut bytes2_1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes2_1);
+    let mut root_rng2 = RootRng::test_default();
+    root_rng2.append_tx(&B256::from([1u8; 32]));
+    root_rng2.append_gas_left(2000);
+    let bytes2 = root_rng2.derive_bytes(&[], 32);
 
     assert_ne!(
-        bytes1_1, bytes2_1,
-        "forks should propagate domain separator to parent"
+        bytes1, bytes2,
+        "different gas_left should produce different output"
     );
 }
 
 #[test]
-fn test_clone_rng_before_init() {
-    let root_rng = RootRng::test_default();
-
-    // clone and test leaves are the same
-    let root_rng_2 = root_rng.clone();
-
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1);
-
-    let mut leaf_rng_2 = root_rng_2.fork(&[]);
-    let mut bytes2 = [0u8; 32];
-    leaf_rng_2.fill_bytes(&mut bytes2);
-
-    assert_eq!(bytes1, bytes2, "rng should be deterministic");
-}
-
-#[test]
-fn test_clone_rng_after_init() {
-    let root_rng = RootRng::test_default();
-
-    // fork
-    root_rng.append_tx(&B256::from([1u8; 32]));
-    let _ = root_rng.fork(&[]);
-
-    // clone and test rng is same
-    let root_rng_2 = root_rng.clone();
-
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1);
-
-    let mut leaf_rng_2 = root_rng_2.fork(&[]);
-    let mut bytes2 = [0u8; 32];
-    leaf_rng_2.fill_bytes(&mut bytes2);
-
-    assert_eq!(bytes1, bytes2, "rng should be deterministic");
-
-    let root_rng_3 = root_rng.clone();
-
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1);
-
-    let mut leaf_rng_3 = root_rng_3.fork(&[]);
-    let mut bytes3 = [0u8; 32];
-    leaf_rng_3.fill_bytes(&mut bytes3);
-
-    assert_eq!(bytes1, bytes3, "rng should be deterministic");
-}
-
-#[test]
-fn test_clone_after_local_entropy() {
-    let eph_rng_keypair: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate()
+fn test_rng_different_keys_different_output() {
+    let keypair1: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate()
         .expand(ExpansionMode::Uniform)
         .into();
-    let root_rng = RootRng::new(eph_rng_keypair.clone());
+    let keypair2: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate()
+        .expand(ExpansionMode::Uniform)
+        .into();
 
-    // simulate some initial transactions with local entropy
-    let _ = root_rng.fork(&[]);
-    root_rng.append_local_entropy();
-    let _ = root_rng.fork(&[]);
-    root_rng.append_local_entropy();
+    let root_rng1 = RootRng::new(keypair1);
+    let root_rng2 = RootRng::new(keypair2);
 
-    // clone and test rng is same
-    let root_rng_2 = root_rng.clone();
+    let bytes1 = root_rng1.derive_bytes(&[], 32);
+    let bytes2 = root_rng2.derive_bytes(&[], 32);
 
-    let mut leaf_rng = root_rng.fork(&[]);
-    let mut bytes1 = [0u8; 32];
-    leaf_rng.fill_bytes(&mut bytes1);
+    assert_ne!(
+        bytes1, bytes2,
+        "different keys should produce different output"
+    );
+}
 
-    let mut leaf_rng_2 = root_rng_2.fork(&[]);
-    let mut bytes2 = [0u8; 32];
-    leaf_rng_2.fill_bytes(&mut bytes2);
+#[test]
+fn test_large_output() {
+    let root_rng = RootRng::test_default();
+
+    // Request more than the HKDF single-expand limit (8160 bytes)
+    let large_output = root_rng.derive_bytes(b"large", 10000);
+    assert_eq!(large_output.len(), 10000);
+
+    // Verify determinism for large outputs
+    let large_output_2 = root_rng.derive_bytes(b"large", 10000);
+    assert_eq!(
+        large_output, large_output_2,
+        "large output should be deterministic"
+    );
 }
