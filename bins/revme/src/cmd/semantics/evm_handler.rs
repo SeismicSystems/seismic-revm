@@ -141,7 +141,7 @@ impl EvmExecutor {
                 })
                 .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
                 .build_seismic_evm_with_inspector(TracerEip3155::new_stdout().without_summary());
-                evm.inspect_tx(evm.tx.clone()).map_err(|err| {
+                evm.inspect_tx(evm.0.ctx.tx.clone()).map_err(|err| {
                     Errors::EVMError(format!("DEPLOY transaction error: {:?}", err.to_string()))
                 })?
             } else {
@@ -275,7 +275,7 @@ impl EvmExecutor {
                 })
                 .modify_cfg_chained(|cfg| cfg.spec = self.evm_version.to_seismic_spec_id())
                 .build_seismic_evm_with_inspector(TracerEip3155::new(Box::new(std::io::stdout())));
-                evm.inspect_tx(evm.tx.clone()).map_err(|err| {
+                evm.inspect_tx(evm.0.ctx.tx.clone()).map_err(|err| {
                     Errors::EVMError(format!(
                         "EVM transaction error: {:?}, for the file: {:?}",
                         err.to_string(),

@@ -4828,6 +4828,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "auto_impl",
+ "codspeed-criterion-compat",
  "hkdf",
  "indicatif",
  "once_cell",

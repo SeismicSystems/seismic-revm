@@ -41,10 +41,15 @@ secp256k1 = { workspace = true, features = ["recovery"] }
 
 [dev-dependencies]
 anyhow.workspace = true
+criterion.workspace = true
 indicatif.workspace = true
 rstest.workspace = true
 alloy-sol-types.workspace = true
 serde_json = { workspace = true, features = ["alloc"] }
+
+[[bench]]
+name = "constant_time"
+harness = false
 
 [features]
 default = ["std", "c-kzg", "portable", "blst"]
