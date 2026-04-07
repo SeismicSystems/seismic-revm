@@ -2,6 +2,7 @@ use auto_impl::auto_impl;
 use revm::{
     context::TxEnv,
     context_interface::transaction::Transaction,
+    handler::SystemCallTx,
     primitives::{Address, Bytes, TxKind, B256, U256},
 };
 
@@ -184,5 +185,19 @@ impl<T: Transaction> SeismicTxTr for SeismicTransaction<T> {
 
     fn decryption_failed(&self) -> bool {
         self.decryption_failed
+    }
+}
+
+impl<TX: Transaction + SystemCallTx> SystemCallTx for SeismicTransaction<TX> {
+    fn new_system_tx_with_caller(
+        caller: Address,
+        system_contract_address: Address,
+        data: Bytes,
+    ) -> Self {
+        SeismicTransaction::new(TX::new_system_tx_with_caller(
+            caller,
+            system_contract_address,
+            data,
+        ))
     }
 }

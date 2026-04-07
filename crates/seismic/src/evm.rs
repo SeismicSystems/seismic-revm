@@ -37,20 +37,6 @@ impl<CTX: SeismicContextTr, INSP>
     }
 }
 
-impl<CTX, INSP, I, P, F> std::ops::Deref for SeismicEvm<CTX, INSP, I, P, F> {
-    type Target = Evm<CTX, INSP, I, P, F>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<CTX, INSP, I, P> std::ops::DerefMut for SeismicEvm<CTX, INSP, I, P> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<CTX: SeismicContextTr, I, INSP> SeismicEvm<CTX, INSP, I> {
     /// Create a new EVM instance with a given context, inspector, instruction set, and precompile provider.
     pub fn new_with_inspector(

@@ -487,7 +487,7 @@ fn debug_failed_test(ctx: DebugContext) {
     println!("\nState before: {:#?}", ctx.cache_state);
     println!(
         "\nState after: {:#?}",
-        evm.ctx.journaled_state.database.cache
+        evm.0.ctx.journaled_state.database.cache
     );
     println!("\nSpecification: {:?}", ctx.cfg.spec);
     println!("\nTx: {:#?}", ctx.tx);
