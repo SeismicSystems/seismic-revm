@@ -176,8 +176,8 @@ pub fn apply_eip7702_auth_list<
     context: &mut CTX,
 ) -> Result<u64, ERROR> {
     let tx = context.tx();
-    // Return if there is no auth list.
-    if tx.tx_type() != TransactionType::Eip7702 {
+    // Return if there is no auth list (7702 or Seismic tx).
+    if tx.authorization_list_len() == 0 {
         return Ok(0);
     }
 
