@@ -82,10 +82,14 @@ where
 
     /// Processes the final execution output.
     ///
-    /// This method retrieves the final state from the journal, converts internal results
-    /// to the external output format. Internal state is cleared and EVM is prepared for
-    /// the next transaction. We also clear the rng state on returns that won't go through
-    /// catch_error.
+    /// Retrieves the final state from the journal, converts internal results
+    /// to the external output format. Internal state is cleared and EVM is
+    /// prepared for the next transaction.
+    ///
+    /// Seismic Addendum:
+    /// Given that we can't yet pass instruction_result which aren't in the
+    /// InstructionResult enum, we leverage context_error to bubble up our
+    /// instruction set specific errors.
     #[inline]
     fn execution_result(
         &mut self,
@@ -102,12 +106,9 @@ where
 
         let exec_result = post_execution::output(evm.ctx(), result);
 
-        // commit transaction
         evm.ctx().journal_mut().commit_tx();
         evm.ctx().local_mut().clear();
         evm.frame_stack().clear();
-        // ...and we also reset the RNG
-        evm.ctx().chain_mut().reset_rng();
 
         Ok(exec_result)
     }
@@ -115,7 +116,6 @@ where
     /// Handles cleanup when an error occurs during execution.
     ///
     /// Ensures the journal state is properly cleared before propagating the error.
-    /// Also ensures the rng has been reset.
     /// On happy path journal is cleared in [`Handler::output`] method.
     #[inline]
     fn catch_error(
@@ -123,12 +123,9 @@ where
         evm: &mut Self::Evm,
         error: Self::Error,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
-        // Same as in normal ETH handler...
         evm.ctx().local_mut().clear();
         evm.ctx().journal_mut().discard_tx();
         evm.frame_stack().clear();
-        // ...except we also reset the RNG
-        evm.ctx().chain_mut().reset_rng();
         Err(error)
     }
 }
@@ -192,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_revert_gas() {
-        let ctx = Context::seismic().modify_tx_chained(|tx| {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
             tx.base.gas_limit = 100;
         });
 
@@ -204,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_fatal_external_error_gas() {
-        let ctx = Context::seismic().modify_tx_chained(|tx| {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
             tx.base.gas_limit = 100;
         });
 
@@ -220,7 +217,7 @@ mod tests {
     /// for the next tx, causing incorrect (cheaper) gas accounting.
     #[test]
     fn test_catch_error_discards_tx_and_advances_transaction_id() {
-        let ctx = Context::seismic().modify_tx_chained(|tx| {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
             tx.base.gas_limit = 100;
         });
 
@@ -267,7 +264,7 @@ mod tests {
         let gas_limit: u64 = 100_000;
         let intrinsic_gas: u64 = 21_000;
 
-        let ctx = Context::seismic().modify_tx_chained(|tx| {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
             tx.base.gas_limit = gas_limit;
             tx.decryption_failed = true;
         });
@@ -311,7 +308,7 @@ mod tests {
     /// accidentally short-circuit normal transactions.
     #[test]
     fn test_decryption_not_failed_proceeds_normally() {
-        let ctx = Context::seismic().modify_tx_chained(|tx| {
+        let ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
             tx.base.gas_limit = 100;
             // decryption_failed defaults to false
         });

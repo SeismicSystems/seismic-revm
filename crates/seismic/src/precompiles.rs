@@ -213,7 +213,7 @@ mod tests {
     use revm::{
         database::EmptyDB,
         interpreter::{CallScheme, CallValue},
-        primitives::{hex, U256},
+        primitives::U256,
     };
 
     use crate::{DefaultSeismicContext, SeismicContext};
@@ -260,9 +260,12 @@ mod tests {
 
     #[test]
     fn test_seismic_precompiles_rng() {
+        use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
+
         let mut precompiles =
             SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
-        let mut context = SeismicContext::<EmptyDB>::seismic();
+        let keypair = get_unsecure_sample_schnorrkel_keypair();
+        let mut context = SeismicContext::<EmptyDB>::seismic_with_rng_key(keypair);
         let rng_address = *precompiles
             .stateful_precompiles
             .addresses()
@@ -287,13 +290,6 @@ mod tests {
         let output_bytes = interpreter_result.output;
 
         assert_eq!(output_bytes.len(), 32, "RNG output should be 32 bytes");
-        assert_eq!(
-            output_bytes,
-            Bytes::from(hex!(
-                "6205fa1fc78e42116f1b370e200a867805679032f64ab68256ae59d678dc441d"
-            )),
-            "RNG precompile should return successfully"
-        );
 
         let gas_used = input.gas_limit - interpreter_result.gas.remaining();
         assert!(
@@ -302,6 +298,7 @@ mod tests {
             gas_used
         );
 
+        // Second call with same inputs should produce same output (deterministic with live key)
         let result2 = precompiles.run(&mut context, &input);
         assert!(result2.is_ok(), "Second RNG call should succeed");
 
@@ -317,16 +314,15 @@ mod tests {
         );
 
         let gas_used2 = input.gas_limit - interpreter_result2.gas.remaining();
-        assert!(
-            gas_used2 < gas_used,
-            "Second call should use less gas, used {} vs first call {}",
-            gas_used2,
-            gas_used
+        assert_eq!(
+            gas_used2, gas_used,
+            "Both calls should cost the same, got {} vs {}",
+            gas_used2, gas_used
         );
 
-        assert_ne!(
+        assert_eq!(
             output_bytes, output_bytes2,
-            "Subsequent RNG calls should return different outputs"
+            "Same inputs with live key should produce identical output (stateless)"
         );
     }
 
