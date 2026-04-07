@@ -1,8 +1,5 @@
 use revm::{
-    context::ContextTr,
-    precompile::{
-        calc_linear_cost_u32, u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult,
-    },
+    precompile::{u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult},
     primitives::Bytes,
 };
 
@@ -15,10 +12,10 @@ use crate::{
 Constants & Setup
 -------------------------------------------------------------------------- */
 
-// The RNG precompile is a stateful precompile based on Merlin transcripts
-// At each transaction in a block executes, the tx hash is appended to
-// the transcript as domain seperation, causing identical transactions
-// to produce different randomness
+// The RNG precompile derives random bytes via HKDF-SHA256 using a schnorrkel key.
+// Each call is stateless: the same (key, tx_hash, gas_left, pers) always produces
+// the same output. Domain separation comes from tx_hash and gas_left appended
+// to the HKDF info parameter.
 pub const RNG_ADDRESS: u64 = 100; // Hex address `0x64`.
 
 pub fn rng_precompile_iter<CTX: SeismicContextTr>(
@@ -31,8 +28,17 @@ pub fn rng_precompile<CTX: SeismicContextTr>() -> StatefulPrecompileWithAddress<
 }
 
 const MIN_INPUT_LENGTH: usize = 2;
-const RNG_INIT_BASE: u64 = 3500;
-const STROBE128WORD: u64 = 5;
+
+/// Base cost for the HKDF-SHA256 derivation. This covers:
+/// - HKDF-Extract: one HMAC-SHA256 (two SHA-256 passes over the 64-byte key)
+/// - HKDF-Expand: one or more HMAC-SHA256 passes to produce output
+/// - Conservative buffer for future adjustments
+const RNG_BASE_COST: u64 = 3500;
+
+/// Per-word cost for output bytes. Each 32-byte word of output requires
+/// an additional HMAC-SHA256 round in the HKDF-Expand phase.
+/// Based on SHA-256 EVM pricing (~6 gas/word) adjusted for HKDF overhead.
+const RNG_WORD_COST: u64 = 5;
 
 /* --------------------------------------------------------------------------
 Precompile Logic
@@ -48,70 +54,21 @@ Precompile Logic
 ///
 /// ## Overview
 /// We interpret the input as a `[u8]` slice of bytes used as personalization
-/// for the RNG entropy.
+/// for the RNG derivation.
 ///
-/// Using the pers bytes, the block rng transcript, and the block VRF key,
-/// we produce a leaf RNG that implements the `RngCore` interface and query
-/// it for bytes.
+/// Using HKDF-SHA256 with the schnorrkel keypair as input key material,
+/// and domain separation data (tx_hash, gas_left) plus personalization as the
+/// HKDF info parameter, we derive the requested number of random bytes.
 ///
 /// ## Gas Cost
 ///
-/// ### Pricing Fundamental Operations
-/// The RNG precompile uses Merlin transcripts that rely on the Strobe128 hash function.
-/// Strobe uses the keccak256 sponge, which has an EVM opcode cost of
-/// `g=30+6×ceil(input size/32)`. We have a more complex initialization than SHA,
-/// so we price a base cost of 100 gas. However, Strobe128 is designed for 128-bit security
-/// (instead of SHA3's 256-bit security), which allows it to work faster. The dominating cost
-/// for the keccak256 sponges is the keccak256 permutation. For SHA3, you permute
-/// once per 136 bytes of data absorbed. Ethereum simplifies this cost calculation as
-/// 6 gas per 32-byte word absorbed. Strobe128, on the other hand,
-/// can absorb/squeeze 166 bytes before it needs to run the keccak256 permutation.
-/// `136 / 166 * 6 ≈ 4.9`, which we round up to 5 gas, instead of 6 gas per word.
-///
-/// The transcripts also use points on the Ristretto group for Curve25519 and require
-/// scalar multiplications. Scalar multiplication is optimized through the use of the
-/// Montgomery ladder for Curve25519, so this should be as fast or faster than
-/// a Secp256k1 scalar multiplication. Benchmarks by XRLP support this:
-/// <https://xrpl.org/blog/2014/curves-with-a-twist>
-/// We bound the cost at that of ecrecover, which performs 3 secp256k1
-/// scalar multiplications, a point addition, plus some other computation.
-/// Charging the same amount as ecrecover (3000 gas) is very conservative
-/// but allows us to lower the cost later on.
-///
-/// ### Pricing RNG Operations
-/// The cost of initializing the `leaf_rng` comes from:
-///
-/// * The Root RNG initialization requires a running hash of the transcript. The Root RNG  
-///   is initialized by adding 13 bytes to the transcript and then keying the rng  
-///   (essentially hashing) using Strobe128.
-///
-/// * (optional) If personalization bytes are provided, the RNG is seeded with  
-///   those pers bytes
-///
-/// * Each leaf RNG requires forking the `root_rng`, which involves adding  
-///   a 32-byte `tx_hash` and label (2 bytes) per transaction. Then a separate  
-///   VRF hash function is used that performs a single EC scalar multiplication
-///
-/// * The leaf RNG is initialized, which involves keying the RNG based on 32 random bytes  
-///   from the parent RNG.
-///
-/// **Filling bytes** once the RNG is initialized:
-///
-/// * Filling bytes occurs by squeezing the keccak sponge. As described above,  
-///   take inspiration from Ethereum and charge 5 gas per 32-byte word to account for the  
-///   cheaper Strobe parameters.
-///
-/// To calculate the base init cost of the RNG precompile, we get:
-/// - 100 gas from setting up Strobe128  
-/// - `(13 + len(pers) + 32 + 2 + 32) * 5 = 395 + 5 * len(pers)` gas for hashing init bytes  
-/// - 3000 gas for the EC scalar multiplication  
-///
-/// We add a 50% buffer to our gas calculations (which may be lowered in the future).
-///
+/// Every call pays a flat base cost plus a per-word output cost:
 /// ```text
-/// RNG_INIT_BASE = round(100 + 395 + 3000) = 3500
-/// fill_cost     = ceil(fill_len / 32) * 5
+/// cost = RNG_BASE_COST + ceil(output_len / 32) * RNG_WORD_COST
 /// ```
+///
+/// The base cost (3500 gas) covers the HKDF-Extract and initial Expand rounds.
+/// The per-word cost (5 gas) covers additional HMAC-SHA256 rounds for larger outputs.
 fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -> PrecompileResult {
     // Validate input and extract parameters.
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
@@ -119,32 +76,38 @@ fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -
     let requested_output_len = requested_output_len as usize;
 
     // Compute the gas cost.
-    let gas_used = evmctx
-        .chain()
-        .calculate_gas_cost(&pers, requested_output_len);
+    let gas_used = calculate_gas_cost(pers.len(), requested_output_len);
     if gas_used > gas_limit {
-        return Err(PrecompileError::OutOfGas); // Changed REVM_ERROR to PrecompileError
+        return Err(PrecompileError::OutOfGas);
     }
 
-    // Obtain kernel mode and transaction hash.
-    let kernel_mode = evmctx.tx().rng_mode();
+    let total_gas_remaining = evmctx.chain().gas_remaining_all_frames() + gas_limit;
     let tx_hash = evmctx.tx().tx_hash();
 
-    // Let the container update its state and produce the random bytes.
+    // Derive the random bytes (stateless — each call is independent).
     let output = evmctx
-        .chain_mut()
-        .process_rng(&pers, requested_output_len, kernel_mode, &tx_hash)
-        .map_err(|e| PrecompileError::Other(e.to_string()))?; // Changed PCError to PrecompileError
+        .chain()
+        .process_rng(&pers, requested_output_len, &tx_hash, total_gas_remaining)
+        .map_err(|e| PrecompileError::Other(e.to_string()))?;
 
     Ok(PrecompileOutput::new(gas_used, output))
 }
 
-pub(crate) fn calculate_init_cost(pers_len: usize) -> u64 {
-    calc_linear_cost_u32(pers_len, RNG_INIT_BASE, STROBE128WORD)
+/// Calculate the gas cost for an RNG precompile call.
+/// Every call pays: BASE_COST + ceil(output_len / 32) * WORD_COST
+pub(crate) fn calculate_gas_cost(pers_len: usize, output_len: usize) -> u64 {
+    calculate_init_cost(pers_len).saturating_add(calculate_fill_cost(output_len))
 }
 
-pub(crate) fn calculate_fill_cost(fill_len: usize) -> u64 {
-    calc_linear_cost_u32(fill_len, 0, STROBE128WORD)
+fn calculate_init_cost(pers_len: usize) -> u64 {
+    (pers_len as u64)
+        .div_ceil(32)
+        .saturating_mul(RNG_WORD_COST)
+        .saturating_add(RNG_BASE_COST)
+}
+
+fn calculate_fill_cost(fill_len: usize) -> u64 {
+    (fill_len as u64).div_ceil(32).saturating_mul(RNG_WORD_COST)
 }
 
 // SAFETY: Indexing is validated by the length check above
@@ -222,7 +185,7 @@ mod tests {
 
         // Setup transaction and context
         let tx = SeismicTransaction::default().with_tx_hash(B256::from([0u8; 32]));
-        let context = Context::seismic().with_tx(tx);
+        let context = Context::seismic_with_random_rng_key().with_tx(tx);
 
         // Get precompile function
         let precompile = rng_precompile::<SeismicContext<EmptyDB>>;
@@ -241,6 +204,7 @@ mod tests {
         );
 
         let output = result.unwrap();
+        // cost = 3500 + ceil(32/32) * 5 = 3505
         assert_eq!(output.gas_used, 3505, "Should consume exactly 3505 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
@@ -260,6 +224,7 @@ mod tests {
         );
 
         let output_with_pers = result_with_pers.unwrap();
+        // cost = 3500 + ceil(32/32) * 5 = 3505
         assert_eq!(
             output_with_pers.gas_used, 3510,
             "Should consume exactly 3510 gas"
@@ -291,41 +256,44 @@ mod tests {
 
     #[test]
     fn test_rng_init_with_pers() {
-        let personalization = vec![1, 2, 3, 4]; // use 4 pers bytes, gets rounded up to one word
+        let personalization = vec![1, 2, 3, 4];
         let (gas_limit, input, mut context, precompile) = setup_rng_test(32, Some(personalization));
 
         let result = precompile.1(&mut context, &input.into(), gas_limit);
         assert!(result.is_ok(), "Should succeed with personalization");
 
         let output = result.unwrap();
+        // cost = 3500 + ceil(32/32) * 5 = 3505
         assert_eq!(output.gas_used, 3510, "Should consume exactly 3510 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
 
     #[test]
-    fn test_rng_already_initialized() {
-        let empty_pers = vec![0, 0, 0, 0]; // U32::ZERO.to_be_bytes_vec()
+    fn test_rng_second_call_pays_full_cost() {
+        let empty_pers = vec![0, 0, 0, 0];
         let (_, input, mut context, precompile) = setup_rng_test(32, Some(empty_pers));
 
-        // Call once to initialize the RNG
+        // Call once
         let _ = precompile.1(&mut context, &input.clone().into(), 6000);
 
-        // Make a second call with the leaf rng already initialized
-        let reduced_gas_limit = 500;
-        let result = precompile.1(&mut context, &input.into(), reduced_gas_limit);
-        assert!(result.is_ok(), "Should succeed with initialized RNG");
+        // Second call should pay the same full cost (no caching discount)
+        let result = precompile.1(&mut context, &input.into(), 6000);
+        assert!(result.is_ok(), "Should succeed on second call");
 
         let output = result.unwrap();
-        assert_eq!(output.gas_used, 5, "Should consume exactly 5 gas");
+        assert_eq!(
+            output.gas_used, 3510,
+            "Should consume exactly 3510 gas (full cost, no caching)"
+        );
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
 
     #[test]
-    fn test_rng_out_of_gas_on_init() {
-        let empty_pers = vec![0, 0, 0, 0]; // U32::ZERO.to_be_bytes_vec()
+    fn test_rng_out_of_gas() {
+        let empty_pers = vec![0, 0, 0, 0];
         let (_, input, mut context, precompile) = setup_rng_test(16, Some(empty_pers));
 
-        let insufficient_gas = 2500; // less than the init cost
+        let insufficient_gas = 2500; // less than the base cost of 3500
         let result = precompile.1(&mut context, &input.into(), insufficient_gas);
         assert!(result.is_err());
 
@@ -336,15 +304,12 @@ mod tests {
     }
 
     #[test]
-    fn test_rng_out_of_gas_on_fill() {
-        let empty_pers = vec![0, 0, 0, 0]; // U32::ZERO.to_be_bytes_vec()
+    fn test_rng_out_of_gas_large_output() {
+        let empty_pers = vec![0, 0, 0, 0];
         let (_, input, mut context, precompile) = setup_rng_test(6000, Some(empty_pers));
 
-        // Call once to initialize the RNG
-        let _ = precompile.1(&mut context, &input.clone().into(), 6000);
-
-        // Make a second call with the leaf rng already initialized
-        let insufficient_gas = 100;
+        // cost = 3500 + ceil(6000/32) * 5 = 3500 + 188*5 = 3500 + 940 = 4440
+        let insufficient_gas = 4000;
         let result = precompile.1(&mut context, &input.into(), insufficient_gas);
         assert!(result.is_err());
 
@@ -360,14 +325,11 @@ mod tests {
         let input_vector = vec![0x00, 0x01, 0x02]; // 3 bytes only
         let input = Bytes::from(input_vector);
 
-        // Use our setup function to get the context and precompile
-        // We can use dummy values for bytes_requested and personalization since we'll override the input
         let (gas_limit, _, mut context, precompile) = setup_rng_test(0, None);
 
         let result = precompile.1(&mut context, &input.into(), gas_limit);
         assert!(result.is_err());
 
-        // We expect a PCError::Other complaining about input length
         match result.err() {
             Some(PrecompileError::Other(msg)) => {
                 assert!(

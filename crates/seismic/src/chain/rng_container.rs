@@ -1,136 +1,28 @@
-use core::fmt;
-use rand_core::RngCore;
+use crate::precompiles::rng::domain_sep_rng::RootRng;
 use revm::{
     precompile::PrecompileError,
     primitives::{Bytes, B256},
 };
 
-use crate::transaction::abstraction::RngMode;
-use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
-
-use crate::precompiles::rng::{
-    domain_sep_rng::{LeafRng, RootRng},
-    precompile::{calculate_fill_cost, calculate_init_cost},
-};
-
-pub struct RngContainer {
-    rng: RootRng,
-    leaf_rng: Option<LeafRng>,
-}
-
-impl Clone for RngContainer {
-    fn clone(&self) -> Self {
-        Self {
-            rng: self.rng.clone(),
-            leaf_rng: None,
-        }
-    }
-}
-
-impl fmt::Debug for RngContainer {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Hide internal details of the RNG container.
-        write!(f, "Kernel {{  }}")
-    }
-}
-
-impl Default for RngContainer {
-    fn default() -> Self {
-        Self {
-            rng: RootRng::new(get_unsecure_sample_schnorrkel_keypair()),
-            leaf_rng: None,
-        }
-    }
-}
-
-impl RngContainer {
-    pub fn new(root_vrf_key: schnorrkel::Keypair) -> Self {
-        Self {
-            rng: RootRng::new(root_vrf_key),
-            leaf_rng: None,
-        }
-    }
-}
-
-impl RngContainer {
-    pub fn reset_rng(&mut self) {
-        let root_vrf_key = self.rng.get_root_vrf_key();
-        self.rng = RootRng::new(root_vrf_key);
-        self.leaf_rng = None;
-    }
-
-    /// Appends entropy to the root RNG if in Simulation mode.
-    pub fn maybe_append_entropy(&mut self, mode: RngMode) {
-        if mode == RngMode::Simulation {
-            self.rng.append_local_entropy();
-        }
-    }
-
-    pub fn calculate_gas_cost(&self, pers: &[u8], requested_output_len: usize) -> u64 {
-        match self.leaf_rng.as_ref() {
-            Some(_) => calculate_fill_cost(requested_output_len),
-            None => calculate_init_cost(pers.len())
-                .saturating_add(calculate_fill_cost(requested_output_len)),
-        }
-    }
-
-    pub fn process_rng(
-        &mut self,
-        pers: &[u8],
-        requested_output_len: usize,
-        kernel_mode: RngMode,
-        tx_hash: &B256,
-    ) -> Result<Bytes, PrecompileError> {
-        self.process_rng_with_key(pers, requested_output_len, kernel_mode, tx_hash, None)
-    }
-
-    pub fn process_rng_with_key(
-        &mut self,
-        pers: &[u8],
-        requested_output_len: usize,
-        kernel_mode: RngMode,
-        tx_hash: &B256,
-        live_key: Option<schnorrkel::Keypair>,
-    ) -> Result<Bytes, PrecompileError> {
-        // Use live key for Execute mode, otherwise use default container
-        if let Some(key) = live_key {
-            // Create a temporary RNG with the live key for this operation
-            // Note: live_key is only provided for RngMode::Execution
-            let live_rng = RootRng::new(key);
-            live_rng.append_tx(tx_hash);
-
-            let mut leaf_rng = live_rng.fork(pers);
-            let mut rng_bytes = vec![0u8; requested_output_len];
-            leaf_rng.fill_bytes(&mut rng_bytes);
-            Ok(Bytes::from(rng_bytes))
-        } else {
-            // Use the default container's RNG
-            self.maybe_append_entropy(kernel_mode);
-            self.rng.append_tx(tx_hash);
-
-            // Initialize the leaf RNG if not done already.
-            if self.leaf_rng.is_none() {
-                let leaf_rng = self.rng.fork(pers);
-                self.leaf_rng = Some(leaf_rng);
-            }
-
-            // Get the random bytes.
-            // SAFETY: leaf_rng is guaranteed to be Some - initialized in the if block above
-            #[allow(clippy::unwrap_used)]
-            let leaf_rng = self.leaf_rng.as_mut().unwrap();
-            let mut rng_bytes = vec![0u8; requested_output_len];
-            leaf_rng.fill_bytes(&mut rng_bytes);
-            Ok(Bytes::from(rng_bytes))
-        }
-    }
-
-    #[cfg(test)]
-    pub fn root_rng(&self) -> &RootRng {
-        &self.rng
-    }
-
-    #[cfg(test)]
-    pub fn leaf_rng(&self) -> &Option<LeafRng> {
-        &self.leaf_rng
-    }
+/// Derives random bytes for the RNG precompile.
+///
+/// Each call is fully stateless: a fresh `RootRng` is constructed from the
+/// provided key, domain separation data (parent_block_hash, tx_hash_accumulator,
+/// tx_hash, gas_left) is appended, and bytes are derived via HKDF-SHA256.
+pub fn derive_rng_output(
+    pers: &[u8],
+    requested_output_len: usize,
+    tx_hash: &B256,
+    live_key: schnorrkel::Keypair,
+    parent_block_hash: &B256,
+    tx_hash_accumulator: &B256,
+    total_gas_remaining: u64,
+) -> Result<Bytes, PrecompileError> {
+    let mut rng = RootRng::new(live_key);
+    rng.append_parent_block_hash(parent_block_hash);
+    rng.append_tx_hash_accumulator(tx_hash_accumulator);
+    rng.append_tx(tx_hash);
+    rng.append_gas_left(total_gas_remaining);
+    let rng_bytes = rng.derive_bytes(pers, requested_output_len);
+    Ok(Bytes::from(rng_bytes))
 }

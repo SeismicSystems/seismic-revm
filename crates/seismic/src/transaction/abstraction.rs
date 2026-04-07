@@ -6,23 +6,10 @@ use revm::{
     primitives::{Address, Bytes, TxKind, B256, U256},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Indicates the runtime context for the kernel.
-/// Use `Simulation` for endpoints (like eth_call) that need unique entropy,
-/// and `Execution` for normal transaction execution (used for both tests and production).
-pub enum RngMode {
-    Simulation,
-    Execution,
-}
-
 #[auto_impl(&, &mut, Box, Arc)]
 pub trait SeismicTxTr: Transaction {
     /// tx hash of the transaction
     fn tx_hash(&self) -> B256;
-
-    /// rng mode for this transaction
-    fn rng_mode(&self) -> RngMode;
 
     /// Whether this transaction failed calldata decryption.
     fn decryption_failed(&self) -> bool;
@@ -34,7 +21,6 @@ pub struct SeismicTransaction<T: Transaction> {
     pub base: T,
     /// tx hash of the transaction. Used for domain separation in the RNG.
     pub tx_hash: B256,
-    pub rng_mode: RngMode,
     /// Whether this transaction failed decryption. Used for handling execution and metering.
     pub decryption_failed: bool,
 }
@@ -44,18 +30,12 @@ impl<T: Transaction> SeismicTransaction<T> {
         Self {
             base,
             tx_hash: B256::ZERO,
-            rng_mode: RngMode::Execution,
             decryption_failed: false,
         }
     }
 
     pub fn with_tx_hash(mut self, tx_hash: B256) -> Self {
         self.tx_hash = tx_hash;
-        self
-    }
-
-    pub fn with_rng_mode(mut self, rng_mode: RngMode) -> Self {
-        self.rng_mode = rng_mode;
         self
     }
 
@@ -89,7 +69,6 @@ impl Default for SeismicTransaction<TxEnv> {
         Self {
             base: TxEnv::default(),
             tx_hash: B256::ZERO,
-            rng_mode: RngMode::Execution,
             decryption_failed: false,
         }
     }
@@ -177,10 +156,6 @@ impl<T: Transaction> Transaction for SeismicTransaction<T> {
 impl<T: Transaction> SeismicTxTr for SeismicTransaction<T> {
     fn tx_hash(&self) -> B256 {
         self.tx_hash
-    }
-
-    fn rng_mode(&self) -> RngMode {
-        self.rng_mode
     }
 
     fn decryption_failed(&self) -> bool {
