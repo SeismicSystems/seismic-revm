@@ -7,10 +7,8 @@ use bytecode::Bytecode;
 use context_interface::transaction::AuthorizationTr;
 use context_interface::ContextTr;
 use context_interface::{
-    journaled_state::JournalTr,
-    result::InvalidTransaction,
-    transaction::{Transaction, TransactionType},
-    Block, Cfg, Database,
+    journaled_state::JournalTr, result::InvalidTransaction, transaction::Transaction, Block, Cfg,
+    Database,
 };
 use core::cmp::Ordering;
 use primitives::{eip7702, hardfork::SpecId, KECCAK_EMPTY, U256};
