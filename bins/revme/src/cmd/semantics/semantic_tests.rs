@@ -144,12 +144,20 @@ impl SemanticTests {
             return Err(Errors::Skipped(SkipReason::ViaIrOptOut));
         }
         // Check `// optimize:` filter — skip if the current optimizer config doesn't match.
+        //   - `// optimize: false` / `[]`  → only run when optimizer is OFF
+        //   - `// optimize: [200]`         → only run when optimizer is ON with runs=200
+        //   - (not present)                → run with any config
         if let Some(allowed_runs) = extract_optimize_filter(&content) {
-            if solc_args.optimize {
-                if allowed_runs.is_empty() {
+            if allowed_runs.is_empty() {
+                // `false` / `[]` — skip when optimizer is on
+                if solc_args.optimize {
                     return Err(Errors::Skipped(SkipReason::OptimizerFiltered));
                 }
-                // When --optimize is set without --optimizer-runs, solc defaults to 200.
+            } else {
+                // Explicit list — skip when optimizer is off OR runs don't match
+                if !solc_args.optimize {
+                    return Err(Errors::Skipped(SkipReason::OptimizerFiltered));
+                }
                 let effective_runs = solc_args.optimizer_runs.unwrap_or(200);
                 if !allowed_runs.contains(&effective_runs) {
                     return Err(Errors::Skipped(SkipReason::OptimizerFiltered));

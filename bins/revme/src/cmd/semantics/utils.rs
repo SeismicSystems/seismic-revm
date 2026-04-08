@@ -114,10 +114,9 @@ pub(crate) fn extract_compile_via_yul(content: &str) -> Option<bool> {
 ///   - `// optimize: [1, 200]`   → `Some(vec![1, 200])`
 ///   - (not present)             → `None` — no filtering
 ///
-/// When `Some(runs_list)` is returned and the CLI has `--optimize`:
-///   - if `runs_list` is empty → skip the test
-///   - if `runs_list` is non-empty → skip unless `--optimizer-runs` is in the list
-/// When the optimizer is off, the test always runs regardless of this flag.
+/// When `Some(runs_list)` is returned:
+///   - if `runs_list` is empty → only run when optimizer is OFF
+///   - if `runs_list` is non-empty → only run when optimizer is ON and `--optimizer-runs` is in the list
 pub(crate) fn extract_optimize_filter(content: &str) -> Option<Vec<usize>> {
     let parts: Vec<&str> = content.split("// ====").collect();
     if parts.len() < 2 {
