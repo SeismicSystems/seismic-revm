@@ -10,7 +10,9 @@ use super::{
     errors::SkipReason,
     solc_config::SolcArgs,
     test_cases::TestCase,
-    utils::{extract_compile_via_yul, extract_functions_from_source, extract_optimize_filter, needs_eof},
+    utils::{
+        extract_compile_via_yul, extract_functions_from_source, extract_optimize_filter, needs_eof,
+    },
     Errors,
 };
 
