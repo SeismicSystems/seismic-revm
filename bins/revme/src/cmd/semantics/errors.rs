@@ -22,6 +22,8 @@ pub enum SkipReason {
     ViaIrOptOut,
     /// Test requires EOF but `--eof` was not passed
     EofNotEnabled,
+    /// Test's `// optimize:` filter excludes the current optimizer configuration
+    OptimizerFiltered,
 }
 
 impl fmt::Display for SkipReason {
@@ -36,13 +38,16 @@ impl fmt::Display for SkipReason {
             Self::ViaIrSkipped => write!(f, "via-IR required (excluded by --skip-via-ir)"),
             Self::ViaIrOptOut => write!(f, "via-IR opt-out (excluded by --via-ir)"),
             Self::EofNotEnabled => write!(f, "EOF required (use --eof to enable)"),
+            Self::OptimizerFiltered => {
+                write!(f, "optimizer config excluded by // optimize: filter")
+            }
         }
     }
 }
 
 impl SkipReason {
     /// All variants, used for iterating when printing summaries.
-    pub const ALL: [SkipReason; 7] = [
+    pub const ALL: [SkipReason; 8] = [
         Self::MultiSource,
         Self::NonExistingFunctions,
         Self::DebugRevertStrings,
@@ -50,6 +55,7 @@ impl SkipReason {
         Self::ViaIrSkipped,
         Self::ViaIrOptOut,
         Self::EofNotEnabled,
+        Self::OptimizerFiltered,
     ];
 
     /// Stable index for use with `SkipCounts`.
@@ -62,6 +68,7 @@ impl SkipReason {
             Self::ViaIrSkipped => 4,
             Self::ViaIrOptOut => 5,
             Self::EofNotEnabled => 6,
+            Self::OptimizerFiltered => 7,
         }
     }
 }

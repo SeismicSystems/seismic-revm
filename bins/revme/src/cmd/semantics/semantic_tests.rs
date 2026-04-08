@@ -10,7 +10,7 @@ use super::{
     errors::SkipReason,
     solc_config::SolcArgs,
     test_cases::TestCase,
-    utils::{extract_compile_via_yul, extract_functions_from_source, needs_eof},
+    utils::{extract_compile_via_yul, extract_functions_from_source, extract_optimize_filter, needs_eof},
     Errors,
 };
 
@@ -142,6 +142,19 @@ impl SemanticTests {
         // If the test explicitly opts out of via-IR and we're forcing --via-ir, skip it.
         if compile_via_yul == Some(false) && solc_args.via_ir {
             return Err(Errors::Skipped(SkipReason::ViaIrOptOut));
+        }
+        // Check `// optimize:` filter — skip if the current optimizer config doesn't match.
+        if let Some(allowed_runs) = extract_optimize_filter(&content) {
+            if solc_args.optimize {
+                if allowed_runs.is_empty() {
+                    return Err(Errors::Skipped(SkipReason::OptimizerFiltered));
+                }
+                // When --optimize is set without --optimizer-runs, solc defaults to 200.
+                let effective_runs = solc_args.optimizer_runs.unwrap_or(200);
+                if !allowed_runs.contains(&effective_runs) {
+                    return Err(Errors::Skipped(SkipReason::OptimizerFiltered));
+                }
+            }
         }
         let via_ir = compile_via_yul.unwrap_or(false) || solc_args.via_ir;
         let eof_mode = needs_eof(&content);
