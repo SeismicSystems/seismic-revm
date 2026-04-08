@@ -105,6 +105,45 @@ pub(crate) fn extract_compile_via_yul(content: &str) -> Option<bool> {
     None
 }
 
+/// Extract the `// optimize:` filter from a test file.
+///
+/// Syntax (in the `// ====` settings block):
+///   - `// optimize: false`      → `Some(vec![])` — skip when optimizer is on
+///   - `// optimize: []`         → `Some(vec![])` — same as false
+///   - `// optimize: 200`        → `Some(vec![200])`
+///   - `// optimize: [1, 200]`   → `Some(vec![1, 200])`
+///   - (not present)             → `None` — no filtering
+///
+/// When `Some(runs_list)` is returned:
+///   - if `runs_list` is empty → only run when optimizer is OFF
+///   - if `runs_list` is non-empty → only run when optimizer is ON and `--optimizer-runs` is in the list
+pub(crate) fn extract_optimize_filter(content: &str) -> Option<Vec<usize>> {
+    let parts: Vec<&str> = content.split("// ====").collect();
+    if parts.len() < 2 {
+        return None;
+    }
+
+    for line in parts[1].lines() {
+        if let Some(value) = line.trim().strip_prefix("// optimize:") {
+            let value = value.trim();
+            if value == "false" {
+                return Some(vec![]);
+            }
+            // Strip brackets if present: "[1, 200]" -> "1, 200"
+            let inner = value.trim_start_matches('[').trim_end_matches(']').trim();
+            if inner.is_empty() {
+                return Some(vec![]);
+            }
+            let runs: Vec<usize> = inner
+                .split(',')
+                .filter_map(|s| s.trim().parse::<usize>().ok())
+                .collect();
+            return Some(runs);
+        }
+    }
+    None
+}
+
 pub(crate) fn needs_eof(content: &str) -> bool {
     content
         .lines()

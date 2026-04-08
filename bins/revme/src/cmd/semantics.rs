@@ -32,7 +32,7 @@ use crate::cmd::semantics::test_cases::TestCase;
 
 /// Thread-safe counters for tracking skipped test files by reason.
 struct SkipCounts {
-    counts: [AtomicUsize; 7],
+    counts: [AtomicUsize; SkipReason::ALL.len()],
 }
 
 impl SkipCounts {
