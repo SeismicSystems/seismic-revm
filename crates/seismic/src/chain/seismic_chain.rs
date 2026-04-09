@@ -18,6 +18,8 @@ pub struct SeismicChain {
     tx_hash_accumulator: B256,
     /// Total remaining gas across all active call frames, set before precompile dispatch.
     gas_remaining_all_frames: u64,
+    /// If the current transaction used erc20 as gas
+    used_erc20_gas: bool,
 }
 
 impl SeismicChain {
@@ -27,6 +29,7 @@ impl SeismicChain {
             parent_block_hash: B256::ZERO,
             tx_hash_accumulator: B256::ZERO,
             gas_remaining_all_frames: 0,
+            used_erc20_gas: false,
         }
     }
 
@@ -38,6 +41,7 @@ impl SeismicChain {
             parent_block_hash: B256::ZERO,
             tx_hash_accumulator: B256::ZERO,
             gas_remaining_all_frames: 0,
+            used_erc20_gas: false,
         }
     }
 
@@ -47,6 +51,7 @@ impl SeismicChain {
             parent_block_hash: B256::ZERO,
             tx_hash_accumulator: B256::ZERO,
             gas_remaining_all_frames: 0,
+            used_erc20_gas: false,
         }
     }
 
@@ -76,6 +81,18 @@ impl SeismicChain {
 
     pub fn set_tx_hash_accumulator(&mut self, acc: B256) {
         self.tx_hash_accumulator = acc;
+    }
+
+    pub fn set_used_erc20_gas(&mut self) {
+        self.used_erc20_gas = true;
+    }
+
+    pub fn used_erc20_gas(&self) -> bool {
+        self.used_erc20_gas
+    }
+
+    pub fn reset_erc20_gas(&mut self) {
+        self.used_erc20_gas = false;
     }
 
     /// Advance the tx hash accumulator by hashing in the given tx_hash.
