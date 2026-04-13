@@ -232,7 +232,15 @@ where
             // Subtract gas spending (scaled to USDC) — value is transferred during
             // execution. Gas goes directly to the block beneficiary (no treasury
             // middleman, no burn); unused gas is reimbursed later.
-            let gas_spending_usdc = gas_balance_spending / WEI_TO_USDC_DIVISOR;
+            //
+            // Use ceiling division so sub-divisor gas costs still charge at least 1
+            // unit of USDC. Floor division would allow free transactions when
+            // gas_limit * effective_gas_price < WEI_TO_USDC_DIVISOR (10^12 wei).
+            // This matches the ceiling division used in max_gas_spending_usdc above,
+            // so if the pre-flight check passes, the caller's balance can cover this
+            // deduction exactly.
+            let gas_spending_usdc = (gas_balance_spending + WEI_TO_USDC_DIVISOR - U256::from(1))
+                / WEI_TO_USDC_DIVISOR;
             token_operation::<EVM::Context, ERROR>(
                 context,
                 caller,
@@ -266,7 +274,11 @@ where
             let gas = exec_result.gas();
             let reimbursement_wei = effective_gas_price
                 .saturating_mul((gas.remaining() + gas.refunded() as u64) as u128);
-            // Scale wei → USDC (round down; beneficiary keeps dust).
+            // Scale wei → USDC with floor division (beneficiary keeps rounding
+            // dust). This is intentional: deduction ceils and refund floors, so
+            // the beneficiary always captures at most 1 USDC unit of rounding
+            // margin per tx. Using ceil here would risk the refund exceeding
+            // what was deducted in some rounding edge cases.
             let reimbursement_usdc = U256::from(reimbursement_wei) / WEI_TO_USDC_DIVISOR;
             token_operation::<EVM::Context, ERROR>(
                 context,
@@ -949,6 +961,77 @@ mod tests {
             result.is_ok(),
             "USDC check should cover gas only, not value"
         );
+    }
+
+    #[test]
+    fn test_erc20_gas_sub_divisor_charges_at_least_one_unit() {
+        // Regression test for floor-division bug: when gas_balance_spending is
+        // less than WEI_TO_USDC_DIVISOR (10^12 wei), floor division would yield
+        // 0 USDC deducted, allowing free transactions. The fix uses ceiling
+        // division so at least 1 unit of USDC is charged.
+        //
+        // Repro from writeup: baseFee ≈ 7 wei, gas_limit=200_000,
+        // effective_gas_price ≈ 10^6 wei → gas_balance_spending = 2*10^11 wei,
+        // which is < 10^12. Under floor: 0 USDC charged. Under ceil: 1 USDC.
+        let caller = address!("0x0000000000000000000000000000000000001234");
+        let gas_limit: u64 = 200_000;
+        let gas_price: u128 = 1_000_000; // 10^6 wei — sub-divisor
+        let usdc_balance = U256::from(100u64);
+
+        let ctx =
+            build_erc20_ctx(caller, U256::ZERO, usdc_balance, gas_limit, gas_price, U256::ZERO);
+        let mut evm = ctx.build_seismic_evm();
+        let beneficiary = evm.ctx().block().beneficiary();
+
+        let handler =
+            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
+        handler
+            .validate_against_state_and_deduct_caller(&mut evm)
+            .unwrap();
+
+        // gas_balance_spending = 200_000 * 10^6 = 2*10^11 wei (< 10^12).
+        // Ceiling division: ceil(2*10^11 / 10^12) = 1 USDC unit.
+        let caller_after = read_usdc_balance(evm.ctx(), caller);
+        let beneficiary_after = read_usdc_balance(evm.ctx(), beneficiary);
+        assert_eq!(
+            caller_after,
+            usdc_balance - U256::from(1u64),
+            "caller must be charged at least 1 USDC unit for sub-divisor gas costs"
+        );
+        assert_eq!(
+            beneficiary_after,
+            U256::from(1u64),
+            "beneficiary must receive at least 1 USDC unit (no free txs)"
+        );
+    }
+
+    #[test]
+    fn test_erc20_gas_ceil_deduct_matches_pre_flight_check() {
+        // The deduction's ceiling division must produce the same value as the
+        // pre-flight check's ceiling. If the caller has exactly max_gas_spending_usdc
+        // in USDC, the deduction must succeed (not fail with insufficient balance).
+        //
+        // Scenario: gas_limit=100_001, gas_price=10^9 → gas_balance_spending =
+        // 100_001_000_000_000 wei. ceil(./10^12) = 101 USDC.
+        let caller = address!("0x0000000000000000000000000000000000001234");
+        let gas_limit: u64 = 100_001;
+        let gas_price: u128 = 1_000_000_000;
+        let usdc_balance = U256::from(101u64);
+
+        let ctx =
+            build_erc20_ctx(caller, U256::ZERO, usdc_balance, gas_limit, gas_price, U256::ZERO);
+        let mut evm = ctx.build_seismic_evm();
+        let beneficiary = evm.ctx().block().beneficiary();
+
+        let handler =
+            SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
+        handler
+            .validate_against_state_and_deduct_caller(&mut evm)
+            .unwrap();
+
+        // Exactly 101 USDC deducted → caller: 0, beneficiary: 101.
+        assert_eq!(read_usdc_balance(evm.ctx(), caller), U256::ZERO);
+        assert_eq!(read_usdc_balance(evm.ctx(), beneficiary), U256::from(101u64));
     }
 
     #[test]
