@@ -110,10 +110,10 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
         WARM_STORAGE_READ_COST + COLD_SLOAD_COST_ADDITIONAL
     );
 
-    match context.host.cload(target, *index, false) {
-        Ok(storage) => *index = storage.data,
-        Err(_) => return context.interpreter.halt_fatal(),
+    let Some(storage) = context.host.sload(target, *index) else {
+        return context.interpreter.halt_fatal();
     };
+    *index = storage.data;
 }
 
 /// Implements the SSTORE instruction.
