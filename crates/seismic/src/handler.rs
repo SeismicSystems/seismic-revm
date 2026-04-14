@@ -77,12 +77,18 @@ where
         .into());
     }
 
-    context
-        .journal_mut()
-        .cstore(TOKEN, sender_slot, sender_balance.saturating_sub(amount), false)?;
+    context.journal_mut().cstore(
+        TOKEN,
+        sender_slot,
+        sender_balance.saturating_sub(amount),
+        false,
+    )?;
 
     let recipient_slot = erc_address_storage(recipient);
-    let recipient_balance = context.journal_mut().cload(TOKEN, recipient_slot, false)?.data;
+    let recipient_balance = context
+        .journal_mut()
+        .cload(TOKEN, recipient_slot, false)?
+        .data;
     context.journal_mut().cstore(
         TOKEN,
         recipient_slot,
@@ -245,8 +251,8 @@ where
             // This matches the ceiling division used in max_gas_spending_usdc above,
             // so if the pre-flight check passes, the caller's balance can cover this
             // deduction exactly.
-            let gas_spending_usdc = (gas_balance_spending + WEI_TO_USDC_DIVISOR - U256::from(1))
-                / WEI_TO_USDC_DIVISOR;
+            let gas_spending_usdc =
+                (gas_balance_spending + WEI_TO_USDC_DIVISOR - U256::from(1)) / WEI_TO_USDC_DIVISOR;
             token_operation::<EVM::Context, ERROR>(
                 context,
                 caller,
@@ -984,8 +990,14 @@ mod tests {
         let gas_price: u128 = 1_000_000; // 10^6 wei — sub-divisor
         let usdc_balance = U256::from(100u64);
 
-        let ctx =
-            build_erc20_ctx(caller, U256::ZERO, usdc_balance, gas_limit, gas_price, U256::ZERO);
+        let ctx = build_erc20_ctx(
+            caller,
+            U256::ZERO,
+            usdc_balance,
+            gas_limit,
+            gas_price,
+            U256::ZERO,
+        );
         let mut evm = ctx.build_seismic_evm();
         let beneficiary = evm.ctx().block().beneficiary();
 
@@ -1024,8 +1036,14 @@ mod tests {
         let gas_price: u128 = 1_000_000_000;
         let usdc_balance = U256::from(101u64);
 
-        let ctx =
-            build_erc20_ctx(caller, U256::ZERO, usdc_balance, gas_limit, gas_price, U256::ZERO);
+        let ctx = build_erc20_ctx(
+            caller,
+            U256::ZERO,
+            usdc_balance,
+            gas_limit,
+            gas_price,
+            U256::ZERO,
+        );
         let mut evm = ctx.build_seismic_evm();
         let beneficiary = evm.ctx().block().beneficiary();
 
@@ -1037,7 +1055,10 @@ mod tests {
 
         // Exactly 101 USDC deducted → caller: 0, beneficiary: 101.
         assert_eq!(read_usdc_balance(evm.ctx(), caller), U256::ZERO);
-        assert_eq!(read_usdc_balance(evm.ctx(), beneficiary), U256::from(101u64));
+        assert_eq!(
+            read_usdc_balance(evm.ctx(), beneficiary),
+            U256::from(101u64)
+        );
     }
 
     #[test]
