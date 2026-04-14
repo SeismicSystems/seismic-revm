@@ -181,6 +181,8 @@ where
         )?;
 
         let max_balance_spending = tx.max_balance_spending()?;
+        // effective balance is always smaller than max balance so it can't overflow
+        #[allow(clippy::expect_used)]
         let effective_balance_spending = tx
             .effective_balance_spending(basefee, blob_price)
             .expect("effective balance is always smaller than max balance so it can't overflow");
