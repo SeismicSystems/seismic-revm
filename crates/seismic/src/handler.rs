@@ -50,7 +50,12 @@ pub(crate) fn erc_address_storage(addr: Address) -> U256 {
     keccak256(buf).into()
 }
 
-/// Transfers `amount` ERC20 tokens from `sender` to `recipient` via journal sload/sstore.
+/// Transfers `amount` ERC20 tokens from `sender` to `recipient` via journal cload/cstore.
+///
+/// Uses confidential storage operations (cload/cstore) instead of public ones (sload/sstore)
+/// to preserve the `is_private` flag on the USDC balance slots. Using sstore would flip
+/// the privacy bit to `false`, causing subsequent CSTOREs in the EVM execution to revert
+/// with `InvalidPublicStorageAccess`.
 fn token_operation<CTX, ERROR>(
     context: &mut CTX,
     sender: Address,
@@ -62,7 +67,7 @@ where
     ERROR: From<InvalidTransaction> + From<<CTX::Db as Database>::Error>,
 {
     let sender_slot = erc_address_storage(sender);
-    let sender_balance = context.journal_mut().sload(TOKEN, sender_slot)?.data;
+    let sender_balance = context.journal_mut().cload(TOKEN, sender_slot, false)?.data;
 
     if sender_balance < amount {
         return Err(InvalidTransaction::LackOfFundForMaxFee {
@@ -72,16 +77,23 @@ where
         .into());
     }
 
-    context
-        .journal_mut()
-        .sstore(TOKEN, sender_slot, sender_balance.saturating_sub(amount))?;
+    context.journal_mut().cstore(
+        TOKEN,
+        sender_slot,
+        sender_balance.saturating_sub(amount),
+        false,
+    )?;
 
     let recipient_slot = erc_address_storage(recipient);
-    let recipient_balance = context.journal_mut().sload(TOKEN, recipient_slot)?.data;
-    context.journal_mut().sstore(
+    let recipient_balance = context
+        .journal_mut()
+        .cload(TOKEN, recipient_slot, false)?
+        .data;
+    context.journal_mut().cstore(
         TOKEN,
         recipient_slot,
         recipient_balance.saturating_add(amount),
+        false,
     )?;
 
     Ok(())
@@ -169,6 +181,8 @@ where
         )?;
 
         let max_balance_spending = tx.max_balance_spending()?;
+        // effective balance is always smaller than max balance so it can't overflow
+        #[allow(clippy::expect_used)]
         let effective_balance_spending = tx
             .effective_balance_spending(basefee, blob_price)
             .expect("effective balance is always smaller than max balance so it can't overflow");
@@ -211,7 +225,7 @@ where
 
             let account_balance = context
                 .journal_mut()
-                .sload(TOKEN, account_balance_slot)
+                .cload(TOKEN, account_balance_slot, false)
                 .map(|v| v.data)
                 .unwrap_or_default();
 
@@ -239,8 +253,8 @@ where
             // This matches the ceiling division used in max_gas_spending_usdc above,
             // so if the pre-flight check passes, the caller's balance can cover this
             // deduction exactly.
-            let gas_spending_usdc = (gas_balance_spending + WEI_TO_USDC_DIVISOR - U256::from(1))
-                / WEI_TO_USDC_DIVISOR;
+            let gas_spending_usdc =
+                (gas_balance_spending + WEI_TO_USDC_DIVISOR - U256::from(1)) / WEI_TO_USDC_DIVISOR;
             token_operation::<EVM::Context, ERROR>(
                 context,
                 caller,
@@ -616,7 +630,7 @@ mod tests {
             },
         );
 
-        // Seed TOKEN contract account (must exist for sload/sstore).
+        // Seed TOKEN contract account (must exist for cload/cstore).
         db.insert_account_info(TOKEN, AccountInfo::default());
 
         // Seed caller's USDC balance in the TOKEN storage.
@@ -644,7 +658,7 @@ mod tests {
         <CTX::Db as Database>::Error: core::fmt::Debug,
     {
         let slot = erc_address_storage(addr);
-        ctx.journal_mut().sload(TOKEN, slot).unwrap().data
+        ctx.journal_mut().cload(TOKEN, slot, false).unwrap().data
     }
 
     #[test]
@@ -978,8 +992,14 @@ mod tests {
         let gas_price: u128 = 1_000_000; // 10^6 wei — sub-divisor
         let usdc_balance = U256::from(100u64);
 
-        let ctx =
-            build_erc20_ctx(caller, U256::ZERO, usdc_balance, gas_limit, gas_price, U256::ZERO);
+        let ctx = build_erc20_ctx(
+            caller,
+            U256::ZERO,
+            usdc_balance,
+            gas_limit,
+            gas_price,
+            U256::ZERO,
+        );
         let mut evm = ctx.build_seismic_evm();
         let beneficiary = evm.ctx().block().beneficiary();
 
@@ -1018,8 +1038,14 @@ mod tests {
         let gas_price: u128 = 1_000_000_000;
         let usdc_balance = U256::from(101u64);
 
-        let ctx =
-            build_erc20_ctx(caller, U256::ZERO, usdc_balance, gas_limit, gas_price, U256::ZERO);
+        let ctx = build_erc20_ctx(
+            caller,
+            U256::ZERO,
+            usdc_balance,
+            gas_limit,
+            gas_price,
+            U256::ZERO,
+        );
         let mut evm = ctx.build_seismic_evm();
         let beneficiary = evm.ctx().block().beneficiary();
 
@@ -1031,7 +1057,10 @@ mod tests {
 
         // Exactly 101 USDC deducted → caller: 0, beneficiary: 101.
         assert_eq!(read_usdc_balance(evm.ctx(), caller), U256::ZERO);
-        assert_eq!(read_usdc_balance(evm.ctx(), beneficiary), U256::from(101u64));
+        assert_eq!(
+            read_usdc_balance(evm.ctx(), beneficiary),
+            U256::from(101u64)
+        );
     }
 
     #[test]
