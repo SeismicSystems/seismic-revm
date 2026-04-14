@@ -50,7 +50,12 @@ pub(crate) fn erc_address_storage(addr: Address) -> U256 {
     keccak256(buf).into()
 }
 
-/// Transfers `amount` ERC20 tokens from `sender` to `recipient` via journal sload/sstore.
+/// Transfers `amount` ERC20 tokens from `sender` to `recipient` via journal cload/cstore.
+///
+/// Uses confidential storage operations (cload/cstore) instead of public ones (sload/sstore)
+/// to preserve the `is_private` flag on the USDC balance slots. Using sstore would flip
+/// the privacy bit to `false`, causing subsequent CSTOREs in the EVM execution to revert
+/// with `InvalidPublicStorageAccess`.
 fn token_operation<CTX, ERROR>(
     context: &mut CTX,
     sender: Address,
@@ -62,7 +67,7 @@ where
     ERROR: From<InvalidTransaction> + From<<CTX::Db as Database>::Error>,
 {
     let sender_slot = erc_address_storage(sender);
-    let sender_balance = context.journal_mut().sload(TOKEN, sender_slot)?.data;
+    let sender_balance = context.journal_mut().cload(TOKEN, sender_slot, false)?.data;
 
     if sender_balance < amount {
         return Err(InvalidTransaction::LackOfFundForMaxFee {
@@ -74,14 +79,15 @@ where
 
     context
         .journal_mut()
-        .sstore(TOKEN, sender_slot, sender_balance.saturating_sub(amount))?;
+        .cstore(TOKEN, sender_slot, sender_balance.saturating_sub(amount), false)?;
 
     let recipient_slot = erc_address_storage(recipient);
-    let recipient_balance = context.journal_mut().sload(TOKEN, recipient_slot)?.data;
-    context.journal_mut().sstore(
+    let recipient_balance = context.journal_mut().cload(TOKEN, recipient_slot, false)?.data;
+    context.journal_mut().cstore(
         TOKEN,
         recipient_slot,
         recipient_balance.saturating_add(amount),
+        false,
     )?;
 
     Ok(())
@@ -211,7 +217,7 @@ where
 
             let account_balance = context
                 .journal_mut()
-                .sload(TOKEN, account_balance_slot)
+                .cload(TOKEN, account_balance_slot, false)
                 .map(|v| v.data)
                 .unwrap_or_default();
 
@@ -616,7 +622,7 @@ mod tests {
             },
         );
 
-        // Seed TOKEN contract account (must exist for sload/sstore).
+        // Seed TOKEN contract account (must exist for cload/cstore).
         db.insert_account_info(TOKEN, AccountInfo::default());
 
         // Seed caller's USDC balance in the TOKEN storage.
@@ -644,7 +650,7 @@ mod tests {
         <CTX::Db as Database>::Error: core::fmt::Debug,
     {
         let slot = erc_address_storage(addr);
-        ctx.journal_mut().sload(TOKEN, slot).unwrap().data
+        ctx.journal_mut().cload(TOKEN, slot, false).unwrap().data
     }
 
     #[test]
