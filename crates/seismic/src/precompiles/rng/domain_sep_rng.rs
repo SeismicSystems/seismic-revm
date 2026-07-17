@@ -1,9 +1,9 @@
-//! Domain-separated RNG using HKDF-SHA256 with a Schnorrkel key.
+//! Domain-separated RNG using HKDF-SHA256.
 //!
 //! For each precompile call, random bytes are derived via:
 //! ```text
 //! HKDF-SHA256(
-//!   ikm  = schnorrkel_keypair.secret.to_bytes(),  // 64-byte expanded secret key
+//!   ikm  = rng_ikm,  // the node's 64-byte rng key material
 //!   salt = b"seismic rng context",
 //!   info = domain_data || b"pers" || pers
 //! ) → output bytes
@@ -13,8 +13,7 @@
 //! then derives output. There is no persistent state between calls.
 use hkdf::Hkdf;
 use revm::primitives::B256;
-pub use schnorrkel::keys::Keypair as SchnorrkelKeypair;
-use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
+use seismic_crypto::get_unsecure_sample_schnorrkel_keypair;
 use sha2::Sha256;
 
 /// RNG domain separation salt.
@@ -25,27 +24,26 @@ const RNG_SALT: &[u8] = b"seismic rng context";
 /// Constructed fresh for each precompile call. Domain separation data
 /// (tx hash, gas left) is appended before derivation.
 pub struct RootRng {
-    /// The 64-byte expanded secret key from the schnorrkel keypair.
+    /// The 64-byte HKDF input key material.
     key_bytes: [u8; 64],
     /// Accumulated domain separation info (tx hashes, gas values, etc.).
     domain_data: Vec<u8>,
 }
 
 impl RootRng {
-    /// Create a new root RNG from a schnorrkel keypair.
-    pub fn new(keypair: SchnorrkelKeypair) -> Self {
-        let key_bytes = keypair.secret.to_bytes();
+    /// Create a new root RNG from 64 bytes of HKDF input key material.
+    pub fn new(rng_ikm: [u8; 64]) -> Self {
         Self {
-            key_bytes,
+            key_bytes: rng_ikm,
             domain_data: Vec::new(),
         }
     }
 
-    /// A default RNG for testing that loads a sample keypair.
+    /// A default RNG for testing that loads a sample key.
     /// We do not implement the Default trait because
     /// it might be misleading or error-prone.
     pub fn test_default() -> Self {
-        Self::new(get_unsecure_sample_schnorrkel_keypair())
+        Self::new(get_unsecure_sample_schnorrkel_keypair().secret.to_bytes())
     }
 
     /// Append the parent block hash to the domain separation data.

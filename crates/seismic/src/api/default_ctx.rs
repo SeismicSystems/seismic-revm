@@ -19,8 +19,8 @@ pub type SeismicContext<DB> = Context<
 pub trait DefaultSeismicContext {
     /// Create a context that uses a random rng key for precompile everytime.
     fn seismic_with_random_rng_key() -> SeismicContext<EmptyDB>;
-    /// Create a context with a specific RNG keypair.
-    fn seismic_with_rng_key(rng_keypair: schnorrkel::Keypair) -> SeismicContext<EmptyDB>;
+    /// Create a context with specific RNG input key material.
+    fn seismic_with_rng_key(rng_ikm: [u8; 64]) -> SeismicContext<EmptyDB>;
 }
 
 impl DefaultSeismicContext for SeismicContext<EmptyDB> {
@@ -31,11 +31,11 @@ impl DefaultSeismicContext for SeismicContext<EmptyDB> {
             .with_chain(SeismicChain::with_random_rng_key())
     }
 
-    fn seismic_with_rng_key(rng_keypair: schnorrkel::Keypair) -> Self {
+    fn seismic_with_rng_key(rng_ikm: [u8; 64]) -> Self {
         Context::mainnet()
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
-            .with_chain(SeismicChain::with_live_rng_key(rng_keypair))
+            .with_chain(SeismicChain::with_live_rng_key(rng_ikm))
     }
 }
 

@@ -42,7 +42,7 @@ default-members = ["crates/revm"]
 
 [workspace.dependencies]
 seismic-revm = { path = "crates/seismic" }
-seismic-enclave = { version = "0.1.0" }
+seismic-crypto = { version = "0.1.0" }
 cargo_metadata = "0.18"
 
 # revm
@@ -179,5 +179,5 @@ inherits = "test"
 opt-level = 3
 
 [patch.crates-io]
-seismic-enclave = { git = "https://github.com/SeismicSystems/enclave.git", rev = "f90b02f38a6190e8b2ff2d051d9043f3480cd3ac" }
+seismic-crypto = { git = "https://github.com/SeismicSystems/enclave.git", rev = "8274f14cbbad76daadad3aaa1d6d0418b3eeffc0" }
 alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }

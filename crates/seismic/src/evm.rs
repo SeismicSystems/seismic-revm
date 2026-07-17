@@ -360,7 +360,7 @@ mod tests {
         spec: SeismicSpecId,
         bytes_requested: u32,
         personalization: Vec<u8>,
-        keypair: schnorrkel::Keypair,
+        rng_ikm: [u8; 64],
     ) -> Context<
         BlockEnv,
         SeismicTransaction<TxEnv>,
@@ -379,7 +379,7 @@ mod tests {
         let total_gas =
             initial_gas + calculate_gas_cost(bytes_requested as usize, personalization.len());
 
-        Context::seismic_with_rng_key(keypair)
+        Context::seismic_with_rng_key(rng_ikm)
             .modify_tx_chained(|tx| {
                 tx.base.kind = TxKind::Call(u64_to_address(rng::precompile::RNG_ADDRESS));
                 tx.base.data = input;
@@ -390,18 +390,18 @@ mod tests {
 
     #[test]
     fn test_rng_precompile_expected_output() {
-        use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
+        use seismic_crypto::get_unsecure_sample_schnorrkel_keypair;
 
         let bytes_requested: u32 = 32;
         let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
-        let keypair = get_unsecure_sample_schnorrkel_keypair();
+        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
 
         // Get EVM output
         let ctx = rng_test_tx(
             SeismicSpecId::MERCURY,
             bytes_requested,
             personalization.clone(),
-            keypair.clone(),
+            ikm,
         );
 
         let mut evm = ctx.build_seismic_evm();
@@ -421,7 +421,7 @@ mod tests {
             SeismicSpecId::MERCURY,
             bytes_requested,
             personalization,
-            keypair,
+            ikm,
         );
         let mut evm2 = ctx2.build_seismic_evm();
         let output2 = evm2.replay().unwrap();

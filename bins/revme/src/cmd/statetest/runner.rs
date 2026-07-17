@@ -17,8 +17,7 @@ use revm::{
     Context, ExecuteCommitEvm,
 };
 use seismic_revm::{
-    precompiles::rng::domain_sep_rng::SchnorrkelKeypair, DefaultSeismicContext, SeismicBuilder,
-    SeismicSpecId as SpecId, SeismicTransaction,
+    DefaultSeismicContext, SeismicBuilder, SeismicSpecId as SpecId, SeismicTransaction,
 };
 use serde_json::json;
 use statetest_types::{SpecName, Test, TestSuite, TestUnit};
@@ -36,6 +35,10 @@ use std::{
 };
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
+
+/// Fixed rng key for state-test execution; Ethereum state tests never call
+/// the RNG precompile, so the value is arbitrary.
+const FIXED_TEST_RNG_IKM: [u8; 64] = [0; 64];
 
 /// Error that occurs during test execution
 #[derive(Debug, Error)]
@@ -474,13 +477,12 @@ fn debug_failed_test(ctx: DebugContext) {
         .with_bundle_update()
         .build();
 
-    let mut evm =
-        Context::seismic_with_rng_key(SchnorrkelKeypair::from_bytes(&[0; 96]).expect("safe"))
-            .with_db(&mut state)
-            .with_block(ctx.block)
-            .with_tx(ctx.tx)
-            .with_cfg(ctx.cfg)
-            .build_seismic_evm_with_inspector(TracerEip3155::buffered(stderr()).without_summary());
+    let mut evm = Context::seismic_with_rng_key(FIXED_TEST_RNG_IKM)
+        .with_db(&mut state)
+        .with_block(ctx.block)
+        .with_tx(ctx.tx)
+        .with_cfg(ctx.cfg)
+        .build_seismic_evm_with_inspector(TracerEip3155::buffered(stderr()).without_summary());
 
     let exec_result = evm.inspect_tx_commit(ctx.tx);
 
