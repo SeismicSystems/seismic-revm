@@ -12,7 +12,7 @@ use crate::{
 Constants & Setup
 -------------------------------------------------------------------------- */
 
-// The RNG precompile derives random bytes via HKDF-SHA256 using a schnorrkel key.
+// The RNG precompile derives random bytes via HKDF-SHA256 from the node's rng key.
 // Each call is stateless: the same (key, tx_hash, gas_left, pers) always produces
 // the same output. Domain separation comes from tx_hash and gas_left appended
 // to the HKDF info parameter.
@@ -56,7 +56,7 @@ Precompile Logic
 /// We interpret the input as a `[u8]` slice of bytes used as personalization
 /// for the RNG derivation.
 ///
-/// Using HKDF-SHA256 with the schnorrkel keypair as input key material,
+/// Using HKDF-SHA256 with the node's rng key as input key material,
 /// and domain separation data (tx_hash, gas_left) plus personalization as the
 /// HKDF info parameter, we derive the requested number of random bytes.
 ///

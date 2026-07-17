@@ -3,7 +3,7 @@ use revm::precompile::{
     u64_to_address, Precompile, PrecompileError, PrecompileId, PrecompileOutput, PrecompileResult,
 };
 
-use seismic_enclave::{
+use seismic_crypto::{
     derive_aes_key, secp256k1::ecdh::SharedSecret, secp256k1::PublicKey, secp256k1::SecretKey,
 };
 
@@ -60,7 +60,7 @@ const DERIVE_SYM_KEY_COST: u64 = SHARED_SECRET_COST + EXPAND_FIXED_COST;
 ///
 /// Steps:
 /// 1) Compute ECDH shared secret using `pk * sk`.
-/// 2) Derive a 32-byte AES key from the shared secret via `seismic_enclave::derive_aes_key`,
+/// 2) Derive a 32-byte AES key from the shared secret via `seismic_crypto::derive_aes_key`,
 ///    which internally runs HKDF-SHA256 (see separate doc for gas breakdown).
 ///
 /// Returns the 32-byte AES key if successful, or an error otherwise.

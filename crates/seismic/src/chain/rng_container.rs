@@ -13,7 +13,7 @@ pub fn derive_rng_output(
     pers: &[u8],
     requested_output_len: usize,
     tx_hash: &B256,
-    live_key: schnorrkel::Keypair,
+    live_key: [u8; 64],
     parent_block_hash: &B256,
     tx_hash_accumulator: &B256,
     total_gas_remaining: u64,

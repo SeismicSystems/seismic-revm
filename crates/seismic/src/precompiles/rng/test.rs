@@ -7,8 +7,8 @@
 
 use super::*;
 use domain_sep_rng::RootRng;
+use rand::RngCore;
 use revm::primitives::B256;
-use schnorrkel::{keys::Keypair as SchnorrkelKeypair, ExpansionMode};
 use std::str::FromStr;
 
 fn hex_to_hash_bytes(input: &str) -> B256 {
@@ -102,15 +102,13 @@ fn test_rng_gas_domain_separation() {
 
 #[test]
 fn test_rng_different_keys_different_output() {
-    let keypair1: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate()
-        .expand(ExpansionMode::Uniform)
-        .into();
-    let keypair2: SchnorrkelKeypair = schnorrkel::MiniSecretKey::generate()
-        .expand(ExpansionMode::Uniform)
-        .into();
+    let mut ikm1 = [0u8; 64];
+    rand::rng().fill_bytes(&mut ikm1);
+    let mut ikm2 = [0u8; 64];
+    rand::rng().fill_bytes(&mut ikm2);
 
-    let root_rng1 = RootRng::new(keypair1);
-    let root_rng2 = RootRng::new(keypair2);
+    let root_rng1 = RootRng::new(ikm1);
+    let root_rng2 = RootRng::new(ikm2);
 
     let bytes1 = root_rng1.derive_bytes(&[], 32);
     let bytes2 = root_rng2.derive_bytes(&[], 32);

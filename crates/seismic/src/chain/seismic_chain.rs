@@ -1,16 +1,15 @@
+use rand::RngCore;
 use revm::{
     precompile::PrecompileError,
     primitives::{keccak256, Bytes, B256},
 };
-use schnorrkel::ExpansionMode;
 
 use super::rng_container::derive_rng_output;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SeismicChain {
-    // TODO: replace with plain [u8; 64] — we only use .secret.to_bytes() as HKDF input,
-    // no schnorrkel crypto. Kept as Keypair because seismic-enclave provisions it this way currently.
-    live_rng_key: schnorrkel::Keypair,
+    /// HKDF input key material for the RNG precompile (64 bytes).
+    live_rng_key: [u8; 64],
     /// Parent block hash for RNG domain separation. Set once at block start.
     parent_block_hash: B256,
     /// Running hash of prior transaction hashes in the current block.
@@ -22,10 +21,22 @@ pub struct SeismicChain {
     used_erc20_gas: bool,
 }
 
+/// Redacted: `live_rng_key` seeds every RNG-precompile output.
+impl core::fmt::Debug for SeismicChain {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SeismicChain")
+            .field("parent_block_hash", &self.parent_block_hash)
+            .field("tx_hash_accumulator", &self.tx_hash_accumulator)
+            .field("gas_remaining_all_frames", &self.gas_remaining_all_frames)
+            .field("used_erc20_gas", &self.used_erc20_gas)
+            .finish_non_exhaustive()
+    }
+}
+
 impl SeismicChain {
-    pub fn new(root_vrf_key: schnorrkel::Keypair) -> Self {
+    pub fn new(rng_ikm: [u8; 64]) -> Self {
         Self {
-            live_rng_key: root_vrf_key,
+            live_rng_key: rng_ikm,
             parent_block_hash: B256::ZERO,
             tx_hash_accumulator: B256::ZERO,
             gas_remaining_all_frames: 0,
@@ -33,11 +44,15 @@ impl SeismicChain {
         }
     }
 
+    /// A chain seeded with a fresh random rng key, for execution contexts that
+    /// run without provisioned network keys (sforge, sanvil, state tests).
+    /// Consensus nodes inject their network's key instead — RNG-precompile
+    /// outputs are consensus-visible.
     pub fn with_random_rng_key() -> Self {
+        let mut random_ikm = [0u8; 64];
+        rand::rng().fill_bytes(&mut random_ikm);
         Self {
-            live_rng_key: schnorrkel::MiniSecretKey::generate()
-                .expand(ExpansionMode::Uniform)
-                .into(),
+            live_rng_key: random_ikm,
             parent_block_hash: B256::ZERO,
             tx_hash_accumulator: B256::ZERO,
             gas_remaining_all_frames: 0,
@@ -45,7 +60,7 @@ impl SeismicChain {
         }
     }
 
-    pub fn with_live_rng_key(live_rng_key: schnorrkel::Keypair) -> Self {
+    pub fn with_live_rng_key(live_rng_key: [u8; 64]) -> Self {
         Self {
             live_rng_key,
             parent_block_hash: B256::ZERO,
@@ -55,8 +70,8 @@ impl SeismicChain {
         }
     }
 
-    pub fn set_rng_key(&mut self, root_vrf_key: schnorrkel::Keypair) {
-        self.live_rng_key = root_vrf_key;
+    pub fn set_rng_key(&mut self, rng_ikm: [u8; 64]) {
+        self.live_rng_key = rng_ikm;
     }
 
     pub fn gas_remaining_all_frames(&self) -> u64 {
@@ -115,7 +130,7 @@ impl SeismicChain {
             pers,
             requested_output_len,
             tx_hash,
-            self.live_rng_key.clone(),
+            self.live_rng_key,
             &self.parent_block_hash,
             &self.tx_hash_accumulator,
             total_gas_remaining,
@@ -128,12 +143,12 @@ mod tests {
     #![allow(clippy::unwrap_used)]
 
     use super::*;
-    use seismic_enclave::get_unsecure_sample_schnorrkel_keypair;
+    use seismic_crypto::get_unsecure_sample_schnorrkel_keypair;
 
     #[test]
     fn test_execution_mode_same_inputs_same_output() {
-        let keypair = get_unsecure_sample_schnorrkel_keypair();
-        let chain = SeismicChain::new(keypair);
+        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let chain = SeismicChain::new(ikm);
 
         let tx_hash = B256::from([1u8; 32]);
         let pers = b"test_pers";
@@ -149,8 +164,8 @@ mod tests {
 
     #[test]
     fn test_execution_mode_different_pers_different_output() {
-        let keypair = get_unsecure_sample_schnorrkel_keypair();
-        let chain = SeismicChain::new(keypair);
+        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let chain = SeismicChain::new(ikm);
 
         let tx_hash = B256::from([1u8; 32]);
 
@@ -165,8 +180,8 @@ mod tests {
 
     #[test]
     fn test_execution_mode_different_tx_hash_different_output() {
-        let keypair = get_unsecure_sample_schnorrkel_keypair();
-        let chain = SeismicChain::new(keypair);
+        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let chain = SeismicChain::new(ikm);
 
         let pers = b"test_pers";
 
@@ -185,9 +200,9 @@ mod tests {
 
     #[test]
     fn test_execution_mode_deterministic_across_chains() {
-        let keypair = get_unsecure_sample_schnorrkel_keypair();
-        let chain1 = SeismicChain::new(keypair.clone());
-        let chain2 = SeismicChain::new(keypair);
+        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let chain1 = SeismicChain::new(ikm);
+        let chain2 = SeismicChain::new(ikm);
 
         let tx_hash = B256::from([1u8; 32]);
         let pers = b"test_pers";
@@ -203,9 +218,9 @@ mod tests {
 
     #[test]
     fn test_different_parent_block_hash_different_output() {
-        let keypair = get_unsecure_sample_schnorrkel_keypair();
-        let mut chain1 = SeismicChain::new(keypair.clone());
-        let mut chain2 = SeismicChain::new(keypair);
+        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let mut chain1 = SeismicChain::new(ikm);
+        let mut chain2 = SeismicChain::new(ikm);
 
         chain1.set_parent_block_hash(B256::from([1u8; 32]));
         chain2.set_parent_block_hash(B256::from([2u8; 32]));
@@ -224,9 +239,9 @@ mod tests {
 
     #[test]
     fn test_different_tx_hash_accumulator_different_output() {
-        let keypair = get_unsecure_sample_schnorrkel_keypair();
-        let mut chain1 = SeismicChain::new(keypair.clone());
-        let mut chain2 = SeismicChain::new(keypair);
+        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let mut chain1 = SeismicChain::new(ikm);
+        let mut chain2 = SeismicChain::new(ikm);
 
         chain1.set_tx_hash_accumulator(B256::from([1u8; 32]));
         chain2.set_tx_hash_accumulator(B256::from([2u8; 32]));
@@ -245,8 +260,8 @@ mod tests {
 
     #[test]
     fn test_advance_tx_accumulator() {
-        let keypair = get_unsecure_sample_schnorrkel_keypair();
-        let mut chain = SeismicChain::new(keypair);
+        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let mut chain = SeismicChain::new(ikm);
 
         assert_eq!(*chain.tx_hash_accumulator(), B256::ZERO);
 
@@ -269,8 +284,8 @@ mod tests {
 
     #[test]
     fn test_accumulator_affects_rng_output() {
-        let keypair = get_unsecure_sample_schnorrkel_keypair();
-        let mut chain = SeismicChain::new(keypair);
+        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let mut chain = SeismicChain::new(ikm);
         chain.set_parent_block_hash(B256::from([0xFF; 32]));
 
         let tx_hash = B256::from([0xAA; 32]);
