@@ -470,6 +470,11 @@ mod tests {
 
         impl crate::instructions::seismic_host::SeismicHost for MockCstoreHost {
             type Db = EmptyDB;
+
+            fn tx_type(&self) -> u8 {
+                0
+            }
+
             #[allow(static_mut_refs)]
             fn ctx_error(
                 &mut self,
@@ -805,6 +810,10 @@ mod tests {
 
         impl crate::instructions::seismic_host::SeismicHost for MockStorageHost {
             type Db = EmptyDB;
+
+            fn tx_type(&self) -> u8 {
+                0
+            }
 
             #[allow(static_mut_refs)]
             fn ctx_error(

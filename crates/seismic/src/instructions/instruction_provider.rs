@@ -18,6 +18,7 @@ use crate::{
             ct_eq_instruction, ct_gt_instruction, ct_iszero_instruction, ct_lt_instruction,
             ct_sgt_instruction, ct_slt_instruction,
         },
+        tx_info::txtype_instruction,
     },
     SeismicHost,
 };
@@ -25,6 +26,8 @@ use crate::{
 /// Custom opcodes for CLOAD and CSTORE
 pub const CLOAD: u8 = 0xB0;
 pub const CSTORE: u8 = 0xB1;
+/// Pushes the EIP-2718 transaction-type byte (Seismic tx = `74`).
+pub const TXTYPE: u8 = 0xB2;
 
 /// Seismic instruction provider that adds our instruction set
 pub struct SeismicInstructions<WIRE: InterpreterTypes, HOST> {
@@ -50,6 +53,7 @@ where
         // NOTE: static_gas is 0 because gas is dynamic for these
         table[CLOAD as usize] = cload_instruction();
         table[CSTORE as usize] = cstore_instruction();
+        table[TXTYPE as usize] = txtype_instruction();
         table[SLOAD as usize] = seismic_sload_instruction();
         table[SSTORE as usize] = seismic_sstore_instruction();
 
@@ -147,6 +151,16 @@ mod tests {
             "CSTORE (0xB1) should be our cstore handler"
         );
 
+        // Verify TXTYPE is registered and is our txtype handler
+        assert!(
+            !table[TXTYPE as usize].equal(&unknown_instruction),
+            "TXTYPE (0xB2) should not be the unknown instruction"
+        );
+        assert!(
+            table[TXTYPE as usize].equal(&txtype_instruction()),
+            "TXTYPE (0xB2) should be our txtype handler"
+        );
+
         // Verify SSTORE is our SSTORE
         assert!(
             table[SSTORE as usize].equal(&seismic_sstore_instruction()),
@@ -228,6 +242,7 @@ mod tests {
         for i in 0..256 {
             if i != CLOAD as usize
                 && i != CSTORE as usize
+                && i != TXTYPE as usize
                 && i != SLOAD as usize
                 && i != SSTORE as usize
                 && i != EQ as usize
