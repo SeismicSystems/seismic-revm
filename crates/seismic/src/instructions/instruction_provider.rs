@@ -167,6 +167,16 @@ mod tests {
             "CLOAD (0xB0) should be our cload handler"
         );
 
+        // Regression guard: TXTYPE (0xB2) must be an UNASSIGNED slot in the base
+        // upstream table. If a future revm bump assigns 0xB2, our override would
+        // silently shadow it (and the parity test's exclusion list would hide
+        // it). This test fails loudly in that case so the collision is caught.
+        let base_table = instruction_table::<EthInterpreter, SeismicDummyHost>();
+        assert!(
+            base_table[TXTYPE as usize].equal(&unknown_instruction),
+            "0xB2 must be unassigned upstream; revm now defines it — TXTYPE would shadow the upstream opcode"
+        );
+
         // Verify SLOAD is our SLOAD
         assert!(
             table[SLOAD as usize].equal(&seismic_sload_instruction()),
