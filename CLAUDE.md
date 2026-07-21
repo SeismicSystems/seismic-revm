@@ -121,7 +121,7 @@ Rust workspace using Cargo. MSRV: **1.88.0**. Output binary: `target/debug/revme
 - Rust toolchain >= 1.88.0 (`rustup update stable`)
 - C compiler (for native crypto deps: `blst`, `c-kzg`, `secp256k1-sys`, `gmp-mpfr-sys`)
 - GMP library (for `rug`/`gmp-mpfr-sys` crate used by modexp precompile)
-- Git (workspace has git dependencies on `seismic-enclave` and `seismic-alloy-core`)
+- Git (workspace has git dependencies on `seismic-crypto` and `seismic-alloy-core`)
 
 ### macOS
 
@@ -296,7 +296,7 @@ The RNG precompile is **stateful** — it maintains an internal counter per tran
 1. **Trait-based extensibility**: Custom EVM variants (Seismic, Optimism) plug in via traits — `Database`, `Inspector`, `Host`, `Transaction`, `Block`. The handler pattern controls execution flow.
 2. **no_std support**: All core crates work in `no_std` environments. Use `--no-default-features` to disable `std`.
 3. **Feature flags**: Key features — `std` (default), `serde`, `c-kzg`, `blst`, `secp256k1`, `portable`, `hashbrown`. The `dev` feature enables relaxed validation for testing.
-4. **Git-patched dependencies**: `Cargo.toml` patches `seismic-enclave` and `alloy-primitives` to Seismic forks (see `[patch.crates-io]`).
+4. **Git-patched dependencies**: `Cargo.toml` patches `seismic-crypto` and `alloy-primitives` to Seismic forks (see `[patch.crates-io]`).
 
 ## Code Style
 
