@@ -179,5 +179,5 @@ inherits = "test"
 opt-level = 3
 
 [patch.crates-io]
-seismic-crypto = { git = "https://github.com/SeismicSystems/enclave.git", rev = "8274f14cbbad76daadad3aaa1d6d0418b3eeffc0" }
+seismic-crypto = { git = "https://github.com/SeismicSystems/enclave.git", rev = "26fdf9f2823459c05b0d70b6c528e12ae32f7e11" }
 alloy-primitives = { git = "https://github.com/SeismicSystems/seismic-alloy-core.git", rev = "994f7b3fbc4582c2e06a00d03c7f3fe476b1b7c7" }
