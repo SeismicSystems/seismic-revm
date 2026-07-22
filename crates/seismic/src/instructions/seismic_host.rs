@@ -16,8 +16,7 @@ pub trait SeismicHost: Host {
 
     fn ctx_error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>>;
 
-    /// Transaction type byte (EIP-2718) of the currently executing transaction.
-    /// A Seismic (encrypted-calldata) transaction has type `74` (`0x4A`).
+    /// EIP-2718 transaction-type byte of the current transaction (Seismic = 74).
     fn tx_type(&self) -> u8;
 
     fn set_ctx_error<E>(&mut self, error: E)
