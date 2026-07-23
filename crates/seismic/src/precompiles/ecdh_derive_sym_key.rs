@@ -5,6 +5,7 @@ use revm::precompile::{
 
 use seismic_crypto::{
     derive_aes_key, secp256k1::ecdh::SharedSecret, secp256k1::PublicKey, secp256k1::SecretKey,
+    AesKeyDomain,
 };
 
 /// Address of ECDH precompile.
@@ -62,6 +63,8 @@ const DERIVE_SYM_KEY_COST: u64 = SHARED_SECRET_COST + EXPAND_FIXED_COST;
 /// 1) Compute ECDH shared secret using `pk * sk`.
 /// 2) Derive a 32-byte AES key from the shared secret via `seismic_crypto::derive_aes_key`,
 ///    which internally runs HKDF-SHA256 (see separate doc for gas breakdown).
+///    That domain's HKDF label is consensus-frozen: contracts observe this
+///    output, so changing it would be a hard fork.
 ///
 /// Returns the 32-byte AES key if successful, or an error otherwise.
 ///
@@ -96,10 +99,10 @@ pub fn derive_symmetric_key(input: &[u8], gas_limit: u64) -> PrecompileResult {
 
     let shared_secret = SharedSecret::new(&public_key, &secret_key);
 
-    let aes_key = derive_aes_key(&shared_secret)
+    let aes_key = derive_aes_key(&shared_secret, AesKeyDomain::EcdhPrecompile)
         .map_err(|e| PrecompileError::Other(format!("aes derivation failed: {e}")))?;
 
-    // SAFETY: derive_aes_key always returns 32-byte AES-256 key
+    // SAFETY: derive_aes_key always returns a 32-byte AES-256 key
     #[allow(clippy::expect_used)]
     let output_32: [u8; 32] = aes_key.to_vec().try_into().expect("must be 32 bytes");
 
