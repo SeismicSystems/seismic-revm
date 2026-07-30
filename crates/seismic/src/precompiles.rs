@@ -364,4 +364,28 @@ mod tests {
             warm_addresses.len()
         );
     }
+
+    #[test]
+    fn test_precompile_addresses_unique_and_txinfo_registered() {
+        use crate::precompiles::tx_info::TX_INFO_ADDRESS;
+        use revm::precompile::u64_to_address;
+        use std::collections::HashSet;
+
+        let (stateless, stateful) = mercury::<SeismicContext<EmptyDB>>();
+        let stateless_addrs: HashSet<Address> = stateless.addresses().copied().collect();
+
+        // tx-info (0x6A) is registered as a stateful precompile.
+        assert!(
+            stateful.contains(&u64_to_address(TX_INFO_ADDRESS)),
+            "0x6A tx-info precompile must be registered"
+        );
+
+        // No stateful precompile shadows a stateless one (guards the 0x65-shadows-ECDH class of bug).
+        for addr in stateful.addresses() {
+            assert!(
+                !stateless_addrs.contains(addr),
+                "stateful precompile {addr} collides with a stateless precompile"
+            );
+        }
+    }
 }
