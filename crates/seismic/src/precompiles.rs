@@ -23,6 +23,7 @@ pub mod hkdf_derive_sym_key;
 pub mod rng;
 pub mod secp256k1_sign;
 pub mod stateful_precompile;
+pub mod tx_info;
 pub use stateful_precompile::StatefulPrecompiles;
 
 use crate::{api::exec::SeismicContextTr, SeismicSpecId};
@@ -103,6 +104,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
     //TODO: check how expensive is the below instead of a single init! issue with generics
     let mut stateful_precompiles = StatefulPrecompiles::new();
     stateful_precompiles.extend(rng::precompile::rng_precompile_iter::<CTX>().map(|p| (p.0, p.1)));
+    stateful_precompiles.extend([tx_info::tx_info_precompile::<CTX>().into()]);
     (regular_precompiles, stateful_precompiles)
 }
 
