@@ -9,11 +9,12 @@ use crate::{
 };
 
 // Returns the current transaction's EIP-2718 type byte (74 = Seismic) so a contract can detect a
-// Seismic execution context without a dedicated opcode. Input is ignored; output is the type as a
-// 32-byte big-endian word (abi `uint256`).
+// Seismic execution context without a dedicated opcode. Takes no input (non-empty calldata is
+// rejected); output is the type as a 32-byte big-endian word (abi `uint256`).
 pub const TX_INFO_ADDRESS: u64 = 106; // Hex address `0x6A`.
 
-// Flat cost for a single transaction-context read.
+// Flat cost for a single transaction-context read. NOTE: this is a consensus parameter — changing
+// it after activation is itself a hardfork.
 pub const TX_INFO_BASE_COST: u64 = 20;
 
 pub fn tx_info_precompile<CTX: SeismicContextTr>() -> StatefulPrecompileWithAddress<CTX> {
@@ -22,11 +23,17 @@ pub fn tx_info_precompile<CTX: SeismicContextTr>() -> StatefulPrecompileWithAddr
 
 fn tx_info<CTX: SeismicContextTr>(
     evmctx: &mut CTX,
-    _input: &Bytes,
+    input: &Bytes,
     gas_limit: u64,
 ) -> PrecompileResult {
     if gas_limit < TX_INFO_BASE_COST {
         return Err(PrecompileError::OutOfGas);
+    }
+    // Takes no input. Reject non-empty calldata so a future versioned/selector ABI stays open.
+    if !input.is_empty() {
+        return Err(PrecompileError::Other(
+            "tx-info precompile takes no input".to_string(),
+        ));
     }
 
     let mut out = [0u8; 32];
@@ -74,20 +81,29 @@ mod tests {
     }
 
     #[test]
-    fn tx_info_ignores_input() {
+    fn tx_info_rejects_nonempty_input() {
         let mut ctx = ctx_with_tx_type(74);
-        let out = tx_info_precompile::<SeismicContext<EmptyDB>>().1(
+        let res = tx_info_precompile::<SeismicContext<EmptyDB>>().1(
             &mut ctx,
             &Bytes::from_static(b"arbitrary input"),
             1000,
-        )
-        .unwrap();
-        assert_eq!(out.bytes[31], 74);
+        );
+        assert!(
+            matches!(res, Err(PrecompileError::Other(_))),
+            "non-empty input must be rejected"
+        );
     }
 
     #[test]
-    fn tx_info_out_of_gas() {
+    fn tx_info_charges_exactly_base_cost() {
         let mut ctx = ctx_with_tx_type(74);
+        // Exact threshold succeeds; one below is OutOfGas.
+        assert!(tx_info_precompile::<SeismicContext<EmptyDB>>().1(
+            &mut ctx,
+            &Bytes::new(),
+            TX_INFO_BASE_COST
+        )
+        .is_ok());
         let res = tx_info_precompile::<SeismicContext<EmptyDB>>().1(
             &mut ctx,
             &Bytes::new(),
