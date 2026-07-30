@@ -23,6 +23,7 @@ pub mod hkdf_derive_sym_key;
 pub mod rng;
 pub mod secp256k1_sign;
 pub mod stateful_precompile;
+pub mod tx_type;
 pub use stateful_precompile::StatefulPrecompiles;
 
 use crate::{api::exec::SeismicContextTr, SeismicSpecId};
@@ -102,7 +103,13 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
 
     //TODO: check how expensive is the below instead of a single init! issue with generics
     let mut stateful_precompiles = StatefulPrecompiles::new();
-    stateful_precompiles.extend(rng::precompile::rng_precompile_iter::<CTX>().map(|p| (p.0, p.1)));
+    stateful_precompiles.extend(
+        rng::precompile::rng_precompile_iter::<CTX>()
+            .map(|p| (p.0, p.1))
+            .chain(core::iter::once(
+                tx_type::tx_type_precompile::<CTX>().into(),
+            )),
+    );
     (regular_precompiles, stateful_precompiles)
 }
 
@@ -323,6 +330,36 @@ mod tests {
         assert_eq!(
             output_bytes, output_bytes2,
             "Same inputs with live key should produce identical output (stateless)"
+        );
+    }
+
+    #[test]
+    fn test_seismic_precompiles_tx_type() {
+        use crate::precompiles::tx_type::{TX_TYPE_ADDRESS, TX_TYPE_GAS_COST};
+        use crate::transaction::abstraction::SeismicTransaction;
+        use revm::{context::TxEnv, precompile::u64_to_address};
+
+        let mut precompiles =
+            SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
+        let mut context = SeismicContext::<EmptyDB>::seismic_with_random_rng_key().with_tx(
+            SeismicTransaction::new(TxEnv {
+                tx_type: 74,
+                ..Default::default()
+            }),
+        );
+        let address = u64_to_address(TX_TYPE_ADDRESS);
+
+        assert!(precompiles.contains(&address));
+
+        let result = precompiles
+            .run(&mut context, &call_inputs(vec![], address))
+            .expect("transaction-type precompile call should not be fatal")
+            .expect("transaction-type precompile should be registered");
+
+        assert_eq!(result.gas.remaining(), 10_000 - TX_TYPE_GAS_COST);
+        assert_eq!(
+            result.output,
+            Bytes::copy_from_slice(&U256::from(74).to_be_bytes::<32>())
         );
     }
 
