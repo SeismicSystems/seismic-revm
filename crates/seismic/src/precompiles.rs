@@ -23,7 +23,7 @@ pub mod hkdf_derive_sym_key;
 pub mod rng;
 pub mod secp256k1_sign;
 pub mod stateful_precompile;
-pub mod tx_info;
+pub mod tx_type;
 pub use stateful_precompile::StatefulPrecompiles;
 
 use crate::{api::exec::SeismicContextTr, SeismicSpecId};
@@ -104,7 +104,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
     //TODO: check how expensive is the below instead of a single init! issue with generics
     let mut stateful_precompiles = StatefulPrecompiles::new();
     stateful_precompiles.extend(rng::precompile::rng_precompile_iter::<CTX>().map(|p| (p.0, p.1)));
-    stateful_precompiles.extend([tx_info::tx_info_precompile::<CTX>().into()]);
+    stateful_precompiles.extend([tx_type::tx_type_precompile::<CTX>().into()]);
     (regular_precompiles, stateful_precompiles)
 }
 
@@ -268,11 +268,9 @@ mod tests {
             SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
         let ikm = well_known_rng_ikm();
         let mut context = SeismicContext::<EmptyDB>::seismic_with_rng_key(ikm);
-        let rng_address = *precompiles
-            .stateful_precompiles
-            .addresses()
-            .next()
-            .expect("RNG precompile address should exist");
+        // Address the RNG precompile explicitly — `addresses()` iterates a HashSet, so `.next()`
+        // is nondeterministic once more than one stateful precompile is registered.
+        let rng_address = revm::precompile::u64_to_address(rng::precompile::RNG_ADDRESS);
 
         let bytes_requested: u32 = 32;
         let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
@@ -338,11 +336,9 @@ mod tests {
         let warm_addresses: Vec<Address> = precompiles.warm_addresses().collect();
 
         // Verify RNG address is included
-        let rng_address = *precompiles
-            .stateful_precompiles
-            .addresses()
-            .next()
-            .expect("RNG precompile address should exist");
+        // Address the RNG precompile explicitly — `addresses()` iterates a HashSet, so `.next()`
+        // is nondeterministic once more than one stateful precompile is registered.
+        let rng_address = revm::precompile::u64_to_address(rng::precompile::RNG_ADDRESS);
         assert!(
             warm_addresses.contains(&rng_address),
             "warm_addresses() should include RNG precompile address"
@@ -367,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_precompile_addresses_unique_and_txinfo_registered() {
-        use crate::precompiles::tx_info::TX_INFO_ADDRESS;
+        use crate::precompiles::tx_type::TX_TYPE_ADDRESS;
         use revm::precompile::u64_to_address;
         use std::collections::HashSet;
 
@@ -376,8 +372,8 @@ mod tests {
 
         // tx-info (0x6A) is registered as a stateful precompile.
         assert!(
-            stateful.contains(&u64_to_address(TX_INFO_ADDRESS)),
-            "0x6A tx-info precompile must be registered"
+            stateful.contains(&u64_to_address(TX_TYPE_ADDRESS)),
+            "0x6A tx-type precompile must be registered"
         );
 
         // No stateful precompile shadows a stateless one (guards the 0x65-shadows-ECDH class of bug).
