@@ -3,6 +3,7 @@
 > **This repo is `seismic-revm`, a fork of [REVM](https://github.com/bluealloy/revm).**
 > The first part of this file is the upstream CLAUDE.md, preserved verbatim so upstream merges apply cleanly.
 > The [Seismic Fork Extensions](#seismic-fork-extensions) section below contains all Seismic-specific context and **takes precedence** where it overlaps with upstream (build commands, test commands, lint, architecture, etc.).
+> **Workspace context**: this repo is part of the multi-repo Seismic workspace. If the workspace file isn't already in your context, read `../CLAUDE.md` (sibling checkout) or fetch [CLAUDE.workspace.md](https://github.com/SeismicSystems/seismic/blob/main/workspace/CLAUDE.workspace.md) (standalone checkout/CI) for key concepts, the repo map, and cross-repo conventions.
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
