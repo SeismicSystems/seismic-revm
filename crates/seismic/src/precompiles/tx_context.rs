@@ -15,25 +15,25 @@ use crate::{
 //   (empty)  -> EIP-2718 tx type (74 = Seismic)
 //   [0x01]   -> signed_read flag (1 = authenticated signed read, 0 otherwise)
 // Any other input is rejected, keeping the selector space open for future fields.
-pub const TX_TYPE_ADDRESS: u64 = 106; // Hex address `0x6A`.
+pub const TX_CONTEXT_ADDRESS: u64 = 106; // Hex address `0x6A`.
 
 // Selector for the signed-read flag. An empty input keeps returning the tx type (backward compat).
 pub const SIGNED_READ_SELECTOR: u8 = 0x01;
 
 // Flat cost for a single transaction-context read. NOTE: this is a consensus parameter — changing
 // it after activation is itself a hardfork.
-pub const TX_TYPE_GAS_COST: u64 = 20;
+pub const TX_CONTEXT_GAS_COST: u64 = 20;
 
-pub fn tx_type_precompile<CTX: SeismicContextTr>() -> StatefulPrecompileWithAddress<CTX> {
-    StatefulPrecompileWithAddress(u64_to_address(TX_TYPE_ADDRESS), tx_type::<CTX>)
+pub fn tx_context_precompile<CTX: SeismicContextTr>() -> StatefulPrecompileWithAddress<CTX> {
+    StatefulPrecompileWithAddress(u64_to_address(TX_CONTEXT_ADDRESS), tx_context::<CTX>)
 }
 
-fn tx_type<CTX: SeismicContextTr>(
+fn tx_context<CTX: SeismicContextTr>(
     evmctx: &mut CTX,
     input: &Bytes,
     gas_limit: u64,
 ) -> PrecompileResult {
-    if gas_limit < TX_TYPE_GAS_COST {
+    if gas_limit < TX_CONTEXT_GAS_COST {
         return Err(PrecompileError::OutOfGas);
     }
     // The input selects which context field to read; unknown selectors are rejected so the ABI
@@ -43,14 +43,14 @@ fn tx_type<CTX: SeismicContextTr>(
         [SIGNED_READ_SELECTOR] => evmctx.tx().signed_read() as u64,
         _ => {
             return Err(PrecompileError::Other(
-                "tx-type precompile: unknown selector".to_string(),
+                "tx-context precompile: unknown selector".to_string(),
             ))
         }
     };
 
     let output = U256::from(value).to_be_bytes::<32>();
     Ok(PrecompileOutput::new(
-        TX_TYPE_GAS_COST,
+        TX_CONTEXT_GAS_COST,
         Bytes::copy_from_slice(&output),
     ))
 }
@@ -86,9 +86,9 @@ mod tests {
         for ty in [0u8, 1, 2, 74, 255] {
             let mut ctx = ctx_with_tx_type(ty);
             let out =
-                tx_type_precompile::<SeismicContext<EmptyDB>>().1(&mut ctx, &Bytes::new(), 1000)
+                tx_context_precompile::<SeismicContext<EmptyDB>>().1(&mut ctx, &Bytes::new(), 1000)
                     .unwrap();
-            assert_eq!(out.gas_used, TX_TYPE_GAS_COST);
+            assert_eq!(out.gas_used, TX_CONTEXT_GAS_COST);
             assert_eq!(out.bytes.len(), 32, "must be a 32-byte abi uint256");
             assert_eq!(out.bytes[31], ty, "low byte is the tx type ({ty})");
             assert!(
@@ -102,13 +102,13 @@ mod tests {
     fn signed_read_selector_returns_flag() {
         for sr in [false, true] {
             let mut ctx = ctx_with_signed_read(sr);
-            let out = tx_type_precompile::<SeismicContext<EmptyDB>>().1(
+            let out = tx_context_precompile::<SeismicContext<EmptyDB>>().1(
                 &mut ctx,
                 &Bytes::from_static(&[SIGNED_READ_SELECTOR]),
                 1000,
             )
             .unwrap();
-            assert_eq!(out.gas_used, TX_TYPE_GAS_COST);
+            assert_eq!(out.gas_used, TX_CONTEXT_GAS_COST);
             assert_eq!(out.bytes.len(), 32, "must be a 32-byte abi uint256");
             assert_eq!(
                 out.bytes[31], sr as u8,
@@ -126,7 +126,7 @@ mod tests {
         let mut ctx = ctx_with_tx_type(74);
         // An unknown 1-byte selector and any multi-byte input are both rejected (fail-closed).
         for bad in [vec![0x00u8], vec![0x02], b"arbitrary input".to_vec()] {
-            let res = tx_type_precompile::<SeismicContext<EmptyDB>>().1(
+            let res = tx_context_precompile::<SeismicContext<EmptyDB>>().1(
                 &mut ctx,
                 &Bytes::from(bad),
                 1000,
@@ -142,16 +142,16 @@ mod tests {
     fn tx_type_charges_exactly_base_cost() {
         let mut ctx = ctx_with_tx_type(74);
         // Exact threshold succeeds; one below is OutOfGas.
-        assert!(tx_type_precompile::<SeismicContext<EmptyDB>>().1(
+        assert!(tx_context_precompile::<SeismicContext<EmptyDB>>().1(
             &mut ctx,
             &Bytes::new(),
-            TX_TYPE_GAS_COST
+            TX_CONTEXT_GAS_COST
         )
         .is_ok());
-        let res = tx_type_precompile::<SeismicContext<EmptyDB>>().1(
+        let res = tx_context_precompile::<SeismicContext<EmptyDB>>().1(
             &mut ctx,
             &Bytes::new(),
-            TX_TYPE_GAS_COST - 1,
+            TX_CONTEXT_GAS_COST - 1,
         );
         assert!(matches!(res, Err(PrecompileError::OutOfGas)));
     }
