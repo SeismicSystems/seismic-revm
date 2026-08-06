@@ -6,12 +6,19 @@ use revm::{
 
 use crate::{
     api::exec::SeismicContextTr, precompiles::stateful_precompile::StatefulPrecompileWithAddress,
+    transaction::abstraction::SeismicTxTr,
 };
 
-// Returns the current transaction's EIP-2718 type byte (74 = Seismic) so a contract can detect a
-// Seismic execution context without a dedicated opcode. Takes no input (non-empty calldata is
-// rejected); output is the type as a 32-byte big-endian word (abi `uint256`).
+// Exposes read-only transaction-context flags so a contract can detect a Seismic execution context
+// without a dedicated opcode. The 1-byte input selects the field; output is a 32-byte big-endian
+// word (abi `uint256`):
+//   (empty)  -> EIP-2718 tx type (74 = Seismic)
+//   [0x01]   -> signed_read flag (1 = authenticated signed read, 0 otherwise)
+// Any other input is rejected, keeping the selector space open for future fields.
 pub const TX_TYPE_ADDRESS: u64 = 106; // Hex address `0x6A`.
+
+// Selector for the signed-read flag. An empty input keeps returning the tx type (backward compat).
+pub const SIGNED_READ_SELECTOR: u8 = 0x01;
 
 // Flat cost for a single transaction-context read. NOTE: this is a consensus parameter — changing
 // it after activation is itself a hardfork.
@@ -29,14 +36,19 @@ fn tx_type<CTX: SeismicContextTr>(
     if gas_limit < TX_TYPE_GAS_COST {
         return Err(PrecompileError::OutOfGas);
     }
-    // Takes no input. Reject non-empty calldata so a future versioned/selector ABI stays open.
-    if !input.is_empty() {
-        return Err(PrecompileError::Other(
-            "tx-type precompile takes no input".to_string(),
-        ));
-    }
+    // The input selects which context field to read; unknown selectors are rejected so the ABI
+    // stays extensible (and so nodes without a given selector fail closed rather than return 0).
+    let value: u64 = match input.as_ref() {
+        [] => evmctx.tx().tx_type() as u64,
+        [SIGNED_READ_SELECTOR] => evmctx.tx().signed_read() as u64,
+        _ => {
+            return Err(PrecompileError::Other(
+                "tx-type precompile: unknown selector".to_string(),
+            ))
+        }
+    };
 
-    let output = U256::from(evmctx.tx().tx_type()).to_be_bytes::<32>();
+    let output = U256::from(value).to_be_bytes::<32>();
     Ok(PrecompileOutput::new(
         TX_TYPE_GAS_COST,
         Bytes::copy_from_slice(&output),
@@ -62,6 +74,13 @@ mod tests {
         })
     }
 
+    fn ctx_with_signed_read(signed_read: bool) -> SeismicContext<EmptyDB> {
+        Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
+            tx.base.tx_type = 74; // a signed read is always Seismic-typed
+            tx.signed_read = signed_read;
+        })
+    }
+
     #[test]
     fn tx_type_returns_type_as_uint256() {
         for ty in [0u8, 1, 2, 74, 255] {
@@ -80,17 +99,43 @@ mod tests {
     }
 
     #[test]
-    fn tx_type_rejects_nonempty_input() {
+    fn signed_read_selector_returns_flag() {
+        for sr in [false, true] {
+            let mut ctx = ctx_with_signed_read(sr);
+            let out = tx_type_precompile::<SeismicContext<EmptyDB>>().1(
+                &mut ctx,
+                &Bytes::from_static(&[SIGNED_READ_SELECTOR]),
+                1000,
+            )
+            .unwrap();
+            assert_eq!(out.gas_used, TX_TYPE_GAS_COST);
+            assert_eq!(out.bytes.len(), 32, "must be a 32-byte abi uint256");
+            assert_eq!(
+                out.bytes[31], sr as u8,
+                "low byte is the signed_read flag ({sr})"
+            );
+            assert!(
+                out.bytes[..31].iter().all(|b| *b == 0),
+                "upper bytes must be zero"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_selector_rejected() {
         let mut ctx = ctx_with_tx_type(74);
-        let res = tx_type_precompile::<SeismicContext<EmptyDB>>().1(
-            &mut ctx,
-            &Bytes::from_static(b"arbitrary input"),
-            1000,
-        );
-        assert!(
-            matches!(res, Err(PrecompileError::Other(_))),
-            "non-empty input must be rejected"
-        );
+        // An unknown 1-byte selector and any multi-byte input are both rejected (fail-closed).
+        for bad in [vec![0x00u8], vec![0x02], b"arbitrary input".to_vec()] {
+            let res = tx_type_precompile::<SeismicContext<EmptyDB>>().1(
+                &mut ctx,
+                &Bytes::from(bad),
+                1000,
+            );
+            assert!(
+                matches!(res, Err(PrecompileError::Other(_))),
+                "unknown selector must be rejected"
+            );
+        }
     }
 
     #[test]
