@@ -51,6 +51,10 @@ serde_json = { workspace = true, features = ["alloc"] }
 name = "constant_time"
 harness = false
 
+[[bench]]
+name = "precompiles"
+harness = false
+
 [features]
 default = ["std", "c-kzg", "portable", "blst"]
 timestamp-in-seconds = ["revm/timestamp-in-seconds"]
