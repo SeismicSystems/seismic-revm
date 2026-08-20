@@ -13,7 +13,6 @@
 //! then derives output. There is no persistent state between calls.
 use hkdf::Hkdf;
 use revm::primitives::B256;
-use seismic_crypto::get_unsecure_sample_schnorrkel_keypair;
 use sha2::Sha256;
 
 /// RNG domain separation salt.
@@ -37,13 +36,6 @@ impl RootRng {
             key_bytes: rng_ikm,
             domain_data: Vec::new(),
         }
-    }
-
-    /// A default RNG for testing that loads a sample key.
-    /// We do not implement the Default trait because
-    /// it might be misleading or error-prone.
-    pub fn test_default() -> Self {
-        Self::new(get_unsecure_sample_schnorrkel_keypair().secret.to_bytes())
     }
 
     /// Append the parent block hash to the domain separation data.
