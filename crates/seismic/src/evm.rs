@@ -390,11 +390,11 @@ mod tests {
 
     #[test]
     fn test_rng_precompile_expected_output() {
-        use seismic_crypto::get_unsecure_sample_schnorrkel_keypair;
+        use seismic_crypto::well_known_rng_ikm;
 
         let bytes_requested: u32 = 32;
         let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
 
         // Get EVM output
         let ctx = rng_test_tx(

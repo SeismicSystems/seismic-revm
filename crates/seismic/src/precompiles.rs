@@ -260,11 +260,11 @@ mod tests {
 
     #[test]
     fn test_seismic_precompiles_rng() {
-        use seismic_crypto::get_unsecure_sample_schnorrkel_keypair;
+        use seismic_crypto::well_known_rng_ikm;
 
         let mut precompiles =
             SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
         let mut context = SeismicContext::<EmptyDB>::seismic_with_rng_key(ikm);
         let rng_address = *precompiles
             .stateful_precompiles

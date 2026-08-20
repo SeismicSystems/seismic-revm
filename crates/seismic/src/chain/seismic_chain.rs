@@ -143,11 +143,11 @@ mod tests {
     #![allow(clippy::unwrap_used)]
 
     use super::*;
-    use seismic_crypto::get_unsecure_sample_schnorrkel_keypair;
+    use seismic_crypto::well_known_rng_ikm;
 
     #[test]
     fn test_execution_mode_same_inputs_same_output() {
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
         let chain = SeismicChain::new(ikm);
 
         let tx_hash = B256::from([1u8; 32]);
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_execution_mode_different_pers_different_output() {
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
         let chain = SeismicChain::new(ikm);
 
         let tx_hash = B256::from([1u8; 32]);
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_execution_mode_different_tx_hash_different_output() {
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
         let chain = SeismicChain::new(ikm);
 
         let pers = b"test_pers";
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn test_execution_mode_deterministic_across_chains() {
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
         let chain1 = SeismicChain::new(ikm);
         let chain2 = SeismicChain::new(ikm);
 
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_different_parent_block_hash_different_output() {
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
         let mut chain1 = SeismicChain::new(ikm);
         let mut chain2 = SeismicChain::new(ikm);
 
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_different_tx_hash_accumulator_different_output() {
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
         let mut chain1 = SeismicChain::new(ikm);
         let mut chain2 = SeismicChain::new(ikm);
 
@@ -260,7 +260,7 @@ mod tests {
 
     #[test]
     fn test_advance_tx_accumulator() {
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
         let mut chain = SeismicChain::new(ikm);
 
         assert_eq!(*chain.tx_hash_accumulator(), B256::ZERO);
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_accumulator_affects_rng_output() {
-        let ikm = get_unsecure_sample_schnorrkel_keypair().secret.to_bytes();
+        let ikm = well_known_rng_ikm();
         let mut chain = SeismicChain::new(ikm);
         chain.set_parent_block_hash(B256::from([0xFF; 32]));
 

@@ -9,6 +9,7 @@ use super::*;
 use domain_sep_rng::RootRng;
 use rand::RngCore;
 use revm::primitives::B256;
+use seismic_crypto::well_known_rng_ikm;
 use std::str::FromStr;
 
 fn hex_to_hash_bytes(input: &str) -> B256 {
@@ -18,7 +19,7 @@ fn hex_to_hash_bytes(input: &str) -> B256 {
 #[test]
 fn test_rng_basic() {
     // First derivation with empty pers
-    let root_rng = RootRng::test_default();
+    let root_rng = RootRng::new(well_known_rng_ikm());
     let bytes1 = root_rng.derive_bytes(&[], 32);
 
     // Same RNG, same pers — should produce the same output (stateless derivation)
@@ -29,7 +30,7 @@ fn test_rng_basic() {
     );
 
     // Create second root RNG using the same keypair — should produce the same output
-    let root_rng2 = RootRng::test_default();
+    let root_rng2 = RootRng::new(well_known_rng_ikm());
     let bytes2 = root_rng2.derive_bytes(&[], 32);
     assert_eq!(
         bytes1, bytes2,
@@ -44,7 +45,7 @@ fn test_rng_basic() {
     );
 
     // Appending a tx hash should change the output
-    let mut root_rng3 = RootRng::test_default();
+    let mut root_rng3 = RootRng::new(well_known_rng_ikm());
     root_rng3.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -52,7 +53,7 @@ fn test_rng_basic() {
     assert_ne!(bytes1, bytes4, "tx hash should change output");
 
     // Different tx hash should produce different output
-    let mut root_rng4 = RootRng::test_default();
+    let mut root_rng4 = RootRng::new(well_known_rng_ikm());
     root_rng4.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
@@ -63,7 +64,7 @@ fn test_rng_basic() {
     );
 
     // Same tx hash as root_rng3 should produce the same output
-    let mut root_rng5 = RootRng::test_default();
+    let mut root_rng5 = RootRng::new(well_known_rng_ikm());
     root_rng5.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -71,7 +72,7 @@ fn test_rng_basic() {
     assert_eq!(bytes4, bytes6, "same tx hash should be deterministic");
 
     // Multiple tx hashes should produce different output than single
-    let mut root_rng6 = RootRng::test_default();
+    let mut root_rng6 = RootRng::new(well_known_rng_ikm());
     root_rng6.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -84,12 +85,12 @@ fn test_rng_basic() {
 
 #[test]
 fn test_rng_gas_domain_separation() {
-    let mut root_rng1 = RootRng::test_default();
+    let mut root_rng1 = RootRng::new(well_known_rng_ikm());
     root_rng1.append_tx(&B256::from([1u8; 32]));
     root_rng1.append_gas_left(1000);
     let bytes1 = root_rng1.derive_bytes(&[], 32);
 
-    let mut root_rng2 = RootRng::test_default();
+    let mut root_rng2 = RootRng::new(well_known_rng_ikm());
     root_rng2.append_tx(&B256::from([1u8; 32]));
     root_rng2.append_gas_left(2000);
     let bytes2 = root_rng2.derive_bytes(&[], 32);
@@ -121,7 +122,7 @@ fn test_rng_different_keys_different_output() {
 
 #[test]
 fn test_large_output() {
-    let root_rng = RootRng::test_default();
+    let root_rng = RootRng::new(well_known_rng_ikm());
 
     // Request more than the HKDF single-expand limit (8160 bytes)
     let large_output = root_rng.derive_bytes(b"large", 10000);
