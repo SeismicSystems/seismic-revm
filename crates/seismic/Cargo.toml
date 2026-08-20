@@ -1,0 +1,88 @@
+[package]
+name = "seismic-revm"
+description = "Seismic variant of Revm"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints.rust]
+unreachable_pub = "warn"
+unused_must_use = "deny"
+rust_2018_idioms = "deny"
+
+[lints.rustdoc]
+all = "warn"
+
+[dependencies]
+# revm
+revm = { workspace = true }
+auto_impl.workspace = true
+
+# static precompile sets.
+once_cell = { version = "1.21", features = ["alloc"] }
+
+# Optional
+serde = { workspace = true, features = ["derive", "rc"], optional = true }
+
+# seismic
+hkdf = { version = "0.12", default-features = false }
+rand.workspace = true
+seismic-crypto = { workspace = true }
+sha2 = { workspace = true } 
+secp256k1 = { workspace = true, features = ["recovery"] }
+
+[dev-dependencies]
+anyhow.workspace = true
+criterion.workspace = true
+indicatif.workspace = true
+rstest.workspace = true
+alloy-sol-types.workspace = true
+serde_json = { workspace = true, features = ["alloc"] }
+
+[[bench]]
+name = "constant_time"
+harness = false
+
+[features]
+default = ["std", "c-kzg", "portable", "blst"]
+timestamp-in-seconds = ["revm/timestamp-in-seconds"]
+std = [
+	"serde?/std",
+	"revm/std",
+	"alloy-sol-types/std",
+	"once_cell/std",
+	"sha2/std",
+	"serde_json/std",
+	"secp256k1/std",
+]
+hashbrown = ["revm/hashbrown"]
+serde = [
+	"dep:serde",
+	"revm/serde",
+]
+portable = ["revm/portable"]
+
+dev = [
+    "memory_limit",
+    "optional_balance_check",
+    "optional_block_gas_limit",
+    "optional_eip3607",
+    "optional_no_base_fee",
+]
+memory_limit = ["revm/memory_limit"]
+optional_balance_check = ["revm/optional_balance_check"]
+optional_block_gas_limit = ["revm/optional_block_gas_limit"]
+optional_eip3607 = ["revm/optional_eip3607"]
+optional_no_base_fee = ["revm/optional_no_base_fee"]
+
+# See comments in `revm-precompile`
+c-kzg = ["revm/c-kzg"]
+blst = ["revm/blst"]

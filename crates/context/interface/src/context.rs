@@ -4,7 +4,7 @@ use crate::{
     result::FromStringError, Block, Cfg, Database, Host, JournalTr, LocalContextTr, Transaction,
 };
 use auto_impl::auto_impl;
-use primitives::StorageValue;
+use primitives::FlaggedStorage;
 use std::string::String;
 
 /// Trait that defines the context of the EVM execution.
@@ -106,11 +106,11 @@ impl<DbError> From<DbError> for ContextError<DbError> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SStoreResult {
     /// Value of the storage when it is first read
-    pub original_value: StorageValue,
+    pub original_value: FlaggedStorage,
     /// Current value of the storage
-    pub present_value: StorageValue,
+    pub present_value: FlaggedStorage,
     /// New value that is set
-    pub new_value: StorageValue,
+    pub new_value: FlaggedStorage,
 }
 
 impl SStoreResult {

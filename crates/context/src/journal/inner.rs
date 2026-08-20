@@ -9,6 +9,7 @@ use context_interface::{
 };
 use core::mem;
 use database_interface::Database;
+use primitives::alloy_primitives::FlaggedStorage;
 use primitives::{
     hardfork::SpecId::{self, *},
     hash_map::Entry,
@@ -64,6 +65,29 @@ impl<ENTRY: JournalEntryTr> Default for JournalInner<ENTRY> {
 }
 
 impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
+    /// Loads the private storage value from Journal state.
+    pub fn cload<DB: Database>(
+        &mut self,
+        db: &mut DB,
+        address: Address,
+        key: StorageKey,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<U256>, JournalLoadError<DB::Error>> {
+        self.load_inner(db, address, key, skip_cold_load)
+    }
+
+    /// Stores the private storage value in Journal state.
+    pub fn cstore<DB: Database>(
+        &mut self,
+        db: &mut DB,
+        address: Address,
+        key: StorageKey,
+        value: U256,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
+        self.store(db, address, key, value, skip_cold_load, true)
+    }
+
     /// Creates new [`JournalInner`].
     ///
     /// `warm_preloaded_addresses` is used to determine if address is considered warm loaded.
@@ -555,6 +579,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                     == SelfdestructionRevertStatus::RepeatedSelfdestruction,
             },
             is_cold,
+            is_private: false,
         })
     }
 
@@ -595,6 +620,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 is_empty,
             },
             account.is_cold,
+            false,
         );
 
         // load delegate code if account is EIP-7702
@@ -664,6 +690,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 StateLoad {
                     data: account,
                     is_cold,
+                    is_private: false,
                 }
             }
             Entry::Vacant(vac) => {
@@ -683,6 +710,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 StateLoad {
                     data: vac.insert(account),
                     is_cold,
+                    is_private: false,
                 }
             }
         };
@@ -723,7 +751,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     ///
     /// Panics if the account is not present in the state.
     #[inline]
-    pub fn sload<DB: Database>(
+    fn load_inner<DB: Database>(
         &mut self,
         db: &mut DB,
         address: Address,
@@ -744,19 +772,44 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         )
     }
 
-    /// Stores storage slot.
-    ///
-    /// And returns (original,present,new) slot value.
-    ///
-    /// **Note**: Account should already be present in our state.
+    /// Loads public storage slot
+    pub fn sload<DB: Database>(
+        &mut self,
+        db: &mut DB,
+        address: Address,
+        key: StorageKey,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
+        self.load_inner(db, address, key, skip_cold_load)
+    }
+
+    /// Stores public storage value
     #[inline]
     pub fn sstore<DB: Database>(
         &mut self,
         db: &mut DB,
         address: Address,
         key: StorageKey,
+        value: U256,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
+        self.store(db, address, key, value, skip_cold_load, false)
+    }
+
+    /// Stores storage slot.
+    ///
+    /// And returns (original,present,new) slot value.
+    ///
+    /// **Note**: Account should already be present in our state.
+    #[inline]
+    pub fn store<DB: Database>(
+        &mut self,
+        db: &mut DB,
+        address: Address,
+        key: StorageKey,
         new: StorageValue,
         skip_cold_load: bool,
+        is_private: bool,
     ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
         // assume that acc exists and load the slot.
         let present = self.sload(db, address, key, skip_cold_load)?;
@@ -766,28 +819,31 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         let slot = acc.storage.get_mut(&key).unwrap();
 
         // new value is same as present, we don't need to do anything
-        if present.data == new {
+        let present_value = FlaggedStorage::new(present.data, present.is_private);
+        if present_value == FlaggedStorage::new(new, is_private) {
             return Ok(StateLoad::new(
                 SStoreResult {
                     original_value: slot.original_value(),
-                    present_value: present.data,
-                    new_value: new,
+                    present_value,
+                    new_value: FlaggedStorage::new(new, is_private),
                 },
                 present.is_cold,
+                is_private,
             ));
         }
 
         self.journal
-            .push(ENTRY::storage_changed(address, key, present.data));
+            .push(ENTRY::storage_changed(address, key, present_value));
         // insert value into present state.
-        slot.present_value = new;
+        slot.present_value = FlaggedStorage::new(new, is_private);
         Ok(StateLoad::new(
             SStoreResult {
                 original_value: slot.original_value(),
-                present_value: present.data,
-                new_value: new,
+                present_value,
+                new_value: FlaggedStorage::new(new, is_private),
             },
             present.is_cold,
+            is_private,
         ))
     }
 
@@ -795,7 +851,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     ///
     /// EIP-1153: Transient storage opcodes
     #[inline]
-    pub fn tload(&mut self, address: Address, key: StorageKey) -> StorageValue {
+    pub fn tload(&mut self, address: Address, key: StorageKey) -> U256 {
         self.transient_storage
             .get(&(address, key))
             .copied()
@@ -809,7 +865,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
     ///
     /// EIP-1153: Transient storage opcodes
     #[inline]
-    pub fn tstore(&mut self, address: Address, key: StorageKey, new: StorageValue) {
+    pub fn tstore(&mut self, address: Address, key: StorageKey, new: U256) {
         let had_value = if new.is_zero() {
             // if new values is zero, remove entry from transient storage.
             // if previous values was some insert it inside journal.
@@ -856,31 +912,33 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
     key: StorageKey,
     skip_cold_load: bool,
 ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
+    // only if account is created in this tx we can assume that storage is empty.
     let is_newly_created = account.is_created();
-    let (value, is_cold) = match account.storage.entry(key) {
+    let (value, is_cold, is_private) = match account.storage.entry(key) {
         Entry::Occupied(occ) => {
             let slot = occ.into_mut();
-            // skip load if account is cold.
             let is_cold = slot.is_cold_transaction_id(transaction_id);
             if skip_cold_load && is_cold {
                 return Err(JournalLoadError::ColdLoadSkipped);
             }
-            slot.mark_warm_with_transaction_id(transaction_id);
-            (slot.present_value, is_cold)
+            let is_private = slot.present_value().is_private;
+            (slot.present_value.value, is_cold, is_private)
         }
         Entry::Vacant(vac) => {
+            // if storage was cleared, we don't need to ping db.
             if skip_cold_load {
                 return Err(JournalLoadError::ColdLoadSkipped);
             }
-            // if storage was cleared, we don't need to ping db.
             let value = if is_newly_created {
-                StorageValue::ZERO
+                FlaggedStorage::ZERO
             } else {
-                db.storage(address, key)?
+                let v = db.storage(address, key)?;
+                v
             };
+
             vac.insert(EvmStorageSlot::new(value, transaction_id));
 
-            (value, true)
+            (value.value, true, value.is_private)
         }
     };
 
@@ -889,5 +947,5 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
         journal.push(ENTRY::storage_warmed(address, key));
     }
 
-    Ok(StateLoad::new(value, is_cold))
+    Ok(StateLoad::new(value, is_cold, is_private))
 }

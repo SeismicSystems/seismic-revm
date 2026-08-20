@@ -193,10 +193,8 @@ pub trait Handler {
         let gas_limit = evm.ctx().tx().gas_limit() - init_and_floor_gas.initial_gas;
         // Create first frame action
         let first_frame_input = self.first_frame_input(evm, gas_limit)?;
-
         // Run execution loop
         let mut frame_result = self.run_exec_loop(evm, first_frame_input)?;
-
         // Handle last frame result
         self.last_frame_result(evm, &mut frame_result)?;
         Ok(frame_result)

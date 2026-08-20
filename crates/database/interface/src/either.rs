@@ -2,7 +2,7 @@
 
 use crate::{Database, DatabaseCommit, DatabaseRef};
 use either::Either;
-use primitives::{Address, HashMap, StorageKey, StorageValue, B256};
+use primitives::{Address, HashMap, StorageKey, B256};
 use state::{Account, AccountInfo, Bytecode};
 
 impl<L, R> Database for Either<L, R>
@@ -30,7 +30,7 @@ where
         &mut self,
         address: Address,
         index: StorageKey,
-    ) -> Result<StorageValue, Self::Error> {
+    ) -> Result<state::FlaggedStorage, Self::Error> {
         match self {
             Self::Left(db) => db.storage(address, index),
             Self::Right(db) => db.storage(address, index),
@@ -83,7 +83,7 @@ where
         &self,
         address: Address,
         index: StorageKey,
-    ) -> Result<StorageValue, Self::Error> {
+    ) -> Result<state::FlaggedStorage, Self::Error> {
         match self {
             Self::Left(db) => db.storage_ref(address, index),
             Self::Right(db) => db.storage_ref(address, index),

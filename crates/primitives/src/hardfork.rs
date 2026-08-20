@@ -70,8 +70,10 @@ pub enum SpecId {
     CANCUN,
     /// Prague hard fork
     /// Activated at block 22431084 (Timestamp: 1746612311)
-    #[default]
     PRAGUE,
+    /// Seismic's fork of the EVM.
+    #[default]
+    MERCURY,
     /// Osaka hard fork
     /// Activated at block TBD
     OSAKA,
@@ -96,7 +98,7 @@ impl SpecId {
 
 /// String identifiers for hardforks.
 pub mod name {
-    /// String identifier for the Frontier hardfork
+    pub const MERCURY: &str = "Mercury";
     pub const FRONTIER: &str = "Frontier";
     /// String identifier for the Frontier Thawing hardfork
     pub const FRONTIER_THAWING: &str = "Frontier Thawing";
@@ -151,6 +153,7 @@ impl FromStr for SpecId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            name::MERCURY => Ok(Self::MERCURY),
             name::FRONTIER => Ok(Self::FRONTIER),
             name::FRONTIER_THAWING => Ok(Self::FRONTIER_THAWING),
             name::HOMESTEAD => Ok(Self::HOMESTEAD),
@@ -180,6 +183,7 @@ impl FromStr for SpecId {
 impl From<SpecId> for &'static str {
     fn from(spec_id: SpecId) -> Self {
         match spec_id {
+            SpecId::MERCURY => name::MERCURY,
             SpecId::FRONTIER => name::FRONTIER,
             SpecId::FRONTIER_THAWING => name::FRONTIER_THAWING,
             SpecId::HOMESTEAD => name::HOMESTEAD,

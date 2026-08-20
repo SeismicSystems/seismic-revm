@@ -210,7 +210,7 @@ pub struct Account {
     /// Nonce
     pub nonce: U256,
     /// Storage
-    pub storage: BTreeMap<U256, U256>,
+    pub storage: BTreeMap<U256, revm::state::FlaggedStorage>,
 }
 
 /// Fork specification
