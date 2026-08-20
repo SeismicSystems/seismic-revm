@@ -99,9 +99,16 @@ impl RootRng {
                 let chunk_len = remaining.min(MAX_HKDF_OUTPUT);
                 let mut chunk = vec![0u8; chunk_len];
 
-                let mut chunk_info = Vec::with_capacity(info.len() + 4 /* counter */);
-                chunk_info.extend_from_slice(&info);
+                // The counter is prepended, not appended. `pers` is caller-controlled
+                // and is the tail of `info`, so appending the counter would make a
+                // chunked derivation with personalization `P` produce the same HKDF
+                // info as a single-shot derivation with `P || counter` — i.e. the
+                // caller could obtain a chunked call's first 8160 bytes from a
+                // separate short call. Prepending keeps the two disjoint, because
+                // `info` always starts with the fixed-length domain data.
+                let mut chunk_info = Vec::with_capacity(4 /* counter */ + info.len());
                 chunk_info.extend_from_slice(&chunk_idx.to_le_bytes());
+                chunk_info.extend_from_slice(&info);
 
                 // SAFETY: chunk_len <= MAX_HKDF_OUTPUT
                 #[allow(clippy::expect_used)]

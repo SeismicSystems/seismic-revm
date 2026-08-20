@@ -135,3 +135,75 @@ fn test_large_output() {
         "large output should be deterministic"
     );
 }
+
+/// The HKDF-SHA256 single-expand limit; above this, `derive_bytes` chunks.
+const MAX_HKDF_OUTPUT: usize = 255 * 32;
+
+/// A chunked derivation must not be reproducible through a short derivation.
+///
+/// `pers` is caller-controlled and forms the tail of the HKDF `info`. If the
+/// chunk counter were appended, a chunked call with personalization `P` would
+/// share its info with a single-shot call using `P || counter`, handing the
+/// caller the chunked call's first 8160 bytes for a fraction of the gas.
+#[test]
+fn test_chunked_output_does_not_collide_with_short_call() {
+    let root_rng = RootRng::test_default();
+    let pers = b"collide";
+
+    let mut pers_with_counter = pers.to_vec();
+    pers_with_counter.extend_from_slice(&0u32.to_le_bytes());
+
+    let chunked = root_rng.derive_bytes(pers, MAX_HKDF_OUTPUT + 1);
+    let short = root_rng.derive_bytes(&pers_with_counter, 32);
+
+    assert_ne!(
+        &chunked[..32],
+        &short[..],
+        "a chunked derivation must not be reproducible by a short call whose \
+         pers carries the chunk counter"
+    );
+}
+
+/// Every chunk boundary must be domain-separated, not just the first.
+#[test]
+fn test_each_chunk_is_domain_separated() {
+    let root_rng = RootRng::test_default();
+    let pers = b"chunks";
+
+    let out = root_rng.derive_bytes(pers, MAX_HKDF_OUTPUT * 2 + 64);
+    assert_eq!(out.len(), MAX_HKDF_OUTPUT * 2 + 64);
+
+    let chunk0 = &out[..MAX_HKDF_OUTPUT];
+    let chunk1 = &out[MAX_HKDF_OUTPUT..MAX_HKDF_OUTPUT * 2];
+    assert_ne!(chunk0, chunk1, "consecutive chunks must differ");
+
+    for idx in 0..3u32 {
+        let mut spoof = pers.to_vec();
+        spoof.extend_from_slice(&idx.to_le_bytes());
+        let short = root_rng.derive_bytes(&spoof, 32);
+        assert_ne!(
+            &out[..32],
+            &short[..],
+            "chunk 0 must not be reproducible via pers || {idx}"
+        );
+    }
+}
+
+/// Requesting exactly the single-expand limit must not take the chunked path,
+/// and asking for one more byte must change the output rather than extend it.
+#[test]
+fn test_chunk_boundary_changes_derivation() {
+    let root_rng = RootRng::test_default();
+    let pers = b"boundary";
+
+    let at_limit = root_rng.derive_bytes(pers, MAX_HKDF_OUTPUT);
+    let over_limit = root_rng.derive_bytes(pers, MAX_HKDF_OUTPUT + 1);
+
+    assert_eq!(at_limit.len(), MAX_HKDF_OUTPUT);
+    assert_eq!(over_limit.len(), MAX_HKDF_OUTPUT + 1);
+    assert_ne!(
+        &at_limit[..32],
+        &over_limit[..32],
+        "crossing the chunk boundary must re-derive, not extend"
+    );
+}
