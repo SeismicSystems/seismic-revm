@@ -20,6 +20,8 @@ pub const TX_CONTEXT_ADDRESS: u64 = 106; // Hex address `0x6A`.
 // Selector for the signed-read flag. An empty input keeps returning the tx type (backward compat).
 pub const SIGNED_READ_SELECTOR: u8 = 0x01;
 
+pub const SEISMIC_TX_TYPE: u8 = 74;
+
 // Flat cost for a single transaction-context read. NOTE: this is a consensus parameter — changing
 // it after activation is itself a hardfork.
 pub const TX_CONTEXT_GAS_COST: u64 = 20;
@@ -40,7 +42,9 @@ fn tx_context<CTX: SeismicContextTr>(
     // stays extensible (and so nodes without a given selector fail closed rather than return 0).
     let value: u64 = match input.as_ref() {
         [] => evmctx.tx().tx_type() as u64,
-        [SIGNED_READ_SELECTOR] => evmctx.tx().signed_read() as u64,
+        [SIGNED_READ_SELECTOR] => {
+            (evmctx.tx().signed_read() && evmctx.tx().tx_type() == SEISMIC_TX_TYPE) as u64
+        }
         _ => {
             return Err(PrecompileError::Other(
                 "tx-context precompile: unknown selector".to_string(),
@@ -117,6 +121,26 @@ mod tests {
             assert!(
                 out.bytes[..31].iter().all(|b| *b == 0),
                 "upper bytes must be zero"
+            );
+        }
+    }
+
+    #[test]
+    fn signed_read_requires_seismic_type() {
+        for ty in [0u8, 1, 2, 255] {
+            let mut ctx = Context::seismic_with_random_rng_key().modify_tx_chained(|tx| {
+                tx.base.tx_type = ty;
+                tx.signed_read = true;
+            });
+            let out = tx_context_precompile::<SeismicContext<EmptyDB>>().1(
+                &mut ctx,
+                &Bytes::from_static(&[SIGNED_READ_SELECTOR]),
+                1000,
+            )
+            .unwrap();
+            assert_eq!(
+                out.bytes[31], 0,
+                "signed_read must be 0 for non-Seismic type {ty}"
             );
         }
     }
