@@ -23,7 +23,7 @@ pub mod hkdf_derive_sym_key;
 pub mod rng;
 pub mod secp256k1_sign;
 pub mod stateful_precompile;
-pub mod tx_type;
+pub mod tx_context;
 pub use stateful_precompile::StatefulPrecompiles;
 
 use crate::{api::exec::SeismicContextTr, SeismicSpecId};
@@ -104,7 +104,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
     //TODO: check how expensive is the below instead of a single init! issue with generics
     let mut stateful_precompiles = StatefulPrecompiles::new();
     stateful_precompiles.extend(rng::precompile::rng_precompile_iter::<CTX>().map(|p| (p.0, p.1)));
-    stateful_precompiles.extend([tx_type::tx_type_precompile::<CTX>().into()]);
+    stateful_precompiles.extend([tx_context::tx_context_precompile::<CTX>().into()]);
     (regular_precompiles, stateful_precompiles)
 }
 
@@ -362,8 +362,8 @@ mod tests {
     }
 
     #[test]
-    fn test_precompile_addresses_unique_and_txinfo_registered() {
-        use crate::precompiles::tx_type::TX_TYPE_ADDRESS;
+    fn test_precompile_addresses_unique_and_tx_context_registered() {
+        use crate::precompiles::tx_context::TX_CONTEXT_ADDRESS;
         use revm::precompile::u64_to_address;
         use std::collections::HashSet;
 
@@ -372,7 +372,7 @@ mod tests {
 
         // tx-info (0x6A) is registered as a stateful precompile.
         assert!(
-            stateful.contains(&u64_to_address(TX_TYPE_ADDRESS)),
+            stateful.contains(&u64_to_address(TX_CONTEXT_ADDRESS)),
             "0x6A tx-type precompile must be registered"
         );
 
