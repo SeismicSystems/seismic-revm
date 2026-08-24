@@ -35,12 +35,22 @@ use revm::{
     primitives::{Address, Bytes},
 };
 use std::string::String;
-use std::{boxed::Box, sync::OnceLock};
+use std::{
+    boxed::Box,
+    collections::HashMap,
+    sync::{Mutex, OnceLock},
+};
 
 #[derive(Debug, Clone)]
 pub struct SeismicPrecompiles<CTX: SeismicContextTr> {
     pub(crate) inner: EthPrecompiles,
     stateful_precompiles: StatefulPrecompiles<CTX>,
+    /// Spec the current precompile set was built for.
+    ///
+    /// Tracked so [`PrecompileProvider::set_spec`] can skip rebuilding when the spec is
+    /// unchanged. Rebuilding discards anything added via
+    /// [`SeismicPrecompiles::apply_precompile`].
+    spec: SeismicSpecId,
 }
 
 impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
@@ -52,6 +62,7 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
                 spec: <CTX::Cfg as Cfg>::Spec::MERCURY.into(),
             },
             stateful_precompiles: precompiles.1,
+            spec: SeismicSpecId::MERCURY,
         }
     }
 
@@ -63,15 +74,15 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
         }
     }
 
+    /// Extends the active precompile set with `p`.
+    ///
+    /// The merged set is leaked to satisfy the `&'static` bound [`EthPrecompiles`] requires,
+    /// so this is a setup-time API: call it while building an EVM, not per transaction.
     pub fn apply_precompile(&mut self, p: Precompile) {
-        static INSTANCE: OnceLock<Precompiles> = OnceLock::new();
-        let precompiles = INSTANCE.get_or_init(|| {
-            let mut precompiles = self.inner.precompiles.clone();
-            precompiles.extend([p]);
-            precompiles
-        });
+        let mut precompiles = self.inner.precompiles.clone();
+        precompiles.extend([p]);
         self.inner = EthPrecompiles {
-            precompiles,
+            precompiles: Box::leak(Box::new(precompiles)),
             spec: <CTX::Cfg as Cfg>::Spec::MERCURY.into(),
         };
     }
@@ -81,29 +92,63 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
 pub fn mercury_with_extra<CTX: SeismicContextTr>(
     extra: Option<&'static Precompiles>,
 ) -> (&'static Precompiles, StatefulPrecompiles<CTX>) {
-    // Store only the stateless precompiles in the static OnceBox
-    static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
-
-    let regular_precompiles = INSTANCE.get_or_init(|| {
-        let mut precompiles = Precompiles::prague().clone();
-        if let Some(extra) = extra {
-            precompiles.extend(extra.inner().clone().into_values());
+    let regular_precompiles = match extra {
+        // No runtime input, so a single process-wide set is correct. This is the path
+        // `mercury` takes, which `set_spec` reaches on every transaction.
+        None => {
+            // Store only the stateless precompiles in the static OnceBox
+            static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
+            INSTANCE.get_or_init(|| Box::new(build_mercury_precompiles(None)))
         }
-        precompiles.extend([
-            secp256r1::P256VERIFY,
-            ecdh_derive_sym_key::ECDH,
-            hkdf_derive_sym_key::HKDF,
-            aes::aes_gcm_enc::AES_GCM_ENC,
-            aes::aes_gcm_dec::AES_GCM_DEC,
-            secp256k1_sign::SECP256K1_SIGN,
-        ]);
-        Box::new(precompiles)
-    });
+        // `extra` is a runtime argument, so it cannot share one cached set: the first
+        // caller's extras would be served to every later caller, and every later caller's
+        // own extras would be silently dropped. Memoize per distinct `extra` instead.
+        Some(extra) => build_mercury_precompiles_with_extra(extra),
+    };
 
     //TODO: check how expensive is the below instead of a single init! issue with generics
     let mut stateful_precompiles = StatefulPrecompiles::new();
     stateful_precompiles.extend(rng::precompile::rng_precompile_iter::<CTX>().map(|p| (p.0, p.1)));
     (regular_precompiles, stateful_precompiles)
+}
+
+/// Builds the MERCURY precompile set, optionally extended with `extra`.
+fn build_mercury_precompiles(extra: Option<&'static Precompiles>) -> Precompiles {
+    let mut precompiles = Precompiles::prague().clone();
+    if let Some(extra) = extra {
+        precompiles.extend(extra.inner().clone().into_values());
+    }
+    precompiles.extend([
+        secp256r1::P256VERIFY,
+        ecdh_derive_sym_key::ECDH,
+        hkdf_derive_sym_key::HKDF,
+        aes::aes_gcm_enc::AES_GCM_ENC,
+        aes::aes_gcm_dec::AES_GCM_DEC,
+        secp256k1_sign::SECP256K1_SIGN,
+    ]);
+    precompiles
+}
+
+/// Returns the MERCURY precompile set extended with `extra`, memoized per distinct `extra`.
+///
+/// Keyed by the address of `extra`, so repeated calls with the same set reuse one allocation
+/// instead of leaking a new one each time.
+fn build_mercury_precompiles_with_extra(extra: &'static Precompiles) -> &'static Precompiles {
+    static CACHE: OnceLock<Mutex<HashMap<usize, &'static Precompiles>>> = OnceLock::new();
+
+    let mut cache = CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    let key = core::ptr::from_ref(extra) as usize;
+    if let Some(cached) = cache.get(&key).copied() {
+        return cached;
+    }
+
+    let built: &'static Precompiles = Box::leak(Box::new(build_mercury_precompiles(Some(extra))));
+    cache.insert(key, built);
+    built
 }
 
 /// Returns precompiles for MERCURY spec.
@@ -120,6 +165,12 @@ where
 
     #[inline]
     fn set_spec(&mut self, spec: <CTX::Cfg as Cfg>::Spec) -> bool {
+        // Only rebuild on an actual spec change. `set_spec` runs before every transaction,
+        // and rebuilding discards precompiles installed via `apply_precompile`.
+        // Mirrors `EthPrecompiles::set_spec`.
+        if spec == self.spec {
+            return false;
+        }
         *self = Self::new_with_spec(spec);
         true
     }
