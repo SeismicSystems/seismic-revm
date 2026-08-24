@@ -16,11 +16,16 @@
 //! - [`rng`]: Generates cryptographically secure random bytes. The randomness
 //!   is based on a secret Verifiable Random Function (VRF) key and the
 //!   block's transcript.
+//! - [`secp256k1_pubkey`]: Derives the compressed secp256k1 public key from a
+//!   private key, so contracts can generate a keypair entirely on-chain.
+//! - [`secp256k1_sign`]: Produces a recoverable ECDSA signature over a
+//!   32-byte digest using the secp256k1 curve.
 
 pub mod aes;
 pub mod ecdh_derive_sym_key;
 pub mod hkdf_derive_sym_key;
 pub mod rng;
+pub mod secp256k1_pubkey;
 pub mod secp256k1_sign;
 pub mod stateful_precompile;
 pub use stateful_precompile::StatefulPrecompiles;
@@ -96,6 +101,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
             aes::aes_gcm_enc::AES_GCM_ENC,
             aes::aes_gcm_dec::AES_GCM_DEC,
             secp256k1_sign::SECP256K1_SIGN,
+            secp256k1_pubkey::SECP256K1_PUBKEY,
         ]);
         Box::new(precompiles)
     });
@@ -225,7 +231,7 @@ mod tests {
                 .0
                 .difference(Precompiles::prague())
                 .len(),
-            6
+            7
         )
     }
 
