@@ -40,6 +40,12 @@ const RNG_BASE_COST: u64 = 3500;
 /// Based on SHA-256 EVM pricing (~6 gas/word) adjusted for HKDF overhead.
 const RNG_WORD_COST: u64 = 5;
 
+/// Gas charged per (output word x personalization word) pair. HKDF-Expand
+/// re-hashes the whole `info` (which contains `pers`) once per output block,
+/// so this term makes gas track the real O(output_len * pers_len) work and
+/// closes the single-tx DoS described in issue #241. Conservative; tunable.
+const RNG_PERS_FILL_COST: u64 = 5;
+
 /* --------------------------------------------------------------------------
 Precompile Logic
 -------------------------------------------------------------------------- */
@@ -62,13 +68,21 @@ Precompile Logic
 ///
 /// ## Gas Cost
 ///
-/// Every call pays a flat base cost plus a per-word output cost:
+/// Every call pays a flat base cost, a per-word cost for both the
+/// personalization and the output, and a cross term for the interaction
+/// between them:
 /// ```text
-/// cost = RNG_BASE_COST + ceil(output_len / 32) * RNG_WORD_COST
+/// pers_words   = ceil(pers_len / 32)
+/// output_words = ceil(output_len / 32)
+/// cost = RNG_BASE_COST
+///      + pers_words * RNG_WORD_COST
+///      + output_words * RNG_WORD_COST
+///      + output_words * pers_words * RNG_PERS_FILL_COST
 /// ```
 ///
-/// The base cost (3500 gas) covers the HKDF-Extract and initial Expand rounds.
-/// The per-word cost (5 gas) covers additional HMAC-SHA256 rounds for larger outputs.
+/// The cross term reflects that HKDF-Expand re-hashes `info` (which contains
+/// `pers`) once per 32-byte output block, so the real work is
+/// O(output_len * pers_len), not O(output_len + pers_len). See issue #241.
 fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -> PrecompileResult {
     // Validate input and extract parameters.
     validate_input_length(input.len(), MIN_INPUT_LENGTH)?;
@@ -94,9 +108,21 @@ fn rng<CTX: SeismicContextTr>(evmctx: &mut CTX, input: &Bytes, gas_limit: u64) -
 }
 
 /// Calculate the gas cost for an RNG precompile call.
-/// Every call pays: BASE_COST + ceil(output_len / 32) * WORD_COST
+/// cost = init(pers) + fill(output) + output_words * pers_words * RNG_PERS_FILL_COST
 pub(crate) fn calculate_gas_cost(pers_len: usize, output_len: usize) -> u64 {
-    calculate_init_cost(pers_len).saturating_add(calculate_fill_cost(output_len))
+    // Cross term: HKDF-Expand re-hashes `info` (which contains `pers`) once per
+    // 32-byte output block, so the real work is O(output_words * pers_words).
+    // Charging only init + fill (additive) underprices this and allows a single
+    // transaction to force minutes of hashing. See issue #241.
+    let pers_words = (pers_len as u64).div_ceil(32);
+    let output_words = (output_len as u64).div_ceil(32);
+    let expand_cost = output_words
+        .saturating_mul(pers_words)
+        .saturating_mul(RNG_PERS_FILL_COST);
+
+    calculate_init_cost(pers_len)
+        .saturating_add(calculate_fill_cost(output_len))
+        .saturating_add(expand_cost)
 }
 
 fn calculate_init_cost(pers_len: usize) -> u64 {
@@ -162,6 +188,34 @@ mod tests {
     use revm::primitives::{Bytes, B256};
     use revm::Context;
 
+    #[test]
+    fn test_cross_term_prices_large_pers_times_output() {
+        // Regression for issue #241: gas must track HKDF-Expand's real
+        // O(output_len * pers_len) work, not O(output_len + pers_len). The old
+        // additive model let a single call with ~1 MiB pers and ~182 MiB output
+        // cost only ~30M gas while forcing tens of minutes of SHA-256.
+        let block_gas_limit: u64 = 30_000_000;
+
+        let cost = calculate_gas_cost(1 << 20, 182 << 20); // 1 MiB pers, 182 MiB out
+        assert!(
+            cost > block_gas_limit.saturating_mul(1000),
+            "cross term must make the DoS shape uneconomical, got {cost}"
+        );
+
+        // Benign call stays cheap: one-word pers + one-word output adds a single
+        // cross unit on top of the base + init + fill cost.
+        assert_eq!(
+            calculate_gas_cost(4, 32),
+            RNG_BASE_COST + RNG_WORD_COST + RNG_WORD_COST + RNG_PERS_FILL_COST,
+        );
+
+        // pers = 0 is unchanged from the additive model (cross term is zero).
+        assert_eq!(
+            calculate_gas_cost(0, 32),
+            calculate_init_cost(0) + calculate_fill_cost(32),
+        );
+    }
+
     fn setup_rng_test(
         bytes_requested: u32,
         personalization: Option<Vec<u8>>,
@@ -204,7 +258,7 @@ mod tests {
         );
 
         let output = result.unwrap();
-        // cost = 3500 + ceil(32/32) * 5 = 3505
+        // cost = 3500 + 5 (pers) + 5 (fill) + 1*1*5 (cross) = 3515
         assert_eq!(output.gas_used, 3505, "Should consume exactly 3505 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
@@ -224,10 +278,10 @@ mod tests {
         );
 
         let output_with_pers = result_with_pers.unwrap();
-        // cost = 3500 + ceil(32/32) * 5 = 3505
+        // cost = 3500 + 5 (pers) + 5 (fill) + 1*1*5 (cross) = 3515
         assert_eq!(
-            output_with_pers.gas_used, 3510,
-            "Should consume exactly 3510 gas"
+            output_with_pers.gas_used, 3515,
+            "Should consume exactly 3515 gas"
         );
         assert!(
             output_with_pers.bytes.len() == 32,
@@ -263,8 +317,8 @@ mod tests {
         assert!(result.is_ok(), "Should succeed with personalization");
 
         let output = result.unwrap();
-        // cost = 3500 + ceil(32/32) * 5 = 3505
-        assert_eq!(output.gas_used, 3510, "Should consume exactly 3510 gas");
+        // cost = 3500 + 5 (pers) + 5 (fill) + 1*1*5 (cross) = 3515
+        assert_eq!(output.gas_used, 3515, "Should consume exactly 3515 gas");
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
 
@@ -282,8 +336,8 @@ mod tests {
 
         let output = result.unwrap();
         assert_eq!(
-            output.gas_used, 3510,
-            "Should consume exactly 3510 gas (full cost, no caching)"
+            output.gas_used, 3515,
+            "Should consume exactly 3515 gas (full cost, no caching)"
         );
         assert!(output.bytes.len() == 32, "RNG output should be 32 bytes");
     }
