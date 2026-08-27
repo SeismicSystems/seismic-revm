@@ -16,6 +16,9 @@
 //! - [`rng`]: Generates cryptographically secure random bytes. The randomness
 //!   is based on a secret Verifiable Random Function (VRF) key and the
 //!   block's transcript.
+//! - [`secp256k1_sign`]: Signs a message digest with the secp256k1 curve.
+//! - [`tx_context`]: Exposes read-only transaction-context flags (EIP-2718 tx
+//!   type, signed-read) so a contract can detect a Seismic execution context.
 
 pub mod aes;
 pub mod ecdh_derive_sym_key;
