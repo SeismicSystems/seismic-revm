@@ -13,6 +13,11 @@ pub trait SeismicTxTr: Transaction {
 
     /// Whether this transaction failed calldata decryption.
     fn decryption_failed(&self) -> bool;
+
+    /// Whether this transaction executes as an authenticated signed read (an RPC read) rather than
+    /// a mined state-changing transaction. Both are `tx_type == 74`; this is the finer distinction,
+    /// set by the node at tx-env construction.
+    fn signed_read(&self) -> bool;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -23,6 +28,9 @@ pub struct SeismicTransaction<T: Transaction> {
     pub tx_hash: B256,
     /// Whether this transaction failed decryption. Used for handling execution and metering.
     pub decryption_failed: bool,
+    /// Whether this tx executes as an authenticated signed read (RPC read) vs a mined write. Set by
+    /// the node at tx-env construction; both a signed read and a mined Seismic write are tx_type 74.
+    pub signed_read: bool,
 }
 
 impl<T: Transaction> SeismicTransaction<T> {
@@ -31,6 +39,7 @@ impl<T: Transaction> SeismicTransaction<T> {
             base,
             tx_hash: B256::ZERO,
             decryption_failed: false,
+            signed_read: false,
         }
     }
 
@@ -41,6 +50,11 @@ impl<T: Transaction> SeismicTransaction<T> {
 
     pub fn with_decryption_failed(mut self, failed: bool) -> Self {
         self.decryption_failed = failed;
+        self
+    }
+
+    pub fn with_signed_read(mut self, signed_read: bool) -> Self {
+        self.signed_read = signed_read;
         self
     }
 }
@@ -70,6 +84,7 @@ impl Default for SeismicTransaction<TxEnv> {
             base: TxEnv::default(),
             tx_hash: B256::ZERO,
             decryption_failed: false,
+            signed_read: false,
         }
     }
 }
@@ -160,6 +175,10 @@ impl<T: Transaction> SeismicTxTr for SeismicTransaction<T> {
 
     fn decryption_failed(&self) -> bool {
         self.decryption_failed
+    }
+
+    fn signed_read(&self) -> bool {
+        self.signed_read
     }
 }
 
