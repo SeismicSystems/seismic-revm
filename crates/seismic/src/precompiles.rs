@@ -16,6 +16,9 @@
 //! - [`rng`]: Generates cryptographically secure random bytes. The randomness
 //!   is based on a secret Verifiable Random Function (VRF) key and the
 //!   block's transcript.
+//! - [`secp256k1_sign`]: Signs a message digest with the secp256k1 curve.
+//! - [`tx_context`]: Exposes read-only transaction-context flags (EIP-2718 tx
+//!   type, signed-read) so a contract can detect a Seismic execution context.
 
 pub mod aes;
 pub mod ecdh_derive_sym_key;
@@ -23,6 +26,7 @@ pub mod hkdf_derive_sym_key;
 pub mod rng;
 pub mod secp256k1_sign;
 pub mod stateful_precompile;
+pub mod tx_context;
 pub use stateful_precompile::StatefulPrecompiles;
 
 use crate::{api::exec::SeismicContextTr, SeismicSpecId};
@@ -103,6 +107,7 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
     //TODO: check how expensive is the below instead of a single init! issue with generics
     let mut stateful_precompiles = StatefulPrecompiles::new();
     stateful_precompiles.extend(rng::precompile::rng_precompile_iter::<CTX>().map(|p| (p.0, p.1)));
+    stateful_precompiles.extend([tx_context::tx_context_precompile::<CTX>().into()]);
     (regular_precompiles, stateful_precompiles)
 }
 
@@ -266,11 +271,9 @@ mod tests {
             SeismicPrecompiles::<SeismicContext<EmptyDB>>::new_with_spec(SeismicSpecId::MERCURY);
         let ikm = well_known_rng_ikm();
         let mut context = SeismicContext::<EmptyDB>::seismic_with_rng_key(ikm);
-        let rng_address = *precompiles
-            .stateful_precompiles
-            .addresses()
-            .next()
-            .expect("RNG precompile address should exist");
+        // Address the RNG precompile explicitly — `addresses()` iterates a HashSet, so `.next()`
+        // is nondeterministic once more than one stateful precompile is registered.
+        let rng_address = revm::precompile::u64_to_address(rng::precompile::RNG_ADDRESS);
 
         let bytes_requested: u32 = 32;
         let personalization = vec![0xAA, 0xBB, 0xCC, 0xDD];
@@ -336,11 +339,9 @@ mod tests {
         let warm_addresses: Vec<Address> = precompiles.warm_addresses().collect();
 
         // Verify RNG address is included
-        let rng_address = *precompiles
-            .stateful_precompiles
-            .addresses()
-            .next()
-            .expect("RNG precompile address should exist");
+        // Address the RNG precompile explicitly — `addresses()` iterates a HashSet, so `.next()`
+        // is nondeterministic once more than one stateful precompile is registered.
+        let rng_address = revm::precompile::u64_to_address(rng::precompile::RNG_ADDRESS);
         assert!(
             warm_addresses.contains(&rng_address),
             "warm_addresses() should include RNG precompile address"
@@ -361,5 +362,29 @@ mod tests {
             "warm_addresses() should return multiple addresses, got {}",
             warm_addresses.len()
         );
+    }
+
+    #[test]
+    fn test_precompile_addresses_unique_and_tx_context_registered() {
+        use crate::precompiles::tx_context::TX_CONTEXT_ADDRESS;
+        use revm::precompile::u64_to_address;
+        use std::collections::HashSet;
+
+        let (stateless, stateful) = mercury::<SeismicContext<EmptyDB>>();
+        let stateless_addrs: HashSet<Address> = stateless.addresses().copied().collect();
+
+        // tx-info (0x6A) is registered as a stateful precompile.
+        assert!(
+            stateful.contains(&u64_to_address(TX_CONTEXT_ADDRESS)),
+            "0x6A tx-type precompile must be registered"
+        );
+
+        // No stateful precompile shadows a stateless one (guards the 0x65-shadows-ECDH class of bug).
+        for addr in stateful.addresses() {
+            assert!(
+                !stateless_addrs.contains(addr),
+                "stateful precompile {addr} collides with a stateless precompile"
+            );
+        }
     }
 }
