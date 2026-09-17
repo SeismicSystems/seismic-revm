@@ -18,6 +18,27 @@ use sha2::Sha256;
 /// RNG domain separation salt.
 const RNG_SALT: &[u8] = b"seismic rng context";
 
+const BLOCK_LABEL: &[u8] = b"block";
+const ACCUMULATOR_LABEL: &[u8] = b"acc";
+const TX_LABEL: &[u8] = b"tx";
+const GAS_LABEL: &[u8] = b"gas";
+const PERSONALIZATION_LABEL: &[u8] = b"pers";
+
+/// SHA-256 output size, also the number of bytes produced per HKDF expansion round.
+pub(super) const HKDF_OUTPUT_BLOCK_SIZE: usize = 32;
+/// Maximum output of one HKDF-SHA256 expansion.
+pub(super) const MAX_HKDF_OUTPUT: usize = 255 * HKDF_OUTPUT_BLOCK_SIZE;
+/// Counter appended to the info for every chunk when the output exceeds the HKDF limit.
+pub(super) const CHUNK_COUNTER_LEN: usize = core::mem::size_of::<u32>();
+/// Fixed info prefix used by `derive_rng_output`: three hashes, gas left, and their labels.
+pub(super) const RNG_INFO_PREFIX_LEN: usize = BLOCK_LABEL.len()
+    + ACCUMULATOR_LABEL.len()
+    + TX_LABEL.len()
+    + GAS_LABEL.len()
+    + PERSONALIZATION_LABEL.len()
+    + 3 * core::mem::size_of::<B256>()
+    + core::mem::size_of::<u64>();
+
 /// A stateless RNG that derives output bytes via HKDF-SHA256.
 ///
 /// Constructed fresh for each precompile call. Domain separation data
@@ -40,25 +61,25 @@ impl RootRng {
 
     /// Append the parent block hash to the domain separation data.
     pub fn append_parent_block_hash(&mut self, hash: &B256) {
-        self.domain_data.extend_from_slice(b"block");
+        self.domain_data.extend_from_slice(BLOCK_LABEL);
         self.domain_data.extend_from_slice(hash.as_ref());
     }
 
     /// Append the transaction hash accumulator to the domain separation data.
     pub fn append_tx_hash_accumulator(&mut self, acc: &B256) {
-        self.domain_data.extend_from_slice(b"acc");
+        self.domain_data.extend_from_slice(ACCUMULATOR_LABEL);
         self.domain_data.extend_from_slice(acc.as_ref());
     }
 
     /// Append a transaction hash to the domain separation data.
     pub fn append_tx(&mut self, tx_hash: &B256) {
-        self.domain_data.extend_from_slice(b"tx");
+        self.domain_data.extend_from_slice(TX_LABEL);
         self.domain_data.extend_from_slice(tx_hash.as_ref());
     }
 
     /// Append the remaining gas to the domain separation data.
     pub fn append_gas_left(&mut self, gas_left: u64) {
-        self.domain_data.extend_from_slice(b"gas");
+        self.domain_data.extend_from_slice(GAS_LABEL);
         self.domain_data.extend_from_slice(&gas_left.to_le_bytes());
     }
 
@@ -73,15 +94,14 @@ impl RootRng {
         let hkdf = Hkdf::<Sha256>::new(Some(RNG_SALT), &self.key_bytes);
 
         // Build info: domain_data || b"pers" || pers
-        let mut info = Vec::with_capacity(self.domain_data.len() + 4 + pers.len());
+        let mut info =
+            Vec::with_capacity(self.domain_data.len() + PERSONALIZATION_LABEL.len() + pers.len());
         info.extend_from_slice(&self.domain_data);
-        info.extend_from_slice(b"pers");
+        info.extend_from_slice(PERSONALIZATION_LABEL);
         info.extend_from_slice(pers);
 
         // HKDF-Expand has a max output of 255 * HashLen (8160 bytes for SHA-256).
         // For larger outputs, use counter-mode chunking.
-        const MAX_HKDF_OUTPUT: usize = 255 * 32;
-
         if len <= MAX_HKDF_OUTPUT {
             let mut output = vec![0u8; len];
             // SAFETY: len <= MAX_HKDF_OUTPUT so expand cannot fail
@@ -99,7 +119,7 @@ impl RootRng {
                 let chunk_len = remaining.min(MAX_HKDF_OUTPUT);
                 let mut chunk = vec![0u8; chunk_len];
 
-                let mut chunk_info = Vec::with_capacity(info.len() + 4 /* counter */);
+                let mut chunk_info = Vec::with_capacity(info.len() + CHUNK_COUNTER_LEN);
                 chunk_info.extend_from_slice(&info);
                 chunk_info.extend_from_slice(&chunk_idx.to_le_bytes());
 
