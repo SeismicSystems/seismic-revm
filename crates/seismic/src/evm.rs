@@ -377,7 +377,7 @@ mod tests {
             calculate_initial_tx_gas(spec.into(), &input[..], false, 0, 0, 0);
 
         let total_gas =
-            initial_gas + calculate_gas_cost(bytes_requested as usize, personalization.len());
+            initial_gas + calculate_gas_cost(personalization.len(), bytes_requested as usize);
 
         Context::seismic_with_rng_key(rng_ikm)
             .modify_tx_chained(|tx| {

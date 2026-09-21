@@ -295,11 +295,7 @@ mod tests {
         assert_eq!(output_bytes.len(), 32, "RNG output should be 32 bytes");
 
         let gas_used = input.gas_limit - interpreter_result.gas.remaining();
-        assert!(
-            gas_used >= 3500 && gas_used <= 3600,
-            "Gas used should be in expected range, got {}",
-            gas_used
-        );
+        assert_eq!(gas_used, 3745, "RNG must charge the work-proportional cost");
 
         // Second call with same inputs should produce same output (deterministic with live key)
         let result2 = precompiles.run(&mut context, &input);

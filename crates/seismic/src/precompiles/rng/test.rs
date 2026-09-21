@@ -121,6 +121,60 @@ fn test_rng_different_keys_different_output() {
 }
 
 #[test]
+fn test_precompile_info_layout_matches_gas_schedule() {
+    use crate::chain::rng_container::derive_rng_output;
+    use domain_sep_rng::{CHUNK_COUNTER_LEN, MAX_HKDF_OUTPUT, RNG_INFO_PREFIX_LEN};
+    use hkdf::Hkdf;
+    use sha2::Sha256;
+
+    let key = [0x11; 64];
+    let parent = B256::from([0x22; 32]);
+    let accumulator = B256::from([0x33; 32]);
+    let tx = B256::from([0x44; 32]);
+    let gas_left = 6000u64;
+    let pers = b"personalization";
+
+    // Construct the original byte layout independently of RootRng's helpers.
+    let mut info = Vec::new();
+    info.extend_from_slice(b"block");
+    info.extend_from_slice(parent.as_ref());
+    info.extend_from_slice(b"acc");
+    info.extend_from_slice(accumulator.as_ref());
+    info.extend_from_slice(b"tx");
+    info.extend_from_slice(tx.as_ref());
+    info.extend_from_slice(b"gas");
+    info.extend_from_slice(&gas_left.to_le_bytes());
+    info.extend_from_slice(b"pers");
+    assert_eq!(info.len(), RNG_INFO_PREFIX_LEN);
+    assert_eq!(info.len(), 121);
+    info.extend_from_slice(pers);
+
+    let hkdf = Hkdf::<Sha256>::new(Some(b"seismic rng context"), &key);
+    for len in [
+        0,
+        32,
+        MAX_HKDF_OUTPUT,
+        MAX_HKDF_OUTPUT + 1,
+        2 * MAX_HKDF_OUTPUT + 1,
+    ] {
+        let mut expected = vec![0; len];
+        if len <= MAX_HKDF_OUTPUT {
+            hkdf.expand(&info, &mut expected).unwrap();
+        } else {
+            for (index, chunk) in expected.chunks_mut(MAX_HKDF_OUTPUT).enumerate() {
+                let mut chunk_info = info.clone();
+                chunk_info.extend_from_slice(&(index as u32).to_le_bytes());
+                assert_eq!(chunk_info.len(), info.len() + CHUNK_COUNTER_LEN);
+                hkdf.expand(&chunk_info, chunk).unwrap();
+            }
+        }
+        let actual =
+            derive_rng_output(pers, len, &tx, key, &parent, &accumulator, gas_left).unwrap();
+        assert_eq!(actual.as_ref(), expected.as_slice());
+    }
+}
+
+#[test]
 fn test_large_output() {
     let root_rng = RootRng::new(well_known_rng_ikm());
 
