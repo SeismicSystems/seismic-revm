@@ -549,7 +549,10 @@ impl<
     ) -> Result<StateLoad<U256>, LoadError> {
         self.journal_mut()
             .cload(address, key, skip_cold_load)
-            .map_err(|_e| LoadError::DBError)
+            .map_err(|e| {
+                *self.error() = Err(e.into());
+                LoadError::DBError
+            })
     }
 
     fn cstore(
