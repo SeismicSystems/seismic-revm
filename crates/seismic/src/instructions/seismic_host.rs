@@ -1,6 +1,8 @@
 use revm::{
     context::{host::LoadError, journaled_state::AccountInfoLoad, ContextTr},
-    context_interface::{context::ContextError, journaled_state::AccountLoad, Database},
+    context_interface::{
+        context::ContextError, journaled_state::AccountLoad, transaction::Transaction, Database,
+    },
     database::EmptyDB,
     interpreter::{host::DummyHost, Host, SStoreResult, SelfDestructResult, StateLoad},
     primitives::{Address, Bytes, Log, StorageKey, StorageValue, B256, U256},
@@ -13,6 +15,10 @@ pub trait SeismicHost: Host {
     type Db: Database;
 
     fn ctx_error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>>;
+
+    /// EIP-2718 transaction-type byte of the current transaction (Seismic = 74).
+    fn tx_type(&self) -> u8;
+
     fn set_ctx_error<E>(&mut self, error: E)
     where
         E: Into<ContextError<<Self::Db as Database>::Error>>,
@@ -30,11 +36,16 @@ where
     fn ctx_error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>> {
         <Self as ContextTr>::error(self)
     }
+
+    fn tx_type(&self) -> u8 {
+        <Self as ContextTr>::tx(self).tx_type()
+    }
 }
 
 pub struct SeismicDummyHost {
     ctx_result: Result<(), ContextError<<EmptyDB as Database>::Error>>,
     dummy_host: DummyHost,
+    tx_type: u8,
 }
 
 impl Default for SeismicDummyHost {
@@ -42,6 +53,7 @@ impl Default for SeismicDummyHost {
         Self {
             ctx_result: Ok(()),
             dummy_host: DummyHost,
+            tx_type: 0,
         }
     }
 }
@@ -50,6 +62,12 @@ impl SeismicDummyHost {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Override the transaction type reported by [`SeismicHost::tx_type`].
+    pub fn with_tx_type(mut self, tx_type: u8) -> Self {
+        self.tx_type = tx_type;
+        self
+    }
 }
 
 impl SeismicHost for SeismicDummyHost {
@@ -57,6 +75,10 @@ impl SeismicHost for SeismicDummyHost {
 
     fn ctx_error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>> {
         &mut self.ctx_result
+    }
+
+    fn tx_type(&self) -> u8 {
+        self.tx_type
     }
 }
 
