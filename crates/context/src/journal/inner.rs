@@ -73,7 +73,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         key: StorageKey,
         skip_cold_load: bool,
     ) -> Result<StateLoad<U256>, JournalLoadError<DB::Error>> {
-        self.load_inner(db, address, key, skip_cold_load)
+        self.load_inner(db, address, key, skip_cold_load, false)
     }
 
     /// Stores the private storage value in Journal state.
@@ -85,7 +85,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         value: U256,
         skip_cold_load: bool,
     ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
-        self.store(db, address, key, value, skip_cold_load, true)
+        self.store(db, address, key, value, skip_cold_load, true, false)
     }
 
     /// Creates new [`JournalInner`].
@@ -740,6 +740,8 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
                 address,
                 storage_key,
                 false,
+                true,
+                self.spec,
             )?;
         }
         Ok(load)
@@ -757,6 +759,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         address: Address,
         key: StorageKey,
         skip_cold_load: bool,
+        warm: bool,
     ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
         // assume acc is warm
         let account = self.state.get_mut(&address).unwrap();
@@ -769,6 +772,8 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
             address,
             key,
             skip_cold_load,
+            warm,
+            self.spec,
         )
     }
 
@@ -780,7 +785,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         key: StorageKey,
         skip_cold_load: bool,
     ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
-        self.load_inner(db, address, key, skip_cold_load)
+        self.load_inner(db, address, key, skip_cold_load, true)
     }
 
     /// Stores public storage value
@@ -793,7 +798,7 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         value: U256,
         skip_cold_load: bool,
     ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
-        self.store(db, address, key, value, skip_cold_load, false)
+        self.store(db, address, key, value, skip_cold_load, false, true)
     }
 
     /// Stores storage slot.
@@ -810,9 +815,10 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         new: StorageValue,
         skip_cold_load: bool,
         is_private: bool,
+        warm: bool,
     ) -> Result<StateLoad<SStoreResult>, JournalLoadError<DB::Error>> {
         // assume that acc exists and load the slot.
-        let present = self.sload(db, address, key, skip_cold_load)?;
+        let present = self.load_inner(db, address, key, skip_cold_load, warm)?;
         let acc = self.state.get_mut(&address).unwrap();
 
         // if there is no original value in dirty return present value, that is our original.
@@ -902,6 +908,12 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
 }
 
 /// Loads storage slot with account.
+///
+/// `warm` selects between a normal, EIP-2929-warming access (`SLOAD`/`SSTORE`)
+/// and a confidential, non-warming access (`CLOAD`/`CSTORE`). Confidential
+/// accesses read and cache the slot but must not add it to the warm set,
+/// otherwise an observer could detect which shielded storage keys were touched
+/// by measuring the gas of later public accesses to the same key.
 #[inline]
 pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
     account: &mut Account,
@@ -911,6 +923,8 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
     address: Address,
     key: StorageKey,
     skip_cold_load: bool,
+    warm: bool,
+    spec: SpecId,
 ) -> Result<StateLoad<StorageValue>, JournalLoadError<DB::Error>> {
     // only if account is created in this tx we can assume that storage is empty.
     let is_newly_created = account.is_created();
@@ -920,6 +934,15 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
             let is_cold = slot.is_cold_transaction_id(transaction_id);
             if skip_cold_load && is_cold {
                 return Err(JournalLoadError::ColdLoadSkipped);
+            }
+            // A normal access must warm an already-cached slot, including one
+            // that a confidential access loaded cold, or one whose
+            // `StorageWarmed` marker was rolled back. Without this, whether the
+            // slot was previously touched stays observable through later gas.
+            // Gated on MERCURY: confidential accesses only exist from that fork
+            // on, so earlier specs keep their historical accounting.
+            if warm && is_cold && spec.is_enabled_in(MERCURY) {
+                slot.mark_warm_with_transaction_id(transaction_id);
             }
             let is_private = slot.present_value().is_private;
             (slot.present_value.value, is_cold, is_private)
@@ -936,13 +959,20 @@ pub fn sload_with_account<DB: Database, ENTRY: JournalEntryTr>(
                 v
             };
 
-            vac.insert(EvmStorageSlot::new(value, transaction_id));
+            let slot = vac.insert(EvmStorageSlot::new(value, transaction_id));
+            // Cache the slot but keep it cold for confidential accesses so a
+            // later normal access observes (and pays for) a cold load.
+            if !warm {
+                slot.mark_cold();
+            }
 
             (value.value, true, value.is_private)
         }
     };
 
-    if is_cold {
+    // Only a warming access needs a `StorageWarmed` marker to re-cold the slot
+    // on revert; a confidential access never warmed it in the first place.
+    if is_cold && warm {
         // add it to journal as cold loaded.
         journal.push(ENTRY::storage_warmed(address, key));
     }

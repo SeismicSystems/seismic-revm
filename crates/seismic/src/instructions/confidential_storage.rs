@@ -110,8 +110,13 @@ pub fn cload<WIRE: InterpreterTypes, H: SeismicHost + ?Sized>(
         WARM_STORAGE_READ_COST + COLD_SLOAD_COST_ADDITIONAL
     );
 
-    let Some(storage) = context.host.sload(target, *index) else {
-        return context.interpreter.halt_fatal();
+    // Route through `SeismicHost::cload` (a non-warming journal read) instead of
+    // `sload`. Using `sload` here would add the slot to the EIP-2929 warm set and
+    // leak the confidential key through the gas of later public accesses.
+    let storage = match context.host.cload(target, *index, false) {
+        Ok(storage) => storage,
+        Err(LoadError::ColdLoadSkipped) => return context.interpreter.halt_oog(),
+        Err(LoadError::DBError) => return context.interpreter.halt_fatal(),
     };
     *index = storage.data;
 }
@@ -777,12 +782,15 @@ mod tests {
         /// A configurable mock host for testing storage semantics.
         struct MockStorageHost {
             storage_state: FlaggedStorage,
+            /// Number of times `Host::sload` was invoked (test-only routing check).
+            sload_calls: usize,
         }
 
         impl MockStorageHost {
             fn new(value: U256, is_private: bool) -> Self {
                 Self {
                     storage_state: FlaggedStorage::new(value, is_private),
+                    sload_calls: 0,
                 }
             }
 
@@ -878,6 +886,7 @@ mod tests {
             }
 
             fn sload(&mut self, _: Address, _: U256) -> Option<StateLoad<U256>> {
+                self.sload_calls += 1;
                 Some(StateLoad::new(
                     self.storage_state.value,
                     false,
@@ -891,6 +900,7 @@ mod tests {
                 _: U256,
                 _: bool,
             ) -> Result<StateLoad<U256>, LoadError> {
+                self.sload_calls += 1;
                 Ok(StateLoad::new(
                     self.storage_state.value,
                     false,
@@ -1120,6 +1130,28 @@ mod tests {
 
             assert!(interp.bytecode.instruction_result().is_none());
             assert_eq!(interp.stack.pop().unwrap(), U256::from(42));
+        }
+
+        /// Regression: the CLOAD opcode must read through `Host::cload`, never
+        /// `Host::sload`, so it cannot enter the EIP-2929 warm set.
+        #[test]
+        fn test_cload_routes_through_cload_not_sload() {
+            let bytecode = Bytecode::new_raw(Bytes::from(&[0x00][..]));
+            let mut host = MockStorageHost::nonzero_public(42);
+            let mut interp = build_interpreter(SpecId::MERCURY, bytecode);
+            let _ = interp.stack.push(U256::from(0));
+
+            cload(InstructionContext {
+                interpreter: &mut interp,
+                host: &mut host,
+            });
+
+            assert!(interp.bytecode.instruction_result().is_none());
+            assert_eq!(interp.stack.pop().unwrap(), U256::from(42));
+            assert_eq!(
+                host.sload_calls, 0,
+                "CLOAD must not route through the SLOAD host method"
+            );
         }
 
         // SSTORE tests

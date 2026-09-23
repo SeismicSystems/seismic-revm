@@ -863,3 +863,88 @@ fn test_nested_checkpoint_private_storage_reverts() {
 fn test_nested_checkpoint_public_storage_reverts() {
     _test_nested_checkpoint_storage_reverts(false);
 }
+
+// =============================================================================
+// WARM-SET ISOLATION FOR CONFIDENTIAL STORAGE
+// =============================================================================
+//
+// CLOAD/CSTORE are documented as flat-cost, cold/warm-agnostic accesses. They
+// must therefore never add a slot to the EIP-2929 warm set: if they did, a
+// later public access to the same key would be measurably cheaper, letting an
+// attacker recover which shielded keys a victim touched.
+
+/// A confidential read caches the slot but must leave it cold, so a later
+/// normal read still pays the cold cost exactly once.
+#[test]
+fn test_cload_does_not_warm_slot() {
+    let mut db = InMemoryDB::default();
+    let address = Address::from_slice(&[0x1; 20]);
+    let key = U256::from(1);
+    let mut journal = setup_journal_with_account(address, AccountStatus::Created);
+
+    assert!(journal.cload(&mut db, address, key, false).unwrap().is_cold);
+    assert!(
+        journal.cload(&mut db, address, key, false).unwrap().is_cold,
+        "repeated CLOAD must not warm the slot"
+    );
+
+    assert!(
+        journal.sload(&mut db, address, key, false).unwrap().is_cold,
+        "first SLOAD after CLOAD must still be cold"
+    );
+    assert!(
+        !journal.sload(&mut db, address, key, false).unwrap().is_cold,
+        "the second SLOAD is warm"
+    );
+}
+
+/// A confidential write must not warm the slot either.
+#[test]
+fn test_cstore_does_not_warm_slot() {
+    let mut db = InMemoryDB::default();
+    let address = Address::from_slice(&[0x1; 20]);
+    let key = U256::from(7);
+    let mut journal = setup_journal_with_account(address, AccountStatus::Created);
+
+    assert!(
+        journal
+            .cstore(&mut db, address, key, U256::from(1), false)
+            .unwrap()
+            .is_cold
+    );
+    assert!(
+        journal
+            .cstore(&mut db, address, key, U256::from(2), false)
+            .unwrap()
+            .is_cold,
+        "repeated CSTORE must not warm the slot"
+    );
+
+    assert!(journal.sload(&mut db, address, key, false).unwrap().is_cold);
+    assert!(!journal.sload(&mut db, address, key, false).unwrap().is_cold);
+}
+
+/// The warm marker is transaction-scoped: the first normal access in each
+/// transaction is cold, and every access after it is warm (a slot must not be
+/// re-charged the cold cost on every access after crossing a tx boundary).
+#[test]
+fn test_normal_sload_warms_slot_across_txs() {
+    let mut db = InMemoryDB::default();
+    let address = Address::from_slice(&[0x1; 20]);
+    let key = U256::from(1);
+    let mut journal = setup_journal_with_account(address, AccountStatus::Created);
+
+    assert!(journal.sload(&mut db, address, key, false).unwrap().is_cold);
+    assert!(!journal.sload(&mut db, address, key, false).unwrap().is_cold);
+
+    journal.commit_tx();
+
+    assert!(
+        journal.sload(&mut db, address, key, false).unwrap().is_cold,
+        "first access in a new tx must be cold"
+    );
+    assert!(
+        !journal.sload(&mut db, address, key, false).unwrap().is_cold,
+        "subsequent access in the new tx must be warm"
+    );
+}
