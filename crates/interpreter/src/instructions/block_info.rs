@@ -33,7 +33,41 @@ pub fn timestamp<WIRE: InterpreterTypes, H: Host + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
     //gas!(context.interpreter, gas::BASE);
-    push!(context.interpreter, context.host.timestamp());
+
+    #[cfg(not(feature = "timestamp-in-seconds"))]
+    {
+        // Host returns milliseconds, convert to seconds for EVM compatibility
+        let timestamp_seconds = context.host.timestamp() / U256::from(1000);
+        push!(context.interpreter, timestamp_seconds);
+    }
+
+    #[cfg(feature = "timestamp-in-seconds")]
+    {
+        // Host returns seconds, use as is
+        push!(context.interpreter, context.host.timestamp());
+    }
+}
+
+/// Implements the TIMESTAMP_MS instruction.
+///
+/// Pushes the current block's timestamp in milliseconds onto the stack.
+pub fn timestamp_milliseconds<WIRE: InterpreterTypes, H: Host + ?Sized>(
+    context: InstructionContext<'_, H, WIRE>,
+) {
+    //gas!(context.interpreter, gas::BASE);
+
+    #[cfg(feature = "timestamp-in-seconds")]
+    {
+        // Host returns seconds, convert to milliseconds for reth compatibility
+        let timestamp_ms = context.host.timestamp() * U256::from(1000);
+        push!(context.interpreter, timestamp_ms);
+    }
+
+    #[cfg(not(feature = "timestamp-in-seconds"))]
+    {
+        // Host returns milliseconds, use as is
+        push!(context.interpreter, context.host.timestamp());
+    }
 }
 
 /// Implements the NUMBER instruction.

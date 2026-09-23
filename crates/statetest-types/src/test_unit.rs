@@ -1,11 +1,12 @@
+use seismic_revm::SeismicSpecId;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{AccountInfo, Env, SpecName, Test, TransactionParts};
 use revm::{
-    context::{block::BlockEnv, cfg::CfgEnv},
+    context::{block::BlockEnv, CfgEnv},
     database::CacheState,
-    primitives::{hardfork::SpecId, keccak256, Address, Bytes, B256},
+    primitives::{keccak256, Address, Bytes},
     state::Bytecode,
 };
 
@@ -95,7 +96,8 @@ impl TestUnit {
     /// # Returns
     ///
     /// A configured [`BlockEnv`] ready for execution
-    pub fn block_env(&self, cfg: &CfgEnv) -> BlockEnv {
+    #[allow(unused_variables)]
+    pub fn block_env(&self, cfg: &CfgEnv<SeismicSpecId>) -> BlockEnv {
         let mut block = BlockEnv {
             number: self.env.current_number,
             beneficiary: self.env.current_coinbase,
@@ -120,10 +122,12 @@ impl TestUnit {
             );
         }
 
+        /*
         // Set default prevrandao for merge
         if cfg.spec.is_enabled_in(SpecId::MERGE) && block.prevrandao.is_none() {
             block.prevrandao = Some(B256::default());
         }
+        */
 
         block
     }

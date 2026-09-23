@@ -1,6 +1,7 @@
 use super::RevertToSlot;
 use bytecode::Bytecode;
-use primitives::{Address, StorageKey, StorageValue, B256};
+use primitives::alloy_primitives::FlaggedStorage;
+use primitives::{Address, StorageKey, B256, U256};
 use state::AccountInfo;
 use std::vec::Vec;
 
@@ -31,7 +32,7 @@ pub struct PlainStorageChangeset {
     /// Wipe storage
     pub wipe_storage: bool,
     /// Storage key value pairs
-    pub storage: Vec<(StorageKey, StorageValue)>,
+    pub storage: Vec<(U256, FlaggedStorage)>,
 }
 
 /// Plain Storage Revert.

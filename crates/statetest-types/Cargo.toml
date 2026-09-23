@@ -18,6 +18,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 workspace = true
 
 [dependencies]
+seismic-revm = { workspace = true }
 # revm
 revm = { workspace = true, features = ["std", "serde"] }
 serde = { workspace = true, features = ["derive", "rc"] }

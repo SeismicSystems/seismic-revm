@@ -34,7 +34,7 @@ pub use once_lock::OnceLock;
 pub use alloy_primitives::map::{self, hash_map, hash_set, HashMap, HashSet};
 pub use alloy_primitives::{
     self, address, b256, bytes, fixed_bytes, hex, hex_literal, keccak256, ruint, uint, Address,
-    Bytes, FixedBytes, Log, LogData, TxKind, B256, I128, I256, U128, U256,
+    Bytes, FixedBytes, FlaggedStorage, Log, LogData, TxKind, B256, I128, I256, U128, U256,
 };
 
 /// Type alias for EVM storage keys (256-bit unsigned integers).
@@ -53,6 +53,7 @@ pub const SHORT_ADDRESS_CAP: usize = 300;
 /// Short address is considered address that has 18 leading zeros
 /// and last two bytes are less than [`SHORT_ADDRESS_CAP`].
 #[inline]
+#[allow(clippy::indexing_slicing)] // Address is [u8; 20], indices 0..20 are always valid
 pub fn short_address(address: &Address) -> Option<usize> {
     if address.0[..18].iter().all(|b| *b == 0) {
         let short_address = u16::from_be_bytes([address.0[18], address.0[19]]) as usize;

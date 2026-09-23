@@ -49,5 +49,6 @@ serde = [
 	"state/serde",
 ]
 arbitrary = ["std", "primitives/arbitrary"]
+timestamp-in-seconds = []
 # TODO : Should be set from Context or from crate that consumes this PR.
 memory_limit = []

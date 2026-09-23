@@ -4,6 +4,8 @@
 //! and inner submodule contains [`JournalInner`] struct that contains state.
 pub mod entry;
 pub mod inner;
+#[cfg(test)]
+mod test_flagged_storage;
 pub mod warm_addresses;
 
 pub use entry::{JournalEntry, JournalEntryTr};
@@ -106,6 +108,29 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self.database
     }
 
+    fn cload(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        _skip_cold_load: bool,
+    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error> {
+        self.inner
+            .cload(&mut self.database, address, key, false)
+            .map_err(JournalLoadError::unwrap_db_error)
+    }
+
+    fn cstore(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        value: U256,
+        skip_cold_load: bool,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
+        self.inner
+            .cstore(&mut self.database, address, key, value, skip_cold_load)
+            .map_err(JournalLoadError::unwrap_db_error)
+    }
+
     fn sload(
         &mut self,
         address: Address,
@@ -120,18 +145,18 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
         &mut self,
         address: Address,
         key: StorageKey,
-        value: StorageValue,
+        value: U256,
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
         self.inner
             .sstore(&mut self.database, address, key, value, false)
             .map_err(JournalLoadError::unwrap_db_error)
     }
 
-    fn tload(&mut self, address: Address, key: StorageKey) -> StorageValue {
+    fn tload(&mut self, address: Address, key: StorageKey) -> U256 {
         self.inner.tload(address, key)
     }
 
-    fn tstore(&mut self, address: Address, key: StorageKey, value: StorageValue) {
+    fn tstore(&mut self, address: Address, key: StorageKey, value: U256) {
         self.inner.tstore(address, key, value)
     }
 

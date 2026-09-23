@@ -36,7 +36,7 @@ pub struct CfgEnv<SPEC = SpecId> {
     pub limit_contract_initcode_size: Option<usize>,
     /// Skips the nonce validation against the account's nonce
     pub disable_nonce_check: bool,
-    /// Blob max count. EIP-7840 Add blob schedule to EL config files.
+    /// Blob target count. EIP-7840 Add blob schedule to EL config files.
     ///
     /// If this config is not set, the check for max blobs will be skipped.
     pub max_blobs_per_tx: Option<u64>,
