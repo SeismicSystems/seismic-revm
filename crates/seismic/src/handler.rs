@@ -24,7 +24,12 @@ use revm::{
 };
 
 /// ERC20 token address used for gas payment on Seismic.
-/// TODO: replace with the actual Seismic token contract address.
+///
+/// This is the real USDC contract, not a placeholder — it's byte-identical to
+/// `USDC_CONTRACT` in seismic-reth's `crates/seismic/txpool/src/usdc.rs`, which
+/// independently reads USDC balances for gas-affordability checks in the transaction
+/// pool. The two repos must stay in sync on this constant for gas payment to work
+/// correctly across the stack.
 pub const TOKEN: Address = address!("0x790701048922E265105fd6a4467a2901c2201C43");
 
 /// Divisor to convert 18-decimal wei amounts to 6-decimal USDC amounts.
