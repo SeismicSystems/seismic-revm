@@ -69,7 +69,7 @@ const DERIVE_SYM_KEY_COST: u64 = SHARED_SECRET_COST + EXPAND_FIXED_COST;
 /// Returns the 32-byte AES key if successful, or an error otherwise.
 ///
 /// ## Gas:
-/// *We apply a constant `DERIVE_SYM_KEY_COST` (3,800), ensuring we
+/// *We apply a constant `DERIVE_SYM_KEY_COST` (3,120), ensuring we
 /// overestimate in comparison to `ECRecover` and simpler HKDF ops.*  
 ///
 /// If `gas_limit < DERIVE_SYM_KEY_COST`, we revert with `OutOfGas`.
@@ -146,13 +146,13 @@ mod tests {
         assert_eq!(output.bytes.len(), 32, "Should produce exactly 32-byte key");
     }
 
-    /// 2) Tests an out-of-gas scenario by providing smaller gas than 3,800.
+    /// 2) Tests an out-of-gas scenario by providing smaller gas than 3,120.
     #[test]
     fn test_out_of_gas() {
         let mut input_data = vec![0u8; 65];
         input_data[32] = 0x02; // compressed format marker
 
-        let tiny_gas_limit = 1_000; // Less than 3,800
+        let tiny_gas_limit = 1_000; // Less than 3,120
         let result = derive_symmetric_key(&Bytes::from(input_data), tiny_gas_limit);
         assert!(result.is_err(), "Should fail due to out of gas");
 
