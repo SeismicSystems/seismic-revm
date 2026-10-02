@@ -234,12 +234,14 @@ pub fn apply_eip7702_auth_list<
             let hash = bytecode.hash_slow();
             (bytecode, hash)
         };
-        authority_acc.info.code_hash = hash;
-        authority_acc.info.code = Some(bytecode);
-
-        // 9. Increase the nonce of `authority` by one.
-        authority_acc.info.nonce = authority_acc.info.nonce.saturating_add(1);
-        authority_acc.mark_touch();
+        // Authorization changes precede the execution checkpoint, so they survive ordinary
+        // bytecode reverts. Journal them so transaction-level errors can still undo them.
+        // set_code_with_hash also journals the touch only if the account was not already touched.
+        // The nonce was checked above to be less than u64::MAX.
+        authority_acc.info.nonce += 1;
+        // Record touch, code, then nonce, matching upstream's delegation journal order.
+        journal.set_code_with_hash(authority, bytecode, hash);
+        journal.nonce_bump_journal_entry(authority);
     }
 
     let refunded_gas =
