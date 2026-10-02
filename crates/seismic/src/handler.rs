@@ -404,6 +404,21 @@ where
     EVM::Inspector: Inspector<EVM::Context, EthInterpreter>,
 {
     type IT = EthInterpreter;
+
+    /// Apply the failed-decryption guard before initializing any inspected frame.
+    #[inline]
+    fn inspect_execution(
+        &mut self,
+        evm: &mut Self::Evm,
+        init_and_floor_gas: &InitialAndFloorGas,
+    ) -> Result<FrameResult, Self::Error> {
+        if evm.ctx().tx().decryption_failed() {
+            // Reuse the synthetic revert and gas normalization from ordinary execution.
+            return <Self as Handler>::execution(self, evm, init_and_floor_gas);
+        }
+
+        self.mainnet.inspect_execution(evm, init_and_floor_gas)
+    }
 }
 
 #[cfg(test)]
