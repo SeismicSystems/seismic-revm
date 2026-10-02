@@ -131,11 +131,12 @@ where
 
     /// Overrides the execution phase to short-circuit when a transaction's calldata
     /// decryption has failed. In this case, bytecode execution is skipped and a Revert
-    /// is returned with all execution gas unspent (only intrinsic gas is charged).
+    /// is returned with all execution gas unspent. Final gas charges are determined by
+    /// intrinsic gas, refund processing, and the applicable calldata gas floor.
     ///
     /// The validate and pre_execution phases still run normally, ensuring the sender's
-    /// balance is deducted and nonce is incremented. The post_execution phase reimburses
-    /// the unused execution gas and credits the coinbase.
+    /// balance is deducted and nonce is incremented. The post_execution phase finalizes
+    /// refunds, enforces the gas floor, reimburses unused gas, and credits the coinbase.
     #[inline]
     fn execution(
         &mut self,
@@ -143,16 +144,19 @@ where
         init_and_floor_gas: &InitialAndFloorGas,
     ) -> Result<FrameResult, Self::Error> {
         if evm.ctx().tx().decryption_failed() {
-            // All gas beyond intrinsic is returned to the sender.
+            // Leave execution gas unspent; post-execution still enforces the gas floor.
             let execution_gas = evm.ctx().tx().gas_limit() - init_and_floor_gas.initial_gas;
-            return Ok(FrameResult::Call(CallOutcome::new(
+            let mut frame_result = FrameResult::Call(CallOutcome::new(
                 InterpreterResult {
                     result: InstructionResult::Revert,
                     output: Bytes::new(),
                     gas: Gas::new(execution_gas),
                 },
                 0..0,
-            )));
+            ));
+            // Normalize frame gas to the transaction limit before fee settlement.
+            self.last_frame_result(evm, &mut frame_result)?;
+            return Ok(frame_result);
         }
         self.mainnet.execution(evm, init_and_floor_gas)
     }
@@ -412,15 +416,21 @@ mod tests {
     )]
 
     use super::*;
-    use crate::{api::default_ctx::SeismicContext, DefaultSeismicContext, SeismicBuilder};
+    use crate::{
+        api::default_ctx::SeismicContext, DefaultSeismicContext, SeismicBuilder, SeismicSpecId,
+    };
     use revm::{
-        context::{result::EVMError, Context},
+        context::{result::EVMError, CfgEnv, Context},
         context_interface::context::ContextError,
+        database::InMemoryDB,
         database_interface::EmptyDB,
         handler::EthFrame,
         interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult},
-        primitives::Bytes,
+        primitives::{Bytes, TxKind},
+        state::AccountInfo,
+        ExecuteEvm,
     };
+    use rstest::rstest;
 
     /// Creates frame result.
     fn call_last_frame_return(
@@ -546,7 +556,13 @@ mod tests {
             execution_budget,
             "all execution gas should be remaining (returned to sender)"
         );
-        assert_eq!(gas.spent(), 0, "no execution gas should be spent");
+        assert_eq!(gas.limit(), gas_limit, "gas must use the transaction limit");
+        assert_eq!(
+            gas.spent(),
+            intrinsic_gas,
+            "only intrinsic gas should be spent"
+        );
+        assert_eq!(gas.refunded(), 0, "revert must not retain refund credits");
 
         // Verify it's a Revert
         match &result {
@@ -563,6 +579,111 @@ mod tests {
             }
             _ => panic!("expected FrameResult::Call"),
         }
+    }
+
+    /// Failed decryption must charge intrinsic gas subject to the Prague floor,
+    /// return unused gas, and pay the beneficiary the exact native fee. Exercise
+    /// the full transaction path, since checking only execution gas misses the
+    /// normalization needed before post-execution accounting.
+    #[rstest]
+    #[case::empty_minimum(0, 21_000, 21_000)]
+    #[case::empty_intermediate(0, 30_000, 21_000)]
+    #[case::empty_large(0, 100_000, 21_000)]
+    #[case::nonempty_minimum(16, 21_640, 21_640)]
+    #[case::nonempty_intermediate(16, 30_000, 21_640)]
+    #[case::nonempty_large(16, 100_000, 21_640)]
+    fn test_decryption_failed_native_gas_accounting(
+        #[case] data_len: usize,
+        #[case] gas_limit: u64,
+        #[case] expected_gas_used: u64,
+        #[values((0, 0), (1, 0), (3, 1))] gas_price_and_basefee: (u128, u64),
+        #[values(false, true)] decryption_failed: bool,
+    ) {
+        // A nonzero basefee distinguishes Seismic's full-price reward from tip-only payment.
+        let (gas_price, basefee) = gas_price_and_basefee;
+        let caller = address!("0x0000000000000000000000000000000000001234");
+        let beneficiary = address!("0x0000000000000000000000000000000000005678");
+        let initial_caller_balance = U256::from(1_000_000u64);
+        let initial_beneficiary_balance = U256::from(50_000u64);
+        let mut db = InMemoryDB::default();
+        db.insert_account_info(
+            caller,
+            AccountInfo {
+                balance: initial_caller_balance,
+                ..Default::default()
+            },
+        );
+        db.insert_account_info(
+            beneficiary,
+            AccountInfo {
+                balance: initial_beneficiary_balance,
+                ..Default::default()
+            },
+        );
+
+        // Mercury enables Prague: 16 nonzero bytes cost 21,256 intrinsic gas,
+        // but the 21,640 calldata floor determines the final charge here.
+        let ctx = Context::seismic_with_random_rng_key()
+            .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
+            .modify_block_chained(|block| {
+                block.beneficiary = beneficiary;
+                block.basefee = basefee;
+            })
+            .modify_tx_chained(|tx| {
+                tx.base.caller = caller;
+                tx.base.nonce = 0;
+                tx.base.gas_limit = gas_limit;
+                tx.base.gas_price = gas_price;
+                tx.base.gas_priority_fee = None;
+                tx.base.value = U256::ZERO;
+                tx.base.kind = TxKind::Call(Address::ZERO);
+                tx.base.data = Bytes::from(vec![0xff; data_len]);
+                tx.decryption_failed = decryption_failed;
+            })
+            .with_db(db);
+        let mut evm = ctx.build_seismic_evm();
+        let result = evm.replay().unwrap();
+
+        if decryption_failed {
+            assert!(matches!(
+                &result.result,
+                ExecutionResult::Revert { output, .. } if output.is_empty()
+            ));
+        } else {
+            assert!(result.result.is_success());
+        }
+
+        let caller_account = &result.state[&caller];
+        assert_eq!(caller_account.info.nonce, 1, "nonce must be consumed");
+        let caller_charged = initial_caller_balance - caller_account.info.balance;
+        let upfront_fee = U256::from(gas_price * u128::from(gas_limit));
+        let caller_reimbursed =
+            caller_account.info.balance - (initial_caller_balance - upfront_fee);
+        let beneficiary_paid = result
+            .state
+            .get(&beneficiary)
+            .map(|account| account.info.balance)
+            .unwrap_or(initial_beneficiary_balance)
+            - initial_beneficiary_balance;
+        let expected_fee = U256::from(gas_price * u128::from(expected_gas_used));
+        let expected_reimbursement =
+            U256::from(gas_price * u128::from(gas_limit - expected_gas_used));
+
+        assert_eq!(
+            (
+                result.result.gas_used(),
+                caller_charged,
+                caller_reimbursed,
+                beneficiary_paid,
+            ),
+            (
+                expected_gas_used,
+                expected_fee,
+                expected_reimbursement,
+                expected_fee,
+            ),
+            "(gas used, caller charged, caller reimbursed, beneficiary paid) must match protocol accounting"
+        );
     }
 
     /// When `decryption_failed` is NOT set, execution should proceed normally
@@ -605,8 +726,6 @@ mod tests {
     }
 
     // ==================== ERC20 Gas Tests ====================
-
-    use revm::{database::InMemoryDB, primitives::TxKind, state::AccountInfo};
 
     /// Build a SeismicContext on an InMemoryDB with the TOKEN contract account
     /// pre-created, the caller seeded with `eth_balance` ETH and `usdc_balance`
@@ -659,6 +778,98 @@ mod tests {
     {
         let slot = erc_address_storage(addr);
         ctx.journal_mut().cload(TOKEN, slot, false).unwrap().data
+    }
+
+    /// Failed decryption must settle token-funded gas through the full transaction path,
+    /// preserving the ceil-upfront/floor-reimbursement policy and paying the full price.
+    #[rstest]
+    #[case::empty_minimum(0, 21_000, 21_000, 21)]
+    #[case::empty_large(0, 100_000, 21_000, 21)]
+    #[case::empty_rounded(0, 100_001, 21_000, 22)]
+    #[case::nonempty_minimum(16, 21_640, 21_640, 22)]
+    #[case::nonempty_large(16, 100_000, 21_640, 22)]
+    #[case::nonempty_rounded(16, 100_001, 21_640, 23)]
+    fn test_decryption_failed_erc20_gas_accounting(
+        #[case] data_len: usize,
+        #[case] gas_limit: u64,
+        #[case] expected_gas_used: u64,
+        #[case] expected_token_charge: u64,
+    ) {
+        let caller = address!("0x0000000000000000000000000000000000001234");
+        let beneficiary = address!("0x0000000000000000000000000000000000005678");
+        let initial_caller_tokens = U256::from(1_000u64);
+        let initial_beneficiary_tokens = U256::from(50u64);
+        let mut ctx = build_erc20_ctx(
+            caller,
+            U256::ZERO,
+            initial_caller_tokens,
+            gas_limit,
+            1_000_000_000,
+            U256::ZERO,
+        )
+        .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
+        .modify_block_chained(|block| {
+            block.beneficiary = beneficiary;
+            block.basefee = 500_000_000;
+        })
+        .modify_tx_chained(|tx| {
+            tx.base.nonce = 0;
+            tx.base.data = Bytes::from(vec![0xff; data_len]);
+            tx.decryption_failed = true;
+        });
+        ctx.db_mut()
+            .insert_account_storage(
+                TOKEN,
+                erc_address_storage(beneficiary),
+                initial_beneficiary_tokens.into(),
+            )
+            .unwrap();
+        let mut evm = ctx.build_seismic_evm();
+        let result = evm.replay().unwrap();
+
+        assert!(matches!(
+            &result.result,
+            ExecutionResult::Revert { output, .. } if output.is_empty()
+        ));
+        assert_eq!(result.result.gas_used(), expected_gas_used);
+        assert_eq!(result.state[&caller].info.nonce, 1);
+        assert_eq!(result.state[&caller].info.balance, U256::ZERO);
+        assert_eq!(
+            result
+                .state
+                .get(&beneficiary)
+                .map(|account| account.info.balance)
+                .unwrap_or_default(),
+            U256::ZERO,
+            "token-funded gas must not pay a native ETH reward"
+        );
+
+        // At 1 gwei, upfront deduction is ceil(gas_limit / 1000) token units
+        // and reimbursement is floor((gas_limit - gas_used) / 1000).
+        // E.g. nonempty_rounded deducts 101 and returns 78, for a net charge of 23.
+        let token_storage = &result.state[&TOKEN].storage;
+        let caller_tokens = token_storage[&erc_address_storage(caller)]
+            .present_value
+            .value;
+        let beneficiary_tokens = token_storage[&erc_address_storage(beneficiary)]
+            .present_value
+            .value;
+        let expected_charge = U256::from(expected_token_charge);
+        assert_eq!(initial_caller_tokens - caller_tokens, expected_charge);
+        assert_eq!(
+            beneficiary_tokens - initial_beneficiary_tokens,
+            expected_charge,
+            "beneficiary must retain the full token fee, including rounding, with no burn"
+        );
+        assert_eq!(
+            caller_tokens + beneficiary_tokens,
+            initial_caller_tokens + initial_beneficiary_tokens,
+            "token fees must conserve the initial supply"
+        );
+        assert!(
+            !evm.ctx().chain().used_erc20_gas(),
+            "the payment flag must be reset after settlement"
+        );
     }
 
     #[test]
