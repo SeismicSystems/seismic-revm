@@ -210,8 +210,10 @@ fn ordinary_initcode_revert_still_consumes_nonce(
 }
 
 #[rstest]
-fn failed_decryption_create_nonce_overflow_restores_accounting(
+fn max_nonce_is_rejected_before_accounting(
     #[values(false, true)] inspected: bool,
+    #[values(false, true)] create: bool,
+    #[values(false, true)] decryption_failed: bool,
     #[values(false, true)] token_funded: bool,
 ) {
     let mut ctx = funded_context(token_funded);
@@ -220,7 +222,7 @@ fn failed_decryption_create_nonce_overflow_restores_accounting(
     let original_balance = caller.balance;
     ctx.db_mut().insert_account_info(CALLER, caller);
     let mut evm = ctx.build_seismic_evm_with_inspector(NoOpInspector);
-    let mut tx = transaction(true, true, token_funded);
+    let mut tx = transaction(create, decryption_failed, token_funded);
     tx.base.nonce = u64::MAX;
     let result = if inspected {
         evm.inspect_one_tx(tx)
@@ -234,7 +236,98 @@ fn failed_decryption_create_nonce_overflow_restores_accounting(
                 InvalidTransaction::NonceOverflowInTransaction
             ))
         ),
-        "nonce overflow must be a transaction-level error: {result:?}"
+        "nonce-max sender must be rejected before accounting: {result:?}"
+    );
+    let state = evm.finalize();
+    assert_eq!(state[&CALLER].info.nonce, u64::MAX);
+    assert_eq!(state[&CALLER].info.balance, original_balance);
+    assert!(!state[&CALLER].is_touched());
+    assert!(!state
+        .get(&BENEFICIARY)
+        .is_some_and(|account| account.is_touched()));
+    if token_funded {
+        // Early validation must not load or mutate token fee storage.
+        assert!(!state.contains_key(&TOKEN));
+        assert_eq!(
+            evm.ctx()
+                .db_mut()
+                .storage(TOKEN, token_balance_slot(CALLER))
+                .unwrap()
+                .value,
+            U256::from(INITIAL_BALANCE)
+        );
+        assert_eq!(
+            evm.ctx()
+                .db_mut()
+                .storage(TOKEN, token_balance_slot(BENEFICIARY))
+                .unwrap()
+                .value,
+            U256::ZERO
+        );
+    }
+    assert!(!evm.ctx().chain().used_erc20_gas());
+}
+
+#[rstest]
+fn max_minus_one_nonce_is_processed(
+    #[values(false, true)] inspected: bool,
+    #[values(false, true)] create: bool,
+    #[values(false, true)] decryption_failed: bool,
+    #[values(false, true)] token_funded: bool,
+) {
+    let mut ctx = funded_context(token_funded);
+    let mut caller = ctx.db_mut().basic(CALLER).unwrap().unwrap();
+    caller.nonce = u64::MAX - 1;
+    ctx.db_mut().insert_account_info(CALLER, caller);
+    let mut evm = ctx.build_seismic_evm_with_inspector(NoOpInspector);
+    let mut tx = transaction(create, decryption_failed, token_funded);
+    tx.base.nonce = u64::MAX - 1;
+    let result = if inspected {
+        evm.inspect_one_tx(tx)
+    } else {
+        evm.transact_one(tx)
+    }
+    .unwrap();
+    if decryption_failed {
+        assert!(matches!(result, ExecutionResult::Revert { .. }));
+    } else {
+        assert!(result.is_success(), "normal execution failed: {result:?}");
+        if create {
+            assert_eq!(result.created_address(), Some(CALLER.create(u64::MAX - 1)));
+        }
+    }
+    assert_eq!(evm.finalize()[&CALLER].info.nonce, u64::MAX);
+}
+
+#[rstest]
+fn failed_decryption_create_execution_nonce_overflow_restores_accounting(
+    #[values(false, true)] inspected: bool,
+    #[values(false, true)] token_funded: bool,
+) {
+    let mut ctx = funded_context(token_funded).modify_cfg_chained(|cfg| {
+        // Bypass sender validation to retain coverage of the defensive
+        // checked increment in the synthetic CREATE execution branch.
+        cfg.disable_nonce_check = true;
+    });
+    let mut caller = ctx.db_mut().basic(CALLER).unwrap().unwrap();
+    caller.nonce = u64::MAX;
+    let original_balance = caller.balance;
+    ctx.db_mut().insert_account_info(CALLER, caller);
+    let mut evm = ctx.build_seismic_evm_with_inspector(NoOpInspector);
+    let tx = transaction(true, true, token_funded);
+    let result = if inspected {
+        evm.inspect_one_tx(tx)
+    } else {
+        evm.transact_one(tx)
+    };
+    assert!(
+        matches!(
+            result,
+            Err(EVMError::Transaction(
+                InvalidTransaction::NonceOverflowInTransaction
+            ))
+        ),
+        "execution nonce overflow must roll back accounting: {result:?}"
     );
     let state = evm.finalize();
     assert_eq!(state[&CALLER].info.nonce, u64::MAX);
@@ -252,6 +345,7 @@ fn failed_decryption_create_nonce_overflow_restores_accounting(
             U256::ZERO
         );
     }
+    assert!(!evm.ctx().chain().used_erc20_gas());
 }
 
 #[derive(Debug)]
