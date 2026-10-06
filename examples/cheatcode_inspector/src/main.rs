@@ -27,7 +27,10 @@ use revm::{
         interpreter::EthInterpreter, CallInputs, CallOutcome, InterpreterResult, SStoreResult,
         SelfDestructResult, StateLoad,
     },
-    primitives::{hardfork::SpecId, Address, HashSet, Log, StorageKey, StorageValue, B256, U256},
+    primitives::{
+        hardfork::SpecId, Address, FlaggedStorage, HashSet, Log, StorageKey, StorageValue, B256,
+        U256,
+    },
     state::{Account, Bytecode, EvmState},
     Context, Database, DatabaseCommit, InspectEvm, Inspector, Journal, JournalEntry,
 };
@@ -79,6 +82,30 @@ impl JournalTr for Backend {
     ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error> {
         self.journaled_state
             .cstore(address, key, value, skip_cold_load)
+    }
+
+    fn system_load_account(
+        &mut self,
+        address: Address,
+    ) -> Result<StateLoad<&mut Account>, Infallible> {
+        self.journaled_state.system_load_account(address)
+    }
+
+    fn system_storage(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+    ) -> Result<StateLoad<StorageValue>, Infallible> {
+        self.journaled_state.system_storage(address, key)
+    }
+
+    fn system_store(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        value: FlaggedStorage,
+    ) -> Result<StateLoad<SStoreResult>, Infallible> {
+        self.journaled_state.system_store(address, key, value)
     }
 
     fn new(database: InMemoryDB) -> Self {
