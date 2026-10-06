@@ -88,6 +88,79 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         self.store(db, address, key, value, skip_cold_load, true, false)
     }
 
+    /// Load a system account without warming it. Normalize committed previous-
+    /// transaction lifecycle flags, while preserving any current-transaction warmth.
+    pub fn system_load_account<DB: Database>(
+        &mut self,
+        db: &mut DB,
+        address: Address,
+    ) -> Result<StateLoad<&mut Account>, DB::Error> {
+        let account = match self.state.entry(address) {
+            Entry::Occupied(entry) => {
+                let account = entry.into_mut();
+                if account.transaction_id != self.transaction_id {
+                    if account.is_selfdestructed_locally() {
+                        account.selfdestruct();
+                        account.unmark_selfdestructed_locally();
+                    }
+                    account.unmark_created_locally();
+                    account.transaction_id = self.transaction_id;
+                    account.mark_cold();
+                }
+                account
+            }
+            Entry::Vacant(entry) => {
+                let mut account = if let Some(info) = db.basic(address)? {
+                    Account::from(info)
+                } else {
+                    Account::new_not_existing(self.transaction_id)
+                };
+                account.transaction_id = self.transaction_id;
+                account.mark_cold();
+                entry.insert(account)
+            }
+        };
+        let is_cold = account.is_cold_transaction_id(self.transaction_id)
+            && self.warm_addresses.is_cold(&address);
+        Ok(StateLoad::new(account, is_cold, false))
+    }
+
+    /// System storage read: cache values and flags, but never warm or touch.
+    pub fn system_storage<DB: Database>(
+        &mut self,
+        db: &mut DB,
+        address: Address,
+        key: StorageKey,
+    ) -> Result<StateLoad<StorageValue>, DB::Error> {
+        self.system_load_account(db, address)?;
+        self.load_inner(db, address, key, false, false)
+            .map_err(JournalLoadError::unwrap_db_error)
+    }
+
+    /// Journaled system write with explicit visibility and a rollback-safe touch.
+    pub fn system_store<DB: Database>(
+        &mut self,
+        db: &mut DB,
+        address: Address,
+        key: StorageKey,
+        value: FlaggedStorage,
+    ) -> Result<StateLoad<SStoreResult>, DB::Error> {
+        self.system_load_account(db, address)?;
+        let result = self
+            .store(
+                db,
+                address,
+                key,
+                value.value,
+                false,
+                value.is_private,
+                false,
+            )
+            .map_err(JournalLoadError::unwrap_db_error)?;
+        self.touch(address);
+        Ok(result)
+    }
+
     /// Creates new [`JournalInner`].
     ///
     /// `warm_preloaded_addresses` is used to determine if address is considered warm loaded.
@@ -301,8 +374,8 @@ impl<ENTRY: JournalEntryTr> JournalInner<ENTRY> {
         // account balance changed.
         self.journal
             .push(ENTRY::balance_changed(address, old_balance));
-        // account is touched.
-        self.journal.push(ENTRY::account_touched(address));
+        // Introduce a touch only if the account was previously untouched.
+        self.touch(address);
 
         if bump_nonce {
             // nonce changed.

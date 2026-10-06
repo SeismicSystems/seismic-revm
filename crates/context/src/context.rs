@@ -564,7 +564,10 @@ impl<
     ) -> Result<StateLoad<SStoreResult>, LoadError> {
         self.journal_mut()
             .cstore(address, key, value, skip_cold_load)
-            .map_err(|_e| LoadError::DBError)
+            .map_err(|e| {
+                *self.error() = Err(e.into());
+                LoadError::DBError
+            })
     }
 
     /// Emits a log owned by `address` with given `LogData`.

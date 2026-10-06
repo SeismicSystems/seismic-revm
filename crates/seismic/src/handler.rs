@@ -1,5 +1,13 @@
 //!Handler related to Seismic chain
-use crate::{api::exec::SeismicContextTr, transaction::abstraction::SeismicTxTr};
+use crate::{
+    api::exec::SeismicContextTr,
+    chain::seismic_chain::TokenFeeReserve,
+    gas_token_registry::{
+        balance_storage_key, select_payment, GasPayment, GasToken, RegistryError, RegistryStorage,
+        SelectedPayment,
+    },
+    transaction::abstraction::SeismicTxTr,
+};
 use revm::{
     context::{
         result::{ExecutionResult, InvalidTransaction},
@@ -19,84 +27,81 @@ use revm::{
         interpreter::EthInterpreter, interpreter_action::FrameInit, CallOutcome, Gas,
         InitialAndFloorGas, InstructionResult, InterpreterResult,
     },
-    primitives::{address, keccak256, Address, Bytes, U256},
+    primitives::{Address, Bytes, FlaggedStorage, U256},
     Database,
 };
 
-/// ERC20 token address used for gas payment on Seismic.
-/// TODO: replace with the actual Seismic token contract address.
-pub const TOKEN: Address = address!("0x790701048922E265105fd6a4467a2901c2201C43");
+/// Adapt the current journal to shared registry decoding without warming reads.
+struct JournalRegistry<'a, J>(&'a mut J);
 
-/// Divisor to convert 18-decimal wei amounts to 6-decimal USDC amounts.
-/// USDC uses 6 decimals while ETH/wei uses 18, so we divide by 10^(18-6) = 10^12.
-const WEI_TO_USDC_DIVISOR: U256 = U256::from_limbs([1_000_000_000_000u64, 0, 0, 0]);
+impl<J: JournalTr> RegistryStorage for JournalRegistry<'_, J> {
+    type Error = <J::Database as Database>::Error;
 
-/// Storage slot of the `_balances` mapping on the Seismic USDC token contract.
-const BALANCES_SLOT: u8 = 3;
-
-/// Returns the storage slot for the caller's USDC balance entry.
-///
-/// The token uses the standard Solidity `mapping(address => uint256)` layout:
-///   slot := keccak256(abi.encode(key, p))
-/// where `key` is the 32-byte (left-padded) address and `p` is the 32-byte
-/// mapping slot position. With `_balances` declared at slot 3, this produces:
-///   keccak256(0x00..<12 bytes>..00 ++ addr[20 bytes] ++ 0x00..<31 bytes>..03)
-pub(crate) fn erc_address_storage(addr: Address) -> U256 {
-    let mut buf = [0u8; 64];
-    // key: 32-byte left-padded address (first 12 bytes already zero).
-    buf[12..32].copy_from_slice(addr.as_slice());
-    // slot position: 32-byte big-endian encoding of BALANCES_SLOT.
-    buf[63] = BALANCES_SLOT;
-    keccak256(buf).into()
+    fn read_storage(&mut self, address: Address, key: U256) -> Result<FlaggedStorage, Self::Error> {
+        self.0
+            .system_storage(address, key)
+            .map(|slot| FlaggedStorage::new(slot.data, slot.is_private))
+    }
 }
 
-/// Transfers `amount` ERC20 tokens from `sender` to `recipient` via journal cload/cstore.
-///
-/// Uses confidential storage operations (cload/cstore) instead of public ones (sload/sstore)
-/// to preserve the `is_private` flag on the USDC balance slots. Using sstore would flip
-/// the privacy bit to `false`, causing subsequent CSTOREs in the EVM execution to revert
-/// with `InvalidPublicStorageAccess`.
-fn token_operation<CTX, ERROR>(
+/// Apply one nonzero debit/credit with checked arithmetic and current-slot guards.
+/// The system write journals an introduced touch, but never warms the token or slot.
+fn token_balance_change<CTX, ERROR>(
     context: &mut CTX,
-    sender: Address,
-    recipient: Address,
+    token: GasToken,
+    account: Address,
     amount: U256,
+    debit: bool,
 ) -> Result<(), ERROR>
 where
     CTX: ContextTr,
     ERROR: From<InvalidTransaction> + From<<CTX::Db as Database>::Error>,
 {
-    let sender_slot = erc_address_storage(sender);
-    let sender_balance = context.journal_mut().cload(TOKEN, sender_slot, false)?.data;
-
-    if sender_balance < amount {
-        return Err(InvalidTransaction::LackOfFundForMaxFee {
-            fee: Box::new(amount),
-            balance: Box::new(sender_balance),
+    if amount.is_zero() {
+        return Ok(());
+    }
+    let key = balance_storage_key(account, token.balance_slot);
+    let slot = context.journal_mut().system_storage(token.token, key)?;
+    let balance = FlaggedStorage::new(slot.data, slot.is_private);
+    if !token.mode.accepts(balance) {
+        return Err(InvalidTransaction::GasTokenBalanceModeMismatch {
+            token: token.token,
+            account,
         }
         .into());
     }
-
-    context.journal_mut().cstore(
-        TOKEN,
-        sender_slot,
-        sender_balance.saturating_sub(amount),
-        false,
+    let new = if debit {
+        balance.value.checked_sub(amount).ok_or_else(|| {
+            InvalidTransaction::LackOfFundForMaxFee {
+                fee: Box::new(amount),
+                balance: Box::new(balance.value),
+            }
+        })?
+    } else {
+        balance
+            .value
+            .checked_add(amount)
+            .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?
+    };
+    context.journal_mut().system_store(
+        token.token,
+        key,
+        FlaggedStorage::new(new, token.mode.is_private()),
     )?;
-
-    let recipient_slot = erc_address_storage(recipient);
-    let recipient_balance = context
-        .journal_mut()
-        .cload(TOKEN, recipient_slot, false)?
-        .data;
-    context.journal_mut().cstore(
-        TOKEN,
-        recipient_slot,
-        recipient_balance.saturating_add(amount),
-        false,
-    )?;
-
     Ok(())
+}
+
+/// Surface body database errors before deterministic settlement checks can mask them.
+fn pending_context_error<CTX, ERROR>(context: &mut CTX) -> Result<(), ERROR>
+where
+    CTX: ContextTr,
+    ERROR: From<<CTX::Db as Database>::Error> + FromStringError,
+{
+    match core::mem::replace(context.error(), Ok(())) {
+        Err(ContextError::Db(error)) => Err(error.into()),
+        Err(ContextError::Custom(error)) => Err(ERROR::from_string(error)),
+        Ok(()) => Ok(()),
+    }
 }
 
 pub struct SeismicHandler<EVM, ERROR, FRAME> {
@@ -179,113 +184,89 @@ where
 
     fn validate_against_state_and_deduct_caller(&self, evm: &mut Self::Evm) -> Result<(), ERROR> {
         let context = evm.ctx();
+        context.chain_mut().clear_token_fee();
         let basefee = context.block().basefee() as u128;
         let blob_price = context.block().blob_gasprice().unwrap_or_default();
-        let is_balance_check_disabled = context.cfg().is_balance_check_disabled();
-        let is_eip3607_disabled = context.cfg().is_eip3607_disabled();
-        let is_nonce_check_disabled = context.cfg().is_nonce_check_disabled();
+        let disabled = context.cfg().is_balance_check_disabled();
+        let disable_code_check = context.cfg().is_eip3607_disabled();
+        let disable_nonce_check = context.cfg().is_nonce_check_disabled();
         let caller = context.tx().caller();
         let value = context.tx().value();
-        let beneficiary = context.block().beneficiary();
+        let selector = context.tx().gas_payment();
+        if selector != GasPayment::Auto && context.tx().tx_type() != 74 {
+            return Err(InvalidTransaction::InvalidGasPaymentSelector.into());
+        }
 
         let (tx, journal) = context.tx_journal_mut();
-
-        // Load caller's account.
-        let caller_account = journal.load_account_code(tx.caller())?.data;
-
+        let account = journal.load_account_code(caller)?.data;
         validate_account_nonce_and_code(
-            &mut caller_account.info,
+            &mut account.info,
             tx.nonce(),
-            is_eip3607_disabled,
-            is_nonce_check_disabled,
+            disable_code_check,
+            disable_nonce_check,
         )?;
-
-        let max_balance_spending = tx.max_balance_spending()?;
-        // effective balance is always smaller than max balance so it can't overflow
-        #[allow(clippy::expect_used)]
-        let effective_balance_spending = tx
-            .effective_balance_spending(basefee, blob_price)
-            .expect("effective balance is always smaller than max balance so it can't overflow");
-        let gas_balance_spending = effective_balance_spending - value;
-        let eth_balance = caller_account.info.balance;
+        let maximum = tx.max_balance_spending()?;
+        let effective = tx.effective_balance_spending(basefee, blob_price)?;
+        let native_balance = account.info.balance;
         let is_call = tx.kind().is_call();
-
-        // Preamble: mark touch and bump nonce (common to all paths).
-        caller_account.mark_touch();
         if is_call {
-            caller_account.info.nonce = caller_account.info.nonce.saturating_add(1);
+            account.info.nonce = account
+                .info
+                .nonce
+                .checked_add(1)
+                .ok_or(InvalidTransaction::NonceOverflowInTransaction)?;
         }
-
-        if !is_balance_check_disabled && eth_balance >= max_balance_spending {
-            // Native ETH path (standard mainnet behavior).
-            let old_balance = eth_balance;
-            caller_account.info.balance = eth_balance.saturating_sub(gas_balance_spending);
-            journal.caller_accounting_journal_entry(caller, old_balance, is_call);
-            // used_erc20_gas flag remains false (default).
-        } else if !is_balance_check_disabled {
-            // Record journal entries for the nonce bump and account touch so that
-            // discard_tx() can revert them if the transaction fails. ETH balance is
-            // unchanged in this path (old_balance == current balance → revert is a
-            // no-op for balance).
-            journal.caller_accounting_journal_entry(caller, eth_balance, is_call);
-            // NLL: (tx, journal) borrow ends here; context.journal_mut() reborrows below.
-
-            // ERC20 fallback path: gas is paid in USDC, value is still paid in ETH.
-            // Verify the caller has enough ETH to cover the value transfer.
-            if value > eth_balance {
-                return Err(InvalidTransaction::LackOfFundForMaxFee {
-                    fee: Box::new(value),
-                    balance: Box::new(eth_balance),
-                }
-                .into());
-            }
-
-            let account_balance_slot = erc_address_storage(caller);
-            context.journal_mut().load_account(TOKEN)?.data.mark_touch();
-
-            let account_balance = context
-                .journal_mut()
-                .cload(TOKEN, account_balance_slot, false)
-                .map(|v| v.data)
-                .unwrap_or_default();
-
-            // Check USDC covers gas costs only (value is paid in ETH, not USDC).
-            // Scale wei (18 decimals) → USDC (6 decimals) with ceiling division
-            // so we don't under-require.
-            let max_gas_spending = max_balance_spending - value;
-            let max_gas_spending_usdc =
-                (max_gas_spending + WEI_TO_USDC_DIVISOR - U256::from(1)) / WEI_TO_USDC_DIVISOR;
-            if max_gas_spending_usdc > account_balance {
-                return Err(InvalidTransaction::LackOfFundForMaxFee {
-                    fee: Box::new(max_gas_spending_usdc),
-                    balance: Box::new(account_balance),
-                }
-                .into());
-            }
-
-            // Subtract gas spending (scaled to USDC) — value is transferred during
-            // execution. Gas goes directly to the block beneficiary (no treasury
-            // middleman, no burn); unused gas is reimbursed later.
-            //
-            // Use ceiling division so sub-divisor gas costs still charge at least 1
-            // unit of USDC. Floor division would allow free transactions when
-            // gas_limit * effective_gas_price < WEI_TO_USDC_DIVISOR (10^12 wei).
-            // This matches the ceiling division used in max_gas_spending_usdc above,
-            // so if the pre-flight check passes, the caller's balance can cover this
-            // deduction exactly.
-            let gas_spending_usdc =
-                (gas_balance_spending + WEI_TO_USDC_DIVISOR - U256::from(1)) / WEI_TO_USDC_DIVISOR;
-            token_operation::<EVM::Context, ERROR>(
-                context,
-                caller,
-                beneficiary,
-                gas_spending_usdc,
-            )?;
-            context.chain_mut().set_used_erc20_gas();
+        // All paths, including disabled checks, journal the nonce and only a newly
+        // introduced touch. Native balance may subsequently be debited under this entry.
+        journal.caller_accounting_journal_entry(caller, native_balance, is_call);
+        if disabled {
+            return Ok(());
         }
-        // is_balance_check_disabled: preamble (touch + nonce) already done, no deduction needed.
-
+        let selected = select_payment(
+            &mut JournalRegistry(context.journal_mut()),
+            selector,
+            caller,
+            native_balance,
+            value,
+            maximum - value,
+        )
+        .map_err(|error| match error {
+            RegistryError::Storage(error) => ERROR::from(error),
+            RegistryError::Transaction(error) => ERROR::from(error),
+        })?;
+        let upfront_wei = effective - value;
+        match selected {
+            SelectedPayment::Native => {
+                let account = context.journal_mut().load_account(caller)?.data;
+                account.info.balance = native_balance
+                    .checked_sub(upfront_wei)
+                    .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?;
+            }
+            SelectedPayment::Token(token) => {
+                let upfront = token.precision.ceil(upfront_wei);
+                token_balance_change::<_, ERROR>(context, token, caller, upfront, true)?;
+                // Some with zero remaining must not become native fee accounting.
+                context.chain_mut().set_token_fee(TokenFeeReserve {
+                    token,
+                    remaining: upfront,
+                });
+            }
+        }
         Ok(())
+    }
+
+    fn post_execution(
+        &self,
+        evm: &mut Self::Evm,
+        exec_result: &mut FrameResult,
+        init_and_floor_gas: InitialAndFloorGas,
+        eip7702_gas_refund: i64,
+    ) -> Result<(), Self::Error> {
+        pending_context_error::<_, ERROR>(evm.ctx())?;
+        self.refund(evm, exec_result, eip7702_gas_refund);
+        self.eip7623_check_gas_floor(evm, exec_result, init_and_floor_gas);
+        self.reimburse_caller(evm, exec_result)?;
+        self.reward_beneficiary(evm, exec_result)
     }
 
     fn reimburse_caller(
@@ -294,37 +275,39 @@ where
         exec_result: &mut <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
     ) -> Result<(), Self::Error> {
         let context = evm.ctx();
+        pending_context_error::<_, ERROR>(context)?;
         if context.cfg().is_balance_check_disabled() {
             return Ok(());
         }
-
-        if context.chain().used_erc20_gas() {
-            // ERC20 path: return unused gas from beneficiary → caller in tokens.
-            // Beneficiary holds the gas upfront (see validate_against_state_and_deduct_caller).
-            let basefee = context.block().basefee() as u128;
-            let caller = context.tx().caller();
-            let beneficiary = context.block().beneficiary();
-            let effective_gas_price = context.tx().effective_gas_price(basefee);
+        if let Some(mut reserve) = context.chain().token_fee() {
+            let price = U256::from(
+                context
+                    .tx()
+                    .effective_gas_price(context.block().basefee() as u128),
+            );
             let gas = exec_result.gas();
-            let reimbursement_wei = effective_gas_price
-                .saturating_mul((gas.remaining() + gas.refunded() as u64) as u128);
-            // Scale wei → USDC with floor division (beneficiary keeps rounding
-            // dust). This is intentional: deduction ceils and refund floors, so
-            // the beneficiary always captures at most 1 USDC unit of rounding
-            // margin per tx. Using ceil here would risk the refund exceeding
-            // what was deducted in some rounding edge cases.
-            let reimbursement_usdc = U256::from(reimbursement_wei) / WEI_TO_USDC_DIVISOR;
-            token_operation::<EVM::Context, ERROR>(
+            let refunded = u64::try_from(gas.refunded())
+                .map_err(|_| InvalidTransaction::OverflowPaymentInTransaction)?;
+            let unused = gas
+                .remaining()
+                .checked_add(refunded)
+                .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?;
+            let refund = reserve.token.precision.floor(price * U256::from(unused));
+            reserve.remaining = reserve
+                .remaining
+                .checked_sub(refund)
+                .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?;
+            token_balance_change::<_, ERROR>(
                 context,
-                beneficiary,
-                caller,
-                reimbursement_usdc,
+                reserve.token,
+                context.tx().caller(),
+                refund,
+                false,
             )?;
+            context.chain_mut().set_token_fee(reserve);
         } else {
-            // Native ETH path: standard balance_incr.
-            post_execution::reimburse_caller(evm.ctx(), exec_result.gas(), U256::ZERO)?;
+            post_execution::reimburse_caller(context, exec_result.gas(), U256::ZERO)?;
         }
-
         Ok(())
     }
 
@@ -334,29 +317,32 @@ where
         exec_result: &mut <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
     ) -> Result<(), Self::Error> {
         let context = evm.ctx();
+        pending_context_error::<_, ERROR>(context)?;
         if context.cfg().is_balance_check_disabled() {
             return Ok(());
         }
-
-        if context.chain().used_erc20_gas() {
-            // ERC20 path: no-op. The beneficiary already received the full gas
-            // payment upfront in validate_against_state_and_deduct_caller, and
-            // unused gas was returned in reimburse_caller. The net balance they
-            // keep is effective_gas_price * gas_used (in USDC), with nothing
-            // burned and no treasury middleman.
+        let beneficiary = context.block().beneficiary();
+        if let Some(mut reserve) = context.chain().token_fee() {
+            token_balance_change::<_, ERROR>(
+                context,
+                reserve.token,
+                beneficiary,
+                reserve.remaining,
+                false,
+            )?;
+            reserve.remaining = U256::ZERO;
+            context.chain_mut().set_token_fee(reserve);
         } else {
-            // Native ETH path: credit beneficiary with the full effective_gas_price
-            // (Seismic does not burn basefee, unlike mainnet EIP-1559).
-            let basefee = context.block().basefee() as u128;
-            let effective_gas_price = context.tx().effective_gas_price(basefee);
-            let gas = exec_result.gas();
-            let reward_wei = effective_gas_price.saturating_mul(gas.used() as u128);
-            let beneficiary = context.block().beneficiary();
+            // Native Seismic fees pay the full effective price, without a basefee burn.
+            let price = U256::from(
+                context
+                    .tx()
+                    .effective_gas_price(context.block().basefee() as u128),
+            );
             context
                 .journal_mut()
-                .balance_incr(beneficiary, U256::from(reward_wei))?;
+                .balance_incr(beneficiary, price * U256::from(exec_result.gas().used()))?;
         }
-
         Ok(())
     }
 
@@ -376,20 +362,14 @@ where
         evm: &mut Self::Evm,
         result: <<Self::Evm as EvmTr>::Frame as FrameTr>::FrameResult,
     ) -> Result<ExecutionResult<Self::HaltReason>, Self::Error> {
-        match core::mem::replace(evm.ctx().error(), Ok(())) {
-            Err(ContextError::Db(e)) => return Err(e.into()),
-            Err(ContextError::Custom(e)) => {
-                return Err(Self::Error::from_string(e));
-            }
-            Ok(_) => (),
-        }
+        pending_context_error::<_, ERROR>(evm.ctx())?;
 
         let exec_result = post_execution::output(evm.ctx(), result);
 
         evm.ctx().journal_mut().commit_tx();
         evm.ctx().local_mut().clear();
         evm.frame_stack().clear();
-        evm.ctx().chain_mut().reset_erc20_gas();
+        evm.ctx().chain_mut().clear_token_fee();
 
         Ok(exec_result)
     }
@@ -397,7 +377,7 @@ where
     /// Handles cleanup when an error occurs during execution.
     ///
     /// Ensures the journal state is properly cleared before propagating the error.
-    /// On happy path journal is cleared in [`Handler::output`] method.
+    /// On the happy path the journal is committed in [`Handler::execution_result`].
     #[inline]
     fn catch_error(
         &self,
@@ -407,7 +387,8 @@ where
         evm.ctx().local_mut().clear();
         evm.ctx().journal_mut().discard_tx();
         evm.frame_stack().clear();
-        evm.ctx().chain_mut().reset_erc20_gas();
+        evm.ctx().chain_mut().clear_token_fee();
+        *evm.ctx().error() = Ok(());
         Err(error)
     }
 }
@@ -447,9 +428,14 @@ mod tests {
     )]
 
     use super::*;
+    use crate::gas_token_registry::{
+        token_metadata_slot, BalanceStorageMode, TokenPrecision, GAS_TOKEN_REGISTRY,
+        TOKEN_COUNT_SLOT,
+    };
     use crate::{
         api::default_ctx::SeismicContext, DefaultSeismicContext, SeismicBuilder, SeismicSpecId,
     };
+    use revm::primitives::{address, keccak256};
     use revm::{
         context::{result::EVMError, CfgEnv, Context},
         context_interface::context::ContextError,
@@ -462,6 +448,35 @@ mod tests {
         ExecuteEvm,
     };
     use rstest::rstest;
+
+    // Six-decimal fixtures are registered explicitly; no production hardcoded token remains.
+    const TOKEN: Address = address!("790701048922E265105fd6a4467a2901c2201C43");
+
+    fn erc_address_storage(account: Address) -> U256 {
+        balance_storage_key(account, U256::from(3))
+    }
+
+    fn test_token() -> GasToken {
+        GasToken {
+            token: TOKEN,
+            balance_slot: U256::from(3),
+            mode: BalanceStorageMode::Public,
+            precision: TokenPrecision::new(6).unwrap(),
+        }
+    }
+
+    fn token_operation<CTX: ContextTr, ERROR>(
+        context: &mut CTX,
+        sender: Address,
+        recipient: Address,
+        amount: U256,
+    ) -> Result<(), ERROR>
+    where
+        ERROR: From<InvalidTransaction> + From<<CTX::Db as Database>::Error>,
+    {
+        token_balance_change::<_, ERROR>(context, test_token(), sender, amount, true)?;
+        token_balance_change::<_, ERROR>(context, test_token(), recipient, amount, false)
+    }
 
     /// Creates frame result.
     fn call_last_frame_return(
@@ -780,8 +795,35 @@ mod tests {
             },
         );
 
-        // Seed TOKEN contract account (must exist for cload/cstore).
-        db.insert_account_info(TOKEN, AccountInfo::default());
+        // Register the six-decimal fixture as Public; do not convert public balances to private.
+        db.insert_account_info(
+            TOKEN,
+            AccountInfo {
+                nonce: 1,
+                ..Default::default()
+            },
+        );
+        db.insert_account_info(
+            GAS_TOKEN_REGISTRY,
+            AccountInfo {
+                nonce: 1,
+                ..Default::default()
+            },
+        );
+        db.insert_account_storage(GAS_TOKEN_REGISTRY, TOKEN_COUNT_SLOT, U256::from(1).into())
+            .unwrap();
+        let metadata = U256::from_be_slice(TOKEN.as_slice())
+            | (U256::from(1) << 160usize)
+            | (U256::from(1) << 168usize)
+            | (U256::from(6) << 176usize);
+        db.insert_account_storage(GAS_TOKEN_REGISTRY, token_metadata_slot(0), metadata.into())
+            .unwrap();
+        db.insert_account_storage(
+            GAS_TOKEN_REGISTRY,
+            token_metadata_slot(0) + U256::from(1),
+            U256::from(3).into(),
+        )
+        .unwrap();
 
         // Seed caller's USDC balance in the TOKEN storage.
         if usdc_balance > U256::ZERO {
@@ -808,7 +850,7 @@ mod tests {
         <CTX::Db as Database>::Error: core::fmt::Debug,
     {
         let slot = erc_address_storage(addr);
-        ctx.journal_mut().cload(TOKEN, slot, false).unwrap().data
+        ctx.journal_mut().system_storage(TOKEN, slot).unwrap().data
     }
 
     /// Failed decryption must settle token-funded gas through the full transaction path,
@@ -904,9 +946,8 @@ mod tests {
     }
 
     #[test]
-    fn test_erc20_gas_fallback_deducts_to_beneficiary() {
-        // Caller has 0 ETH but plenty of USDC. Gas is paid directly to the
-        // beneficiary — no TREASURY middleman.
+    fn test_erc20_gas_fallback_deducts_to_reserve() {
+        // Caller has 0 native but enough tokens. The beneficiary gets no upfront credit.
         let caller = address!("0x0000000000000000000000000000000000001234");
         let gas_limit: u64 = 100_000;
         let gas_price: u128 = 1_000_000_000; // 1 gwei
@@ -941,8 +982,9 @@ mod tests {
         let beneficiary_after = read_usdc_balance(evm.ctx(), beneficiary);
         assert_eq!(caller_after, usdc_balance - expected);
         assert_eq!(
-            beneficiary_after, expected,
-            "beneficiary should receive gas payment directly (no TREASURY)"
+            beneficiary_after,
+            U256::ZERO,
+            "upfront reserve must not be spendable by the beneficiary"
         );
     }
 
@@ -1000,9 +1042,8 @@ mod tests {
     }
 
     #[test]
-    fn test_erc20_gas_reimburse_from_beneficiary() {
-        // After deduction, half the gas is used — the other half is returned
-        // from the beneficiary back to the caller in USDC.
+    fn test_erc20_gas_reimburse_from_reserve() {
+        // Refunds credit the caller from the internal reserve, not the beneficiary.
         let caller = address!("0x0000000000000000000000000000000000001234");
         let gas_limit: u64 = 100_000;
         let gas_price: u128 = 1_000_000_000;
@@ -1052,7 +1093,7 @@ mod tests {
         );
         assert_eq!(
             read_usdc_balance(evm.ctx(), beneficiary),
-            beneficiary_before_reimburse - expected_refund
+            beneficiary_before_reimburse
         );
     }
 
@@ -1083,14 +1124,11 @@ mod tests {
         let handler =
             SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();
 
-        // 1. Deduct. 2e9 * 100_000 / 1e12 = 200 USDC goes to beneficiary.
+        // 1. Deduct 200 raw units into an internal reserve, not the beneficiary.
         handler
             .validate_against_state_and_deduct_caller(&mut evm)
             .unwrap();
-        assert_eq!(
-            read_usdc_balance(evm.ctx(), beneficiary),
-            U256::from(200u64)
-        );
+        assert_eq!(read_usdc_balance(evm.ctx(), beneficiary), U256::ZERO);
 
         // 2. Reimburse: 50k gas remaining. 50_000 * 2e9 / 1e12 = 100 USDC back.
         let mut gas = Gas::new(gas_limit - 21_000);
@@ -1107,15 +1145,16 @@ mod tests {
             .reimburse_caller(&mut evm, &mut exec_result)
             .unwrap();
 
-        // 3. Reward beneficiary: no-op for ERC20.
+        // 3. Reward the beneficiary with the 100-unit reserve remainder.
         let beneficiary_before_reward = read_usdc_balance(evm.ctx(), beneficiary);
         handler
             .reward_beneficiary(&mut evm, &mut exec_result)
             .unwrap();
         let beneficiary_after_reward = read_usdc_balance(evm.ctx(), beneficiary);
         assert_eq!(
-            beneficiary_before_reward, beneficiary_after_reward,
-            "reward_beneficiary must be a no-op for ERC20 path"
+            beneficiary_before_reward + U256::from(100),
+            beneficiary_after_reward,
+            "reward_beneficiary must credit the reserve remainder"
         );
 
         // Invariant: no tokens burned.
@@ -1187,7 +1226,11 @@ mod tests {
             read_usdc_balance(evm.ctx(), caller),
             usdc_balance - expected_gas_usdc
         );
-        assert_eq!(read_usdc_balance(evm.ctx(), beneficiary), expected_gas_usdc);
+        assert_eq!(read_usdc_balance(evm.ctx(), beneficiary), U256::ZERO);
+        assert_eq!(
+            evm.ctx().chain().token_fee().unwrap().remaining,
+            expected_gas_usdc
+        );
     }
 
     #[test]
@@ -1262,8 +1305,8 @@ mod tests {
         );
         assert_eq!(
             beneficiary_after,
-            U256::from(1u64),
-            "beneficiary must receive at least 1 USDC unit (no free txs)"
+            U256::ZERO,
+            "beneficiary must not receive the fee before execution"
         );
     }
 
@@ -1297,11 +1340,12 @@ mod tests {
             .validate_against_state_and_deduct_caller(&mut evm)
             .unwrap();
 
-        // Exactly 101 USDC deducted → caller: 0, beneficiary: 101.
+        // Exactly 101 raw units deducted: caller zero, reserve 101, beneficiary zero.
         assert_eq!(read_usdc_balance(evm.ctx(), caller), U256::ZERO);
+        assert_eq!(read_usdc_balance(evm.ctx(), beneficiary), U256::ZERO);
         assert_eq!(
-            read_usdc_balance(evm.ctx(), beneficiary),
-            U256::from(101u64)
+            evm.ctx().chain().token_fee().unwrap().remaining,
+            U256::from(101)
         );
     }
 
@@ -1485,7 +1529,10 @@ mod tests {
             U256::ZERO,
         );
         let mut evm = ctx.build_seismic_evm();
-        evm.ctx().chain_mut().set_used_erc20_gas();
+        evm.ctx().chain_mut().set_token_fee(TokenFeeReserve {
+            token: test_token(),
+            remaining: U256::ZERO,
+        });
         assert!(evm.ctx().chain().used_erc20_gas());
 
         let frame_result = FrameResult::Call(CallOutcome::new(
@@ -1516,7 +1563,10 @@ mod tests {
             U256::ZERO,
         );
         let mut evm = ctx.build_seismic_evm();
-        evm.ctx().chain_mut().set_used_erc20_gas();
+        evm.ctx().chain_mut().set_token_fee(TokenFeeReserve {
+            token: test_token(),
+            remaining: U256::ZERO,
+        });
 
         let handler =
             SeismicHandler::<_, EVMError<_, InvalidTransaction>, EthFrame<EthInterpreter>>::new();

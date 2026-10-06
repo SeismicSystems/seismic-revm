@@ -1,3 +1,4 @@
+use crate::GasPayment;
 use auto_impl::auto_impl;
 use revm::{
     context::TxEnv,
@@ -18,6 +19,9 @@ pub trait SeismicTxTr: Transaction {
     /// a mined state-changing transaction. Both are `tx_type == 74`; this is the finer distinction,
     /// set by the node at tx-env construction.
     fn signed_read(&self) -> bool;
+
+    /// Signed payment metadata; standard transactions use Auto.
+    fn gas_payment(&self) -> GasPayment;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -31,6 +35,8 @@ pub struct SeismicTransaction<T: Transaction> {
     /// Whether this tx executes as an authenticated signed read (RPC read) vs a mined write. Set by
     /// the node at tx-env construction; both a signed read and a mined Seismic write are tx_type 74.
     pub signed_read: bool,
+    /// Public payment choice carried unchanged from the signed transaction.
+    pub gas_payment: GasPayment,
 }
 
 impl<T: Transaction> SeismicTransaction<T> {
@@ -40,7 +46,13 @@ impl<T: Transaction> SeismicTransaction<T> {
             tx_hash: B256::ZERO,
             decryption_failed: false,
             signed_read: false,
+            gas_payment: GasPayment::Auto,
         }
+    }
+
+    pub fn with_gas_payment(mut self, gas_payment: GasPayment) -> Self {
+        self.gas_payment = gas_payment;
+        self
     }
 
     pub fn with_tx_hash(mut self, tx_hash: B256) -> Self {
@@ -85,6 +97,7 @@ impl Default for SeismicTransaction<TxEnv> {
             tx_hash: B256::ZERO,
             decryption_failed: false,
             signed_read: false,
+            gas_payment: GasPayment::Auto,
         }
     }
 }
@@ -179,6 +192,10 @@ impl<T: Transaction> SeismicTxTr for SeismicTransaction<T> {
 
     fn signed_read(&self) -> bool {
         self.signed_read
+    }
+
+    fn gas_payment(&self) -> GasPayment {
+        self.gas_payment
     }
 }
 

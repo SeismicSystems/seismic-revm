@@ -8,6 +8,7 @@ extern crate alloc as std;
 pub mod api;
 pub mod chain;
 pub mod evm;
+pub mod gas_token_registry;
 pub mod handler;
 pub mod instructions;
 pub mod precompiles;
@@ -21,6 +22,7 @@ pub use api::{
 };
 pub use chain::seismic_chain::SeismicChain;
 pub use evm::SeismicEvm;
+pub use gas_token_registry::GasPayment;
 pub use instructions::seismic_host::SeismicHost;
 pub use result::SeismicRevertReason;
 pub use spec::*;

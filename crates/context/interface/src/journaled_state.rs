@@ -42,6 +42,30 @@ pub trait JournalTr {
             .map_err(JournalLoadError::unwrap_db_error)
     }
 
+    /// Read current journal storage without warming either the account or slot.
+    /// Read-only system accesses do not touch accounts or initialize privacy flags.
+    fn system_storage(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+    ) -> Result<StateLoad<StorageValue>, <Self::Database as Database>::Error>;
+
+    /// Journal a system storage write with an explicit privacy flag, without warming.
+    /// Loads and conditionally touches the account so changes survive state commit.
+    /// Callers must validate slot visibility and skip zero-amount fee operations.
+    fn system_store(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        value: primitives::FlaggedStorage,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
+
+    /// Load a system account without adding warmth or a touch.
+    fn system_load_account(
+        &mut self,
+        address: Address,
+    ) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error>;
+
     /// Returns the private storage value from Journal state.
     ///
     /// Loads the storage from database if not found in Journal state.
@@ -144,7 +168,8 @@ pub trait JournalTr {
         balance: U256,
     ) -> Result<Option<TransferError>, <Self::Database as Database>::Error>;
 
-    /// Increments the balance of the account.
+    /// Journal caller balance/nonce changes and conditionally introduce its touch.
+    /// The caller must not mark itself touched before invoking this operation.
     fn caller_accounting_journal_entry(
         &mut self,
         address: Address,

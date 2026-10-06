@@ -1,10 +1,20 @@
+use crate::gas_token_registry::GasToken;
 use rand::RngCore;
 use revm::{
     precompile::PrecompileError,
-    primitives::{keccak256, Bytes, B256},
+    primitives::{keccak256, Bytes, B256, U256},
 };
 
 use super::rng_container::derive_rng_output;
+
+/// Transaction-local token reserve, inaccessible to contract execution.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TokenFeeReserve {
+    /// Retained selected token configuration, including precision and mode.
+    pub token: GasToken,
+    /// Remaining raw units after floor-rounded refunds.
+    pub remaining: U256,
+}
 
 #[derive(Clone)]
 pub struct SeismicChain {
@@ -17,8 +27,8 @@ pub struct SeismicChain {
     tx_hash_accumulator: B256,
     /// Total remaining gas across all active call frames, set before precompile dispatch.
     gas_remaining_all_frames: u64,
-    /// If the current transaction used erc20 as gas
-    used_erc20_gas: bool,
+    /// Selected token and reserve. Some with zero remaining is still token payment.
+    token_fee: Option<TokenFeeReserve>,
 }
 
 /// Redacted: `live_rng_key` seeds every RNG-precompile output.
@@ -28,7 +38,7 @@ impl core::fmt::Debug for SeismicChain {
             .field("parent_block_hash", &self.parent_block_hash)
             .field("tx_hash_accumulator", &self.tx_hash_accumulator)
             .field("gas_remaining_all_frames", &self.gas_remaining_all_frames)
-            .field("used_erc20_gas", &self.used_erc20_gas)
+            .field("token_fee", &self.token_fee)
             .finish_non_exhaustive()
     }
 }
@@ -40,7 +50,7 @@ impl SeismicChain {
             parent_block_hash: B256::ZERO,
             tx_hash_accumulator: B256::ZERO,
             gas_remaining_all_frames: 0,
-            used_erc20_gas: false,
+            token_fee: None,
         }
     }
 
@@ -56,7 +66,7 @@ impl SeismicChain {
             parent_block_hash: B256::ZERO,
             tx_hash_accumulator: B256::ZERO,
             gas_remaining_all_frames: 0,
-            used_erc20_gas: false,
+            token_fee: None,
         }
     }
 
@@ -66,7 +76,7 @@ impl SeismicChain {
             parent_block_hash: B256::ZERO,
             tx_hash_accumulator: B256::ZERO,
             gas_remaining_all_frames: 0,
-            used_erc20_gas: false,
+            token_fee: None,
         }
     }
 
@@ -98,16 +108,24 @@ impl SeismicChain {
         self.tx_hash_accumulator = acc;
     }
 
-    pub fn set_used_erc20_gas(&mut self) {
-        self.used_erc20_gas = true;
+    /// Retained token payment, including when its reserve is zero.
+    pub fn token_fee(&self) -> Option<TokenFeeReserve> {
+        self.token_fee
     }
 
+    /// Update the selected-token reserve without consulting mutable registry state.
+    pub fn set_token_fee(&mut self, fee: TokenFeeReserve) {
+        self.token_fee = Some(fee);
+    }
+
+    /// Whether a token, rather than native currency, pays the current gas fee.
     pub fn used_erc20_gas(&self) -> bool {
-        self.used_erc20_gas
+        self.token_fee.is_some()
     }
 
-    pub fn reset_erc20_gas(&mut self) {
-        self.used_erc20_gas = false;
+    /// Clear transaction-local payment state on successful finalization or error.
+    pub fn clear_token_fee(&mut self) {
+        self.token_fee = None;
     }
 
     /// Advance the tx hash accumulator by hashing in the given tx_hash.
