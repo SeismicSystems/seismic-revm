@@ -5,6 +5,8 @@
 pub mod entry;
 pub mod inner;
 #[cfg(test)]
+mod test_code_changes;
+#[cfg(test)]
 mod test_flagged_storage;
 pub mod warm_addresses;
 
