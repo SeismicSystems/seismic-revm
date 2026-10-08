@@ -13,6 +13,7 @@ We introduce several features:
 - **Instruction Set:** CLOAD and CSTORE for accessing private storage.
 - **Flagged Storage:** [Flagged Storage](#flagged-storage) introduces a novel mechanism where each slot is represented as a tuple `(value, is_private)` with strict access rules.
 - **Precompiles:** [Precompiles](#precompiles) extend the functionality of the EVM.
+- **Gas Payment:** [Registry-based gas payment](docs/gas-token-payments.md) provides strict signed asset selection, owner-registered precision/storage modes, and journaled fee-reserve settlement.
 - **Semantic Tests:** [Semantic Tests](#semantic-tests) help us catch regressions and validate new features.
 
 ---

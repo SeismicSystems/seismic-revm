@@ -20,10 +20,13 @@ use revm::{
 };
 use rstest::rstest;
 use seismic_revm::{
-    api::default_ctx::SeismicContext, handler::TOKEN, transaction::abstraction::SeismicTransaction,
+    api::default_ctx::SeismicContext,
+    gas_token_registry::{token_metadata_slot, GAS_TOKEN_REGISTRY, TOKEN_COUNT_SLOT},
+    transaction::abstraction::SeismicTransaction,
     DefaultSeismicContext, SeismicBuilder,
 };
 
+const TOKEN: Address = Address::repeat_byte(0x77);
 const CALLER: Address = Address::repeat_byte(0x11);
 const BENEFICIARY: Address = Address::repeat_byte(0x22);
 const INITIAL_NONCE: u64 = 7;
@@ -53,6 +56,27 @@ fn funded_context(token_funded: bool) -> SeismicContext<InMemoryDB> {
     );
     db.insert_account_info(BENEFICIARY, AccountInfo::default());
     if token_funded {
+        db.insert_account_info(
+            GAS_TOKEN_REGISTRY,
+            AccountInfo {
+                nonce: 1,
+                ..Default::default()
+            },
+        );
+        db.insert_account_storage(GAS_TOKEN_REGISTRY, TOKEN_COUNT_SLOT, U256::from(1).into())
+            .unwrap();
+        let metadata = U256::from_be_slice(TOKEN.as_slice())
+            | (U256::from(1) << 160usize)
+            | (U256::from(1) << 168usize)
+            | (U256::from(6) << 176usize);
+        db.insert_account_storage(GAS_TOKEN_REGISTRY, token_metadata_slot(0), metadata.into())
+            .unwrap();
+        db.insert_account_storage(
+            GAS_TOKEN_REGISTRY,
+            token_metadata_slot(0) + U256::from(1),
+            U256::from(3).into(),
+        )
+        .unwrap();
         db.insert_account_info(
             TOKEN,
             AccountInfo {
@@ -339,9 +363,10 @@ fn failed_decryption_create_execution_nonce_overflow_restores_accounting(
             U256::from(INITIAL_BALANCE)
         );
         assert_eq!(
-            storage[&token_balance_slot(BENEFICIARY)]
-                .present_value
-                .value,
+            storage
+                .get(&token_balance_slot(BENEFICIARY))
+                .map(|slot| slot.present_value.value)
+                .unwrap_or(U256::ZERO),
             U256::ZERO
         );
     }

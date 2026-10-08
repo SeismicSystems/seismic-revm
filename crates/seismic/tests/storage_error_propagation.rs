@@ -13,6 +13,7 @@ use seismic_revm::{DefaultSeismicContext, SeismicBuilder};
 const CALLER: Address = Address::repeat_byte(0x11);
 const CONTRACT: Address = Address::repeat_byte(0x22);
 const CLOAD: u8 = 0xb0;
+const CSTORE: u8 = 0xb1;
 
 #[derive(Debug)]
 struct StorageReadError;
@@ -71,7 +72,11 @@ impl Database for FailingStorageDb {
 
 fn assert_storage_error_propagates(opcode: u8) {
     // PUSH1 0; <storage load>; STOP. The slot must be fetched from the database.
-    let code = Bytecode::new_raw(Bytes::from(vec![PUSH1, 0, opcode, STOP]));
+    let code = Bytecode::new_raw(Bytes::from(if opcode == CSTORE {
+        vec![PUSH1, 1, PUSH1, 0, opcode, STOP]
+    } else {
+        vec![PUSH1, 0, opcode, STOP]
+    }));
     let ctx = Context::seismic_with_rng_key([0; 64])
         .modify_tx_chained(|tx| {
             tx.base.caller = CALLER;
@@ -94,6 +99,11 @@ fn assert_storage_error_propagates(opcode: u8) {
 #[test]
 fn cload_propagates_storage_database_error() {
     assert_storage_error_propagates(CLOAD);
+}
+
+#[test]
+fn cstore_propagates_storage_database_error() {
+    assert_storage_error_propagates(CSTORE);
 }
 
 /// Control: the public load must propagate the same failure normally.

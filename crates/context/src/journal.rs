@@ -8,6 +8,8 @@ pub mod inner;
 mod test_code_changes;
 #[cfg(test)]
 mod test_flagged_storage;
+#[cfg(test)]
+mod test_system_access;
 pub mod warm_addresses;
 
 pub use entry::{JournalEntry, JournalEntryTr};
@@ -108,6 +110,31 @@ impl<DB: Database, ENTRY: JournalEntryTr> JournalTr for Journal<DB, ENTRY> {
 
     fn db_mut(&mut self) -> &mut Self::Database {
         &mut self.database
+    }
+
+    fn system_load_account(
+        &mut self,
+        address: Address,
+    ) -> Result<StateLoad<&mut Account>, DB::Error> {
+        self.inner.system_load_account(&mut self.database, address)
+    }
+
+    fn system_storage(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+    ) -> Result<StateLoad<StorageValue>, DB::Error> {
+        self.inner.system_storage(&mut self.database, address, key)
+    }
+
+    fn system_store(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        value: primitives::FlaggedStorage,
+    ) -> Result<StateLoad<SStoreResult>, DB::Error> {
+        self.inner
+            .system_store(&mut self.database, address, key, value)
     }
 
     fn cload(
