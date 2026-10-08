@@ -134,9 +134,11 @@ where
     /// is returned with all execution gas unspent. Final gas charges are determined by
     /// intrinsic gas, refund processing, and the applicable calldata gas floor.
     ///
-    /// The validate and pre_execution phases still run normally, ensuring the sender's
-    /// balance is deducted and nonce is incremented. The post_execution phase finalizes
-    /// refunds, enforces the gas floor, reimburses unused gas, and credits the coinbase.
+    /// The validate and pre_execution phases still run normally, deducting gas fees
+    /// and consuming the nonce for calls. Failed-decryption creations consume their
+    /// nonce here because creation-frame initialization is skipped. The post_execution
+    /// phase finalizes refunds, enforces the gas floor, reimburses unused gas, and
+    /// credits the coinbase.
     #[inline]
     fn execution(
         &mut self,
@@ -144,6 +146,20 @@ where
         init_and_floor_gas: &InitialAndFloorGas,
     ) -> Result<FrameResult, Self::Error> {
         if evm.ctx().tx().decryption_failed() {
+            // A skipped CREATE never reaches make_create_frame's nonce bump.
+            // Journal it so transaction-level errors can undo it, while the
+            // successfully processed synthetic revert still consumes the nonce.
+            let context = evm.ctx();
+            if context.tx().kind().is_create() {
+                let caller = context.tx().caller();
+                let caller_account = context.journal_mut().load_account(caller)?.data;
+                caller_account.info.nonce = caller_account
+                    .info
+                    .nonce
+                    .checked_add(1)
+                    .ok_or(InvalidTransaction::NonceOverflowInTransaction)?;
+                context.journal_mut().nonce_bump_journal_entry(caller);
+            }
             // Leave execution gas unspent; post-execution still enforces the gas floor.
             let execution_gas = evm.ctx().tx().gas_limit() - init_and_floor_gas.initial_gas;
             let mut frame_result = FrameResult::Call(CallOutcome::new(

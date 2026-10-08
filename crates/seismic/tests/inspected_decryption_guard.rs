@@ -152,11 +152,8 @@ fn decryption_guard_is_consistent_with_and_without_inspection(
                 "normal CREATE must install the returned runtime code"
             );
         }
-        // CREATE nonce consumption is a separate known defect, deliberately
-        // excluded from this inspector-guard regression.
-    } else {
-        assert_eq!(state[&CALLER].info.nonce, CALLER_NONCE + 1);
     }
+    assert_eq!(state[&CALLER].info.nonce, CALLER_NONCE + 1);
 
     if decryption_failed {
         assert!(
