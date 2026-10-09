@@ -1,3 +1,4 @@
+pub mod block_info;
 pub mod confidential_storage;
 pub mod constant_time;
 pub mod instruction_provider;

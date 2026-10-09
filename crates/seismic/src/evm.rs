@@ -194,12 +194,12 @@ mod tests {
     use crate::precompiles::rng::precompile::calculate_gas_cost;
     use crate::transaction::abstraction::SeismicTransaction;
     use crate::{
-        DefaultSeismicContext, SeismicBuilder, SeismicChain, SeismicContext, SeismicRevertReason,
-        SeismicSpecId,
+        DefaultSeismicContext, SeismicBlockEnv, SeismicBuilder, SeismicChain, SeismicContext,
+        SeismicRevertReason, SeismicSpecId,
     };
     use anyhow::bail;
     use revm::context::result::{ExecutionResult, Output, ResultAndState};
-    use revm::context::{BlockEnv, CfgEnv, Context, ContextTr, JournalTr, TxEnv};
+    use revm::context::{CfgEnv, Context, ContextTr, JournalTr, TxEnv};
     use revm::database::{EmptyDB, InMemoryDB, BENCH_CALLER};
     use revm::interpreter::gas::calculate_initial_tx_gas;
     use revm::interpreter::InitialAndFloorGas;
@@ -362,7 +362,7 @@ mod tests {
         personalization: Vec<u8>,
         rng_ikm: [u8; 64],
     ) -> Context<
-        BlockEnv,
+        SeismicBlockEnv,
         SeismicTransaction<TxEnv>,
         CfgEnv<SeismicSpecId>,
         EmptyDB,
