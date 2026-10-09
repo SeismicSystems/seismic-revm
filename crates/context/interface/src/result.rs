@@ -362,6 +362,35 @@ pub enum InvalidTransaction {
         /// Balance of the sender.
         balance: Box<U256>,
     },
+    /// The signed gas-payment selector is malformed or used on a standard transaction.
+    InvalidGasPaymentSelector,
+    /// Registry length exceeds the bounded execution scan.
+    GasTokenRegistryTooLarge,
+    /// The explicitly selected token is not registered.
+    GasTokenNotRegistered(Address),
+    /// The explicitly selected token is inactive.
+    GasTokenInactive(Address),
+    /// The selected registry entry has an unsupported storage mode.
+    UnsupportedGasTokenMode {
+        /// Selected token address.
+        token: Address,
+        /// Stored mode byte.
+        mode: u8,
+    },
+    /// The selected registry entry has an unsupported decimal precision.
+    UnsupportedGasTokenDecimals {
+        /// Selected token address.
+        token: Address,
+        /// Stored precision byte.
+        decimals: u8,
+    },
+    /// A fee balance slot contradicts the registered storage mode.
+    GasTokenBalanceModeMismatch {
+        /// Selected token address.
+        token: Address,
+        /// Balance holder whose slot contradicts the mode.
+        account: Address,
+    },
     /// Overflow payment in transaction.
     OverflowPaymentInTransaction,
     /// Nonce overflows in transaction.
@@ -487,6 +516,21 @@ impl fmt::Display for InvalidTransaction {
             Self::LackOfFundForMaxFee { fee, balance } => {
                 write!(f, "lack of funds ({balance}) for max fee ({fee})")
             }
+            Self::InvalidGasPaymentSelector => write!(f, "invalid gas payment selector"),
+            Self::GasTokenRegistryTooLarge => {
+                write!(f, "gas token registry exceeds maximum length")
+            }
+            Self::GasTokenNotRegistered(token) => write!(f, "gas token {token} is not registered"),
+            Self::GasTokenInactive(token) => write!(f, "gas token {token} is inactive"),
+            Self::UnsupportedGasTokenMode { token, mode } => {
+                write!(f, "gas token {token} has unsupported storage mode {mode}")
+            }
+            Self::UnsupportedGasTokenDecimals { token, decimals } => {
+                write!(f, "gas token {token} has unsupported decimals {decimals}")
+            }
+            Self::GasTokenBalanceModeMismatch { token, account } => {
+                write!(f, "gas token {token} balance mode mismatch for {account}")
+            }
             Self::OverflowPaymentInTransaction => {
                 write!(f, "overflow payment in transaction")
             }
@@ -563,7 +607,6 @@ impl fmt::Display for InvalidHeader {
         }
     }
 }
-
 /// Reason a transaction successfully completed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

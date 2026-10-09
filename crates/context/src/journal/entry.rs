@@ -4,9 +4,10 @@
 //!
 //! They are created when there is change to the state from loading (making it warm), changes to the balance,
 //! or removal of the storage slot. Check [`JournalEntryTr`] for more details.
+use primitives::alloy_primitives::FlaggedStorage;
 
-use primitives::{Address, StorageKey, StorageValue, KECCAK_EMPTY, PRECOMPILE3, U256};
-use state::{EvmState, TransientStorage};
+use primitives::{Address, StorageKey, StorageValue, B256, PRECOMPILE3, U256};
+use state::{Bytecode, EvmState, TransientStorage};
 
 /// Trait for tracking and reverting state changes in the EVM.
 /// Journal entry contains information about state changes that can be reverted.
@@ -43,7 +44,7 @@ pub trait JournalEntryTr {
 
     /// Creates a journal entry for when a storage slot is modified
     /// Records the previous value for reverting
-    fn storage_changed(address: Address, key: StorageKey, had_value: StorageValue) -> Self;
+    fn storage_changed(address: Address, key: U256, had_value: FlaggedStorage) -> Self;
 
     /// Creates a journal entry for when a storage slot is accessed and marked as "warm" for gas metering
     /// This is called with SLOAD opcode.
@@ -58,7 +59,12 @@ pub trait JournalEntryTr {
     ) -> Self;
 
     /// Creates a journal entry for when an account's code is modified
-    fn code_changed(address: Address) -> Self;
+    ///
+    /// Records the previous code hash and bytecode for reverting: since
+    /// EIP-7702 the code of an already-delegated account can be changed (and
+    /// the change reverted), so the revert cannot assume the previous code was
+    /// empty.
+    fn code_changed(address: Address, had_code_hash: B256, had_code: Option<Bytecode>) -> Self;
 
     /// Reverts the state change recorded by this journal entry
     ///
@@ -182,7 +188,7 @@ pub enum JournalEntry {
         /// Key of storage slot that is changed.
         key: StorageKey,
         /// Previous value of storage slot.
-        had_value: StorageValue,
+        had_value: FlaggedStorage,
         /// Address of account that had its storage changed.
         address: Address,
     },
@@ -212,6 +218,10 @@ pub enum JournalEntry {
     CodeChange {
         /// Address of account that had its code changed.
         address: Address,
+        /// Previous code hash of the account.
+        had_code_hash: B256,
+        /// Previous bytecode of the account (`None` if it was not loaded).
+        had_code: Option<Bytecode>,
     },
 }
 impl JournalEntryTr for JournalEntry {
@@ -255,7 +265,7 @@ impl JournalEntryTr for JournalEntry {
         }
     }
 
-    fn storage_changed(address: Address, key: StorageKey, had_value: StorageValue) -> Self {
+    fn storage_changed(address: Address, key: U256, had_value: FlaggedStorage) -> Self {
         JournalEntry::StorageChanged {
             address,
             key,
@@ -283,8 +293,12 @@ impl JournalEntryTr for JournalEntry {
         }
     }
 
-    fn code_changed(address: Address) -> Self {
-        JournalEntry::CodeChange { address }
+    fn code_changed(address: Address, had_code_hash: B256, had_code: Option<Bytecode>) -> Self {
+        JournalEntry::CodeChange {
+            address,
+            had_code_hash,
+            had_code,
+        }
     }
 
     fn revert(
@@ -400,10 +414,14 @@ impl JournalEntryTr for JournalEntry {
                     transient_storage.insert(tkey, had_value);
                 }
             }
-            JournalEntry::CodeChange { address } => {
+            JournalEntry::CodeChange {
+                address,
+                had_code_hash,
+                had_code,
+            } => {
                 let acc = state.get_mut(&address).unwrap();
-                acc.info.code_hash = KECCAK_EMPTY;
-                acc.info.code = None;
+                acc.info.code_hash = had_code_hash;
+                acc.info.code = had_code;
             }
         }
     }

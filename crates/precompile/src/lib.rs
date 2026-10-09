@@ -60,7 +60,10 @@ use std::vec::Vec;
 
 /// Calculate the linear cost of a precompile.
 pub fn calc_linear_cost_u32(len: usize, base: u64, word: u64) -> u64 {
-    (len as u64).div_ceil(32) * word + base
+    (len as u64)
+        .div_ceil(32)
+        .saturating_mul(word)
+        .saturating_add(base)
 }
 
 /// Precompiles contain map of precompile addresses to functions and HashSet of precompile addresses.
@@ -91,6 +94,7 @@ impl Precompiles {
     /// Returns the precompiles for the given spec.
     pub fn new(spec: PrecompileSpecId) -> &'static Self {
         match spec {
+            PrecompileSpecId::MERCURY => Self::mercury(),
             PrecompileSpecId::HOMESTEAD => Self::homestead(),
             PrecompileSpecId::BYZANTIUM => Self::byzantium(),
             PrecompileSpecId::ISTANBUL => Self::istanbul(),
@@ -99,6 +103,13 @@ impl Precompiles {
             PrecompileSpecId::PRAGUE => Self::prague(),
             PrecompileSpecId::OSAKA => Self::osaka(),
         }
+    }
+
+    /// Returns precompiles for Mercury spec.
+    /// NOTE: uncertain about this, but Christian thinks our precompiles
+    ///       are not registered here; they're nailed in deeper into the EVM
+    pub fn mercury() -> &'static Self {
+        Self::latest()
     }
 
     /// Returns precompiles for Homestead spec.
@@ -402,6 +413,8 @@ pub enum PrecompileSpecId {
     /// * `BLS12_MAP_FP_TO_G1` at address 0x10
     /// * `BLS12_MAP_FP2_TO_G2` at address 0x11
     PRAGUE,
+    /// Seismic's fork of the EVM.
+    MERCURY,
     /// Osaka spec added changes to modexp precompile:
     /// * [`EIP-7823: Set upper bounds for MODEXP`](https://eips.ethereum.org/EIPS/eip-7823).
     /// * [`EIP-7883: ModExp Gas Cost Increase`](https://eips.ethereum.org/EIPS/eip-7883)
@@ -419,6 +432,7 @@ impl PrecompileSpecId {
     pub const fn from_spec_id(spec_id: primitives::hardfork::SpecId) -> Self {
         use primitives::hardfork::SpecId::*;
         match spec_id {
+            MERCURY => Self::MERCURY,
             FRONTIER | FRONTIER_THAWING | HOMESTEAD | DAO_FORK | TANGERINE | SPURIOUS_DRAGON => {
                 Self::HOMESTEAD
             }
@@ -498,5 +512,32 @@ mod test {
         let intersection = Precompiles::homestead().intersection(Precompiles::byzantium());
 
         assert_eq!(intersection.len(), 4)
+    }
+
+    #[test]
+    fn test_calc_linear_cost_u32_monotonic() {
+        let base = 60u64;
+        let word = 12u64;
+        let mut prev = calc_linear_cost_u32(0, base, word);
+        for len in 1..=1024 {
+            let cost = calc_linear_cost_u32(len, base, word);
+            assert!(
+                cost >= prev,
+                "Gas cost must be monotonically non-decreasing: cost({len}) = {cost} < cost({}) = {prev}",
+                len - 1
+            );
+            prev = cost;
+        }
+    }
+
+    #[test]
+    fn test_calc_linear_cost_u32_saturates_on_overflow() {
+        // With usize::MAX, the division and multiplication should saturate to u64::MAX
+        let cost = calc_linear_cost_u32(usize::MAX, u64::MAX, u64::MAX);
+        assert_eq!(
+            cost,
+            u64::MAX,
+            "Extreme inputs must saturate to u64::MAX, not wrap"
+        );
     }
 }

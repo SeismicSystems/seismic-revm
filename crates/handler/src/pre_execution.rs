@@ -4,16 +4,13 @@
 
 use crate::{EvmTr, PrecompileProvider};
 use bytecode::Bytecode;
-use context_interface::transaction::{AccessListItemTr, AuthorizationTr};
+use context_interface::transaction::AuthorizationTr;
 use context_interface::ContextTr;
 use context_interface::{
-    journaled_state::JournalTr,
-    result::InvalidTransaction,
-    transaction::{Transaction, TransactionType},
-    Block, Cfg, Database,
+    journaled_state::JournalTr, result::InvalidTransaction, transaction::Transaction, Block, Cfg,
+    Database,
 };
 use core::cmp::Ordering;
-use primitives::StorageKey;
 use primitives::{eip7702, hardfork::SpecId, KECCAK_EMPTY, U256};
 use state::AccountInfo;
 use std::boxed::Box;
@@ -49,24 +46,16 @@ pub fn load_accounts<
         context.journal_mut().warm_coinbase_account(coinbase);
     }
 
-    // Load access list
-    let (tx, journal) = context.tx_journal_mut();
-    // legacy is only tx type that does not have access list.
-    if tx.tx_type() != TransactionType::Legacy {
-        if let Some(access_list) = tx.access_list() {
-            for item in access_list {
-                journal.warm_account_and_storage(
-                    *item.address(),
-                    item.storage_slots().map(|i| StorageKey::from_be_bytes(i.0)),
-                )?;
-            }
-        }
-    }
+    // SEISMIC: Access lists are intentionally ignored to prevent metadata leakage.
+    // EIP-2930 access lists reveal which storage keys a transaction intends to access,
+    // which can expose sensitive access patterns for private storage slots.
+    // The access_list field is retained on transactions for Ethereum compatibility,
+    // but its contents are never applied.
 
     Ok(())
 }
 
-/// Validates caller account nonce and code according to EIP-3607.
+/// Validates caller account nonce and code according to EIP-2681 and EIP-3607.
 #[inline]
 pub fn validate_account_nonce_and_code(
     caller_info: &mut AccountInfo,
@@ -93,6 +82,9 @@ pub fn validate_account_nonce_and_code(
     if !is_nonce_check_disabled {
         let tx = tx_nonce;
         let state = caller_info.nonce;
+        if tx == u64::MAX && state == u64::MAX {
+            return Err(InvalidTransaction::NonceOverflowInTransaction);
+        }
         match tx.cmp(&state) {
             Ordering::Greater => {
                 return Err(InvalidTransaction::NonceTooHigh { tx, state });
@@ -162,8 +154,7 @@ pub fn validate_against_state_and_deduct_caller<
     }
 
     let old_balance = caller_account.info.balance;
-    // Touch account so we know it is changed.
-    caller_account.mark_touch();
+    // caller_accounting_journal_entry conditionally journals and marks the touch.
     caller_account.info.balance = new_balance;
 
     // Bump the nonce for calls. Nonce for CREATE will be bumped in `make_create_frame`.
@@ -185,8 +176,8 @@ pub fn apply_eip7702_auth_list<
     context: &mut CTX,
 ) -> Result<u64, ERROR> {
     let tx = context.tx();
-    // Return if there is no auth list.
-    if tx.tx_type() != TransactionType::Eip7702 {
+    // Return if there is no auth list (7702 or Seismic tx).
+    if tx.authorization_list_len() == 0 {
         return Ok(0);
     }
 
@@ -245,16 +236,96 @@ pub fn apply_eip7702_auth_list<
             let hash = bytecode.hash_slow();
             (bytecode, hash)
         };
-        authority_acc.info.code_hash = hash;
-        authority_acc.info.code = Some(bytecode);
-
-        // 9. Increase the nonce of `authority` by one.
-        authority_acc.info.nonce = authority_acc.info.nonce.saturating_add(1);
-        authority_acc.mark_touch();
+        // Authorization changes precede the execution checkpoint, so they survive ordinary
+        // bytecode reverts. Journal them so transaction-level errors can still undo them.
+        // set_code_with_hash also journals the touch only if the account was not already touched.
+        // The nonce was checked above to be less than u64::MAX.
+        authority_acc.info.nonce += 1;
+        // Record touch, code, then nonce, matching upstream's delegation journal order.
+        journal.set_code_with_hash(authority, bytecode, hash);
+        journal.nonce_bump_journal_entry(authority);
     }
 
     let refunded_gas =
         refunded_accounts * (eip7702::PER_EMPTY_ACCOUNT_COST - eip7702::PER_AUTH_BASE_COST);
 
     Ok(refunded_gas)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_account_nonce_and_code;
+    use context_interface::result::InvalidTransaction;
+    use state::AccountInfo;
+
+    #[test]
+    fn rejects_transactions_when_sender_nonce_is_max() {
+        let mut caller_info = AccountInfo {
+            nonce: u64::MAX,
+            ..AccountInfo::default()
+        };
+        assert_eq!(
+            validate_account_nonce_and_code(&mut caller_info, u64::MAX, false, false),
+            Err(InvalidTransaction::NonceOverflowInTransaction)
+        );
+    }
+
+    #[test]
+    fn allows_matching_non_max_nonce() {
+        let mut caller_info = AccountInfo {
+            nonce: 7,
+            ..AccountInfo::default()
+        };
+        assert!(validate_account_nonce_and_code(&mut caller_info, 7, false, false).is_ok());
+    }
+
+    #[test]
+    fn allows_matching_max_minus_one_nonce() {
+        let mut caller_info = AccountInfo {
+            nonce: u64::MAX - 1,
+            ..AccountInfo::default()
+        };
+        assert!(
+            validate_account_nonce_and_code(&mut caller_info, u64::MAX - 1, false, false).is_ok()
+        );
+    }
+
+    #[test]
+    fn preserves_nonce_too_high_at_max_boundary() {
+        let mut caller_info = AccountInfo {
+            nonce: u64::MAX - 1,
+            ..AccountInfo::default()
+        };
+        assert_eq!(
+            validate_account_nonce_and_code(&mut caller_info, u64::MAX, false, false),
+            Err(InvalidTransaction::NonceTooHigh {
+                tx: u64::MAX,
+                state: u64::MAX - 1,
+            })
+        );
+    }
+
+    #[test]
+    fn preserves_nonce_too_low_at_max_boundary() {
+        let mut caller_info = AccountInfo {
+            nonce: u64::MAX,
+            ..AccountInfo::default()
+        };
+        assert_eq!(
+            validate_account_nonce_and_code(&mut caller_info, u64::MAX - 1, false, false),
+            Err(InvalidTransaction::NonceTooLow {
+                tx: u64::MAX - 1,
+                state: u64::MAX,
+            })
+        );
+    }
+
+    #[test]
+    fn allows_max_nonce_when_nonce_check_is_disabled() {
+        let mut caller_info = AccountInfo {
+            nonce: u64::MAX,
+            ..AccountInfo::default()
+        };
+        assert!(validate_account_nonce_and_code(&mut caller_info, u64::MAX, false, true).is_ok());
+    }
 }

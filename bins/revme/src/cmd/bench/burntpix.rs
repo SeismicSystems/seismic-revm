@@ -142,16 +142,16 @@ fn init_db() -> CacheDB<EmptyDB> {
     cache_db
         .insert_account_storage(
             BURNTPIX_MAIN_ADDRESS,
-            StorageKey::from(0),
-            StorageValue::from_be_bytes(*STORAGE_ZERO),
+            U256::from(0),
+            U256::from_be_bytes(*STORAGE_ZERO).into(),
         )
         .unwrap();
 
     cache_db
         .insert_account_storage(
             BURNTPIX_MAIN_ADDRESS,
-            StorageKey::from(1),
-            StorageValue::from_be_bytes(*STORAGE_ONE),
+            U256::from(1),
+            U256::from_be_bytes(*STORAGE_ONE).into(),
         )
         .unwrap();
 
@@ -159,7 +159,7 @@ fn init_db() -> CacheDB<EmptyDB> {
         .insert_account_storage(
             BURNTPIX_MAIN_ADDRESS,
             StorageKey::from(2),
-            StorageValue::from_be_bytes(*STORAGE_TWO),
+            StorageValue::from_be_bytes(*STORAGE_TWO).into(),
         )
         .unwrap();
 

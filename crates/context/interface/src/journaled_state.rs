@@ -42,6 +42,40 @@ pub trait JournalTr {
             .map_err(JournalLoadError::unwrap_db_error)
     }
 
+    /// Read current journal storage without warming either the account or slot.
+    /// Read-only system accesses do not touch accounts or initialize privacy flags.
+    fn system_storage(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+    ) -> Result<StateLoad<StorageValue>, <Self::Database as Database>::Error>;
+
+    /// Journal a system storage write with an explicit privacy flag, without warming.
+    /// Loads and conditionally touches the account so changes survive state commit.
+    /// Callers must validate slot visibility and skip zero-amount fee operations.
+    fn system_store(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        value: primitives::FlaggedStorage,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
+
+    /// Load a system account without adding warmth or a touch.
+    fn system_load_account(
+        &mut self,
+        address: Address,
+    ) -> Result<StateLoad<&mut Account>, <Self::Database as Database>::Error>;
+
+    /// Returns the private storage value from Journal state.
+    ///
+    /// Loads the storage from database if not found in Journal state.
+    fn cload(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        _skip_cold_load: bool,
+    ) -> Result<StateLoad<U256>, <Self::Database as Database>::Error>;
+
     /// Loads the storage value from Journal state.
     fn sload_skip_cold_load(
         &mut self,
@@ -63,6 +97,15 @@ pub trait JournalTr {
     }
 
     /// Stores the storage value in Journal state.
+    fn cstore(
+        &mut self,
+        address: Address,
+        key: StorageKey,
+        value: StorageValue,
+        _skip_cold_load: bool,
+    ) -> Result<StateLoad<SStoreResult>, <Self::Database as Database>::Error>;
+
+    /// Stores the storage value in Journal state.
     fn sstore_skip_cold_load(
         &mut self,
         _address: Address,
@@ -72,10 +115,10 @@ pub trait JournalTr {
     ) -> Result<StateLoad<SStoreResult>, JournalLoadError<<Self::Database as Database>::Error>>;
 
     /// Loads transient storage value.
-    fn tload(&mut self, address: Address, key: StorageKey) -> StorageValue;
+    fn tload(&mut self, address: Address, key: StorageKey) -> U256;
 
     /// Stores transient storage value.
-    fn tstore(&mut self, address: Address, key: StorageKey, value: StorageValue);
+    fn tstore(&mut self, address: Address, key: StorageKey, value: U256);
 
     /// Logs the log in Journal state.
     fn log(&mut self, log: Log);
@@ -125,7 +168,8 @@ pub trait JournalTr {
         balance: U256,
     ) -> Result<Option<TransferError>, <Self::Database as Database>::Error>;
 
-    /// Increments the balance of the account.
+    /// Journal caller balance/nonce changes and conditionally introduce its touch.
+    /// The caller must not mark itself touched before invoking this operation.
     fn caller_accounting_journal_entry(
         &mut self,
         address: Address,
@@ -183,7 +227,7 @@ pub trait JournalTr {
         // SAFETY: Safe to unwrap as load_code will insert code if it is empty.
         let code = a.info.code.as_ref().unwrap().original_bytes();
 
-        Ok(StateLoad::new(code, a.is_cold))
+        Ok(StateLoad::new(code, a.is_cold, false))
     }
 
     /// Gets code hash of account.
@@ -193,10 +237,10 @@ pub trait JournalTr {
     ) -> Result<StateLoad<B256>, <Self::Database as Database>::Error> {
         let acc = self.load_account_code(address)?;
         if acc.is_empty() {
-            return Ok(StateLoad::new(B256::ZERO, acc.is_cold));
+            return Ok(StateLoad::new(B256::ZERO, acc.is_cold, false));
         }
         let hash = acc.info.code_hash;
-        Ok(StateLoad::new(hash, acc.is_cold))
+        Ok(StateLoad::new(hash, acc.is_cold, false))
     }
 
     /// Called at the end of the transaction to clean all residue data from journal.
@@ -347,6 +391,8 @@ pub struct StateLoad<T> {
     pub data: T,
     /// Is account is cold loaded
     pub is_cold: bool,
+    /// True if slot was tagged as private.
+    pub is_private: bool,
 }
 
 impl<T> Deref for StateLoad<T> {
@@ -365,8 +411,12 @@ impl<T> DerefMut for StateLoad<T> {
 
 impl<T> StateLoad<T> {
     /// Returns a new [`StateLoad`] with the given data and cold load status.
-    pub fn new(data: T, is_cold: bool) -> Self {
-        Self { data, is_cold }
+    pub fn new(data: T, is_cold: bool, is_private: bool) -> Self {
+        Self {
+            data,
+            is_cold,
+            is_private,
+        }
     }
 
     /// Maps the data of the [`StateLoad`] to a new value.
@@ -376,7 +426,7 @@ impl<T> StateLoad<T> {
     where
         F: FnOnce(T) -> B,
     {
-        StateLoad::new(f(self.data), self.is_cold)
+        StateLoad::new(f(self.data), self.is_cold, self.is_private)
     }
 }
 
@@ -419,7 +469,7 @@ impl<'a> AccountInfoLoad<'a> {
     where
         F: FnOnce(Cow<'a, AccountInfo>) -> O,
     {
-        StateLoad::new(f(self.account), self.is_cold)
+        StateLoad::new(f(self.account), self.is_cold, false)
     }
 }
 

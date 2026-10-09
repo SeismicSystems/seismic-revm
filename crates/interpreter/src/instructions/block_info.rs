@@ -36,6 +36,18 @@ pub fn timestamp<WIRE: InterpreterTypes, H: Host + ?Sized>(
     push!(context.interpreter, context.host.timestamp());
 }
 
+/// Implements the TIMESTAMP_MS instruction.
+///
+/// Pushes the whole-second block timestamp converted to milliseconds.
+/// Seismic overrides this instruction to include its sub-second component.
+pub fn timestamp_milliseconds<WIRE: InterpreterTypes, H: Host + ?Sized>(
+    context: InstructionContext<'_, H, WIRE>,
+) {
+    //gas!(context.interpreter, gas::BASE);
+    let timestamp_ms = context.host.timestamp().saturating_mul(U256::from(1000));
+    push!(context.interpreter, timestamp_ms);
+}
+
 /// Implements the NUMBER instruction.
 ///
 /// Pushes the current block number onto the stack.

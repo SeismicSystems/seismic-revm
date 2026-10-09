@@ -2,6 +2,7 @@ pub mod bench;
 pub mod blockchaintest;
 pub mod bytecode;
 pub mod evmrunner;
+pub mod semantics;
 pub mod statetest;
 
 use clap::Parser;
@@ -16,6 +17,7 @@ pub enum MainCmd {
     Stest(statetest::Cmd),
     /// Run arbitrary EVM bytecode.
     Evm(evmrunner::Cmd),
+    Semantics(semantics::Cmd),
     /// Print the structure of an EVM bytecode.
     Bytecode(bytecode::Cmd),
     /// Run bench from specified list.
@@ -34,6 +36,13 @@ pub enum Error {
     Blockchaintest(#[from] blockchaintest::Error),
     #[error(transparent)]
     EvmRunnerErrors(#[from] evmrunner::Errors),
+    #[error("Eof validation failed: {:?}/{total_tests}", total_tests-failed_test)]
+    EofValidation {
+        failed_test: usize,
+        total_tests: usize,
+    },
+    #[error(transparent)]
+    SemanticTests(#[from] semantics::Errors),
     #[error("Custom error: {0}")]
     Custom(&'static str),
 }
@@ -49,6 +58,7 @@ impl MainCmd {
             Self::Bench(cmd) => {
                 cmd.run();
             }
+            Self::Semantics(cmd) => cmd.run()?,
             Self::Blockchaintest(cmd) | Self::Btest(cmd) => cmd.run()?,
         }
         Ok(())

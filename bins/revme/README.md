@@ -24,3 +24,12 @@ cargo run -p revme statetest tests/GeneralStateTests
 is ignored so it won't be checked into git.*
 
 [et]: https://github.com/ethereum/tests
+
+
+## Semantic tests
+
+Note: this was home-cooked by Seismic and is not a part of REVM's testing suite
+
+```sh
+cargo run -p revme -- semantics
+```

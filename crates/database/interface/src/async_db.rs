@@ -1,7 +1,8 @@
 //! Async database interface.
 use crate::{DBErrorMarker, Database, DatabaseRef};
 use core::{error::Error, future::Future};
-use primitives::{Address, StorageKey, StorageValue, B256};
+use primitives::alloy_primitives::FlaggedStorage;
+use primitives::{Address, StorageKey, B256};
 use state::{AccountInfo, Bytecode};
 use tokio::runtime::{Handle, Runtime};
 
@@ -31,7 +32,7 @@ pub trait DatabaseAsync {
         &mut self,
         address: Address,
         index: StorageKey,
-    ) -> impl Future<Output = Result<StorageValue, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<FlaggedStorage, Self::Error>> + Send;
 
     /// Gets block hash by block number.
     fn block_hash_async(
@@ -66,7 +67,7 @@ pub trait DatabaseAsyncRef {
         &self,
         address: Address,
         index: StorageKey,
-    ) -> impl Future<Output = Result<StorageValue, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<FlaggedStorage, Self::Error>> + Send;
 
     /// Gets block hash by block number.
     fn block_hash_async_ref(
@@ -137,7 +138,7 @@ impl<T: DatabaseAsync> Database for WrapDatabaseAsync<T> {
         &mut self,
         address: Address,
         index: StorageKey,
-    ) -> Result<StorageValue, Self::Error> {
+    ) -> Result<FlaggedStorage, Self::Error> {
         self.rt.block_on(self.db.storage_async(address, index))
     }
 
@@ -165,7 +166,7 @@ impl<T: DatabaseAsyncRef> DatabaseRef for WrapDatabaseAsync<T> {
         &self,
         address: Address,
         index: StorageKey,
-    ) -> Result<StorageValue, Self::Error> {
+    ) -> Result<FlaggedStorage, Self::Error> {
         self.rt.block_on(self.db.storage_async_ref(address, index))
     }
 
