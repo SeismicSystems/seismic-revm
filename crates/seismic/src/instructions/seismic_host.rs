@@ -12,6 +12,9 @@ use crate::api::exec::SeismicContextTr;
 pub trait SeismicHost: Host {
     type Db: Database;
 
+    /// Returns the full Unix millisecond timestamp, including the sub-second part.
+    fn timestamp_millis(&self) -> U256;
+
     fn ctx_error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>>;
     fn set_ctx_error<E>(&mut self, error: E)
     where
@@ -26,6 +29,10 @@ where
     CTX: SeismicContextTr + Host,
 {
     type Db = CTX::Db;
+
+    fn timestamp_millis(&self) -> U256 {
+        self.block().timestamp_millis()
+    }
 
     fn ctx_error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>> {
         <Self as ContextTr>::error(self)
@@ -54,6 +61,10 @@ impl SeismicDummyHost {
 
 impl SeismicHost for SeismicDummyHost {
     type Db = EmptyDB;
+
+    fn timestamp_millis(&self) -> U256 {
+        self.timestamp().saturating_mul(U256::from(1000))
+    }
 
     fn ctx_error(&mut self) -> &mut Result<(), ContextError<<Self::Db as Database>::Error>> {
         &mut self.ctx_result

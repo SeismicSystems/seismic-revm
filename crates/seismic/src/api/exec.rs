@@ -1,7 +1,7 @@
 use crate::{
     evm::SeismicEvm, handler::SeismicHandler,
     instructions::instruction_provider::SeismicInstructions, transaction::abstraction::SeismicTxTr,
-    SeismicChain, SeismicSpecId,
+    SeismicBlockEnv, SeismicChain, SeismicSpecId,
 };
 use revm::{
     context::{
@@ -25,6 +25,7 @@ use revm::{
 // Type alias for Seismic context
 pub trait SeismicContextTr:
     ContextTr<
+    Block = SeismicBlockEnv,
     Journal: JournalTr<State = EvmState>,
     Tx: SeismicTxTr,
     Cfg: Cfg<Spec = SeismicSpecId>,
@@ -35,6 +36,7 @@ pub trait SeismicContextTr:
 
 impl<T> SeismicContextTr for T where
     T: ContextTr<
+        Block = SeismicBlockEnv,
         Journal: JournalTr<State = EvmState>,
         Tx: SeismicTxTr,
         Cfg: Cfg<Spec = SeismicSpecId>,

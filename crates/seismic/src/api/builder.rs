@@ -1,13 +1,10 @@
 use crate::{
     chain::seismic_chain::SeismicChain, instructions::instruction_provider::SeismicInstructions,
-    transaction::abstraction::SeismicTxTr, SeismicEvm, SeismicSpecId,
+    transaction::abstraction::SeismicTxTr, SeismicBlockEnv, SeismicEvm, SeismicSpecId,
 };
 use revm::{
-    context::Cfg,
-    context_interface::{Block, JournalTr},
-    interpreter::interpreter::EthInterpreter,
-    state::EvmState,
-    Context, Database,
+    context::Cfg, context_interface::JournalTr, interpreter::interpreter::EthInterpreter,
+    state::EvmState, Context, Database,
 };
 
 use super::exec::SeismicContextTr;
@@ -29,10 +26,9 @@ pub trait SeismicBuilder: Sized {
     ) -> SeismicEvm<Self::Context, INSP, SeismicInstructions<EthInterpreter, Self::Context>>;
 }
 
-impl<BLOCK, TX, CFG, DB, JOURNAL> SeismicBuilder
-    for Context<BLOCK, TX, CFG, DB, JOURNAL, SeismicChain>
+impl<TX, CFG, DB, JOURNAL> SeismicBuilder
+    for Context<SeismicBlockEnv, TX, CFG, DB, JOURNAL, SeismicChain>
 where
-    BLOCK: Block,
     TX: SeismicTxTr,
     CFG: Cfg<Spec = SeismicSpecId>,
     DB: Database,

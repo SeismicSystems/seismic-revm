@@ -33,41 +33,19 @@ pub fn timestamp<WIRE: InterpreterTypes, H: Host + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
     //gas!(context.interpreter, gas::BASE);
-
-    #[cfg(not(feature = "timestamp-in-seconds"))]
-    {
-        // Host returns milliseconds, convert to seconds for EVM compatibility
-        let timestamp_seconds = context.host.timestamp() / U256::from(1000);
-        push!(context.interpreter, timestamp_seconds);
-    }
-
-    #[cfg(feature = "timestamp-in-seconds")]
-    {
-        // Host returns seconds, use as is
-        push!(context.interpreter, context.host.timestamp());
-    }
+    push!(context.interpreter, context.host.timestamp());
 }
 
 /// Implements the TIMESTAMP_MS instruction.
 ///
-/// Pushes the current block's timestamp in milliseconds onto the stack.
+/// Pushes the whole-second block timestamp converted to milliseconds.
+/// Seismic overrides this instruction to include its sub-second component.
 pub fn timestamp_milliseconds<WIRE: InterpreterTypes, H: Host + ?Sized>(
     context: InstructionContext<'_, H, WIRE>,
 ) {
     //gas!(context.interpreter, gas::BASE);
-
-    #[cfg(feature = "timestamp-in-seconds")]
-    {
-        // Host returns seconds, convert to milliseconds for reth compatibility
-        let timestamp_ms = context.host.timestamp() * U256::from(1000);
-        push!(context.interpreter, timestamp_ms);
-    }
-
-    #[cfg(not(feature = "timestamp-in-seconds"))]
-    {
-        // Host returns milliseconds, use as is
-        push!(context.interpreter, context.host.timestamp());
-    }
+    let timestamp_ms = context.host.timestamp().saturating_mul(U256::from(1000));
+    push!(context.interpreter, timestamp_ms);
 }
 
 /// Implements the NUMBER instruction.

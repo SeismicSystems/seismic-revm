@@ -1,13 +1,15 @@
-use crate::{transaction::abstraction::SeismicTransaction, SeismicChain, SeismicSpecId};
+use crate::{
+    transaction::abstraction::SeismicTransaction, SeismicBlockEnv, SeismicChain, SeismicSpecId,
+};
 use revm::{
-    context::{BlockEnv, CfgEnv, TxEnv},
+    context::{CfgEnv, TxEnv},
     database_interface::EmptyDB,
     Context, Journal, MainContext,
 };
 
 /// Type alias for the default context type of the SeismicEvm.
 pub type SeismicContext<DB> = Context<
-    BlockEnv,
+    SeismicBlockEnv,
     SeismicTransaction<TxEnv>,
     CfgEnv<SeismicSpecId>,
     DB,
@@ -26,6 +28,7 @@ pub trait DefaultSeismicContext {
 impl DefaultSeismicContext for SeismicContext<EmptyDB> {
     fn seismic_with_random_rng_key() -> Self {
         Context::mainnet()
+            .with_block(SeismicBlockEnv::default())
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
             .with_chain(SeismicChain::with_random_rng_key())
@@ -33,6 +36,7 @@ impl DefaultSeismicContext for SeismicContext<EmptyDB> {
 
     fn seismic_with_rng_key(rng_ikm: [u8; 64]) -> Self {
         Context::mainnet()
+            .with_block(SeismicBlockEnv::default())
             .with_tx(SeismicTransaction::default())
             .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
             .with_chain(SeismicChain::with_live_rng_key(rng_ikm))

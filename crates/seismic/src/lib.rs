@@ -6,6 +6,7 @@
 extern crate alloc as std;
 
 pub mod api;
+pub mod block;
 pub mod chain;
 pub mod evm;
 pub mod gas_token_registry;
@@ -20,6 +21,7 @@ pub use api::{
     builder::SeismicBuilder,
     default_ctx::{DefaultSeismicContext, SeismicContext},
 };
+pub use block::SeismicBlockEnv;
 pub use chain::seismic_chain::SeismicChain;
 pub use evm::SeismicEvm;
 pub use gas_token_registry::GasPayment;

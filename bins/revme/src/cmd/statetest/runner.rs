@@ -17,7 +17,8 @@ use revm::{
     Context, ExecuteCommitEvm,
 };
 use seismic_revm::{
-    DefaultSeismicContext, SeismicBuilder, SeismicSpecId as SpecId, SeismicTransaction,
+    DefaultSeismicContext, SeismicBlockEnv, SeismicBuilder, SeismicSpecId as SpecId,
+    SeismicTransaction,
 };
 use serde_json::json;
 use statetest_types::{SpecName, Test, TestSuite, TestUnit};
@@ -425,7 +426,7 @@ fn execute_single_test(ctx: TestExecutionContext) -> Result<(), TestErrorKind> {
         .build();
 
     let evm_context = Context::seismic_with_random_rng_key()
-        .with_block(ctx.block)
+        .with_block(SeismicBlockEnv::from(ctx.block.clone()))
         .with_tx(ctx.tx)
         .with_cfg(ctx.cfg)
         .with_db(&mut state);
@@ -476,7 +477,7 @@ fn debug_failed_test(ctx: DebugContext) {
 
     let mut evm = Context::seismic_with_rng_key(FIXED_TEST_RNG_IKM)
         .with_db(&mut state)
-        .with_block(ctx.block)
+        .with_block(SeismicBlockEnv::from(ctx.block.clone()))
         .with_tx(ctx.tx)
         .with_cfg(ctx.cfg)
         .build_seismic_evm_with_inspector(TracerEip3155::buffered(stderr()).without_summary());

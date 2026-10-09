@@ -1,5 +1,5 @@
 use revm::{
-    bytecode::opcode::{EQ, GT, ISZERO, LT, SGT, SLOAD, SLT, SSTORE},
+    bytecode::opcode::{EQ, GT, ISZERO, LT, SGT, SLOAD, SLT, SSTORE, TIMESTAMPMS},
     handler::instructions::InstructionProvider,
     interpreter::{
         instructions::{instruction_table, InstructionTable},
@@ -10,6 +10,7 @@ use std::boxed::Box;
 
 use crate::{
     instructions::{
+        block_info::timestamp_milliseconds,
         confidential_storage::{
             cload_instruction, cstore_instruction, seismic_sload_instruction,
             seismic_sstore_instruction,
@@ -46,6 +47,7 @@ where
     #[allow(clippy::indexing_slicing)] // Opcode constants are valid indices into 256-element table
     pub fn new_mainnet() -> Self {
         let mut table = instruction_table::<WIRE, HOST>();
+        table[TIMESTAMPMS as usize] = Instruction::new(timestamp_milliseconds, 2);
 
         // NOTE: static_gas is 0 because gas is dynamic for these
         table[CLOAD as usize] = cload_instruction();
@@ -122,6 +124,11 @@ mod tests {
         // Get the standard unknown instruction for comparison
         let unknown_instruction =
             Instruction::new(control::unknown::<EthInterpreter, SeismicDummyHost>, 0);
+
+        assert!(
+            table[TIMESTAMPMS as usize].equal(&Instruction::new(timestamp_milliseconds, 2)),
+            "TIMESTAMPMS (0x4B) should use the full Seismic timestamp"
+        );
 
         // Verify CLOAD is not the unknown instruction
         assert!(
@@ -236,6 +243,7 @@ mod tests {
                 && i != SLT as usize
                 && i != SGT as usize
                 && i != ISZERO as usize
+                && i != TIMESTAMPMS as usize
             {
                 assert!(
                     custom_table[i].equal(&standard_table[i]),
