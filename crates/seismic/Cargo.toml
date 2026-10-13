@@ -87,3 +87,7 @@ optional_no_base_fee = ["revm/optional_no_base_fee"]
 # See comments in `revm-precompile`
 c-kzg = ["revm/c-kzg"]
 blst = ["revm/blst"]
+
+[[bench]]
+name = "rng_pricing"
+harness = false
