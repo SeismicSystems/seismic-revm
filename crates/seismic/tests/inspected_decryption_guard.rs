@@ -11,6 +11,7 @@ use revm::{
     Context, ExecuteEvm,
 };
 use rstest::rstest;
+use seismic_revm::RngIkm;
 use seismic_revm::{DefaultSeismicContext, SeismicBuilder, SeismicSpecId};
 
 const CALLER: Address = Address::repeat_byte(0x11);
@@ -66,7 +67,7 @@ fn decryption_guard_is_consistent_with_and_without_inspection(
         },
     );
 
-    let ctx = Context::seismic_with_rng_key([0; 64])
+    let ctx = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .with_cfg(CfgEnv::new_with_spec(SeismicSpecId::MERCURY))
         .modify_block_chained(|block| {
             block.basefee = 1;

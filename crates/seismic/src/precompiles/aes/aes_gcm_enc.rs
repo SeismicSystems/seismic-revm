@@ -52,8 +52,8 @@ Precompile Logic
 /// │   [44..] :  Plaintext bytes                                          │
 /// └────────────────────────────────────────────────────────────────────────┘
 ///
-/// We encrypt `[44..]` using AES-256 in CTR mode (via `aes_encrypt()`),
-/// and produce a GCM authentication tag. The output is `[ciphertext + tag]`.
+/// We encrypt `[44..]` with AES-256-GCM (via `aes_encrypt()`), with no
+/// associated data. The output is `[ciphertext || 16-byte tag]`.
 ///
 /// ## Gas Model
 /// let num_blocks = (plaintext_len + 15) / 16;

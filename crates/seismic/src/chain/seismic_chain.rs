@@ -5,6 +5,8 @@ use revm::{
     primitives::{keccak256, Bytes, B256, U256},
 };
 
+use seismic_crypto::RngIkm;
+
 use super::rng_container::derive_rng_output;
 
 /// Transaction-local token reserve, inaccessible to contract execution.
@@ -18,8 +20,8 @@ pub struct TokenFeeReserve {
 
 #[derive(Clone)]
 pub struct SeismicChain {
-    /// HKDF input key material for the RNG precompile (64 bytes).
-    live_rng_key: [u8; 64],
+    /// HKDF input key material for the RNG precompile.
+    live_rng_key: RngIkm,
     /// Parent block hash for RNG domain separation. Set once at block start.
     parent_block_hash: B256,
     /// Running hash of prior transaction hashes in the current block.
@@ -44,7 +46,7 @@ impl core::fmt::Debug for SeismicChain {
 }
 
 impl SeismicChain {
-    pub fn new(rng_ikm: [u8; 64]) -> Self {
+    pub fn new(rng_ikm: RngIkm) -> Self {
         Self {
             live_rng_key: rng_ikm,
             parent_block_hash: B256::ZERO,
@@ -59,10 +61,10 @@ impl SeismicChain {
     /// Consensus nodes inject their network's key instead — RNG-precompile
     /// outputs are consensus-visible.
     pub fn with_random_rng_key() -> Self {
-        let mut random_ikm = [0u8; 64];
+        let mut random_ikm = [0u8; RngIkm::LEN];
         rand::rng().fill_bytes(&mut random_ikm);
         Self {
-            live_rng_key: random_ikm,
+            live_rng_key: RngIkm::from_bytes(random_ikm),
             parent_block_hash: B256::ZERO,
             tx_hash_accumulator: B256::ZERO,
             gas_remaining_all_frames: 0,
@@ -70,7 +72,7 @@ impl SeismicChain {
         }
     }
 
-    pub fn with_live_rng_key(live_rng_key: [u8; 64]) -> Self {
+    pub fn with_live_rng_key(live_rng_key: RngIkm) -> Self {
         Self {
             live_rng_key,
             parent_block_hash: B256::ZERO,
@@ -80,7 +82,7 @@ impl SeismicChain {
         }
     }
 
-    pub fn set_rng_key(&mut self, rng_ikm: [u8; 64]) {
+    pub fn set_rng_key(&mut self, rng_ikm: RngIkm) {
         self.live_rng_key = rng_ikm;
     }
 
@@ -148,7 +150,7 @@ impl SeismicChain {
             pers,
             requested_output_len,
             tx_hash,
-            self.live_rng_key,
+            &self.live_rng_key,
             &self.parent_block_hash,
             &self.tx_hash_accumulator,
             total_gas_remaining,
@@ -219,7 +221,7 @@ mod tests {
     #[test]
     fn test_execution_mode_deterministic_across_chains() {
         let ikm = well_known_rng_ikm();
-        let chain1 = SeismicChain::new(ikm);
+        let chain1 = SeismicChain::new(ikm.clone());
         let chain2 = SeismicChain::new(ikm);
 
         let tx_hash = B256::from([1u8; 32]);
@@ -237,7 +239,7 @@ mod tests {
     #[test]
     fn test_different_parent_block_hash_different_output() {
         let ikm = well_known_rng_ikm();
-        let mut chain1 = SeismicChain::new(ikm);
+        let mut chain1 = SeismicChain::new(ikm.clone());
         let mut chain2 = SeismicChain::new(ikm);
 
         chain1.set_parent_block_hash(B256::from([1u8; 32]));
@@ -258,7 +260,7 @@ mod tests {
     #[test]
     fn test_different_tx_hash_accumulator_different_output() {
         let ikm = well_known_rng_ikm();
-        let mut chain1 = SeismicChain::new(ikm);
+        let mut chain1 = SeismicChain::new(ikm.clone());
         let mut chain2 = SeismicChain::new(ikm);
 
         chain1.set_tx_hash_accumulator(B256::from([1u8; 32]));

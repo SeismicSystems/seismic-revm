@@ -27,5 +27,8 @@ pub use evm::SeismicEvm;
 pub use gas_token_registry::GasPayment;
 pub use instructions::seismic_host::SeismicHost;
 pub use result::SeismicRevertReason;
+/// Re-exported because it appears in this crate's API (`SeismicChain`,
+/// `DefaultSeismicContext`), so callers need no direct `seismic-crypto` dependency.
+pub use seismic_crypto::RngIkm;
 pub use spec::*;
 pub use transaction::abstraction::SeismicTransaction;

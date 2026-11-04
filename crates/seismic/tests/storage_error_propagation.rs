@@ -8,6 +8,7 @@ use revm::{
     state::{AccountInfo, Bytecode},
     Context, Database, ExecuteEvm,
 };
+use seismic_revm::RngIkm;
 use seismic_revm::{DefaultSeismicContext, SeismicBuilder};
 
 const CALLER: Address = Address::repeat_byte(0x11);
@@ -77,7 +78,7 @@ fn assert_storage_error_propagates(opcode: u8) {
     } else {
         vec![PUSH1, 0, opcode, STOP]
     }));
-    let ctx = Context::seismic_with_rng_key([0; 64])
+    let ctx = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .modify_tx_chained(|tx| {
             tx.base.caller = CALLER;
             tx.base.kind = TxKind::Call(CONTRACT);
