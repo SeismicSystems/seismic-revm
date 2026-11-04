@@ -19,6 +19,7 @@ use revm::{
     Context, Database, ExecuteCommitEvm, ExecuteEvm,
 };
 use rstest::rstest;
+use seismic_revm::RngIkm;
 use seismic_revm::{
     api::default_ctx::SeismicContext,
     gas_token_registry::{token_metadata_slot, GAS_TOKEN_REGISTRY, TOKEN_COUNT_SLOT},
@@ -91,7 +92,7 @@ fn funded_context(token_funded: bool) -> SeismicContext<InMemoryDB> {
         )
         .unwrap();
     }
-    Context::seismic_with_rng_key([0; 64])
+    Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .modify_block_chained(|block| {
             block.basefee = 0;
             block.beneficiary = BENEFICIARY;
@@ -426,7 +427,7 @@ fn transaction_error_restores_nonce_and_balance(
     #[values(false, true)] create: bool,
     #[values(false, true)] decryption_failed: bool,
 ) {
-    let mut evm = Context::seismic_with_rng_key([0; 64])
+    let mut evm = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .modify_block_chained(|block| {
             block.basefee = 0;
             block.beneficiary = BENEFICIARY;

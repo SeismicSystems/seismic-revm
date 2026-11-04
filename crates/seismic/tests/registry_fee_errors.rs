@@ -13,6 +13,7 @@ use revm::{
     Context, Database, DatabaseCommit, ExecuteEvm,
 };
 use rstest::rstest;
+use seismic_revm::RngIkm;
 use seismic_revm::{
     gas_token_registry::{
         balance_storage_key, token_metadata_slot, GAS_TOKEN_REGISTRY, TOKEN_COUNT_SLOT,
@@ -154,7 +155,7 @@ fn read_errors_discard_accounting_preserve_prior_touches_and_allow_next_transact
         to,
         AccountInfo::from_bytecode(Bytecode::new_raw(Bytes::from(body))),
     );
-    let context = Context::seismic_with_rng_key([0; 64])
+    let context = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .modify_block_chained(|block| {
             block.basefee = 0;
             block.beneficiary = BENEFICIARY;

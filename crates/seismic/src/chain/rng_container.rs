@@ -3,6 +3,7 @@ use revm::{
     precompile::PrecompileError,
     primitives::{Bytes, B256},
 };
+use seismic_crypto::RngIkm;
 
 /// Derives random bytes for the RNG precompile.
 ///
@@ -13,7 +14,7 @@ pub fn derive_rng_output(
     pers: &[u8],
     requested_output_len: usize,
     tx_hash: &B256,
-    live_key: [u8; 64],
+    live_key: &RngIkm,
     parent_block_hash: &B256,
     tx_hash_accumulator: &B256,
     total_gas_remaining: u64,

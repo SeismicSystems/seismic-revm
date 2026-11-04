@@ -360,7 +360,7 @@ mod tests {
         spec: SeismicSpecId,
         bytes_requested: u32,
         personalization: Vec<u8>,
-        rng_ikm: [u8; 64],
+        rng_ikm: seismic_crypto::RngIkm,
     ) -> Context<
         SeismicBlockEnv,
         SeismicTransaction<TxEnv>,
@@ -401,7 +401,7 @@ mod tests {
             SeismicSpecId::MERCURY,
             bytes_requested,
             personalization.clone(),
-            ikm,
+            ikm.clone(),
         );
 
         let mut evm = ctx.build_seismic_evm();

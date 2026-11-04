@@ -13,6 +13,7 @@
 //! then derives output. There is no persistent state between calls.
 use hkdf::Hkdf;
 use revm::primitives::B256;
+use seismic_crypto::RngIkm;
 use sha2::Sha256;
 
 /// RNG domain separation salt.
@@ -43,18 +44,19 @@ pub(super) const RNG_INFO_PREFIX_LEN: usize = BLOCK_LABEL.len()
 ///
 /// Constructed fresh for each precompile call. Domain separation data
 /// (tx hash, gas left) is appended before derivation.
-pub struct RootRng {
-    /// The 64-byte HKDF input key material.
-    key_bytes: [u8; 64],
+pub struct RootRng<'a> {
+    /// The HKDF input key material, borrowed so a precompile call copies no
+    /// key bytes.
+    ikm: &'a RngIkm,
     /// Accumulated domain separation info (tx hashes, gas values, etc.).
     domain_data: Vec<u8>,
 }
 
-impl RootRng {
-    /// Create a new root RNG from 64 bytes of HKDF input key material.
-    pub fn new(rng_ikm: [u8; 64]) -> Self {
+impl<'a> RootRng<'a> {
+    /// Create a new root RNG over the given HKDF input key material.
+    pub fn new(ikm: &'a RngIkm) -> Self {
         Self {
-            key_bytes: rng_ikm,
+            ikm,
             domain_data: Vec::new(),
         }
     }
@@ -91,7 +93,7 @@ impl RootRng {
     /// For outputs larger than 255 * 32 = 8160 bytes (the HKDF-SHA256 limit),
     /// this uses counter-mode chunking internally.
     pub fn derive_bytes(&self, pers: &[u8], len: usize) -> Vec<u8> {
-        let hkdf = Hkdf::<Sha256>::new(Some(RNG_SALT), &self.key_bytes);
+        let hkdf = Hkdf::<Sha256>::new(Some(RNG_SALT), self.ikm.as_bytes());
 
         // Build info: domain_data || b"pers" || pers
         let mut info =

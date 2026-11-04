@@ -11,6 +11,7 @@ use revm::{
     Context, ExecuteCommitEvm, ExecuteEvm,
 };
 use rstest::rstest;
+use seismic_revm::RngIkm;
 use seismic_revm::{DefaultSeismicContext, SeismicBlockEnv, SeismicBuilder};
 
 const CALLER: Address = Address::repeat_byte(0x11);
@@ -57,7 +58,7 @@ fn timestamp_opcodes_preserve_seconds_and_exact_millis(
     // TIMESTAMP; PUSH0; MSTORE; TIMESTAMPMS; PUSH1 32; MSTORE;
     // PUSH1 64; PUSH0; RETURN.
     let db = contract_db(CONTRACT, bytes!("425f524b60205260405ff3"));
-    let ctx = Context::seismic_with_rng_key([0; 64]).with_db(db);
+    let ctx = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64])).with_db(db);
     let mut evm = ctx.build_seismic_evm_with_inspector(NoOpInspector);
 
     for (seconds, part) in [
@@ -102,7 +103,7 @@ fn same_second_blocks_keep_distinct_beacon_root_entries(#[values(false, true)] i
     // TIMESTAMPMS (0x4B), unlike Ethereum's seconds-indexed contract.
     let code = bytes!("3373fffffffffffffffffffffffffffffffffffffffe14604d57602036146024575f5ffd5b5f35801560495762001fff810690815414603c575f5ffd5b62001fff01545f5260205ff35b5f5ffd5b62001fff4b064b81555f359062001fff015500");
     let db = contract_db(BEACON_ROOTS_ADDRESS, code);
-    let ctx = Context::seismic_with_rng_key([0; 64]).with_db(db);
+    let ctx = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64])).with_db(db);
     let mut evm = ctx.build_seismic_evm_with_inspector(NoOpInspector);
     let seconds = 1_700_000_000;
     let entries = [

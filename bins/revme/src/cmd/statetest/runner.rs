@@ -39,7 +39,7 @@ use walkdir::{DirEntry, WalkDir};
 
 /// Fixed rng key for state-test execution; Ethereum state tests never call
 /// the RNG precompile, so the value is arbitrary.
-const FIXED_TEST_RNG_IKM: [u8; 64] = [0; 64];
+const FIXED_TEST_RNG_IKM: seismic_revm::RngIkm = seismic_revm::RngIkm::from_bytes([0; 64]);
 
 /// Error that occurs during test execution
 #[derive(Debug, Error)]

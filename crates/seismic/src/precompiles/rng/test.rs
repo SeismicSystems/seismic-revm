@@ -9,7 +9,7 @@ use super::*;
 use domain_sep_rng::RootRng;
 use rand::RngCore;
 use revm::primitives::B256;
-use seismic_crypto::well_known_rng_ikm;
+use seismic_crypto::{well_known_rng_ikm, RngIkm};
 use std::str::FromStr;
 
 fn hex_to_hash_bytes(input: &str) -> B256 {
@@ -18,8 +18,9 @@ fn hex_to_hash_bytes(input: &str) -> B256 {
 
 #[test]
 fn test_rng_basic() {
+    let ikm = well_known_rng_ikm();
     // First derivation with empty pers
-    let root_rng = RootRng::new(well_known_rng_ikm());
+    let root_rng = RootRng::new(&ikm);
     let bytes1 = root_rng.derive_bytes(&[], 32);
 
     // Same RNG, same pers — should produce the same output (stateless derivation)
@@ -30,7 +31,7 @@ fn test_rng_basic() {
     );
 
     // Create second root RNG using the same keypair — should produce the same output
-    let root_rng2 = RootRng::new(well_known_rng_ikm());
+    let root_rng2 = RootRng::new(&ikm);
     let bytes2 = root_rng2.derive_bytes(&[], 32);
     assert_eq!(
         bytes1, bytes2,
@@ -45,7 +46,7 @@ fn test_rng_basic() {
     );
 
     // Appending a tx hash should change the output
-    let mut root_rng3 = RootRng::new(well_known_rng_ikm());
+    let mut root_rng3 = RootRng::new(&ikm);
     root_rng3.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -53,7 +54,7 @@ fn test_rng_basic() {
     assert_ne!(bytes1, bytes4, "tx hash should change output");
 
     // Different tx hash should produce different output
-    let mut root_rng4 = RootRng::new(well_known_rng_ikm());
+    let mut root_rng4 = RootRng::new(&ikm);
     root_rng4.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000002",
     ));
@@ -64,7 +65,7 @@ fn test_rng_basic() {
     );
 
     // Same tx hash as root_rng3 should produce the same output
-    let mut root_rng5 = RootRng::new(well_known_rng_ikm());
+    let mut root_rng5 = RootRng::new(&ikm);
     root_rng5.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -72,7 +73,7 @@ fn test_rng_basic() {
     assert_eq!(bytes4, bytes6, "same tx hash should be deterministic");
 
     // Multiple tx hashes should produce different output than single
-    let mut root_rng6 = RootRng::new(well_known_rng_ikm());
+    let mut root_rng6 = RootRng::new(&ikm);
     root_rng6.append_tx(&hex_to_hash_bytes(
         "0000000000000000000000000000000000000000000000000000000000000001",
     ));
@@ -85,12 +86,13 @@ fn test_rng_basic() {
 
 #[test]
 fn test_rng_gas_domain_separation() {
-    let mut root_rng1 = RootRng::new(well_known_rng_ikm());
+    let ikm = well_known_rng_ikm();
+    let mut root_rng1 = RootRng::new(&ikm);
     root_rng1.append_tx(&B256::from([1u8; 32]));
     root_rng1.append_gas_left(1000);
     let bytes1 = root_rng1.derive_bytes(&[], 32);
 
-    let mut root_rng2 = RootRng::new(well_known_rng_ikm());
+    let mut root_rng2 = RootRng::new(&ikm);
     root_rng2.append_tx(&B256::from([1u8; 32]));
     root_rng2.append_gas_left(2000);
     let bytes2 = root_rng2.derive_bytes(&[], 32);
@@ -108,8 +110,9 @@ fn test_rng_different_keys_different_output() {
     let mut ikm2 = [0u8; 64];
     rand::rng().fill_bytes(&mut ikm2);
 
-    let root_rng1 = RootRng::new(ikm1);
-    let root_rng2 = RootRng::new(ikm2);
+    let (ikm1, ikm2) = (RngIkm::from_bytes(ikm1), RngIkm::from_bytes(ikm2));
+    let root_rng1 = RootRng::new(&ikm1);
+    let root_rng2 = RootRng::new(&ikm2);
 
     let bytes1 = root_rng1.derive_bytes(&[], 32);
     let bytes2 = root_rng2.derive_bytes(&[], 32);
@@ -127,7 +130,7 @@ fn test_precompile_info_layout_matches_gas_schedule() {
     use hkdf::Hkdf;
     use sha2::Sha256;
 
-    let key = [0x11; 64];
+    let key = RngIkm::from_bytes([0x11; 64]);
     let parent = B256::from([0x22; 32]);
     let accumulator = B256::from([0x33; 32]);
     let tx = B256::from([0x44; 32]);
@@ -149,7 +152,7 @@ fn test_precompile_info_layout_matches_gas_schedule() {
     assert_eq!(info.len(), 121);
     info.extend_from_slice(pers);
 
-    let hkdf = Hkdf::<Sha256>::new(Some(b"seismic rng context"), &key);
+    let hkdf = Hkdf::<Sha256>::new(Some(b"seismic rng context"), key.as_bytes());
     for len in [
         0,
         32,
@@ -169,14 +172,15 @@ fn test_precompile_info_layout_matches_gas_schedule() {
             }
         }
         let actual =
-            derive_rng_output(pers, len, &tx, key, &parent, &accumulator, gas_left).unwrap();
+            derive_rng_output(pers, len, &tx, &key, &parent, &accumulator, gas_left).unwrap();
         assert_eq!(actual.as_ref(), expected.as_slice());
     }
 }
 
 #[test]
 fn test_large_output() {
-    let root_rng = RootRng::new(well_known_rng_ikm());
+    let ikm = well_known_rng_ikm();
+    let root_rng = RootRng::new(&ikm);
 
     // Request more than the HKDF single-expand limit (8160 bytes)
     let large_output = root_rng.derive_bytes(b"large", 10000);

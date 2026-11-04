@@ -14,6 +14,7 @@ use revm::{
     state::{Account, AccountInfo, Bytecode},
     Context, Database, ExecuteEvm,
 };
+use seismic_revm::RngIkm;
 use seismic_revm::{
     handler::SeismicHandler, transaction::abstraction::SeismicTransaction, DefaultSeismicContext,
     SeismicBuilder,
@@ -152,7 +153,7 @@ fn transaction_error_restores_replaced_cleared_and_new_delegations() {
         for new_target in [NEW_TARGET, Address::ZERO] {
             for tx_type in [4, 74] {
                 let initial = authority_info(initial_target, 5);
-                let mut evm = Context::seismic_with_rng_key([0; 64])
+                let mut evm = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
                     .with_db(AuthDb {
                         authority: Some(initial.clone()),
                     })
@@ -174,7 +175,7 @@ fn transaction_error_restores_replaced_cleared_and_new_delegations() {
 
 #[test]
 fn transaction_error_restores_nonexistent_authority() {
-    let mut evm = Context::seismic_with_rng_key([0; 64])
+    let mut evm = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .with_db(AuthDb { authority: None })
         .build_seismic_evm();
     let result = evm.transact_one(tx(FAILING_CONTRACT, 0, &[(NEW_TARGET, 0)]));
@@ -187,7 +188,7 @@ fn transaction_error_restores_nonexistent_authority() {
 #[test]
 fn repeated_authorizations_rollback_in_reverse_order() {
     let initial = authority_info(OLD_TARGET, 5);
-    let mut evm = Context::seismic_with_rng_key([0; 64])
+    let mut evm = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .with_db(AuthDb {
             authority: Some(initial.clone()),
         })
@@ -207,7 +208,7 @@ fn repeated_authorizations_rollback_in_reverse_order() {
 #[test]
 fn rollback_preserves_previously_touched_authority() {
     let initial = authority_info(OLD_TARGET, 5);
-    let mut evm = Context::seismic_with_rng_key([0; 64])
+    let mut evm = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .with_db(AuthDb {
             authority: Some(initial.clone()),
         })
@@ -227,7 +228,7 @@ fn rollback_preserves_previously_touched_authority() {
 #[test]
 fn failed_transaction_preserves_prior_success_in_retained_journal() {
     for retry in [false, true] {
-        let mut evm = Context::seismic_with_rng_key([0; 64])
+        let mut evm = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
             .with_db(AuthDb {
                 authority: Some(authority_info(OLD_TARGET, 5)),
             })
@@ -256,7 +257,7 @@ fn failed_transaction_preserves_prior_success_in_retained_journal() {
 #[test]
 fn later_authority_load_error_rolls_back_earlier_authorizations() {
     let initial = authority_info(OLD_TARGET, 5);
-    let mut evm = Context::seismic_with_rng_key([0; 64])
+    let mut evm = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .with_db(AuthDb {
             authority: Some(initial.clone()),
         })
@@ -275,7 +276,7 @@ fn later_authority_load_error_rolls_back_earlier_authorizations() {
 #[test]
 fn settlement_validation_error_rolls_back_authorizations() {
     let initial = authority_info(OLD_TARGET, 5);
-    let mut evm = Context::seismic_with_rng_key([0; 64])
+    let mut evm = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
         .with_db(AuthDb {
             authority: Some(initial.clone()),
         })
@@ -307,7 +308,7 @@ fn settlement_validation_error_rolls_back_authorizations() {
 #[test]
 fn ordinary_bytecode_revert_keeps_authorizations() {
     for target in [NEW_TARGET, Address::ZERO] {
-        let mut evm = Context::seismic_with_rng_key([0; 64])
+        let mut evm = Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
             .with_db(AuthDb {
                 authority: Some(authority_info(OLD_TARGET, 5)),
             })

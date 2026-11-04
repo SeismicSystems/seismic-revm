@@ -21,7 +21,7 @@ use super::{
 
 /// Fixed rng key for the test EVM: semantic-test expectation comments record
 /// exact outputs, so RNG-precompile results must be deterministic across runs.
-const FIXED_TEST_RNG_IKM: [u8; 64] = [0; 64];
+const FIXED_TEST_RNG_IKM: seismic_revm::RngIkm = seismic_revm::RngIkm::from_bytes([0; 64]);
 
 #[derive(Debug, Clone)]
 pub(crate) struct EvmConfig {

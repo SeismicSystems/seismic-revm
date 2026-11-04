@@ -6,6 +6,7 @@ use revm::{
     database_interface::EmptyDB,
     Context, Journal, MainContext,
 };
+use seismic_crypto::RngIkm;
 
 /// Type alias for the default context type of the SeismicEvm.
 pub type SeismicContext<DB> = Context<
@@ -22,7 +23,7 @@ pub trait DefaultSeismicContext {
     /// Create a context that uses a random rng key for precompile everytime.
     fn seismic_with_random_rng_key() -> SeismicContext<EmptyDB>;
     /// Create a context with specific RNG input key material.
-    fn seismic_with_rng_key(rng_ikm: [u8; 64]) -> SeismicContext<EmptyDB>;
+    fn seismic_with_rng_key(rng_ikm: RngIkm) -> SeismicContext<EmptyDB>;
 }
 
 impl DefaultSeismicContext for SeismicContext<EmptyDB> {
@@ -34,7 +35,7 @@ impl DefaultSeismicContext for SeismicContext<EmptyDB> {
             .with_chain(SeismicChain::with_random_rng_key())
     }
 
-    fn seismic_with_rng_key(rng_ikm: [u8; 64]) -> Self {
+    fn seismic_with_rng_key(rng_ikm: RngIkm) -> Self {
         Context::mainnet()
             .with_block(SeismicBlockEnv::default())
             .with_tx(SeismicTransaction::default())

@@ -20,6 +20,7 @@ use revm::{
     Context, Database, DatabaseCommit, ExecuteEvm,
 };
 use rstest::rstest;
+use seismic_revm::RngIkm;
 use seismic_revm::{
     api::default_ctx::SeismicContext,
     gas_token_registry::{
@@ -84,7 +85,7 @@ fn context(
     )
     .unwrap();
     (
-        Context::seismic_with_rng_key([0; 64])
+        Context::seismic_with_rng_key(RngIkm::from_bytes([0; 64]))
             .modify_block_chained(|block| {
                 block.basefee = 0;
                 block.beneficiary = beneficiary;
