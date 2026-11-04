@@ -63,6 +63,14 @@ impl<W: InterpreterTypes, H: Host + ?Sized> Instruction<W, H> {
     pub const fn static_gas(&self) -> u64 {
         self.static_gas
     }
+
+    /// Decide if two instructions are the same. Only used for testing
+    pub fn equal(&self, other: &Instruction<W, H>) -> bool {
+        // mem::transmute: convert function pointers to raw addresses for comparison
+        let a_ptr: usize = unsafe { std::mem::transmute(self.fn_) };
+        let b_ptr: usize = unsafe { std::mem::transmute(other.fn_) };
+        a_ptr == b_ptr && self.static_gas() == other.static_gas()
+    }
 }
 
 impl<W: InterpreterTypes, H: Host + ?Sized> Copy for Instruction<W, H> {}
@@ -136,6 +144,7 @@ const fn instruction_table_impl<WIRE: InterpreterTypes, H: Host>() -> [Instructi
     table[BLOCKHASH as usize] = Instruction::new(host::blockhash, 20);
     table[COINBASE as usize] = Instruction::new(block_info::coinbase, 2);
     table[TIMESTAMP as usize] = Instruction::new(block_info::timestamp, 2);
+    table[TIMESTAMPMS as usize] = Instruction::new(block_info::timestamp_milliseconds, 2);
     table[NUMBER as usize] = Instruction::new(block_info::block_number, 2);
     table[DIFFICULTY as usize] = Instruction::new(block_info::difficulty, 2);
     table[GASLIMIT as usize] = Instruction::new(block_info::gaslimit, 2);

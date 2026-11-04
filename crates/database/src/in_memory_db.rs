@@ -3,9 +3,7 @@ use database_interface::{
     Database, DatabaseCommit, DatabaseRef, EmptyDB, BENCH_CALLER, BENCH_CALLER_BALANCE,
     BENCH_TARGET, BENCH_TARGET_BALANCE,
 };
-use primitives::{
-    hash_map::Entry, Address, HashMap, Log, StorageKey, StorageValue, B256, KECCAK_EMPTY, U256,
-};
+use primitives::{hash_map::Entry, Address, HashMap, Log, B256, KECCAK_EMPTY, U256};
 use state::{Account, AccountInfo, Bytecode};
 use std::vec::Vec;
 
@@ -169,8 +167,8 @@ impl<ExtDB: DatabaseRef> CacheDB<ExtDB> {
     pub fn insert_account_storage(
         &mut self,
         address: Address,
-        slot: StorageKey,
-        value: StorageValue,
+        slot: U256,
+        value: state::FlaggedStorage,
     ) -> Result<(), ExtDB::Error> {
         let account = self.load_account(address)?;
         account.storage.insert(slot, value);
@@ -181,7 +179,7 @@ impl<ExtDB: DatabaseRef> CacheDB<ExtDB> {
     pub fn replace_account_storage(
         &mut self,
         address: Address,
-        storage: HashMap<StorageKey, StorageValue>,
+        storage: HashMap<U256, state::FlaggedStorage>,
     ) -> Result<(), ExtDB::Error> {
         let account = self.load_account(address)?;
         account.account_state = AccountState::StorageCleared;
@@ -263,8 +261,8 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
     fn storage(
         &mut self,
         address: Address,
-        index: StorageKey,
-    ) -> Result<StorageValue, Self::Error> {
+        index: U256,
+    ) -> Result<state::FlaggedStorage, Self::Error> {
         match self.cache.accounts.entry(address) {
             Entry::Occupied(mut acc_entry) => {
                 let acc_entry = acc_entry.get_mut();
@@ -275,7 +273,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
                             acc_entry.account_state,
                             AccountState::StorageCleared | AccountState::NotExisting
                         ) {
-                            Ok(StorageValue::ZERO)
+                            Ok(state::FlaggedStorage::default())
                         } else {
                             let slot = self.db.storage_ref(address, index)?;
                             entry.insert(slot);
@@ -293,7 +291,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
                     account.storage.insert(index, value);
                     (account, value)
                 } else {
-                    (info.into(), StorageValue::ZERO)
+                    (info.into(), state::FlaggedStorage::default())
                 };
                 acc_entry.insert(account);
                 Ok(value)
@@ -333,8 +331,8 @@ impl<ExtDB: DatabaseRef> DatabaseRef for CacheDB<ExtDB> {
     fn storage_ref(
         &self,
         address: Address,
-        index: StorageKey,
-    ) -> Result<StorageValue, Self::Error> {
+        index: U256,
+    ) -> Result<state::FlaggedStorage, Self::Error> {
         match self.cache.accounts.get(&address) {
             Some(acc_entry) => match acc_entry.storage.get(&index) {
                 Some(entry) => Ok(*entry),
@@ -343,7 +341,7 @@ impl<ExtDB: DatabaseRef> DatabaseRef for CacheDB<ExtDB> {
                         acc_entry.account_state,
                         AccountState::StorageCleared | AccountState::NotExisting
                     ) {
-                        Ok(StorageValue::ZERO)
+                        Ok(state::FlaggedStorage::ZERO)
                     } else {
                         self.db.storage_ref(address, index)
                     }
@@ -369,8 +367,8 @@ pub struct DbAccount {
     pub info: AccountInfo,
     /// If account is selfdestructed or newly created, storage will be cleared.
     pub account_state: AccountState,
-    /// Storage slots
-    pub storage: HashMap<StorageKey, StorageValue>,
+    /// storage slots
+    pub storage: HashMap<U256, state::FlaggedStorage>,
 }
 
 impl DbAccount {
@@ -490,9 +488,9 @@ impl Database for BenchmarkDB {
     fn storage(
         &mut self,
         _address: Address,
-        _index: StorageKey,
-    ) -> Result<StorageValue, Self::Error> {
-        Ok(StorageValue::default())
+        _index: U256,
+    ) -> Result<state::FlaggedStorage, Self::Error> {
+        Ok(state::FlaggedStorage::default())
     }
 
     // History related
@@ -503,9 +501,8 @@ impl Database for BenchmarkDB {
 
 #[cfg(test)]
 mod tests {
-    use super::{CacheDB, EmptyDB};
+    use super::*;
     use database_interface::Database;
-    use primitives::{Address, HashMap, StorageKey, StorageValue};
     use state::AccountInfo;
 
     #[test]
@@ -521,7 +518,10 @@ mod tests {
             },
         );
 
-        let (key, value) = (StorageKey::from(123), StorageValue::from(456));
+        let (key, value) = (
+            U256::from(123),
+            state::FlaggedStorage::from(U256::from(456)),
+        );
         let mut new_state = CacheDB::new(init_state);
         new_state
             .insert_account_storage(account, key, value)
@@ -544,8 +544,14 @@ mod tests {
             },
         );
 
-        let (key0, value0) = (StorageKey::from(123), StorageValue::from(456));
-        let (key1, value1) = (StorageKey::from(789), StorageValue::from(999));
+        let (key0, value0) = (
+            U256::from(123),
+            state::FlaggedStorage::from(U256::from(456)),
+        );
+        let (key1, value1) = (
+            U256::from(789),
+            state::FlaggedStorage::from(U256::from(999)),
+        );
         init_state
             .insert_account_storage(account, key0, value0)
             .unwrap();
@@ -556,7 +562,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
-        assert_eq!(new_state.storage(account, key0), Ok(StorageValue::ZERO));
+        assert_eq!(
+            new_state.storage(account, key0),
+            Ok(state::FlaggedStorage::ZERO)
+        );
         assert_eq!(new_state.storage(account, key1), Ok(value1));
     }
 
@@ -588,5 +597,69 @@ mod tests {
                 .nonce,
             nonce
         );
+    }
+
+    #[test]
+    fn test_insert_account_storage_private() {
+        let account = Address::with_last_byte(42);
+        let nonce = 42;
+        let mut init_state = CacheDB::new(EmptyDB::default());
+        init_state.insert_account_info(
+            account,
+            AccountInfo {
+                nonce,
+                ..Default::default()
+            },
+        );
+
+        let (key, value) = (
+            U256::from(123),
+            state::FlaggedStorage::from(U256::from(456)).mark_private(),
+        );
+        let mut new_state = CacheDB::new(init_state);
+        new_state
+            .insert_account_storage(account, key, value)
+            .unwrap();
+
+        assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
+        assert_eq!(new_state.storage(account, key), Ok(value));
+    }
+
+    #[test]
+    fn test_replace_account_storage_private() {
+        let account = Address::with_last_byte(42);
+        let nonce = 42;
+        let mut init_state = CacheDB::new(EmptyDB::default());
+        init_state.insert_account_info(
+            account,
+            AccountInfo {
+                nonce,
+                ..Default::default()
+            },
+        );
+
+        let (key0, value0) = (
+            U256::from(123),
+            state::FlaggedStorage::from(U256::from(456)).mark_private(),
+        );
+        let (key1, value1) = (
+            U256::from(789),
+            state::FlaggedStorage::from(U256::from(999)).mark_private(),
+        );
+        init_state
+            .insert_account_storage(account, key0, value0)
+            .unwrap();
+
+        let mut new_state = CacheDB::new(init_state);
+        new_state
+            .replace_account_storage(account, HashMap::from_iter([(key1, value1)]))
+            .unwrap();
+
+        assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);
+        assert_eq!(
+            new_state.storage(account, key0),
+            Ok(state::FlaggedStorage::ZERO)
+        );
+        assert_eq!(new_state.storage(account, key1), Ok(value1));
     }
 }

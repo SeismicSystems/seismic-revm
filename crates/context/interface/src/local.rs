@@ -74,6 +74,18 @@ impl<T> FrameStack<T> {
         *index += 1;
     }
 
+    /// Returns a slice of all active (initialized) frames on the stack.
+    ///
+    /// Frames `0..=index` are always initialized, as the stack only grows
+    /// via `end_init`/`push` which set the index after initialization.
+    #[inline]
+    pub fn active_frames(&self) -> &[T] {
+        match self.index {
+            Some(idx) => &self.stack[..=idx],
+            None => &[],
+        }
+    }
+
     /// Clears the stack by setting the index to 0.
     /// It does not destroy the stack.
     #[inline]

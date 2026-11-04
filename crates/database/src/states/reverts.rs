@@ -6,7 +6,8 @@ use core::{
     cmp::Ordering,
     ops::{Deref, DerefMut},
 };
-use primitives::{Address, HashMap, StorageKey, StorageValue};
+use primitives::alloy_primitives::FlaggedStorage;
+use primitives::{Address, HashMap, StorageKey};
 use state::AccountInfo;
 use std::vec::Vec;
 
@@ -318,17 +319,17 @@ pub enum AccountInfoRevert {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RevertToSlot {
     /// Revert to this value.
-    Some(StorageValue),
+    Some(FlaggedStorage),
     /// Storage was destroyed.
     Destroyed,
 }
 
 impl RevertToSlot {
     /// Returns the previous value to set on revert.
-    pub fn to_previous_value(self) -> StorageValue {
+    pub fn to_previous_value(self) -> FlaggedStorage {
         match self {
             RevertToSlot::Some(value) => value,
-            RevertToSlot::Destroyed => StorageValue::ZERO,
+            RevertToSlot::Destroyed => FlaggedStorage::ZERO,
         }
     }
 }

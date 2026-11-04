@@ -1,0 +1,34 @@
+//! Seismic-specific constants, types, and helpers.
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc as std;
+
+pub mod api;
+pub mod block;
+pub mod chain;
+pub mod evm;
+pub mod gas_token_registry;
+pub mod handler;
+pub mod instructions;
+pub mod precompiles;
+pub mod result;
+pub mod spec;
+pub mod transaction;
+
+pub use api::{
+    builder::SeismicBuilder,
+    default_ctx::{DefaultSeismicContext, SeismicContext},
+};
+pub use block::SeismicBlockEnv;
+pub use chain::seismic_chain::SeismicChain;
+pub use evm::SeismicEvm;
+pub use gas_token_registry::GasPayment;
+pub use instructions::seismic_host::SeismicHost;
+pub use result::SeismicRevertReason;
+/// Re-exported because it appears in this crate's API (`SeismicChain`,
+/// `DefaultSeismicContext`), so callers need no direct `seismic-crypto` dependency.
+pub use seismic_crypto::RngIkm;
+pub use spec::*;
+pub use transaction::abstraction::SeismicTransaction;

@@ -1,7 +1,8 @@
 use std::convert::Infallible;
 
 use alloy_rlp::{RlpEncodable, RlpMaxEncodedLen};
-use context::result::{EVMError, ExecutionResult, HaltReason, InvalidTransaction};
+use context::result::HaltReason;
+use context::result::{EVMError, ExecutionResult, InvalidTransaction};
 use database::{EmptyDB, PlainAccount, State};
 use hash_db::Hasher;
 use plain_hasher::PlainHasher;
@@ -56,8 +57,13 @@ impl TrieAccount {
             root_hash: sec_trie_root::<KeccakHasher, _, _, _>(
                 acc.storage
                     .iter()
-                    .filter(|(_k, &v)| !v.is_zero())
-                    .map(|(k, v)| (k.to_be_bytes::<32>(), alloy_rlp::encode_fixed_size(v))),
+                    .filter(|(_k, &v)| !v.value.is_zero())
+                    .map(|(k, v)| {
+                        (
+                            k.to_be_bytes::<32>(),
+                            alloy_rlp::encode_fixed_size(&v.value),
+                        )
+                    }),
             ),
             code_hash: acc.info.code_hash,
         }
