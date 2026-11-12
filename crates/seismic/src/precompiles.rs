@@ -38,8 +38,8 @@ use revm::{
     precompile::{secp256r1, Precompile, PrecompileError, Precompiles},
     primitives::{Address, Bytes},
 };
+use std::boxed::Box;
 use std::string::String;
-use std::{boxed::Box, sync::OnceLock};
 
 #[derive(Debug, Clone)]
 pub struct SeismicPrecompiles<CTX: SeismicContextTr> {
@@ -68,14 +68,13 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
     }
 
     pub fn apply_precompile(&mut self, p: Precompile) {
-        static INSTANCE: OnceLock<Precompiles> = OnceLock::new();
-        let precompiles = INSTANCE.get_or_init(|| {
-            let mut precompiles = self.inner.precompiles.clone();
-            precompiles.extend([p]);
-            precompiles
-        });
+        // Do not memoize: caching the first applied precompile in a process-wide
+        // OnceLock made every later call re-apply that first precompile instead
+        // of its own argument.
+        let mut precompiles = self.inner.precompiles.clone();
+        precompiles.extend([p]);
         self.inner = EthPrecompiles {
-            precompiles,
+            precompiles: &*Box::leak(Box::new(precompiles)),
             spec: <CTX::Cfg as Cfg>::Spec::MERCURY.into(),
         };
     }
@@ -85,10 +84,10 @@ impl<CTX: SeismicContextTr> SeismicPrecompiles<CTX> {
 pub fn mercury_with_extra<CTX: SeismicContextTr>(
     extra: Option<&'static Precompiles>,
 ) -> (&'static Precompiles, StatefulPrecompiles<CTX>) {
-    // Store only the stateless precompiles in the static OnceBox
+    // Store only the stateless precompiles in the static OnceBox.
     static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
 
-    let regular_precompiles = INSTANCE.get_or_init(|| {
+    fn base_precompiles(extra: Option<&'static Precompiles>) -> Precompiles {
         let mut precompiles = Precompiles::prague().clone();
         if let Some(extra) = extra {
             precompiles.extend(extra.inner().clone().into_values());
@@ -101,8 +100,16 @@ pub fn mercury_with_extra<CTX: SeismicContextTr>(
             aes::aes_gcm_dec::AES_GCM_DEC,
             secp256k1_sign::SECP256K1_SIGN,
         ]);
-        Box::new(precompiles)
-    });
+        precompiles
+    }
+
+    let regular_precompiles = match extra {
+        // No extras: safe to share one process-wide cached set.
+        None => INSTANCE.get_or_init(|| Box::new(base_precompiles(None))),
+        // With extras: never cache, otherwise the first call decides the set for
+        // the whole process and extras leak into unrelated EVMs.
+        Some(extra) => &*Box::leak(Box::new(base_precompiles(Some(extra)))),
+    };
 
     //TODO: check how expensive is the below instead of a single init! issue with generics
     let mut stateful_precompiles = StatefulPrecompiles::new();
@@ -125,6 +132,13 @@ where
 
     #[inline]
     fn set_spec(&mut self, spec: <CTX::Cfg as Cfg>::Spec) -> bool {
+        // Mirror the upstream `EthPrecompiles` implementation: rebuild only when
+        // the spec actually changed. `set_spec` runs before every transaction, so
+        // rebuilding unconditionally discards precompiles added via
+        // `apply_precompile` (e.g. anvil precompile injection).
+        if spec.into_eth_spec() == self.inner.spec {
+            return false;
+        }
         *self = Self::new_with_spec(spec);
         true
     }
